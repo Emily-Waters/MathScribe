@@ -10,6 +10,7 @@ import { tags } from '@lezer/highlight'
 export const SYNTAX_THEMES = [
   { id: 'default', name: 'Default', description: 'Muted colours that match the app' },
   { id: 'vivid', name: 'Vivid', description: 'Stronger colours; units and variables stand out' },
+  { id: 'classic', name: 'Classic', description: 'Familiar code-editor colours; pairs well with the Charcoal theme' },
   { id: 'contrast', name: 'High contrast', description: 'Maximum legibility, e.g. on a projector' },
   { id: 'minimal', name: 'Minimal', description: 'Only notes, commands and headings are coloured' },
 ] as const

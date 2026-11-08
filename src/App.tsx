@@ -7,6 +7,8 @@ import { SplitPane } from './components/SplitPane.tsx'
 import { collectDefinitions, collectDiagnostics, evaluateSheet } from './lib/document.ts'
 import type { CalcOptions } from './lib/engine.ts'
 import { loadSyntaxTheme, saveSyntaxTheme, type SyntaxThemeId } from './editor/themes.ts'
+import { applyAppTheme, loadAppTheme, saveAppTheme, watchSystemTheme, type AppThemeId } from './appTheme.ts'
+import { ThemeMenu } from './components/ThemeMenu.tsx'
 import './App.css'
 
 const SAMPLE = `# Block sliding down a ramp
@@ -92,6 +94,15 @@ export default function App() {
   const [options, setOptions] = useState<CalcOptions>({ precision: 'auto', showSubstitution: true, approxRounded: false })
   const file = useSheetFile(source, setSource, draft?.name)
   const [syntaxTheme, setSyntaxTheme] = useState<SyntaxThemeId>(loadSyntaxTheme)
+  const [appTheme, setAppTheme] = useState<AppThemeId>(loadAppTheme)
+  useEffect(() => {
+    applyAppTheme(appTheme)
+    return watchSystemTheme(appTheme)
+  }, [appTheme])
+  const changeAppTheme = (id: AppThemeId) => {
+    setAppTheme(id)
+    saveAppTheme(id)
+  }
   const changeSyntaxTheme = (id: SyntaxThemeId) => {
     setSyntaxTheme(id)
     saveSyntaxTheme(id)
@@ -159,6 +170,7 @@ export default function App() {
           </button>
           <button onClick={() => void file.saveAs()} title="Save to a new file (Ctrl+Shift+S)">Save as</button>
         </div>
+        <ThemeMenu theme={appTheme} onChange={changeAppTheme} />
       </header>
       {file.error && <div className="app__error" role="alert">{file.error}</div>}
       {!file.draftKept && (

@@ -5,6 +5,19 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MathScribe</title>
+    <script>
+      // Apply the saved colour theme before the page draws (see src/appTheme.ts).
+      (function () {
+        var id = 'system'
+        try { id = localStorage.getItem('mathscribe:app-theme') || 'system' } catch (e) {}
+        if (['system', 'light', 'dark', 'charcoal', 'black'].indexOf(id) < 0) id = 'system'
+        var theme = id === 'system'
+          ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+          : id
+        document.documentElement.dataset.theme = theme
+        document.documentElement.dataset.mode = theme === 'light' ? 'light' : 'dark'
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -25,6 +25,11 @@ Built on [mathjs](https://mathjs.org) (parsing, evaluation, units),
 
 ## The window
 
+**Theme** (top bar): **System** (Light or Dark, following your computer's
+setting), **Light**, **Dark** (blue-grey slate), **Charcoal** (neutral greys, like
+a code editor's dark theme) or **Black** (true black). The choice is remembered in
+the browser.
+
 - **Input** (left): the sheet, in a code editor with MathScribe syntax colours.
   Its **Options ▾** menu picks the colour theme.
 - **Output** (right), in three tabs:
@@ -66,9 +71,10 @@ amber one; hover the bar to read the message.
 On a Mac, use ⌘ for Ctrl. `def` bodies, `:` layout blocks and `{ }` blocks fold
 from the arrows in the gutter.
 
-**Colour themes** (Input → Options → Colours): **Default**, **Vivid**, **High
-contrast** and **Minimal**, each with a light and a dark version that follows your
-system's light/dark setting. The choice is remembered in the browser. The colours
+**Syntax colours** (Input → Options → Colours): **Default**, **Vivid**,
+**Classic** (familiar code-editor colours, a good match for the Charcoal theme),
+**High contrast** and **Minimal**, each with a light and a dark version that
+follows the app theme. The choice is remembered in the browser. The colours
 follow how MathScribe reads a line: in `9.81 m/s^2` the unit is coloured as a unit,
 and in `5 kg * m` the `m` is coloured as a variable.
 
@@ -620,7 +626,9 @@ and these names become available:
   browser draft
 - `src/editor/language.ts`: the MathScribe language for CodeMirror (highlighting,
   indentation, folding)
-- `src/editor/themes.ts`: colour themes (their colours are in `App.css`)
+- `src/editor/themes.ts`: syntax colour themes; `src/appTheme.ts`: app themes
+  (both sets of colours are in `App.css`; `index.html` applies the saved app
+  theme before the page draws)
 - `src/editor/gotoDefinition.ts`: Ctrl+Click / F12 go to definition
 - `src/components/EditorPane.tsx`: the editor; `PreviewPane.tsx`: rendered output,
   LaTeX and Reference tabs; `ReferencePane.tsx`: the Reference tab;

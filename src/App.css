@@ -1,4 +1,16 @@
 :root {
+  --mono: ui-monospace, 'Cascadia Code', 'JetBrains Mono', Consolas, monospace;
+  --sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* ---------- App themes ----------
+   index.html sets data-theme on <html> before the page draws (from the saved
+   choice, or the system's light/dark setting), and data-mode to light or dark
+   so the syntax colours can pick their light or dark version. */
+
+/* Light (also the fallback before the theme is set) */
+:root,
+:root[data-theme='light'] {
   --bg: #f6f7f9;
   --surface: #ffffff;
   --surface-2: #f0f2f5;
@@ -10,26 +22,55 @@
   --error: #c62f3c;
   --warn: #a8670a;
   --fn: #1f8a70;
-  --mono: ui-monospace, 'Cascadia Code', 'JetBrains Mono', Consolas, monospace;
-  --sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #12151b;
-    --surface: #1a1e26;
-    --surface-2: #222733;
-    --border: #2e3442;
-    --text: #e3e7ef;
-    --muted: #8d96a8;
-    --accent: #7c96ff;
-    --divider-hover: #7c96ff;
-    --error: #ff7b86;
-    --warn: #e9b14f;
-    --fn: #4fd1a5;
-    color-scheme: dark;
-  }
+/* Dark: blue-grey slate */
+:root[data-theme='dark'] {
+  --bg: #12151b;
+  --surface: #1a1e26;
+  --surface-2: #222733;
+  --border: #2e3442;
+  --text: #e3e7ef;
+  --muted: #8d96a8;
+  --accent: #7c96ff;
+  --divider-hover: #7c96ff;
+  --error: #ff7b86;
+  --warn: #e9b14f;
+  --fn: #4fd1a5;
+  color-scheme: dark;
+}
+
+/* Charcoal: neutral greys, like a modern code editor's dark theme */
+:root[data-theme='charcoal'] {
+  --bg: #111111;
+  --surface: #171717;
+  --surface-2: #222222;
+  --border: #262626;
+  --text: #cccccc;
+  --muted: #9d9d9d;
+  --accent: #3794ff;
+  --divider-hover: #0078d4;
+  --error: #f85149;
+  --warn: #cca700;
+  --fn: #4ec9b0;
+  color-scheme: dark;
+}
+
+/* Black: true black, for OLED screens and dark rooms */
+:root[data-theme='black'] {
+  --bg: #000000;
+  --surface: #000000;
+  --surface-2: #141414;
+  --border: #262626;
+  --text: #e6e6e6;
+  --muted: #8a8a8a;
+  --accent: #5b8cff;
+  --divider-hover: #5b8cff;
+  --error: #ff6b6b;
+  --warn: #f0b429;
+  --fn: #4fd1a5;
+  color-scheme: dark;
 }
 
 * {
@@ -276,6 +317,22 @@ body {
   --syn-operator: #546e7a;
 }
 
+[data-syntax-theme='classic'] {
+  --syn-number: #098658;
+  --syn-unit: #267f99;
+  --syn-variable: #001080;
+  --syn-function: #795e26;
+  --syn-constant: #0070c1;
+  --syn-keyword: #af00db;
+  --syn-command: #0000ff;
+  --syn-note: #008000;
+  --syn-heading: #0000ff;
+  --syn-text: #3b3b3b;
+  --syn-latex: #a31515;
+  --syn-title: #795e26;
+  --syn-operator: #3b3b3b;
+}
+
 [data-syntax-theme='contrast'] {
   --syn-number: #9e0000;
   --syn-unit: #005c00;
@@ -308,52 +365,67 @@ body {
   --syn-operator: var(--text);
 }
 
-@media (prefers-color-scheme: dark) {
-  [data-syntax-theme='default'] {
-    --syn-number: #e0a45c;
-    --syn-unit: #4fd1a5;
-    --syn-function: #7c96ff;
-    --syn-constant: #c39bf0;
-    --syn-keyword: #f07fb0;
-    --syn-command: #f07fb0;
-    --syn-note: #8d96a8;
-    --syn-text: #b8c0cf;
-    --syn-latex: #c39bf0;
-    --syn-title: #7c96ff;
-    --syn-operator: #8d96a8;
-  }
+/* Dark versions, for every dark app theme */
+:root[data-mode='dark'] [data-syntax-theme='default'] {
+  --syn-number: #e0a45c;
+  --syn-unit: #4fd1a5;
+  --syn-function: #7c96ff;
+  --syn-constant: #c39bf0;
+  --syn-keyword: #f07fb0;
+  --syn-command: #f07fb0;
+  --syn-note: #8d96a8;
+  --syn-text: #b8c0cf;
+  --syn-latex: #c39bf0;
+  --syn-title: #7c96ff;
+  --syn-operator: #8d96a8;
+}
 
-  [data-syntax-theme='vivid'] {
-    --syn-number: #ff8a65;
-    --syn-unit: #4db6ac;
-    --syn-variable: #64b5f6;
-    --syn-function: #ce93d8;
-    --syn-constant: #f48fb1;
-    --syn-keyword: #81c784;
-    --syn-command: #ffb74d;
-    --syn-note: #90a4ae;
-    --syn-heading: #ffffff;
-    --syn-text: #cfd8dc;
-    --syn-latex: #ce93d8;
-    --syn-title: #64b5f6;
-    --syn-operator: #b0bec5;
-  }
+:root[data-mode='dark'] [data-syntax-theme='vivid'] {
+  --syn-number: #ff8a65;
+  --syn-unit: #4db6ac;
+  --syn-variable: #64b5f6;
+  --syn-function: #ce93d8;
+  --syn-constant: #f48fb1;
+  --syn-keyword: #81c784;
+  --syn-command: #ffb74d;
+  --syn-note: #90a4ae;
+  --syn-heading: #ffffff;
+  --syn-text: #cfd8dc;
+  --syn-latex: #ce93d8;
+  --syn-title: #64b5f6;
+  --syn-operator: #b0bec5;
+}
 
-  [data-syntax-theme='contrast'] {
-    --syn-number: #ffd166;
-    --syn-unit: #7dffb0;
-    --syn-variable: #ffffff;
-    --syn-function: #a8d1ff;
-    --syn-constant: #ffb0ff;
-    --syn-keyword: #ffffff;
-    --syn-command: #ffd166;
-    --syn-note: #d6d6d6;
-    --syn-heading: #ffffff;
-    --syn-text: #ffffff;
-    --syn-latex: #ffb0ff;
-    --syn-title: #a8d1ff;
-    --syn-operator: #ffffff;
-  }
+:root[data-mode='dark'] [data-syntax-theme='classic'] {
+  --syn-number: #b5cea8;
+  --syn-unit: #4ec9b0;
+  --syn-variable: #9cdcfe;
+  --syn-function: #dcdcaa;
+  --syn-constant: #4fc1ff;
+  --syn-keyword: #c586c0;
+  --syn-command: #569cd6;
+  --syn-note: #6a9955;
+  --syn-heading: #569cd6;
+  --syn-text: #cccccc;
+  --syn-latex: #ce9178;
+  --syn-title: #dcdcaa;
+  --syn-operator: #d4d4d4;
+}
+
+:root[data-mode='dark'] [data-syntax-theme='contrast'] {
+  --syn-number: #ffd166;
+  --syn-unit: #7dffb0;
+  --syn-variable: #ffffff;
+  --syn-function: #a8d1ff;
+  --syn-constant: #ffb0ff;
+  --syn-keyword: #ffffff;
+  --syn-command: #ffd166;
+  --syn-note: #d6d6d6;
+  --syn-heading: #ffffff;
+  --syn-text: #ffffff;
+  --syn-latex: #ffb0ff;
+  --syn-title: #a8d1ff;
+  --syn-operator: #ffffff;
 }
 
 /* Output linked to source lines: clickable, and highlighted for the cursor's line */
@@ -924,4 +996,49 @@ body {
 
 .layout__list .doc__text {
   margin: 0.3em 0;
+}
+
+/* ---------- Theme menu (top bar) ---------- */
+
+.theme-choice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 4px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.theme-choice:hover {
+  background: var(--surface-2);
+}
+
+.theme-choice input {
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.theme-choice__swatch {
+  flex-shrink: 0;
+  width: 28px;
+  height: 20px;
+  border: 2px solid var(--border);
+  border-radius: 4px;
+  /* "System": half light, half dark */
+  background: linear-gradient(135deg, #ffffff 50%, #1a1e26 50%);
+}
+
+.theme-choice__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.theme-choice__name {
+  font-size: 13px;
+  color: var(--text);
+}
+
+.theme-choice .options__help {
+  margin: 0;
 }

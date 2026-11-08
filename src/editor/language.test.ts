@@ -42,6 +42,11 @@ describe('highlighting', () => {
     expect(tokens('phi:3:deg = atan(y/x)')).toEqual(['phi:var', '3:num', 'deg:unit', 'atan:fn', 'y:var', 'x:var'])
   })
 
+  it('colours a function’s result unit as a unit, and still sees a definition', () => {
+    expect(tokens('ang(y, x):3:deg = atan(y/x)').slice(0, 5)).toEqual(['ang:def', 'y:var', 'x:var', '3:num', 'deg:unit'])
+    expect(tokens('def polar(x, y):deg')).toEqual(['def:kw', 'polar:def', 'x:var', 'y:var', 'deg:unit'])
+  })
+
   it('colours tuple(a, b) = … as unpacking, not a function definition', () => {
     expect(tokens('tuple(a, b) = polar(x, y)')).toEqual(['tuple:fn', 'a:var', 'b:var', 'polar:fn', 'x:var', 'y:var'])
     expect(tokens('tuple(r:3, theta:deg) = p')).toEqual(['tuple:fn', 'r:var', '3:num', 'theta:var', 'deg:unit', 'p:var'])

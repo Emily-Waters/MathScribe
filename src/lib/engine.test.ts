@@ -167,6 +167,41 @@ describe('functions', () => {
     expect(value('def KE(mass, speed)\n    E = 1/2 * mass * speed^2\n    return E\nE_k = KE(2.00 kg, 3.00 m/s)')).toBe('9.00 J')
   })
 
+  describe('settings for the result', () => {
+    it('give every call’s result those sig figs and unit, on an inline function', () => {
+      const src = 'ang(y, x):3:deg = atan(y/x)\nphi = ang(1.0, 2.0)\nphi\ns = sin(ang(1.00, 2.00))'
+      expect(readable(lineAt(src, 1).tex)).toBe('ang(y, x)\\to[°] = \\tan^-1(\\fracyx)')
+      expect(resultOfLine(src, 2)).toBe('26.6°') // 3 sig figs, though the inputs have 2
+      expect(resultOfLine(src, 3)).toBe('26.6°') // phi keeps the unit
+      expect(resultOfLine(src, 4)).toBe('0.447')
+    })
+
+    it('work on a def, including a tuple result', () => {
+      const polar = 'def polar(px, py):3\n    rr = sqrt(px^2 + py^2)\n    th = atan2(py, px)\n    return tuple(rr, th)\nQ = polar(1.0 m, 1.0 m)'
+      expect(value(polar)).toBe('(1.41 m, 0.785)')
+      expect(value('def h(px, py):deg\n    th = atan2(py, px)\n    return th\nd = h(1.00 m, 1.00 m)')).toBe('45.0°')
+    })
+
+    it('give way to settings on the calling line', () => {
+      expect(value('def h(px, py):deg\n    th = atan2(py, px)\n    return th\nw:2 = h(1.00 m, 1.00 m)')).toBe('45°')
+    })
+
+    it('carry the uncertainty', () => {
+      expect(value('x = 2.00 m pm 0.05 m\ny = 1.00 m pm 0.05 m\nang(y, x):deg = atan(y/x)\nphi = ang(y, x)')).toBe('(26.6 ± 1.3)°')
+    })
+
+    it('still allow a plain trailing colon on a def', () => {
+      expect(value('def f(x):\n    return 2*x\ny = f(1.5)')).toBe('3.0')
+    })
+
+    it('explain what doesn’t fit', () => {
+      const [g, h] = lines('g(x):zz = x\nh(x):percent = x')
+      expect(g.error).toMatch(/"zz" isn't a number of sig figs or a unit/)
+      expect(h.error).toMatch(/isn't available on a function/)
+      expect(last('m(x):kg = 2.0 m\nk = m(1)').error).toMatch(/can't be shown in kg/)
+    })
+  })
+
   describe('a def without return', () => {
     const def = 'def steps(a, b)\n    s = a + b\n    p = s * 2\n'
 

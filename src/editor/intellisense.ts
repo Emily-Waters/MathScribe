@@ -143,6 +143,8 @@ export function complete(ctx: CompletionContext): CompletionResult | null {
   const spec = /^\s*[A-Za-z]\w*(?::[^:=\s]+)*:([A-Za-z]*)$/.exec(before)
     // …or on a name being unpacked: `tuple(r:3, theta:de`
     ?? /^\s*tuple\s*\((?:[^()=]*,)?\s*[A-Za-z]\w*(?::[^:=\s,()]+)*:([A-Za-z]*)$/.exec(before)
+    // …or a function's result: `f(x):3:de`, `def polar(x, y):de`
+    ?? /^\s*(?:def\s+)?[A-Za-z]\w*\s*\([^()]*\)(?::[^:=\s]+)*:([A-Za-z]*)$/.exec(before)
   if (spec && (spec[1] || ctx.explicit)) {
     return {
       from: ctx.pos - spec[1].length,

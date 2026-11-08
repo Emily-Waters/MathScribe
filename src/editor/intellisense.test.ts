@@ -36,6 +36,8 @@ const SOURCE = [
   'phi:3:de', // 24
   'Steps:', // 25
   'tuple(r:3, theta:de', // 26
+  'ang(y, x):3:de', // 27
+  'def polar(x, y):de', // 28
 ].join('\n')
 
 /** The labels suggested at the end of line `n`, filtered by what's typed. */
@@ -72,6 +74,8 @@ describe('suggestions', () => {
     expect(suggestions(24)).toEqual(expect.arrayContaining(['deg', 'degC']))
     expect(suggestions(25)).toBeNull()
     expect(suggestions(26)).toEqual(expect.arrayContaining(['deg'])) // on a name being unpacked
+    expect(suggestions(27)).toEqual(expect.arrayContaining(['deg'])) // on a function's result
+    expect(suggestions(28)).toEqual(expect.arrayContaining(['deg']))
   })
 
   it('offer display commands after #', () => {

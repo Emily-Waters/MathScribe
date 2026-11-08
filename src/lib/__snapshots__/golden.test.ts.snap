@@ -305,6 +305,11 @@ exports[`the Reference tab’s examples > Functions: E(n, m to kg, L to m) = n^2
 3: E_1 = \\frac1^2·h^28· m_e·(0.100 nm)^2 = \\frac1^2·(6.63e-34 J· s)^28· 9.11e-31 kg·(1.00e-10 m)^2 = 6.03e-18 J"
 `;
 
+exports[`the Reference tab’s examples > Functions: ang(y, x):3:deg = atan(y / x) 1`] = `
+"1: ang(y, x)\\to[°] = \\tan^-1(\\fracyx)
+2: \\phi = \\tan^-1(\\frac1.02.0) = 26.6°"
+`;
+
 exports[`the Reference tab’s examples > Functions: area(r) = pi * r^2 1`] = `
 "1: area(r) = \\pi·r^2
 2: r_1 = 2.0 cm

@@ -113,6 +113,11 @@ export const REFERENCE: ReferenceSection[] = [
           + 'An argument in the wrong kind of unit, or with no unit, is an error.',
       },
       {
+        source: 'ang(y, x):3:deg = atan(y / x)\nphi = ang(1.0, 2.0)',
+        explain: 'Settings after the parameters, f(x):3:deg (or def f(x):3:deg), apply to every call’s result: '
+          + 'its sig figs and unit, as on a variable.',
+      },
+      {
         source: 'def steps(a, b)\n    s = a + b\n    p = 2 * s\nsteps(1.0, 2.0)',
         explain: 'A def without return gives no value, as in Python: call it on a line of its own to show its working. '
           + 'Using it in a calculation (r = steps(…)) is an error.',

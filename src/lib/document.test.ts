@@ -193,6 +193,12 @@ describe('editor information', () => {
     expect([...collectDefinitions(sheet(src).blocks)]).toEqual([['f', [1, 9]], ['g', [3]], ['h', [5]]])
   })
 
+  it('finds definitions with settings for the result', () => {
+    const withSettings = 'ang(y, x):3:deg = atan(y/x)\ndef polar(x, y):3\n    return tuple(x, y)'
+    expect([...collectDefinitions(sheet(withSettings).blocks)]).toEqual([['ang', [1]], ['polar', [2]]])
+    expect(collectSymbols(sheet(withSettings), withSettings).find((s) => s.name === 'polar')?.params).toBe('x, y')
+  })
+
   it('collects symbols with their scope', () => {
     const symbols = collectSymbols(sheet(src), src)
     const find = (name: string) => symbols.filter((s) => s.name === name)

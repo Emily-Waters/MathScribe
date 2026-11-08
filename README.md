@@ -328,6 +328,21 @@ An argument in the wrong kind of unit (a length for `m to kg`), or with no unit 
 all, is an error rather than a silent assumption. The definition shows the casts:
 E_k(n, m [kg], L [m]).
 
+**Settings for the result:** write sig figs and a unit after the parameters, as on
+a variable, and every call's result is shown (and kept) that way:
+
+```
+ang(y, x):3:deg = atan(y/x)
+phi = ang(1.0, 2.0)               # 26.6°, to 3 sig figs
+
+def polar(x, y):3                 # each value of the returned tuple to 3 sig figs
+    …
+```
+
+The definition shows the unit as ang(y, x) → [°]. A tuple result takes the unit
+on each value. Settings on the calling line still win: `w:2 = ang(y, x)`. A plain
+trailing colon (`def f(x):`) works as before.
+
 Body lines can have their own notes and commands, which apply whenever the function
 is called:
 

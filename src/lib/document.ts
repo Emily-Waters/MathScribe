@@ -368,7 +368,8 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
     const multiline = ownMultiline || open.some((g) => g.multiline)
 
     // `def f(a, b)`: the function body is every following line indented further.
-    const def = /^def\s+([A-Za-z]\w*)\s*\(([^)]*)\)\s*:?$/.exec(body)
+    // (`def f(x):3:deg`: settings for the result after the parameters; a lone trailing `:` is fine too.)
+    const def = /^def\s+([A-Za-z]\w*)\s*\(([^)]*)\)((?::[^:\s]+)*)\s*:?$/.exec(body)
     if (def) {
       const defIndent = indentOf(raw)
       const bodyLines: FunctionLine[] = []
@@ -384,7 +385,7 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
       const params = def[2].split(',').map((p) => p.trim()).filter(Boolean)
       // Parameters (`m`, or `m to kg`) are checked by defineFunction.
       const result = bodyLines.length
-        ? calc.defineFunction(def[1], params, bodyLines, multiline)
+        ? calc.defineFunction(def[1], params, bodyLines, multiline, def[3])
         : { signature: symbolTex(def[1]), body: [], error: `${def[1]} has no body: indent the lines under def.` }
       add({
         kind: 'function', line, endLine: bodyLines.at(-1)?.line ?? line, name: def[1], note,
@@ -556,7 +557,7 @@ export function collectDefinitions(blocks: Block[]): Map<string, number[]> {
   const visit = (b: Block) => {
     if (b.kind === 'function') put(b.name, b.line)
     else if (b.kind === 'calc') {
-      const m = /^([A-Za-z]\w*)\s*\([^()]*\)\s*=(?!=)/.exec(b.source)
+      const m = /^([A-Za-z]\w*)\s*\([^()]*\)(?::[^:=\s]+)*\s*=(?!=)/.exec(b.source)
       if (m) put(m[1], b.line)
     } else if (b.kind === 'group' || b.kind === 'layout') b.children.forEach(visit)
   }
@@ -581,7 +582,7 @@ export interface SheetSymbol {
 }
 
 const ASSIGNMENT = /^([A-Za-z]\w*)(?::[^:=\s]+)*\s*=(?!=)/
-const ONE_LINE_DEF = /^([A-Za-z]\w*)\s*\(([^()]*)\)\s*=(?!=)/
+const ONE_LINE_DEF = /^([A-Za-z]\w*)\s*\(([^()]*)\)(?::[^:=\s]+)*\s*=(?!=)/
 
 /**
  * Everything defined in the sheet, for completions and hover information:

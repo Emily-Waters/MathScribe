@@ -718,6 +718,8 @@ interface UserFunction {
   multiline: boolean
   /** Has a `return` line. Without one it gives no value, and can only be called on its own. */
   returns: boolean
+  /** Sig figs declared for the result (`f(x):3 = …`), which every call's result has. */
+  returnSf?: number
 }
 
 /** A constant defined in an `@constants { }` block. */
@@ -819,7 +821,7 @@ function parseDeclaration(line: string): Declaration | { error: string } | null 
 }
 
 /** `f(x, y) = expr`: a one-line function definition. */
-const ONE_LINE_FUNCTION = /^([A-Za-z]\w*)\s*\(([^()]*)\)\s*=(?!=)\s*(.+)$/
+const ONE_LINE_FUNCTION = /^([A-Za-z]\w*)\s*\(([^()]*)\)((?::[^:=\s]+)*)\s*=(?!=)\s*(.+)$/
 
 /** Internal result of evaluating a line, with the pieces of its equation. */
 interface LineResult extends CalcResult {
@@ -1278,6 +1280,12 @@ export class Calculator {
     // Written with extra precision (2.00, 1.2e3): always a measured value.
     if (isLitCall(node)) return countSigFigs(unitCallText(node))
     if (isSymbolNode(node)) return this.sigs.get(node.name) ?? EXACT
+    // A call to a function that declares its result's sig figs (`f(x):3 = …`).
+    if (isFunctionNode(node)) {
+      const f = this.scope.get(node.fn.name)
+      const declared = typeof f === 'function' ? this.userFunctions.get(f)?.returnSf : undefined
+      if (declared !== undefined) return declared
+    }
     if (isOperatorNode(node)) {
       if (node.fn === 'multiply' && isUnitCall(node.args[1])) return this.sigFigsOf(node.args[0], literals, true)
       if (node.fn === 'unaryMinus' || node.fn === 'unaryPlus') return this.sigFigsOf(node.args[0], literals, measured)
@@ -1769,15 +1777,29 @@ export class Calculator {
    * definition, and its own assignments stay local. Calls go through mathjs like
    * any other function, so units, sig figs and uncertainty propagation apply.
    */
-  defineFunction(name: string, paramSpecs: string[], lines: FunctionLine[], multiline = false): FunctionResult {
+  /**
+   * `returnSpec`: settings for the result, written after the parameters as on a
+   * variable (`f(x):3:deg`, `def polar(x, y):3`): every call's result is shown
+   * (and kept) that way.
+   */
+  defineFunction(name: string, paramSpecs: string[], lines: FunctionLine[], multiline = false, returnSpec = ''): FunctionResult {
     // `m to kg`: the argument is converted to kg on the way in.
     const parsed = paramSpecs.map(parseParam)
     const params = parsed.map((p) => p?.name ?? '')
     const casts = parsed.map((p) => p?.unit)
+    const ret = returnSpec ? parseDeclaration(`${name}${returnSpec} = 0`) : null
+    const returnSettings = ret && !('error' in ret) ? ret : null
+    const shownUnit = returnSettings?.unit && returnSettings.unit !== 'percent' ? returnSettings.unit : undefined
     const signature = `${symbolTex(name)}\\left(${parsed.map((p, i) => (p
       ? `${symbolTex(p.name)}${p.unit ? `\\,[${unitTex(p.unit)}]` : ''}`
-      : paramSpecs[i])).join(', ')}\\right)`
+      : paramSpecs[i])).join(', ')}\\right)${shownUnit ? `\\to[${unitTex(shownUnit)}]` : ''}`
     const body: FunctionResult['body'] = []
+    if (ret && 'error' in ret) return { signature, body, error: ret.error }
+    if (returnSettings?.unit === 'percent') {
+      return { signature, body, error: `${name}:percent isn't available on a function; show a result as a percentage where it's used.` }
+    }
+    const returnUnit = shownUnit
+    const returnSf = returnSettings?.sf === 'exact' ? EXACT : returnSettings?.sf
     const bad = paramSpecs.find((_, i) => !parsed[i])
     if (bad !== undefined) return { signature, body, error: `"${bad}" isn't a valid parameter: write a name, or "name to unit".` }
     const badUnit = casts.find((u) => u !== undefined && !isValidUnit(u))
@@ -1852,7 +1874,7 @@ export class Calculator {
       params.forEach((p, i) => local.set(p, castArgument(p, casts[i], args[i])))
       for (const s of statements) {
         const v = s.code.evaluate(local)
-        if (s.kind === 'return') return v
+        if (s.kind === 'return') return returnUnit ? toDisplayUnit(v, returnUnit) : v
         if (s.kind === 'unpack') {
           const values = isTuple(v) ? v.toArray() as unknown[] : null
           if (!values || values.length !== s.targets.length) {
@@ -1866,7 +1888,9 @@ export class Calculator {
       }
       return undefined
     }
-    this.userFunctions.set(fn, { params, casts, statements: sources, definedIn: this.currentScopes(), multiline, returns })
+    this.userFunctions.set(fn, {
+      params, casts, statements: sources, definedIn: this.currentScopes(), multiline, returns, returnSf,
+    })
     this.scope.set(name, fn)
     this.uncs.set(name, new Map())
     this.defs.set(name, undefined)
@@ -2000,7 +2024,7 @@ export class Calculator {
         const hidden = s.command === 'hide' && !r.error
         if (!hidden) lines.push(...(r.trace ?? []))
         if (s.kind === 'return') {
-          return { lines, ret: r.parts, retNote: s.note, retCommand: own, retSf: r.sf }
+          return { lines, ret: r.parts, retNote: s.note, retCommand: own, retSf: def.returnSf ?? r.sf }
         }
         if (!hidden) lines.push({ tex: r.tex, note: s.note })
         if (r.error) break
@@ -2347,7 +2371,8 @@ export class Calculator {
     const params = oneLiner?.[2].split(',').map((p) => p.trim()).filter(Boolean)
     // (Bad parameters, like `g(x y)`, get defineFunction's error rather than mathjs's.)
     if (oneLiner) {
-      const result = this.defineFunction(oneLiner[1], params!, [{ line: 0, text: `return ${oneLiner[3]}` }], this.multiline)
+      // `f(x):3:deg = …`: settings for what the function gives back.
+      const result = this.defineFunction(oneLiner[1], params!, [{ line: 0, text: `return ${oneLiner[4]}` }], this.multiline, oneLiner[3])
       return {
         tex: result.body[0]?.tex ?? result.signature,
         error: result.error?.replace(/^Line 0: /, ''),

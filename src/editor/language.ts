@@ -126,7 +126,9 @@ function token(stream: StringStream, state: State): string | null {
     // (Also a name being unpacked: the deg in `tuple(r:3, theta:deg) = …`.)
     const lhsSoFar = stream.string.slice(0, stream.pos)
     const displayUnit = stream.string[stream.start - 1] === ':'
-      && (/^\s*[A-Za-z]\w*(?::[^:=\s]+)*$/.test(lhsSoFar) || /^\s*tuple\s*\([^()=]*$/.test(lhsSoFar))
+      && (/^\s*[A-Za-z]\w*(?::[^:=\s]+)*$/.test(lhsSoFar) || /^\s*tuple\s*\([^()=]*$/.test(lhsSoFar)
+        // …or a function's result: `f(x):3:deg = …`, `def polar(x, y):deg`
+        || /^\s*(?:def\s+)?[A-Za-z]\w*\s*\([^()]*\)(?::[^:=\s]+)*$/.test(lhsSoFar))
     if ((wasAfterNumber || state.afterTo || displayUnit) && !call && isUnitName(id)) {
       state.inUnit = true
       state.afterTo = false
@@ -138,7 +140,7 @@ function token(stream: StringStream, state: State): string | null {
       // `def f(…)`, or `f(…) = …` at the start of a line: a definition.
       // (Not `tuple(a, b) = …`, which unpacks a tuple rather than defining a function.)
       const oneLiner = stream.start === /^\s*/.exec(stream.string)![0].length && id !== 'tuple'
-        && /^\s*[A-Za-z]\w*\s*\([^()]*\)\s*=(?!=)/.test(stream.string)
+        && /^\s*[A-Za-z]\w*\s*\([^()]*\)(?::[^:=\s]+)*\s*=(?!=)/.test(stream.string)
       return state.kind === 'def' || oneLiner ? 'definition' : 'function'
     }
     return 'variable'

@@ -617,6 +617,11 @@ and these names become available:
 - [ ] **Remember the output options** (sig figs, substitution, ≈) in the browser.
 - [ ] **Go to definition for variables and constants** (`@rho_w` → its
       `@constants` entry).
+- [ ] **Explore compiling the LaTeX to a PDF** in the LaTeX tab (a Source / PDF
+      switch, Download .tex and Download PDF). Options considered: an online
+      compile service such as texlive.net (simple, but sends the sheet off the
+      device), pdfTeX compiled to WebAssembly (private, but tens of MB), or an
+      "Open in Overleaf" button.
 - [ ] **Graphs**: plot data and functions (e.g. `plot(h, t^2, fit)`), with error bars
       from uncertainties and an optional fitted line, included in the LaTeX export.
 - [ ] **Tables**: a table block whose columns become series (so `t_avg`, `t_std`,

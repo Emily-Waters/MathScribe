@@ -624,26 +624,74 @@ and these names become available:
 
 ## To do
 
-- [x] **Hosting**: published to GitHub Pages on every push.
-- [ ] **Installable and offline**: make the app a progressive web app, so it can be
-      installed from the browser and used without a connection.
-- [x] **Custom colour theme**: per-category colour pickers in the editor options,
-      starting from a preset, with separate light and dark colours.
+Roughly in priority order.
+
+### 1. Automated tests
+
+- [ ] **Unit and golden tests** (Vitest): example sheets (the Reference examples,
+      real worksheets, edge cases) whose output is checked on every change, plus
+      tests for the editor's tokenizer, completions and scope rules.
+- [ ] **Run the tests in the deploy workflow**, so a change that breaks a
+      calculation never reaches the live site.
+
+### 2. Quality of life
+
 - [ ] **Remember the output options** (sig figs, substitution, ≈) in the browser.
+- [ ] **Quick fixes on warnings**, like VS Code's lightbulb: trailing zeros →
+      `300.`, a unit read as a variable → insert `*`, an unknown constant → the
+      suggested one.
+- [ ] **Hover shows a variable's value at that line**, not at the end of its scope.
 - [ ] **Go to definition for variables and constants** (`@rho_w` → its
       `@constants` entry).
+
+### 3. Sharing
+
+- [ ] **Share by link**: the sheet compressed into the URL
+      (`…/MathScribe/#sheet=…`), so opening the link loads it, with no server and
+      nothing uploaded.
+- [ ] **Installable and offline**: make the app a progressive web app, so it can be
+      installed from the browser and used without a connection.
+- [ ] **Templates**: "New from template", e.g. a lab write-up with sections, a
+      measurements table and an uncertainty analysis.
+
+### 4. Editor intelligence
+
+- [ ] **Parameter hints**: typing `E_k(1, ` shows `E_k(n, m [kg], L [m])` with the
+      current parameter highlighted.
+- [ ] **Snippets**: `def`, `:  #numbered` blocks, `@constants { }`.
+- [ ] **Rename (F2)**: rename a variable or function everywhere it's used,
+      respecting scope.
+- [ ] **Inline results**: a faint value at the end of each line in the editor
+      (`F = m * a   ⟶ 19.6 N`).
+
+### 5. Lab work
+
+- [ ] **Tables**: a table block whose columns become series (so `t_avg`, `t_std`,
+      `t_sem` work on them), with units from the column headers, plus `linfit` for a
+      slope and intercept with uncertainties.
+- [ ] **Graphs**: plot data and functions (e.g. `plot(h, t^2, fit)`), with error bars
+      from uncertainties and an optional fitted line, included in the LaTeX export.
+- [ ] **Importing from CSV**: load a CSV file as a table, with headers as column names
+      (and units, where given).
 - [ ] **Explore compiling the LaTeX to a PDF** in the LaTeX tab (a Source / PDF
       switch, Download .tex and Download PDF). Options considered: an online
       compile service such as texlive.net (simple, but sends the sheet off the
       device), pdfTeX compiled to WebAssembly (private, but tens of MB), or an
       "Open in Overleaf" button.
-- [ ] **Graphs**: plot data and functions (e.g. `plot(h, t^2, fit)`), with error bars
-      from uncertainties and an optional fitted line, included in the LaTeX export.
-- [ ] **Tables**: a table block whose columns become series (so `t_avg`, `t_std`,
-      `t_sem` work on them), with units from the column headers, plus `linfit` for a
-      slope and intercept with uncertainties.
-- [ ] **Importing from CSV**: load a CSV file as a table, with headers as column names
-      (and units, where given).
+
+### 6. Housekeeping
+
+- [ ] **Speed on long sheets**: the whole sheet is evaluated on every keystroke;
+      wait for a pause in typing, or evaluate in a web worker.
+- [ ] **Narrow screens**: a stacked layout, or an Input / Output switch, for
+      phones and small laptops.
+
+### Done
+
+- [x] **Hosting**: published to GitHub Pages on every push.
+- [x] **Custom colour theme**: per-category colour pickers in the editor options,
+      starting from a preset, with separate light and dark colours.
+- [x] **IntelliSense**: suggestions as you type and hover information.
 
 ## Structure
 

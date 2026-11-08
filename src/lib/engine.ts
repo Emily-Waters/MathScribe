@@ -2265,6 +2265,8 @@ export class Calculator {
 
   /** The left-hand side to show instead of the assigned name (set while unpacking). */
   private lhsOverride: string | undefined
+  /** While unpacking: which names declare their sig figs (`tuple(a, b:2) = …`). */
+  private unpackDeclaredSf: boolean[] | undefined
   private nextUnpack = 0
 
   /**
@@ -2287,11 +2289,13 @@ export class Calculator {
 
     const hidden = `${UNPACKED}${this.nextUnpack++}`
     this.lhsOverride = lhs
+    this.unpackDeclaredSf = targets.map((t) => t.sf !== undefined)
     let result: LineResult
     try {
       result = this.evaluateLine(`${hidden} = ${rhs}`, mode, explicit)
     } finally {
       this.lhsOverride = undefined
+      this.unpackDeclaredSf = undefined
     }
     const value = this.scope.get(hidden)
     const sf = this.sigs.get(hidden) ?? EXACT
@@ -2454,6 +2458,8 @@ export class Calculator {
     // It's for this line only, not the working of functions it calls, so take it now.
     const override = this.lhsOverride
     this.lhsOverride = undefined
+    const unpackDeclaredSf = this.unpackDeclaredSf
+    this.unpackDeclaredSf = undefined
     const lhsTex = override ?? (assigned ? symbolTex(assigned) : ctx.lhs)
     let exprTex = uncNode ? this.pmTex(shown, uncNode, percent, literals) : this.toTex(shown, literals)
     const bare = unwrap(shown)
@@ -2523,7 +2529,15 @@ export class Calculator {
     }
     // With a stated uncertainty or declared sig figs, those set the precision, not trailing zeros.
     if (this.autoSigFigs && !uncNode && ctx.declaredSf === undefined) {
-      const ambiguous = this.ambiguousLiterals(expr, literals)
+      // Unpacking `tuple(a, b:2) = tuple(300 m, 90 deg)`: a value whose name declares
+      // its sig figs is settled, like a single `b:2 = 90 deg`.
+      const rhs = unwrap(expr)
+      const checked = !unpackDeclaredSf
+        ? [expr]
+        : isFunctionNode(rhs) && rhs.fn.name === 'tuple'
+          ? rhs.args.filter((_, i) => !unpackDeclaredSf[i])
+          : unpackDeclaredSf.every(Boolean) ? [] : [expr]
+      const ambiguous = checked.flatMap((n) => this.ambiguousLiterals(n, literals))
       if (ambiguous.length) {
         warnings.push(`Trailing zeros in ${ambiguous.join(', ')} aren't significant. `
           + `Add a decimal point (${ambiguous[0]}.) or use scientific notation if they are.`)

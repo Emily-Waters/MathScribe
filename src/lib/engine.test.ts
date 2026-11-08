@@ -309,6 +309,13 @@ describe('unpacking a tuple', () => {
     expect(value('tuple(a:km, b:2) = tuple(1500. m, 2.345 s)\nb')).toBe('2.3 s') // b keeps its sig figs
   })
 
+  it('doesn’t warn about trailing zeros in a value whose name declares its sig figs', () => {
+    expect(last('tuple(r, theta:2:deg, phi:2:deg) = tuple(1, 45 deg, 90 deg)').warning).toBeUndefined()
+    expect(last('tuple(r, phi) = tuple(1, 90 deg)').warning).toMatch(/Trailing zeros in 90/)
+    // Only the values whose names don't declare sig figs are checked.
+    expect(last('tuple(a:2, b) = tuple(300 m, 400 m)').warning).toMatch(/Trailing zeros in 400 aren't/)
+  })
+
   it('applies a name’s unit inside a function too', () => {
     expect(value('def f(p)\n    tuple(u:cm, v) = p\n    return u\nk = f(tuple(1.00 m, 2.00))')).toBe('1.00e2 cm')
   })

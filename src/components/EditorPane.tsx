@@ -107,12 +107,13 @@ const baseTheme = EditorView.theme({
   '.cm-gutters': { backgroundColor: 'var(--surface-2)', color: 'var(--muted)', borderRight: '1px solid var(--border)' },
   '.cm-gutter.cm-lineNumbers .cm-gutterElement': { padding: '0 8px 0 10px', fontSize: '12px' },
   '.cm-activeLineGutter': { backgroundColor: 'transparent', color: 'var(--text)', fontWeight: '600' },
-  '.cm-activeLine': { backgroundColor: 'color-mix(in srgb, var(--accent) 6%, transparent)' },
+  // Highlight colours come from the app theme (App.css), tuned to each background.
+  '.cm-activeLine': { backgroundColor: 'var(--active-line)' },
   '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection': {
-    backgroundColor: 'color-mix(in srgb, var(--accent) 22%, transparent)',
+    backgroundColor: 'var(--selection)',
   },
-  '.cm-selectionMatch': { backgroundColor: 'color-mix(in srgb, var(--accent) 12%, transparent)' },
-  '&.cm-focused .cm-matchingBracket': { backgroundColor: 'color-mix(in srgb, var(--accent) 18%, transparent)' },
+  '.cm-selectionMatch': { backgroundColor: 'var(--selection-match)' },
+  '&.cm-focused .cm-matchingBracket': { backgroundColor: 'var(--selection-match)', outline: '1px solid var(--border)' },
   '.cm-foldPlaceholder': { backgroundColor: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--muted)' },
   '.cm-placeholder': { color: 'var(--muted)' },
   '.cm-panels': { backgroundColor: 'var(--surface-2)', color: 'var(--text)' },
@@ -211,12 +212,15 @@ export function EditorPane({
     view.current?.dispatch({ effects: setDefinitions.of(definitions) })
   }, [definitions])
 
-  // Jump requests from clicking the output: select that line and scroll to it.
+  // Jump requests from clicking the output: put the cursor at the start of that
+  // line's text (not a selection, so typing doesn't replace the line) and scroll
+  // to it; the current-line highlight marks it.
   useEffect(() => {
     const v = view.current
     if (!jump || !v) return
     const line = v.state.doc.line(Math.min(Math.max(jump.line, 1), v.state.doc.lines))
-    v.dispatch({ selection: { anchor: line.from, head: line.to }, scrollIntoView: true })
+    const at = line.from + /^\s*/.exec(line.text)![0].length
+    v.dispatch({ selection: { anchor: at }, effects: EditorView.scrollIntoView(at, { y: 'nearest' }) })
     v.focus()
   }, [jump])
 

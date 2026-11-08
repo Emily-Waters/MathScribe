@@ -22,6 +22,12 @@
   --error: #c62f3c;
   --warn: #a8670a;
   --fn: #1f8a70;
+  /* Highlights: the editor's current line, its selection, other matches of the
+     selected word (and matching brackets), and the output linked to the cursor. */
+  --active-line: rgba(58, 91, 217, 0.05);
+  --selection: #d3dcf7;
+  --selection-match: rgba(58, 91, 217, 0.1);
+  --linked-line: #e9eefb;
   color-scheme: light;
 }
 
@@ -38,6 +44,10 @@
   --error: #ff7b86;
   --warn: #e9b14f;
   --fn: #4fd1a5;
+  --active-line: rgba(124, 150, 255, 0.045);
+  --selection: #2c3650;
+  --selection-match: rgba(124, 150, 255, 0.1);
+  --linked-line: #222939;
   color-scheme: dark;
 }
 
@@ -54,6 +64,10 @@
   --error: #f85149;
   --warn: #cca700;
   --fn: #4ec9b0;
+  --active-line: rgba(255, 255, 255, 0.035);
+  --selection: #264f78;
+  --selection-match: rgba(173, 214, 255, 0.09);
+  --linked-line: #1f242b;
   color-scheme: dark;
 }
 
@@ -70,6 +84,10 @@
   --error: #ff6b6b;
   --warn: #f0b429;
   --fn: #4fd1a5;
+  --active-line: rgba(255, 255, 255, 0.045);
+  --selection: #1d3156;
+  --selection-match: rgba(120, 160, 255, 0.11);
+  --linked-line: #10151e;
   color-scheme: dark;
 }
 
@@ -434,7 +452,7 @@ body {
 }
 
 .doc [data-active='true'] {
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  background: var(--linked-line);
   border-radius: 6px;
 }
 

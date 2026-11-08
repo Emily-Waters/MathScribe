@@ -14,9 +14,17 @@ npm install
 npm run dev
 ```
 
-**Deploying:** every push to `main` builds the site and publishes it to GitHub
-Pages (`.github/workflows/deploy.yml`); progress shows in the repository's Actions
-tab. The build uses `/MathScribe/` as its base path (`vite.config.ts`), so if the
+**Testing:** `npm test` runs the tests once; `npm run test:watch` re-runs them as
+you edit. They cover the calculation rules, the sheet structure and LaTeX export,
+and the editor's highlighting, indentation, folding and suggestions. The golden
+tests (`src/lib/golden.test.ts`) record the full output of whole sheets (the
+sample sheet, a hydrogen-orbitals worksheet and every Reference example) in
+`src/lib/__snapshots__/`; when a change alters that output on purpose, check the
+difference and update the recording with `npx vitest run -u`.
+
+**Deploying:** every push to `main` lints, tests and builds the site and
+publishes it to GitHub Pages (`.github/workflows/deploy.yml`); progress shows in
+the repository's Actions tab. If any step fails, nothing is published. The build uses `/MathScribe/` as its base path (`vite.config.ts`), so if the
 repository is renamed, change it there too.
 
 Built on [mathjs](https://mathjs.org) (parsing, evaluation, units),
@@ -626,15 +634,7 @@ and these names become available:
 
 Roughly in priority order.
 
-### 1. Automated tests
-
-- [ ] **Unit and golden tests** (Vitest): example sheets (the Reference examples,
-      real worksheets, edge cases) whose output is checked on every change, plus
-      tests for the editor's tokenizer, completions and scope rules.
-- [ ] **Run the tests in the deploy workflow**, so a change that breaks a
-      calculation never reaches the live site.
-
-### 2. Quality of life
+### 1. Quality of life
 
 - [ ] **Remember the output options** (sig figs, substitution, ≈) in the browser.
 - [ ] **Quick fixes on warnings**, like VS Code's lightbulb: trailing zeros →
@@ -644,7 +644,7 @@ Roughly in priority order.
 - [ ] **Go to definition for variables and constants** (`@rho_w` → its
       `@constants` entry).
 
-### 3. Sharing
+### 2. Sharing
 
 - [ ] **Share by link**: the sheet compressed into the URL
       (`…/MathScribe/#sheet=…`), so opening the link loads it, with no server and
@@ -654,7 +654,7 @@ Roughly in priority order.
 - [ ] **Templates**: "New from template", e.g. a lab write-up with sections, a
       measurements table and an uncertainty analysis.
 
-### 4. Editor intelligence
+### 3. Editor intelligence
 
 - [ ] **Parameter hints**: typing `E_k(1, ` shows `E_k(n, m [kg], L [m])` with the
       current parameter highlighted.
@@ -664,7 +664,7 @@ Roughly in priority order.
 - [ ] **Inline results**: a faint value at the end of each line in the editor
       (`F = m * a   ⟶ 19.6 N`).
 
-### 5. Lab work
+### 4. Lab work
 
 - [ ] **Tables**: a table block whose columns become series (so `t_avg`, `t_std`,
       `t_sem` work on them), with units from the column headers, plus `linfit` for a
@@ -679,7 +679,7 @@ Roughly in priority order.
       device), pdfTeX compiled to WebAssembly (private, but tens of MB), or an
       "Open in Overleaf" button.
 
-### 6. Housekeeping
+### 5. Housekeeping
 
 - [ ] **Speed on long sheets**: the whole sheet is evaluated on every keystroke;
       wait for a pause in typing, or evaluate in a web worker.
@@ -692,6 +692,8 @@ Roughly in priority order.
 - [x] **Custom colour theme**: per-category colour pickers in the editor options,
       starting from a preset, with separate light and dark colours.
 - [x] **IntelliSense**: suggestions as you type and hover information.
+- [x] **Automated tests** (Vitest): unit tests, golden tests of whole sheets, and
+      editor tests, run on every push before the site is published.
 
 ## Structure
 
@@ -703,7 +705,10 @@ Roughly in priority order.
 - `src/lib/sigfigs.ts`: counting, propagating and formatting significant figures
 - `src/lib/solve.ts`: `solve(…)`: rearranging, linear, quadratic and numeric solving
 - `src/lib/constants.ts`: the built-in `@` constants
-- `src/lib/reference.ts`: the examples shown in the Reference tab
+- `src/lib/reference.ts`: the examples shown in the Reference tab;
+  `src/lib/sample.ts`: the example sheet shown the first time
+- `*.test.ts` beside the code they test; `src/test/helpers.ts`: shared test
+  helpers (evaluate a sheet, read a result as plain text)
 - `src/lib/files.ts`, `src/useSheetFile.ts`: opening, saving, auto-saving and the
   browser draft
 - `src/editor/language.ts`: the MathScribe language for CodeMirror (highlighting,

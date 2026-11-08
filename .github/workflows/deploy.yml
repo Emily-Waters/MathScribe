@@ -1,4 +1,5 @@
-# Build the site and publish it to GitHub Pages on every push to main.
+# Test, build and publish the site to GitHub Pages on every push to main.
+# If the lint, tests or build fail, nothing is published and the live site stays as it was.
 # (Repository Settings → Pages → Source must be set to "GitHub Actions".)
 name: Deploy to GitHub Pages
 
@@ -28,6 +29,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run lint
+      - run: npm test
       - run: npm run build
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5

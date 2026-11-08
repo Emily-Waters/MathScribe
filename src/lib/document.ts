@@ -113,7 +113,7 @@ export interface GroupBlock {
 }
 
 /** How a layout block arranges its lines. */
-export type LayoutStyle = 'center' | 'list' | 'numbered'
+export type LayoutStyle = 'center' | 'list' | 'numbered' | 'text'
 
 /**
  * `Title:  #numbered` with indented lines under it: a block that only arranges
@@ -153,7 +153,7 @@ const COMMAND = /(^|\s)#(sym|val|full|hide)(?=\s|$)/gi
 /** `#multiline`: a layout, so it combines with the commands above. */
 const MULTILINE = /(^|\s)#multiline(?=\s|$)/gi
 /** `#center`, `#list`, `#numbered`: how a layout block (or one line) is arranged. */
-const LAYOUT = /(^|\s)#(center|list|numbered)(?=\s|$)/gi
+const LAYOUT = /(^|\s)#(center|list|numbered|text)(?=\s|$)/gi
 
 /**
  * A line that is only `@name:n`, `@name:exact`, `@name to unit` or `@name:n to unit`:
@@ -402,6 +402,38 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
         group.endLine = line
       }
       else add({ kind: 'calc', line, source: body, tex: '', error: 'Unmatched }: no block is open here.' })
+    } else if (body.endsWith(':') && layout === 'text') {
+      // `Title:  #text`: the lines indented under it are prose, not calculations.
+      // Lines run together into paragraphs; a blank line starts a new one.
+      const block: LayoutBlock = {
+        kind: 'layout', line, title: body.slice(0, -1).trim(), note, style: 'text', children: [], indent,
+        command: command ?? (inherited === 'hide' ? 'hide' : undefined),
+      }
+      let paragraph: { line: number; text: string[] } | null = null
+      let lastText = line
+      const endParagraph = () => {
+        if (paragraph) block.children.push({ kind: 'text', line: paragraph.line, text: paragraph.text.join(' ') })
+        paragraph = null
+      }
+      while (idx + 1 < lines.length && (!lines[idx + 1].trim() || indentOf(lines[idx + 1]) > indent)) {
+        idx++
+        const text = lines[idx].trim()
+        // Blank lines at the end of the block count toward the gap after it.
+        blankRun = text ? 0 : blankRun + 1
+        if (!text) {
+          endParagraph()
+          continue
+        }
+        paragraph ??= { line: idx + 1, text: [] }
+        paragraph.text.push(text)
+        lastText = idx + 1
+      }
+      endParagraph()
+      block.endLine = lastText
+      if (!block.children.length) {
+        block.error = `Nothing is indented under "${block.title || ':'}". Indent the text that belongs to it.`
+      }
+      add(block)
     } else if (body.endsWith(':')) {
       // `Title:  #numbered`: the lines indented under it are laid out together.
       const block: LayoutBlock = {
@@ -425,7 +457,7 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
       const mode = effective === 'hide' ? 'full' : effective
       const result = calc.evaluate(body, mode, (command ?? inherited) !== undefined, multiline)
       // `#center` (or another layout) on a single line: lay out just that line.
-      const own: LayoutBlock | undefined = layout
+      const own: LayoutBlock | undefined = layout && layout !== 'text'
         ? { kind: 'layout', line, endLine: line, title: '', style: layout, children: [], indent }
         : undefined
       if (own) add(own)
@@ -495,96 +527,6 @@ export function titleSegments(text: string): TitleSegment[] {
   return out
 }
 
-/** A heading or block title in LaTeX: `2p_z` → 2p\textsubscript{z}. */
-function titleToLatex(text: string): string {
-  return titleSegments(text).map((s) => (s.kind === 'math'
-    ? `$${s.value}$`
-    : s.kind === 'sub' ? `\\textsubscript{${escapeTex(s.value)}}` : escapeTex(s.value))).join('')
-}
-
-const escapeTex = (s: string) =>
-  s.replace(/[\\{}#%&_^~$]/g, (c) =>
-    c === '\\' ? '\\textbackslash{}' : c === '^' ? '\\^{}' : c === '~' ? '\\~{}' : `\\${c}`)
-
-/** LaTeX for a list of blocks, leaving out hidden ones. */
-function joinBlocks(blocks: Block[]): string {
-  return blocks.map(blockToLatex).filter(Boolean).join('\n\n')
-}
-
-function blockToLatex(b: Block): string {
-  switch (b.kind) {
-    case 'heading': {
-      const text = titleToLatex(b.text)
-      if (b.level === 1) return `\\section{${text}}`
-      if (b.level === 2) return `\\subsection{${text}}`
-      return `\\noindent\\textbf{${text}}`
-    }
-    case 'spacer':
-      return '\\vspace{\\baselineskip}'
-    case 'constants': {
-      if (b.hidden && !b.error && !b.entries.some((e) => e.error)) return ''
-      const body = b.entries.map((e) => (e.error
-        ? `% Line ${e.line}: ${e.source}\n% Error: ${e.error}`
-        : `\\[\n  ${e.tex}${e.note ? ` \\tag*{${escapeTex(e.note)}}` : ''}\n\\]`))
-      return [
-        `\\paragraph{Constants${b.note ? ` --- ${escapeTex(b.note)}` : ''}}`,
-        '\\begin{quote}',
-        body.join('\n'),
-        '\\end{quote}',
-      ].join('\n')
-    }
-    case 'text':
-      return splitInlineMath(b.text)
-        .map((seg) => (seg.math ? `$${seg.value}$` : escapeTex(seg.value)))
-        .join('')
-    case 'latex':
-      return `\\[\n  ${b.latex}\n\\]`
-    case 'calc':
-      if (b.error) return `% Line ${b.line}: ${b.source}\n% Error: ${b.error}`
-      if (b.hidden) return ''
-      return [
-        ...(b.trace ?? []).map((t) => `\\[\n  ${t.tex}${t.note ? ` \\tag*{${escapeTex(t.note)}}` : ''}\n\\]`),
-        `\\[\n  ${b.tex}${b.note ? ` \\tag*{${escapeTex(b.note)}}` : ''}\n\\]`,
-      ].join('\n')
-    case 'function': {
-      if (b.error) return `% Line ${b.line}: function ${b.name}\n% Error: ${b.error}`
-      if (b.hidden) return ''
-      return [
-        `\\paragraph{Function $${b.signature}$${b.note ? ` --- ${escapeTex(b.note)}` : ''}}`,
-        '\\begin{quote}',
-        b.body.map((s) => `\\[\n  ${s.tex}${s.note ? ` \\tag*{${escapeTex(s.note)}}` : ''}\n\\]`).join('\n'),
-        '\\end{quote}',
-      ].join('\n')
-    }
-    case 'layout': {
-      if (b.error && !b.children.length) return `% Line ${b.line}: ${b.title}:\n% Error: ${b.error}`
-      if (b.command === 'hide') return ''
-      const title = [b.title && titleToLatex(b.title), b.note && escapeTex(b.note)].filter(Boolean).join(' --- ')
-      const env = b.style === 'center' ? 'center' : b.style === 'list' ? 'itemize' : b.style === 'numbered' ? 'enumerate' : 'quote'
-      const body = env === 'itemize' || env === 'enumerate'
-        ? listItems(b.children).map(({ item, subs }) =>
-          [`\\item ${itemLatex(item)}`, ...subs.map(blockToLatex)].filter(Boolean).join('\n')).join('\n')
-        : joinBlocks(b.children)
-      return [
-        title ? `\\paragraph{${title}}` : '',
-        `\\begin{${env}}`,
-        body,
-        `\\end{${env}}`,
-      ].filter(Boolean).join('\n')
-    }
-    case 'group': {
-      if (b.command === 'hide') return ''
-      const title = [b.title && titleToLatex(b.title), b.note && escapeTex(b.note)].filter(Boolean).join(' --- ')
-      return [
-        title ? `\\paragraph{${title}}` : '',
-        '\\begin{quote}',
-        joinBlocks(b.children),
-        '\\end{quote}',
-      ].filter(Boolean).join('\n')
-    }
-  }
-}
-
 /** Whether a block is left out of the output (and so isn't a list item). */
 export function isOmitted(b: Block): boolean {
   if (b.kind === 'spacer') return true
@@ -602,30 +544,6 @@ export function listItems(children: Block[]): { item: Block; subs: Block[] }[] {
     else items.push({ item: c, subs: [] })
   }
   return items
-}
-
-/** A block as the content of `\item`: inline display maths, so it sits beside the marker. */
-function itemLatex(b: Block): string {
-  if (b.kind === 'calc' && !b.error && !b.trace?.length) {
-    return `$\\displaystyle ${b.tex}$${b.note ? ` \\hfill ${escapeTex(b.note)}` : ''}`
-  }
-  if (b.kind === 'latex') return `$\\displaystyle ${b.latex}$`
-  return blockToLatex(b)
-}
-
-/** Full, compilable LaTeX source for the sheet. */
-export function toLatexDocument(blocks: Block[]): string {
-  return [
-    '\\documentclass{article}',
-    '\\usepackage{amsmath, amssymb}',
-    '',
-    '\\begin{document}',
-    '',
-    joinBlocks(blocks),
-    '',
-    '\\end{document}',
-    '',
-  ].join('\n')
 }
 
 /**

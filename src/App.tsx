@@ -169,6 +169,7 @@ export default function App() {
               onOptionsChange={setOptions}
               activeLine={activeLine}
               onJump={jumpTo}
+              fileName={file.active.name}
             />
           }
         />

@@ -1,9 +1,12 @@
 import katex from 'katex'
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
-import { listItems, splitInlineMath, titleSegments, toLatexDocument, type Block, type Sheet } from '../lib/document.ts'
+import { listItems, splitInlineMath, titleSegments, type Block, type Sheet } from '../lib/document.ts'
+import { loadLatexOptions, saveLatexOptions, toLatexDocument, type LatexOptions } from '../lib/latex.ts'
 import type { CalcOptions } from '../lib/engine.ts'
 import { ReferencePane } from './ReferencePane.tsx'
 import { OptionsMenu } from './OptionsMenu.tsx'
+import { LatexOptionsMenu } from './LatexOptionsMenu.tsx'
+import { downloadFile } from '../lib/files.ts'
 
 const render = (latex: string, displayMode: boolean) =>
   katex.renderToString(latex, { displayMode, throwOnError: false, strict: 'ignore' })
@@ -175,7 +178,7 @@ export function RenderedBlock({ block }: { block: Block }) {
         return <div className="layout">{title}<List className="layout__list">{items}</List>{error}</div>
       }
       return (
-        <div className={`layout${block.style === 'center' ? ' layout--center' : ' layout--plain'}`}>
+        <div className={`layout layout--${block.style ?? 'plain'}`}>
           {title}
           <div className="layout__body">
             {block.children.map((b) => <RenderedBlock key={`${b.line}-${b.kind}`} block={b} />)}
@@ -222,14 +225,22 @@ interface PreviewPaneProps {
   activeLine: number | null
   /** Clicking output moves the editor cursor to that source line. */
   onJump: (line: number) => void
+  /** The sheet's file name, for the downloaded .tex file. */
+  fileName: string
 }
 
 export function PreviewPane({
-  sheet, options, onOptionsChange, activeLine, onJump,
+  sheet, options, onOptionsChange, activeLine, onJump, fileName,
 }: PreviewPaneProps) {
   const [tab, setTab] = useState<Tab>('rendered')
   const [copied, setCopied] = useState(false)
-  const latexSource = useMemo(() => toLatexDocument(sheet.blocks), [sheet.blocks])
+  const [latexOptions, setLatexOptions] = useState<LatexOptions>(loadLatexOptions)
+  const changeLatexOptions = (o: LatexOptions) => {
+    setLatexOptions(o)
+    saveLatexOptions(o)
+  }
+  const latexSource = useMemo(() => toLatexDocument(sheet.blocks, latexOptions), [sheet.blocks, latexOptions])
+  const downloadTex = () => downloadFile(fileName.replace(/\.[^.]*$/, '') + '.tex', latexSource)
   const docRef = useRef<HTMLDivElement>(null)
   const link = useMemo(() => ({ activeLine, onJump }), [activeLine, onJump])
 
@@ -280,7 +291,13 @@ export function PreviewPane({
         </div>
       ) : (
         <div className="source">
-          <button className="source__copy" onClick={copy}>{copied ? 'Copied' : 'Copy'}</button>
+          <div className="source__bar">
+            <LatexOptionsMenu options={latexOptions} onChange={changeLatexOptions} />
+            <button className="source__button" onClick={downloadTex} title="Download the LaTeX as a .tex file">
+              Download .tex
+            </button>
+            <button className="source__button" onClick={copy}>{copied ? 'Copied' : 'Copy'}</button>
+          </div>
           <pre>{latexSource}</pre>
         </div>
       )}

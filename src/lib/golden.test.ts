@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'vitest'
 import { REFERENCE } from './reference.ts'
 import { SAMPLE } from './sample.ts'
-import { toLatexDocument } from './document.ts'
+import { toLatexDocument } from './latex.ts'
 import { lines, readable, sheet } from '../test/helpers.ts'
 
 /** Each line's output as readable text, with any error, warning or note. */

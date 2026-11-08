@@ -161,6 +161,16 @@ export const REFERENCE: ReferenceSection[] = [
         explain: '#center centers the lines. The title is optional: “:  #center” on its own works too.',
       },
       { source: 'F = 2.00 kg * 9.81 m/s^2   #center', explain: 'On a single line, #center centers just that line.' },
+      {
+        source: [
+          'Discussion:   #text',
+          '    The measured acceleration is lower than g sin θ, because',
+          '    the ramp isn’t frictionless: $\\mu_k \\approx 0.05$ would explain it.',
+          '',
+          '    A blank line starts a new paragraph.',
+        ].join('\n'),
+        explain: '#text makes a block of prose: lines join into paragraphs (a blank line starts a new one), $…$ is maths, and nothing is calculated.',
+      },
     ],
   },
   {

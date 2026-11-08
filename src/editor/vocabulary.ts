@@ -12,6 +12,7 @@ export const COMMANDS: { name: string; description: string }[] = [
   { name: '#center', description: 'Center the line, or a : block’s lines' },
   { name: '#list', description: 'A : block’s lines as a bulleted list' },
   { name: '#numbered', description: 'A : block’s lines as a numbered list' },
+  { name: '#text', description: 'A : block of prose: lines join into paragraphs, nothing is calculated' },
 ]
 
 export const KEYWORDS: { name: string; description: string }[] = [

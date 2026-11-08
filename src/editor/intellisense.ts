@@ -24,6 +24,7 @@ import { BUILTIN_CONSTANTS } from '../lib/constants.ts'
 import type { SheetSymbol } from '../lib/document.ts'
 import { describeUnit, isUnitName, numberTex, unitNames, unitTex } from '../lib/engine.ts'
 import { BUILTIN_FUNCTIONS, COMMANDS, KEYWORDS, MATH_CONSTANTS, SERIES_SUFFIXES } from './vocabulary.ts'
+import { inTextBlock } from './language.ts'
 
 // ---------------------------------------------------------------------------
 // What the sheet defines
@@ -109,7 +110,7 @@ const unitOptions: Completion[] = unitNames().map((name) => ({
 export function complete(ctx: CompletionContext): CompletionResult | null {
   const line = ctx.state.doc.lineAt(ctx.pos)
   const before = line.text.slice(0, ctx.pos - line.from)
-  if (isProseLine(before)) return null
+  if (isProseLine(before) || inTextBlock(ctx.state.doc, line.number)) return null
 
   // `#…` after the line's text: display commands.
   const command = /(?:^|\s)(#\w*)$/.exec(before)
@@ -202,7 +203,7 @@ export const acceptOnTab: Command = acceptCompletion
 const hoverInfo = hoverTooltip((view, pos) => {
   const { state } = view
   const line = state.doc.lineAt(pos)
-  if (isProseLine(line.text)) return null
+  if (isProseLine(line.text) || inTextBlock(state.doc, line.number)) return null
   const word = state.wordAt(pos)
   if (!word) return null
   const before = line.text.slice(0, word.from - line.from)

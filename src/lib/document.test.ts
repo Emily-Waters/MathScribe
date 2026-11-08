@@ -5,10 +5,11 @@
  */
 import { describe, expect, it } from 'vitest'
 import {
-  collectDefinitions, collectDiagnostics, collectSymbols, titleSegments, toLatexDocument,
+  collectDefinitions, collectDiagnostics, collectSymbols, titleSegments,
   type Block, type LayoutBlock,
 } from './document.ts'
 import { last, lines, sheet } from '../test/helpers.ts'
+import { toLatexDocument } from './latex.ts'
 
 /** A compact outline of the blocks: kinds, titles, styles and lines. */
 function outline(blocks: Block[], depth = 0): string[] {
@@ -105,6 +106,41 @@ describe('layout blocks', () => {
   })
 })
 
+describe('text blocks', () => {
+  const src = [
+    'x = 2', // 1
+    'Discussion:   #text', // 2
+    '    The result is lower than expected,', // 3
+    '    because x = 5 isn’t calculated here.', // 4
+    '', // 5
+    '    # Not a heading, and $E = mc^2$ is maths.', // 6
+    'y = x * 3', // 7
+    ':   #text', // 8
+    'z = 1', // 9
+  ].join('\n')
+  const blocks = sheet(src).blocks
+  const block = blocks[1] as LayoutBlock
+
+  it('join lines into paragraphs, split by blank lines, without calculating anything', () => {
+    expect(block).toMatchObject({ kind: 'layout', style: 'text', title: 'Discussion', endLine: 6 })
+    expect(block.children).toEqual([
+      { kind: 'text', line: 3, text: 'The result is lower than expected, because x = 5 isn’t calculated here.' },
+      { kind: 'text', line: 6, text: '# Not a heading, and $E = mc^2$ is maths.' },
+    ])
+  })
+
+  it('end at the first line indented no further than the opener', () => {
+    expect(outline(blocks)).toEqual(['calc 1', 'layout text "Discussion"', '  text 3', '  text 6', 'calc 7', 'layout text "" ERROR', 'calc 9'])
+    expect(lines(src).find((l) => l.line === 4)).toBeUndefined() // not evaluated
+  })
+
+  it('export as plain paragraphs under the title', () => {
+    const tex = toLatexDocument(blocks)
+    expect(tex).toContain('\\paragraph{Discussion}\nThe result is lower than expected, because x = 5 isn’t calculated here.\n\n'
+      + '\\# Not a heading, and $E = mc^2$ is maths.')
+  })
+})
+
 describe('headings and titles', () => {
   it('make subscripts and inline maths', () => {
     expect(titleSegments('Hydrogen 2p_z orbital')).toEqual([
@@ -120,7 +156,7 @@ describe('headings and titles', () => {
   it('export subscripts with \\textsubscript', () => {
     const tex = toLatexDocument(sheet('# The 2p_z orbital\nHydrogen 2p_z orbital {\n  Z = 1\n}').blocks)
     expect(tex).toContain('\\section{The 2p\\textsubscript{z} orbital}')
-    expect(tex).toContain('\\paragraph{Hydrogen 2p\\textsubscript{z} orbital}')
+    expect(tex).toContain('frametitle={Hydrogen 2p\\textsubscript{z} orbital}')
   })
 
   it('number sections like LaTeX', () => {

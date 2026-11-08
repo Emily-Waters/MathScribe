@@ -31,6 +31,8 @@ const SOURCE = [
   '> prose ps', // 19
   'n = 1e5', // 20
   'k = 2.0 kg   # mass in kil', // 21
+  'Notes:   #text', // 22
+  '    the mass ps', // 23
 ].join('\n')
 
 /** The labels suggested at the end of line `n`, filtered by what's typed. */
@@ -76,5 +78,6 @@ describe('suggestions', () => {
     expect(suggestions(19)).toBeNull()
     expect(suggestions(20)).toBeNull()
     expect(suggestions(21)).toBeNull()
+    expect(suggestions(23)).toBeNull() // prose in a #text block
   })
 })

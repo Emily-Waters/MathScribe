@@ -721,7 +721,7 @@ body {
 }
 
 .tabs button,
-.source__copy {
+.source__button {
   font: inherit;
   font-size: 12px;
   border: 0;
@@ -756,13 +756,71 @@ body {
   word-break: break-word;
 }
 
-.source__copy {
+/* The LaTeX tab's toolbar: document options, Download .tex, Copy */
+.source__bar {
   position: sticky;
-  float: right;
-  top: 10px;
-  margin: 10px 12px 0 0;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 8px 12px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.source__button {
   background: var(--surface-2);
   color: var(--text);
+  border: 1px solid var(--border);
+}
+
+/* More kinds of option rows (the LaTeX document options) */
+.options__grid {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.options__section {
+  margin: 12px 0 6px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.options__field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.options__field input {
+  font: inherit;
+  padding: 4px 6px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.options__reset {
+  margin-top: 6px;
+  font: inherit;
+  font-size: 12px;
+  padding: 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface-2);
+  color: var(--text);
+  cursor: pointer;
 }
 
 /* ---------- Reference tab ---------- */
@@ -1257,4 +1315,9 @@ body {
 .sheet-tabs__new:hover {
   color: var(--text);
   background: var(--surface-2);
+}
+
+/* A text block (Title:  #text): paragraphs of prose under the title, not indented */
+.layout--text > .layout__body > .doc__text {
+  margin: 0 0 10px;
 }

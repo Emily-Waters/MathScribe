@@ -23,9 +23,11 @@ interface State {
   afterTo: boolean
   /** On an opener line, before its `:` or `{`: words are the block's title. */
   inTitle: boolean
+  /** Inside a `Title:  #text` block: the opener's indentation (lines indented further are prose). */
+  textIndent: number | null
 }
 
-const COMMANDS = /#(?:sym|val|full|hide|multiline|center|list|numbered)(?=\s|$)/
+const COMMANDS = /#(?:sym|val|full|hide|multiline|center|list|numbered|text)(?=\s|$)/
 const NUMBER = /(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?/
 const KEYWORDS = new Set(['def', 'return', 'to', 'pm'])
 
@@ -48,7 +50,16 @@ function lineKind(line: string): LineKind {
 
 function token(stream: StringStream, state: State): string | null {
   if (stream.sol()) {
-    state.kind = lineKind(stream.string)
+    const indent = indentOf(stream.string)
+    // A text block ends at the first line indented no further than its opener.
+    if (state.textIndent !== null && indent <= state.textIndent) state.textIndent = null
+    if (state.textIndent !== null) {
+      state.kind = 'text'
+    } else {
+      state.kind = lineKind(stream.string)
+      // `Title:  #text`: the lines indented under it are prose.
+      if (state.kind === 'opener' && /(?:^|\s)#text(?=\s|$)/.test(stream.string)) state.textIndent = indent
+    }
     state.afterNumber = state.inUnit = state.afterTo = false
     state.inTitle = state.kind === 'opener'
   }
@@ -148,7 +159,7 @@ function proseToken(stream: StringStream): string {
 
 export const mathscribeLanguage = StreamLanguage.define<State>({
   name: 'mathscribe',
-  startState: () => ({ kind: 'calc', afterNumber: false, inUnit: false, afterTo: false, inTitle: false }),
+  startState: () => ({ kind: 'calc', afterNumber: false, inUnit: false, afterTo: false, inTitle: false, textIndent: null }),
   copyState: (s) => ({ ...s }),
   token,
   tokenTable: {
@@ -179,7 +190,7 @@ export const mathscribeLanguage = StreamLanguage.define<State>({
 })
 
 const INDENT = 4
-const indentOf = (text: string) => /^[ \t]*/.exec(text)![0].replace(/\t/g, '    ').length
+export const indentOf = (text: string) => /^[ \t]*/.exec(text)![0].replace(/\t/g, '    ').length
 /** Whether a line opens an indented block: `Title:`, `name {`, or a `def`. */
 const opensBlock = (text: string) => {
   const t = text.trim()
@@ -235,3 +246,20 @@ export const mathscribeFolding = foldService.of((state, lineStart, lineEnd) => {
   }
   return last > first.number ? { from: lineEnd, to: doc.line(last).to } : null
 })
+
+/**
+ * Whether line `n` is prose inside a `Title:  #text` block: the nearest line
+ * above it that's indented less is a `#text` opener. (For the editor's
+ * suggestions, which stay quiet in prose.)
+ */
+export function inTextBlock(doc: { line(n: number): { text: string } }, n: number): boolean {
+  const own = doc.line(n).text
+  const indent = indentOf(own)
+  if (!own.trim() || indent === 0) return false
+  for (let i = n - 1; i >= 1; i--) {
+    const text = doc.line(i).text
+    if (!text.trim() || indentOf(text) >= indent) continue
+    return /(?:^|\s)#text(?=\s|$)/.test(text) && bodyOf(text).endsWith(':')
+  }
+  return false
+}

@@ -42,7 +42,13 @@ the browser.
   Its **Options ▾** menu picks the colour theme.
 - **Output** (right), in three tabs:
   - **Rendered**: the typeset sheet.
-  - **LaTeX**: the whole sheet as a compilable `.tex` document, with a Copy button.
+  - **LaTeX**: the whole sheet as a compilable `.tex` document, with **Copy** and
+    **Download .tex**. It's laid out like the Rendered tab: equations flush left
+    with notes on the right, compact spacing, a function's working indented above
+    its line, and blocks as cards. The **Document ▾** menu sets the equations'
+    alignment, spacing, cards (which use the standard `mdframed` package), section
+    numbering, font size, paper, margins and an optional title, author and date;
+    the choices are remembered in the browser.
   - **Reference**: every feature as an example you can copy, shown with its real
     output (each example is evaluated live, so the reference always matches what
     MathScribe actually does), plus the list of built-in constants.
@@ -163,6 +169,7 @@ your browser and your own files.
 | `$ \LaTeX` | raw LaTeX, displayed but not evaluated |
 | `Title {` … `}` | a block that scopes its variables |
 | `Title:  #numbered` + indented lines | a layout block: centered, bulleted or numbered |
+| `Title:  #text` + indented lines | a block of prose: paragraphs, nothing calculated |
 | `@c`, `@a_0:3 to angstrom` | constants, and setting their precision and unit |
 
 **Subscripts in headings and block titles:** as in variable names, `_` makes a
@@ -187,7 +194,7 @@ after the note:
 | `#val` | the result only | F = (20 ± 1) N |
 | `#hide` | nothing; the line is still calculated | |
 | `#multiline` | each `=` on its own row, lined up | F = m·a ⏎ = 2.0 kg · 9.81 m/s² ⏎ = (20 ± 1) N |
-| `#center`, `#list`, `#numbered` | layout (see Layout blocks) | |
+| `#center`, `#list`, `#numbered`, `#text` | layout (see Layout blocks) | |
 
 ```
 F = m * a  #val  # weight
@@ -242,6 +249,18 @@ F = 2.00 kg * 9.81 m/s^2   #center        (a single calculation, centered)
 
 - `#list` makes bullets, `#numbered` a numbered list and `#center` centers the
   lines. With none of them, `Title:` is just a titled, indented section.
+- `#text` makes a block of **prose**, for longer writing like a discussion or
+  conclusion. Nothing inside it is calculated, so lines don't need `>`, and a line
+  that looks like a calculation or a heading is just text. Lines run together into
+  paragraphs, a blank line starts a new one, and `$…$` is inline maths:
+
+  ```
+  Discussion:   #text
+      The measured acceleration is lower than g sin θ, because the
+      ramp isn't frictionless: $\mu_k \approx 0.05$ would explain it.
+
+      A blank line starts a new paragraph.
+  ```
 - The block ends at the first line indented no further than its opener, like a
   `def` body. Blank lines don't end it.
 - Layout blocks only arrange lines: variables assigned inside **stay available**
@@ -681,7 +700,7 @@ Roughly in priority order.
 - [ ] **Importing from CSV**: load a CSV file as a table, with headers as column names
       (and units, where given).
 - [ ] **Explore compiling the LaTeX to a PDF** in the LaTeX tab (a Source / PDF
-      switch, Download .tex and Download PDF). Options considered: an online
+      switch and Download PDF). Options considered: an online
       compile service such as texlive.net (simple, but sends the sheet off the
       device), pdfTeX compiled to WebAssembly (private, but tens of MB), or an
       "Open in Overleaf" button.
@@ -707,8 +726,10 @@ Roughly in priority order.
 - `src/lib/engine.ts`: evaluation with scoped variables, unit-literal handling,
   sig-fig tracking, uncertainty propagation, functions, LaTeX generation
 - `src/lib/document.ts`: line types and blocks (`{ }`, layout, `def`,
-  `@constants`), sheet evaluation, the `.tex` export, diagnostics and definitions
-  for the editor
+  `@constants`), sheet evaluation, diagnostics, definitions and symbols for the
+  editor
+- `src/lib/latex.ts`: the `.tex` export and its document options;
+  `src/components/LatexOptionsMenu.tsx`: the LaTeX tab's Document menu
 - `src/lib/sigfigs.ts`: counting, propagating and formatting significant figures
 - `src/lib/solve.ts`: `solve(…)`: rearranging, linear, quadratic and numeric solving
 - `src/lib/constants.ts`: the built-in `@` constants

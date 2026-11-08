@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest'
 import { EditorState } from '@codemirror/state'
 import { ensureSyntaxTree, foldable, getIndentation } from '@codemirror/language'
 import { highlightTree, tagHighlighter, tags as t } from '@lezer/highlight'
-import { mathscribeFolding, mathscribeIndent, mathscribeLanguage } from './language.ts'
+import { inTextBlock, mathscribeFolding, mathscribeIndent, mathscribeLanguage } from './language.ts'
 
 const names = tagHighlighter([
   { tag: t.number, class: 'num' }, { tag: t.unit, class: 'unit' }, { tag: t.variableName, class: 'var' },
@@ -56,6 +56,30 @@ describe('highlighting', () => {
     expect(tokens('Steps:   #numbered  # the 1s orbital')).toEqual(
       ['Steps:title', ':   :brace', '#numbered:cmd', '# the 1s orbital:note'])
     expect(tokens('What if {')).toEqual(['What if:title', '{:brace'])
+  })
+})
+
+describe('text blocks', () => {
+  /** Tokens of each line of a multi-line sheet. */
+  const tokensByLine = (doc: string) => {
+    const state = EditorState.create({ doc, extensions: [mathscribeLanguage] })
+    const tree = ensureSyntaxTree(state, doc.length, 5000)!
+    const out: string[][] = Array.from({ length: state.doc.lines }, () => [])
+    highlightTree(tree, names, (from, to, cls) => out[state.doc.lineAt(from).number - 1].push(`${doc.slice(from, to)}:${cls}`))
+    return out
+  }
+
+  it('colour the lines under a #text opener as prose, until the indentation ends', () => {
+    const lines = tokensByLine('Notes:   #text\n    m = 2 kg is prose here, with $x^2$\n\n    more prose\ny = 2.0 m')
+    expect(lines[0]).toEqual(['Notes:title', ':   :brace', '#text:cmd'])
+    expect(lines[1]).toEqual(['m = 2 kg is prose here, with :text', '$x^2$:latex'])
+    expect(lines[3]).toEqual(['more prose:text'])
+    expect(lines[4]).toEqual(['y:var', '2.0:num', 'm:unit'])
+  })
+
+  it('are recognised for the editor’s suggestions', () => {
+    const doc = EditorState.create({ doc: 'Notes:   #text\n    prose\n\n    more\nx = 1\nSteps:  #numbered\n    a = 1' }).doc
+    expect([1, 2, 4, 5, 7].map((n) => inTextBlock(doc, n))).toEqual([false, true, true, false, false])
   })
 })
 

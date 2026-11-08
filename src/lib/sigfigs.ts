@@ -47,15 +47,22 @@ export function sigFigsFromPlace(x: number, place: number): number {
 
 /**
  * Format to exactly `sf` significant figures, keeping trailing zeros ("2.0").
- * Uses scientific notation whenever plain digits would misstate the precision:
- * 19620 at 3 s.f. → "1.96e+4", and 19.62 at 2 s.f. → "2.0e+1" rather than "20".
+ * When plain digits would misstate the precision, a trailing decimal point marks
+ * zeros that count (19.62 at 2 s.f. → "20.", 90 → "90."), and where that can't
+ * (19620 at 3 s.f.), scientific notation does: "1.96e+4".
  */
 export function formatSigFigs(x: number, sf: number): string {
   const digits = Math.min(Math.max(Math.round(sf), 1), 15)
   // A zero's "sig figs" are its decimal places (see countSigFigs): 0.00 → 2 → "0.00".
   if (x === 0) return digits === 1 ? '0' : (0).toFixed(digits)
   const plain = x.toPrecision(digits)
-  if (!/e/i.test(plain) && x !== 0 && countSigFigs(plain) !== digits) return x.toExponential(digits - 1)
+  if (!/e/i.test(plain) && x !== 0 && countSigFigs(plain) !== digits) {
+    // Trailing zeros that count, as typed: 90 to 2 sig figs is "90.", the same
+    // notation as input (`300.` is 3 sig figs). Where a decimal point can't say it
+    // (1500 to 3 sig figs), scientific notation does: 1.50e+3.
+    if (!plain.includes('.') && countSigFigs(`${plain}.`) === digits) return `${plain}.`
+    return x.toExponential(digits - 1)
+  }
   return plain
 }
 

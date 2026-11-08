@@ -24,9 +24,16 @@ describe('formatSigFigs', () => {
     expect(formatSigFigs(19.62, 3)).toBe('19.6')
   })
 
-  it('uses scientific notation when plain digits would misstate the precision', () => {
-    expect(formatSigFigs(19.62, 2)).toBe('2.0e+1')
+  it('marks trailing zeros that count with a decimal point, as typed', () => {
+    expect(formatSigFigs(19.62, 2)).toBe('20.')
+    expect(formatSigFigs(90, 2)).toBe('90.')
+    expect(formatSigFigs(1500, 4)).toBe('1500.')
+    expect(formatSigFigs(100, 3)).toBe('100.')
+  })
+
+  it('uses scientific notation where a decimal point can’t show the precision', () => {
     expect(formatSigFigs(19620, 3)).toBe('1.96e+4')
+    expect(formatSigFigs(1500, 3)).toBe('1.50e+3')
   })
 
   it('shows a zero with as many decimal places as it was counted with', () => {

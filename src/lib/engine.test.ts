@@ -289,7 +289,7 @@ describe('tuples', () => {
     expect(resultOfLine(src, 5)).toBe('(2.00, 4.00, 6.00) m')
     expect(resultOfLine(src, 6)).toBe('(2.00, 4.00, 6.00) m')
     expect(resultOfLine(src, 7)).toBe('3.74 m')
-    expect(resultOfLine(src, 8)).toBe('(1.00e2, 2.00e2, 3.00e2) cm')
+    expect(resultOfLine(src, 8)).toBe('(100., 200., 300.) cm')
   })
 
   it('can be a function’s result', () => {
@@ -352,7 +352,7 @@ describe('unpacking a tuple', () => {
   })
 
   it('applies a name’s unit inside a function too', () => {
-    expect(value('def f(p)\n    tuple(u:cm, v) = p\n    return u\nk = f(tuple(1.00 m, 2.00))')).toBe('1.00e2 cm')
+    expect(value('def f(p)\n    tuple(u:cm, v) = p\n    return u\nk = f(tuple(1.00 m, 2.00))')).toBe('100. cm')
   })
 
   it('explains a setting that doesn’t fit', () => {

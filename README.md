@@ -496,8 +496,10 @@ usual rules:
 - Values are kept at full precision and only rounded for display, so rounding
   doesn't build up across steps. The substitution step shows each variable rounded
   to its own sig figs.
-- Results use scientific notation when plain digits would misstate the precision:
-  19.6 at 2 sig figs shows as 2.0 × 10¹, not 20.
+- Trailing zeros that count are shown with a decimal point, the same notation as
+  input: 19.6 at 2 sig figs shows as `20.` and 90° as `90.°`, not 20 or 90. Where a
+  decimal point can't show the precision (1500 to 3 sig figs), the result uses
+  scientific notation: 1.50 × 10³.
 - Results of exact inputs aren't limited by sig figs (`1/3 ≈ 0.333333`); write
   `name:3 = …` to choose.
 - Hover a variable in a block's Local row to see its sig figs.
@@ -523,7 +525,7 @@ figs work as follows:
 ```
 m:4 = 2 kg          # m = 2.000 kg
 n:3 = 1.999 kg      # shown as 2.00 kg; calculations use 1.999
-F:2 = m * a         # a computed result, limited to 2 sig figs: 2.0 × 10¹ N
+F:2 = m * a         # a computed result, limited to 2 sig figs: 20. N
 k:exact = 2.5       # exact: never limits a result
 ```
 

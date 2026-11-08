@@ -1,0 +1,109 @@
+/**
+ * Significant-figure helpers, following the usual textbook rules:
+ *   - leading zeros never count; zeros between digits always count
+ *   - trailing zeros count only when there is a decimal point (`2.50`, `300.`)
+ *   - scientific notation counts the mantissa (`3.00e2` → 3)
+ */
+
+/** Sig figs of an exact number (a counting number or formula coefficient). */
+export const EXACT = Infinity
+
+/** Count the significant figures in a number as typed, e.g. "0.0250" → 3. */
+export function countSigFigs(literal: string): number {
+  const mantissa = literal.trim().replace(/^[+-]/, '').split(/[eE]/)[0]
+  const hasPoint = mantissa.includes('.')
+  const digits = mantissa.replace('.', '').replace(/^0+/, '')
+  if (!digits) {
+    // All zeros: "0" → 1, "0.00" → 2
+    return Math.max(1, hasPoint ? mantissa.split('.')[1].length : 0)
+  }
+  return hasPoint ? digits.length : digits.replace(/0+$/, '').length
+}
+
+/** True for whole numbers like "300" whose trailing zeros are ambiguous. */
+export function hasAmbiguousZeros(literal: string): boolean {
+  return /^[+-]?\d*[1-9]0+$/.test(literal.trim())
+}
+
+/**
+ * Decimal place of the last significant digit: 0 for units, -2 for hundredths,
+ * 2 for hundreds. Exact values have no last place (-Infinity).
+ */
+export function lastPlace(x: number, sf: number): number {
+  if (!Number.isFinite(sf) || !Number.isFinite(x) || x === 0) return -Infinity
+  return Math.floor(Math.log10(Math.abs(x))) - sf + 1
+}
+
+/**
+ * Sig figs a value has when its last significant digit is at `place`.
+ * Zero or less means the value is smaller than its own uncertainty, as when
+ * subtracting nearly equal measurements (12.52 − 12.5).
+ */
+export function sigFigsFromPlace(x: number, place: number): number {
+  if (place === -Infinity) return EXACT
+  if (!Number.isFinite(x) || x === 0) return 0
+  return Math.floor(Math.log10(Math.abs(x))) - place + 1
+}
+
+/**
+ * Format to exactly `sf` significant figures, keeping trailing zeros ("2.0").
+ * Uses scientific notation whenever plain digits would misstate the precision:
+ * 19620 at 3 s.f. → "1.96e+4", and 19.62 at 2 s.f. → "2.0e+1" rather than "20".
+ */
+export function formatSigFigs(x: number, sf: number): string {
+  const digits = Math.min(Math.max(Math.round(sf), 1), 15)
+  // A zero's "sig figs" are its decimal places (see countSigFigs): 0.00 → 2 → "0.00".
+  if (x === 0) return digits === 1 ? '0' : (0).toFixed(digits)
+  const plain = x.toPrecision(digits)
+  if (!/e/i.test(plain) && x !== 0 && countSigFigs(plain) !== digits) return x.toExponential(digits - 1)
+  return plain
+}
+
+// ---------------------------------------------------------------------------
+// Values with an uncertainty
+//
+// Lab convention: quote the uncertainty to 1 significant figure, or 2 when it
+// starts with a 1 (0.14, not 0.1), and round the value to the same decimal place.
+// ---------------------------------------------------------------------------
+
+/** Significant figures used to quote an uncertainty: 1, or 2 if it starts with a 1. */
+export function uncertaintySigFigs(dx: number): number {
+  if (!(dx > 0) || !Number.isFinite(dx)) return 1
+  return dx.toExponential().startsWith('1') ? 2 : 1
+}
+
+/**
+ * Format `x ± dx` by the convention above, or with the uncertainty to `uncSf`
+ * significant figures if given. Very large or small values share a power of
+ * ten: (1.96 ± 0.03) × 10^4. `sf` is the number of digits shown for x.
+ */
+export function formatWithUncertainty(
+  x: number,
+  dx: number,
+  uncSf: number = uncertaintySigFigs(dx),
+): { num: string; unc: string; exp?: number; sf: number } {
+  // Decimal place of the uncertainty's last digit, after rounding: 0.96 → 1 (place 0).
+  const place = Math.floor(Math.log10(Number(dx.toPrecision(uncSf)))) - (uncSf - 1)
+  const round = (v: number) => (place < 0
+    ? Math.round(v * 10 ** -place) / 10 ** -place
+    : Math.round(v / 10 ** place) * 10 ** place)
+  const xr = round(x)
+  const dr = round(dx)
+  const mag = Math.floor(Math.log10(Math.abs(xr) || dr))
+  const sf = Math.max(1, mag - place + 1)
+  if (mag >= 5 || mag <= -4) {
+    const decimals = Math.max(0, mag - place)
+    return { num: (xr / 10 ** mag).toFixed(decimals), unc: (dr / 10 ** mag).toFixed(decimals), exp: mag, sf }
+  }
+  const decimals = Math.max(0, -place)
+  return { num: xr.toFixed(decimals), unc: dr.toFixed(decimals), sf }
+}
+
+/**
+ * Whether a number as typed is a measurement. Integers without a unit are
+ * exact (counts, and coefficients like the 2 in `2 * a`); a decimal point or
+ * exponent marks a measured value. Numbers with a unit are always measured.
+ */
+export function isMeasuredLiteral(literal: string): boolean {
+  return /[.eE]/.test(literal)
+}

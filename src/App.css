@@ -1,0 +1,927 @@
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --surface-2: #f0f2f5;
+  --border: #dde1e7;
+  --text: #1c2330;
+  --muted: #6b7486;
+  --accent: #3a5bd9;
+  --divider-hover: #3a5bd9;
+  --error: #c62f3c;
+  --warn: #a8670a;
+  --fn: #1f8a70;
+  --mono: ui-monospace, 'Cascadia Code', 'JetBrains Mono', Consolas, monospace;
+  --sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #12151b;
+    --surface: #1a1e26;
+    --surface-2: #222733;
+    --border: #2e3442;
+    --text: #e3e7ef;
+    --muted: #8d96a8;
+    --accent: #7c96ff;
+    --divider-hover: #7c96ff;
+    --error: #ff7b86;
+    --warn: #e9b14f;
+    --fn: #4fd1a5;
+    color-scheme: dark;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+}
+
+/* ---------- App shell ---------- */
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.app__bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.app__bar h1 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+}
+
+.app__tagline {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* File controls: status, then New / Open / Save / Save as */
+.filebar {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.filebar__status {
+  margin-right: 6px;
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.filebar__name {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.filebar__status--unsaved .filebar__name::after {
+  content: ' •';
+  color: var(--warn);
+}
+
+.filebar__status--error {
+  color: var(--error);
+}
+
+.filebar__auto {
+  color: var(--fn);
+}
+
+.filebar button {
+  font: inherit;
+  font-size: 12px;
+  padding: 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface-2);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.filebar button:hover {
+  border-color: var(--accent);
+}
+
+.app__error {
+  padding: 6px 16px;
+  font-size: 12px;
+  color: var(--error);
+  background: color-mix(in srgb, var(--error) 10%, var(--surface));
+  border-bottom: 1px solid var(--border);
+}
+
+.app__main {
+  flex: 1;
+  min-height: 0;
+}
+
+/* ---------- Split pane ---------- */
+
+.split {
+  display: flex;
+  height: 100%;
+}
+
+.split__pane {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.split__divider {
+  flex: 0 0 6px;
+  cursor: col-resize;
+  background: var(--border);
+  position: relative;
+  touch-action: none;
+  transition: background 0.12s;
+}
+
+/* Wider invisible hit area */
+.split__divider::before {
+  content: '';
+  position: absolute;
+  inset: 0 -4px;
+}
+
+.split__divider:hover,
+.split__divider:focus-visible,
+.split--dragging .split__divider {
+  background: var(--divider-hover);
+  outline: none;
+}
+
+.split--dragging {
+  cursor: col-resize;
+  user-select: none;
+}
+
+/* ---------- Panes ---------- */
+
+.pane {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--surface);
+}
+
+.pane__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  height: 40px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.pane__header h2 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+
+/* ---------- Editor ---------- */
+
+/* The CodeMirror editor fills the pane; its own look is in EditorPane.tsx. */
+.editor-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Error and warning markers: a bar beside the line number. */
+.cm-diagnostic-gutter .cm-gutterElement {
+  padding: 0;
+}
+
+.cm-diagnostic {
+  width: 3px;
+  height: 24px;
+}
+
+.cm-diagnostic--error {
+  background: var(--error);
+}
+
+.cm-diagnostic--warning {
+  background: var(--warn);
+}
+
+/* ---------- Syntax themes (Options → Editor colours) ----------
+   Each theme sets the colours the highlighter uses (editor/themes.ts), with a
+   dark version for dark mode. */
+
+[data-syntax-theme='default'] {
+  --syn-number: #9a5b13;
+  --syn-unit: #1f7a63;
+  --syn-variable: var(--text);
+  --syn-function: #3a5bd9;
+  --syn-constant: #8143b8;
+  --syn-keyword: #b03a6e;
+  --syn-command: #b03a6e;
+  --syn-note: #6b7486;
+  --syn-heading: var(--text);
+  --syn-text: #4a5568;
+  --syn-latex: #8143b8;
+  --syn-title: #3a5bd9;
+  --syn-operator: #6b7486;
+}
+
+[data-syntax-theme='vivid'] {
+  --syn-number: #d84315;
+  --syn-unit: #00897b;
+  --syn-variable: #1565c0;
+  --syn-function: #7b1fa2;
+  --syn-constant: #c2185b;
+  --syn-keyword: #2e7d32;
+  --syn-command: #e65100;
+  --syn-note: #607d8b;
+  --syn-heading: #000000;
+  --syn-text: #37474f;
+  --syn-latex: #7b1fa2;
+  --syn-title: #1565c0;
+  --syn-operator: #546e7a;
+}
+
+[data-syntax-theme='contrast'] {
+  --syn-number: #9e0000;
+  --syn-unit: #005c00;
+  --syn-variable: #000000;
+  --syn-function: #00008b;
+  --syn-constant: #6a0080;
+  --syn-keyword: #000000;
+  --syn-command: #8a2b00;
+  --syn-note: #3d3d3d;
+  --syn-heading: #000000;
+  --syn-text: #000000;
+  --syn-latex: #6a0080;
+  --syn-title: #00008b;
+  --syn-operator: #000000;
+}
+
+[data-syntax-theme='minimal'] {
+  --syn-number: var(--text);
+  --syn-unit: var(--text);
+  --syn-variable: var(--text);
+  --syn-function: var(--text);
+  --syn-constant: var(--text);
+  --syn-keyword: var(--text);
+  --syn-command: var(--accent);
+  --syn-note: var(--muted);
+  --syn-heading: var(--accent);
+  --syn-text: var(--text);
+  --syn-latex: var(--text);
+  --syn-title: var(--text);
+  --syn-operator: var(--text);
+}
+
+@media (prefers-color-scheme: dark) {
+  [data-syntax-theme='default'] {
+    --syn-number: #e0a45c;
+    --syn-unit: #4fd1a5;
+    --syn-function: #7c96ff;
+    --syn-constant: #c39bf0;
+    --syn-keyword: #f07fb0;
+    --syn-command: #f07fb0;
+    --syn-note: #8d96a8;
+    --syn-text: #b8c0cf;
+    --syn-latex: #c39bf0;
+    --syn-title: #7c96ff;
+    --syn-operator: #8d96a8;
+  }
+
+  [data-syntax-theme='vivid'] {
+    --syn-number: #ff8a65;
+    --syn-unit: #4db6ac;
+    --syn-variable: #64b5f6;
+    --syn-function: #ce93d8;
+    --syn-constant: #f48fb1;
+    --syn-keyword: #81c784;
+    --syn-command: #ffb74d;
+    --syn-note: #90a4ae;
+    --syn-heading: #ffffff;
+    --syn-text: #cfd8dc;
+    --syn-latex: #ce93d8;
+    --syn-title: #64b5f6;
+    --syn-operator: #b0bec5;
+  }
+
+  [data-syntax-theme='contrast'] {
+    --syn-number: #ffd166;
+    --syn-unit: #7dffb0;
+    --syn-variable: #ffffff;
+    --syn-function: #a8d1ff;
+    --syn-constant: #ffb0ff;
+    --syn-keyword: #ffffff;
+    --syn-command: #ffd166;
+    --syn-note: #d6d6d6;
+    --syn-heading: #ffffff;
+    --syn-text: #ffffff;
+    --syn-latex: #ffb0ff;
+    --syn-title: #a8d1ff;
+    --syn-operator: #ffffff;
+  }
+}
+
+/* Output linked to source lines: clickable, and highlighted for the cursor's line */
+.doc [data-line] {
+  cursor: pointer;
+}
+
+.doc [data-active='true'] {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-radius: 6px;
+}
+
+/* ---------- Rendered output ---------- */
+
+.doc {
+  flex: 1;
+  overflow: auto;
+  padding: 16px 24px 48px;
+}
+
+/* Two or more blank lines in the input: one empty line in the output */
+.doc__spacer {
+  height: 1.6em;
+}
+
+.doc__empty {
+  color: var(--muted);
+}
+
+.doc__heading {
+  margin: 24px 0 8px;
+  font-weight: 600;
+}
+
+/* Sizes follow LaTeX article: \section > \subsection > \textbf */
+.doc__heading--section {
+  font-size: 19px;
+}
+
+.doc__heading--subsection {
+  margin-top: 18px;
+  font-size: 16px;
+}
+
+/* LaTeX sets a 1em gap between the number and the title */
+.doc__heading-number {
+  margin-right: 1em;
+}
+
+.doc__heading--bold {
+  margin: 12px 0 4px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.doc__heading:first-child {
+  margin-top: 4px;
+}
+
+.doc__text {
+  margin: 8px 0;
+  line-height: 1.6;
+}
+
+/* Calculation rows: equation left, description right */
+.calc {
+  margin: 2px -8px;
+  padding: 0 8px;
+  border-radius: 6px;
+}
+
+.calc:hover {
+  background: var(--surface-2);
+}
+
+.calc__row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.calc .math {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.calc .katex-display {
+  margin: 0.55em 0;
+  text-align: left;
+}
+
+.calc .katex-display > .katex {
+  text-align: left;
+}
+
+.calc__note {
+  flex: 0 1 34%;
+  font-size: 13px;
+  color: var(--muted);
+  text-align: right;
+}
+
+.calc__source {
+  flex: 1;
+  font-family: var(--mono);
+  font-size: 13px;
+  padding: 10px 0;
+}
+
+.calc__msg {
+  margin: 0 0 8px;
+  font-size: 12px;
+}
+
+.calc__msg--error {
+  color: var(--error);
+}
+
+.calc__msg--warn {
+  color: var(--warn);
+}
+
+.calc__msg--info {
+  color: var(--muted);
+}
+
+.calc--error {
+  box-shadow: inset 3px 0 0 var(--error);
+}
+
+/* Scoped blocks */
+.group {
+  margin: 10px 0;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+.group .group {
+  margin: 8px 0;
+}
+
+.group__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 12px 0;
+}
+
+.group__title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.group__body {
+  padding: 0 12px 4px;
+}
+
+.group__body > .calc {
+  margin: 2px -6px;
+  padding: 0 6px;
+}
+
+.group__locals {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  padding: 6px 12px;
+  border-top: 1px dashed var(--border);
+  font-size: 12px;
+}
+
+.group > .calc__msg {
+  padding: 0 12px;
+}
+
+/* Working from inside a function call, shown above the line that calls it */
+.calc__trace {
+  padding-left: 10px;
+  border-left: 2px solid var(--fn);
+  margin-top: 4px;
+}
+
+.calc__trace .katex-display {
+  margin: 0.35em 0;
+}
+
+/* Function definitions: same card, a different accent */
+.group--function {
+  border-left-color: var(--fn);
+}
+
+.group__kind {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--fn);
+  margin-right: 4px;
+}
+
+.group--constants {
+  border-left-color: var(--warn);
+}
+
+.group--constants .group__kind {
+  color: var(--warn);
+}
+
+.group--error {
+  border-left-color: var(--error);
+}
+
+/* ---------- Toolbar ---------- */
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.toolbar__field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.toolbar__field select {
+  font: inherit;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 4px;
+}
+
+.toolbar__field input {
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+/* ---------- Variable chips (a block's "Local" row) ---------- */
+
+.vars__label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.vars__item {
+  background: var(--surface-2);
+  border-radius: 4px;
+  padding: 2px 8px;
+}
+
+/* ---------- Tabs ---------- */
+
+.tabs {
+  display: flex;
+  gap: 2px;
+  background: var(--surface-2);
+  padding: 2px;
+  border-radius: 6px;
+}
+
+.tabs button,
+.source__copy {
+  font: inherit;
+  font-size: 12px;
+  border: 0;
+  border-radius: 4px;
+  padding: 4px 10px;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.tabs button[aria-selected='true'] {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.08);
+}
+
+/* ---------- LaTeX source ---------- */
+
+.source {
+  flex: 1;
+  position: relative;
+  overflow: auto;
+}
+
+.source pre {
+  margin: 0;
+  padding: 16px;
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.source__copy {
+  position: sticky;
+  float: right;
+  top: 10px;
+  margin: 10px 12px 0 0;
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+/* ---------- Reference tab ---------- */
+
+.ref {
+  flex: 1;
+  overflow: auto;
+  padding: 0 24px 48px;
+  container-type: inline-size;
+}
+
+.ref__nav {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 10px 0;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.ref__nav button {
+  font: inherit;
+  font-size: 12px;
+  border: 0;
+  border-radius: 4px;
+  padding: 3px 8px;
+  color: var(--muted);
+  background: var(--surface-2);
+  cursor: pointer;
+}
+
+.ref__nav button:hover {
+  color: var(--text);
+}
+
+.ref__section {
+  scroll-margin-top: 48px;
+}
+
+.ref__example {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.ref__explain {
+  margin: 0 0 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* Source beside output; stacked when the pane is narrow. */
+.ref__pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+  gap: 16px;
+  align-items: start;
+}
+
+@container (max-width: 560px) {
+  .ref__pair {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
+}
+
+.ref__source {
+  position: relative;
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 8px 10px;
+  text-align: left;
+  font: inherit;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: copy;
+}
+
+.ref__source:hover,
+.ref__source:focus-visible {
+  border-color: var(--accent);
+}
+
+.ref__source pre {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.ref__copied {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  font-size: 11px;
+  color: var(--muted);
+  opacity: 0;
+}
+
+.ref__source:hover .ref__copied,
+.ref__source:focus-visible .ref__copied {
+  opacity: 1;
+}
+
+.ref__output .doc__heading {
+  margin: 4px 0;
+}
+
+.ref__output .group {
+  margin: 0;
+}
+
+.ref__table {
+  border-collapse: collapse;
+  font-size: 13px;
+  width: 100%;
+}
+
+.ref__table td {
+  padding: 4px 12px 4px 0;
+  border-bottom: 1px solid var(--border);
+  vertical-align: baseline;
+}
+
+.ref__table td:last-child {
+  color: var(--muted);
+}
+
+/* ---------- Options dropdown ---------- */
+
+.options {
+  position: relative;
+}
+
+.options__toggle {
+  font: inherit;
+  font-size: 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px 10px;
+  color: var(--text);
+  background: var(--surface-2);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.options__toggle[aria-expanded='true'] {
+  border-color: var(--accent);
+}
+
+.options__panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 10;
+  width: min(300px, calc(100vw - 32px));
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.16);
+}
+
+.options__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.options__row span {
+  flex: 1;
+}
+
+.options__row input {
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.options__row select {
+  font: inherit;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 4px;
+}
+
+.options__help {
+  margin: 2px 0 10px;
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+.options__help:last-child {
+  margin-bottom: 0;
+}
+
+/* ---------- Layout blocks (Title:  #center / #list / #numbered) ---------- */
+
+.layout {
+  margin: 8px 0;
+}
+
+.layout__title {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  margin: 12px 0 4px;
+  font-weight: 600;
+}
+
+.layout__title .calc__note {
+  font-weight: 400;
+}
+
+.layout--plain > .layout__body {
+  padding-left: 20px;
+}
+
+.layout--center .calc .katex-display,
+.layout--center .calc .katex-display > .katex,
+.layout--center .doc__text {
+  text-align: center;
+}
+
+.layout__list {
+  margin: 0;
+  padding-left: 1.8em;
+}
+
+.layout__list > li::marker {
+  color: var(--muted);
+}
+
+.layout__list .calc .katex-display {
+  margin: 0.3em 0;
+}
+
+.layout__list .doc__text {
+  margin: 0.3em 0;
+}

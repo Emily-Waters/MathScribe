@@ -4,7 +4,7 @@ import { useSheetFile, type SaveState } from './useSheetFile.ts'
 import { EditorPane } from './components/EditorPane.tsx'
 import { PreviewPane } from './components/PreviewPane.tsx'
 import { SplitPane } from './components/SplitPane.tsx'
-import { collectDefinitions, collectDiagnostics, evaluateSheet } from './lib/document.ts'
+import { collectDefinitions, collectDiagnostics, collectSymbols, evaluateSheet } from './lib/document.ts'
 import type { CalcOptions } from './lib/engine.ts'
 import {
   DEFAULT_SYNTAX_THEME, customPalette, loadCustomSyntax, loadSyntaxTheme, saveCustomSyntax, saveSyntaxTheme,
@@ -156,6 +156,7 @@ export default function App() {
   const sheet = useMemo(() => evaluateSheet(source, options), [source, options])
   const diagnostics = useMemo(() => collectDiagnostics(sheet.blocks), [sheet.blocks])
   const definitions = useMemo(() => collectDefinitions(sheet.blocks), [sheet.blocks])
+  const symbols = useMemo(() => collectSymbols(sheet, source), [sheet, source])
 
   // Linking: the editor's cursor line highlights its output; clicking output
   // moves the cursor to that line.
@@ -210,7 +211,9 @@ export default function App() {
               onCursorLine={setActiveLine}
               diagnostics={diagnostics}
               definitions={definitions}
+              symbols={symbols}
               theme={syntaxTheme}
+              dark={appearance.mode === 'dark'}
               customPalette={syntaxPalette}
               options={
                 <SyntaxOptions

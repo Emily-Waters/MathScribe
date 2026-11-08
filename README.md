@@ -71,6 +71,21 @@ amber one; hover the bar to read the message.
 On a Mac, use ⌘ for Ctrl. `def` bodies, `:` layout blocks and `{ }` blocks fold
 from the arrows in the gutter.
 
+**Suggestions as you type** (Enter or Tab accepts, Esc closes, Ctrl+Space asks):
+
+| Typing | Suggests |
+| --- | --- |
+| a name | variables defined above and in scope (not another block's locals), with their value; a function's parameters inside its body; your functions with their parameters (accepting one puts the cursor between the brackets); series names like `t_avg` (once there are two or more `t_1`, `t_2`, …); built-in functions, `pi`/`e`, and keywords |
+| `@` | constants with their description and value, including your own `@constants` |
+| a unit, after a number or `to` | units, with what they are in SI (`angstrom = 1e-10 m`); `percent` after `to` |
+| `#` after a line's text | display commands, with what each does |
+
+Nothing is suggested in headings, `>` text, `$` lines or notes.
+
+**Hover over a name** to see what it is: a variable's value (typeset) and where
+it's defined, a function's signature, a constant's full value, a unit in SI, or
+what a command or keyword does.
+
 **Syntax colours** (Input → Options → Colours): **Default**, **Vivid**,
 **Classic** (familiar code-editor colours, a good match for the Charcoal theme),
 **High contrast** and **Minimal**, each with a light and a dark version that
@@ -649,6 +664,8 @@ and these names become available:
   (both sets of colours are in `App.css`; `index.html` applies the saved app
   theme before the page draws)
 - `src/editor/gotoDefinition.ts`: Ctrl+Click / F12 go to definition
+- `src/editor/intellisense.ts`: suggestions as you type and hover information;
+  `src/editor/vocabulary.ts`: the commands, keywords and built-in functions they describe
 - `src/components/EditorPane.tsx`: the editor; `PreviewPane.tsx`: rendered output,
   LaTeX and Reference tabs; `ReferencePane.tsx`: the Reference tab;
   `OptionsMenu.tsx` / `Dropdown.tsx`: the options menus; `SplitPane.tsx`: resizable

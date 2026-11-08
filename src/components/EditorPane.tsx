@@ -1,5 +1,5 @@
 import { useEffect, useRef, type CSSProperties, type ReactNode } from 'react'
-import { EditorSelection, EditorState, StateEffect, StateField, type Extension } from '@codemirror/state'
+import { Compartment, EditorSelection, EditorState, StateEffect, StateField, type Extension } from '@codemirror/state'
 import {
   EditorView, GutterMarker, drawSelection, gutter, highlightActiveLine, highlightActiveLineGutter,
   keymap, lineNumbers, placeholder, type Command,
@@ -14,6 +14,8 @@ import { mathscribeFolding, mathscribeIndent, mathscribeLanguage } from '../edit
 import { SYNTAX_TOKENS, mathscribeHighlight, type Palette, type SyntaxThemeId } from '../editor/themes.ts'
 import { Dropdown } from './Dropdown.tsx'
 import { gotoDefinition, setDefinitions } from '../editor/gotoDefinition.ts'
+import { acceptOnTab, intellisense, setSymbols } from '../editor/intellisense.ts'
+import type { SheetSymbol } from '../lib/document.ts'
 
 interface EditorPaneProps {
   value: string
@@ -25,8 +27,12 @@ interface EditorPaneProps {
   diagnostics: Map<number, Diagnostic>
   /** Where each function is defined (for Ctrl+Click / F12). */
   definitions: Map<string, number[]>
+  /** What the sheet defines, for completions and hover information. */
+  symbols: SheetSymbol[]
   /** Syntax colour theme, and for Custom, its colours. */
   theme: SyntaxThemeId
+  /** Whether the app theme is dark, so CodeMirror's own parts (tooltips, find panel) match. */
+  dark: boolean
   customPalette: Palette | null
   /** The contents of the editor's Options menu. */
   options: ReactNode
@@ -117,9 +123,26 @@ const baseTheme = EditorView.theme({
   '.cm-foldPlaceholder': { backgroundColor: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--muted)' },
   '.cm-placeholder': { color: 'var(--muted)' },
   '.cm-panels': { backgroundColor: 'var(--surface-2)', color: 'var(--text)' },
+  '.cm-panels.cm-panels-top': { borderBottom: '1px solid var(--border)' },
+  // The find panel's fields and buttons (Ctrl+F)
+  '.cm-textfield': {
+    backgroundColor: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: '4px',
+  },
+  '.cm-button': {
+    backgroundImage: 'none', backgroundColor: 'var(--surface)', color: 'var(--text)',
+    border: '1px solid var(--border)', borderRadius: '4px',
+  },
+  '.cm-button:active': { backgroundImage: 'none', backgroundColor: 'var(--selection)' },
+  '.cm-search label': { color: 'var(--muted)' },
+  '.cm-panel button[name=close]': { color: 'var(--muted)' },
+  '.cm-searchMatch': { backgroundColor: 'var(--selection-match)', outline: '1px solid var(--border)' },
+  '.cm-searchMatch.cm-searchMatch-selected': { backgroundColor: 'var(--selection)' },
 })
 
-function extensions(handlers: { change: (v: string) => void; cursor: (line: number) => void }): Extension[] {
+/** Light or dark, for CodeMirror's built-in styles; changed when the app theme changes. */
+const darkness = new Compartment()
+
+function extensions(handlers: { change: (v: string) => void; cursor: (line: number) => void }, dark: boolean): Extension[] {
   return [
     lineNumbers(),
     diagnosticsGutter,
@@ -141,11 +164,14 @@ function extensions(handlers: { change: (v: string) => void; cursor: (line: numb
     syntaxHighlighting(mathscribeHighlight),
     diagnosticsField,
     gotoDefinition,
+    intellisense,
     baseTheme,
+    darkness.of(EditorView.darkTheme.of(dark)),
     placeholder('m = 2.0 kg'),
     EditorView.contentAttributes.of({ 'aria-label': 'Math input', spellcheck: 'false' }),
     keymap.of([
-      { key: 'Tab', run: tabToStop, shift: indentLess },
+      // Tab accepts a suggestion if the list is open, otherwise indents.
+      { key: 'Tab', run: (v) => acceptOnTab(v) || tabToStop(v), shift: indentLess },
       ...defaultKeymap,
       ...historyKeymap,
       ...foldKeymap,
@@ -166,12 +192,13 @@ function extensions(handlers: { change: (v: string) => void; cursor: (line: numb
  * definition, and blocks fold from the gutter.
  */
 export function EditorPane({
-  value, onChange, jump, onCursorLine, diagnostics, definitions, theme, customPalette, options,
+  value, onChange, jump, onCursorLine, diagnostics, definitions, symbols, theme, dark, customPalette, options,
 }: EditorPaneProps) {
   const host = useRef<HTMLDivElement>(null)
   const view = useRef<EditorView | null>(null)
   /** The text the editor starts with; later changes arrive through the effect below. */
   const initialValue = useRef(value)
+  const initialDark = useRef(dark)
   // The editor is created once; these keep its callbacks current.
   const handlers = useRef({ change: onChange, cursor: onCursorLine })
   useEffect(() => {
@@ -186,7 +213,7 @@ export function EditorPane({
         extensions: extensions({
           change: (s) => handlers.current.change(s),
           cursor: (l) => handlers.current.cursor(l),
-        }),
+        }, initialDark.current),
       }),
     })
     view.current = v
@@ -211,6 +238,14 @@ export function EditorPane({
   useEffect(() => {
     view.current?.dispatch({ effects: setDefinitions.of(definitions) })
   }, [definitions])
+
+  useEffect(() => {
+    view.current?.dispatch({ effects: setSymbols.of(symbols) })
+  }, [symbols])
+
+  useEffect(() => {
+    view.current?.dispatch({ effects: darkness.reconfigure(EditorView.darkTheme.of(dark)) })
+  }, [dark])
 
   // Jump requests from clicking the output: put the cursor at the start of that
   // line's text (not a selection, so typing doesn't replace the line) and scroll

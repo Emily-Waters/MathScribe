@@ -647,6 +647,82 @@ export function collectDefinitions(blocks: Block[]): Map<string, number[]> {
   return out
 }
 
+/** A name the editor can suggest or describe, and where it's visible. */
+export interface SheetSymbol {
+  name: string
+  kind: 'variable' | 'parameter' | 'function' | 'constant'
+  /** Line it's defined on. */
+  line: number
+  /** Lines it can be used on (a `{ }` block or function body scopes it). */
+  from: number
+  to: number
+  /** TeX for its value (`m = 2.00 kg`) or signature, if known. */
+  tex?: string
+  /** Plain-text parameters of a function, e.g. "n, m to kg, L to m". */
+  params?: string
+}
+
+const ASSIGNMENT = /^([A-Za-z]\w*)(?::(?:\d+|exact))?\s*=(?!=)/
+const ONE_LINE_DEF = /^([A-Za-z]\w*)\s*\(([^()]*)\)\s*=(?!=)/
+
+/**
+ * Everything defined in the sheet, for completions and hover information:
+ * variables (with their value), function parameters, functions (with their
+ * signature) and `@constants`, each with the lines it's visible on.
+ */
+export function collectSymbols(sheet: Sheet, source: string): SheetSymbol[] {
+  const lines = source.split(/\r?\n/)
+  const out: SheetSymbol[] = []
+  const texOf = (name: string, scope: Variable[]) => scope.find((v) => v.name === name)?.tex
+
+  /** `to`: the last line of the innermost `{ }` block (or the sheet), where its names stop being visible;
+   * `scope`: that block's variables, for their values. */
+  const visit = (blocks: Block[], to: number, scope: Variable[]) => {
+    for (const b of blocks) {
+      switch (b.kind) {
+        case 'calc': {
+          const def = ONE_LINE_DEF.exec(b.source)
+          if (def) {
+            out.push({
+              name: def[1], kind: 'function', line: b.line, from: b.line, to,
+              tex: b.tex.split(' = ')[0], params: def[2].trim(),
+            })
+            break
+          }
+          const assign = ASSIGNMENT.exec(b.source)
+          if (assign) out.push({ name: assign[1], kind: 'variable', line: b.line, from: b.line + 1, to, tex: texOf(assign[1], scope) })
+          break
+        }
+        case 'function': {
+          const params = /^\s*def\s+[A-Za-z]\w*\s*\(([^)]*)\)/.exec(lines[b.line - 1] ?? '')?.[1].trim() ?? ''
+          out.push({ name: b.name, kind: 'function', line: b.line, from: b.line, to, tex: b.signature, params })
+          // Inside the body, its parameters are names too.
+          for (const p of params.split(',')) {
+            const name = /^\s*([A-Za-z]\w*)/.exec(p)?.[1]
+            if (name) out.push({ name, kind: 'parameter', line: b.line, from: b.line + 1, to: b.endLine })
+          }
+          break
+        }
+        case 'constants':
+          for (const e of b.entries) {
+            const name = ASSIGNMENT.exec(e.source)?.[1]
+            if (name) out.push({ name: `@${name}`, kind: 'constant', line: e.line, from: 1, to: lines.length, tex: e.tex })
+          }
+          break
+        case 'group':
+          visit(b.children, b.endLine ?? lines.length, b.locals)
+          break
+        case 'layout':
+          // Layout blocks don't scope their variables.
+          visit(b.children, to, scope)
+          break
+      }
+    }
+  }
+  visit(sheet.blocks, lines.length, sheet.variables)
+  return out
+}
+
 export interface Diagnostic {
   kind: 'error' | 'warning'
   message: string

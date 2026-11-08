@@ -212,6 +212,38 @@ export function isUnitName(id: string): boolean {
   }
 }
 
+/** Prefixed units people type often (mathjs lists units without their prefixes). */
+const COMMON_PREFIXED = [
+  'km', 'cm', 'mm', 'um', 'nm', 'pm', 'kg', 'mg', 'ug', 'mL', 'kJ', 'MJ', 'kPa', 'MPa', 'kN',
+  'kHz', 'MHz', 'GHz', 'mA', 'kV', 'mV', 'kW', 'MW', 'ms', 'us', 'ns', 'kmol', 'mmol', 'keV', 'MeV',
+]
+
+/** Unit names for completions: mathjs's units plus common prefixed ones. */
+export function unitNames(): string[] {
+  const units = Object.keys(math.Unit.UNITS)
+  const known = new Set(units)
+  // Leave out plural spellings (angstroms, hours) when the singular is there too.
+  const singular = units.filter((u) => !(u.length > 3 && u.endsWith('s') && known.has(u.slice(0, -1))))
+  return [...new Set([...singular, ...COMMON_PREFIXED])].filter(isUnitName)
+}
+
+/** What a unit is, in SI: "1 angstrom = 1e-10 m", or null if it's not a unit (or is SI already). */
+export function describeUnit(name: string): string | null {
+  if (!isUnitName(name)) return null
+  try {
+    const u = math.unit(1, name)
+    // Temperature scales have an offset: "1 degC = 274.15 K" would mislead.
+    if (u.units.some((p) => p.unit.offset)) return null
+    const si = u.toSI()
+    // In a derived unit where one fits (1 eV = 1.6e-19 J), else in base units (1 N = 1 kg m/s^2).
+    const derived = DERIVED_UNITS.find((d) => si.equalBase(d) && d.formatUnits() !== name)
+    const text = math.format(derived ? si.to(derived.formatUnits()) : si, { precision: 6 })
+    return text === `1 ${name}` ? null : `1 ${name} = ${text}`
+  } catch {
+    return null
+  }
+}
+
 const POWER = /\^(\(-?\d+(?:\.\d+)?\)|-?\d+(?:\.\d+)?)/y
 const FIRST_UNIT = /[ \t]*([A-Za-z]+)(?![\w(])/y
 const NEXT_UNIT = /([*/·])([A-Za-z]+)(?![\w(])/y

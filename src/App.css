@@ -1042,3 +1042,93 @@ body {
 .theme-choice .options__help {
   margin: 0;
 }
+
+/* ---------- Custom syntax colours (Input → Options → Colours → Custom) ---------- */
+
+/* Long panels (the custom colour list) scroll inside the window. */
+.options__panel {
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+}
+
+.syntax-custom {
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.syntax-custom__list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.syntax-custom__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+}
+
+.syntax-custom__row input[type='color'] {
+  flex-shrink: 0;
+  width: 28px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: none;
+  cursor: pointer;
+}
+
+.syntax-custom__row input[type='color']::-webkit-color-swatch-wrapper {
+  padding: 2px;
+}
+
+.syntax-custom__row input[type='color']::-webkit-color-swatch {
+  border: 0;
+  border-radius: 2px;
+}
+
+.syntax-custom__name {
+  flex: 1;
+  font-size: 13px;
+  color: var(--text);
+}
+
+/* The sample sits on the editor's own background, so it reads as it will there. */
+.syntax-custom__sample {
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.syntax-custom__reset {
+  font: inherit;
+  font-size: 13px;
+  line-height: 1;
+  padding: 2px 4px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.syntax-custom__reset:hover {
+  color: var(--text);
+}
+
+.syntax-custom__reset-all {
+  margin-top: 8px;
+  font: inherit;
+  font-size: 12px;
+  padding: 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface-2);
+  color: var(--text);
+  cursor: pointer;
+}

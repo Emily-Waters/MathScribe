@@ -1,3 +1,5 @@
+import { useSyncExternalStore } from 'react'
+
 /**
  * App colour themes. The chosen theme is applied as data-theme on <html> (its
  * colours are in App.css), with data-mode = light or dark for the syntax
@@ -52,4 +54,18 @@ export function watchSystemTheme(id: AppThemeId): () => void {
   const onChange = () => applyAppTheme('system')
   query.addEventListener('change', onChange)
   return () => query.removeEventListener('change', onChange)
+}
+
+/** Re-render when the theme on <html> changes (a new choice, or the system switching). */
+function subscribe(onChange: () => void): () => void {
+  const observer = new MutationObserver(onChange)
+  observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-mode'] })
+  return () => observer.disconnect()
+}
+
+/** The theme in effect now (System resolved), and whether it's light or dark. */
+export function useAppearance(): { theme: string; mode: 'light' | 'dark' } {
+  const theme = useSyncExternalStore(subscribe, () => document.documentElement.dataset.theme ?? 'light')
+  const mode = useSyncExternalStore(subscribe, () => (document.documentElement.dataset.mode === 'dark' ? 'dark' : 'light'))
+  return { theme, mode }
 }

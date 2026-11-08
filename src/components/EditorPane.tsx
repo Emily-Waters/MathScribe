@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, type CSSProperties, type ReactNode } from 'react'
 import { EditorSelection, EditorState, StateEffect, StateField, type Extension } from '@codemirror/state'
 import {
   EditorView, GutterMarker, drawSelection, gutter, highlightActiveLine, highlightActiveLineGutter,
@@ -11,7 +11,7 @@ import {
 import { highlightSelectionMatches, search, searchKeymap } from '@codemirror/search'
 import type { Diagnostic } from '../lib/document.ts'
 import { mathscribeFolding, mathscribeIndent, mathscribeLanguage } from '../editor/language.ts'
-import { SYNTAX_THEMES, mathscribeHighlight, type SyntaxThemeId } from '../editor/themes.ts'
+import { SYNTAX_TOKENS, mathscribeHighlight, type Palette, type SyntaxThemeId } from '../editor/themes.ts'
 import { Dropdown } from './Dropdown.tsx'
 import { gotoDefinition, setDefinitions } from '../editor/gotoDefinition.ts'
 
@@ -25,9 +25,11 @@ interface EditorPaneProps {
   diagnostics: Map<number, Diagnostic>
   /** Where each function is defined (for Ctrl+Click / F12). */
   definitions: Map<string, number[]>
-  /** Syntax colour theme. */
+  /** Syntax colour theme, and for Custom, its colours. */
   theme: SyntaxThemeId
-  onThemeChange: (id: SyntaxThemeId) => void
+  customPalette: Palette | null
+  /** The contents of the editor's Options menu. */
+  options: ReactNode
 }
 
 const INDENT = '    '
@@ -163,7 +165,7 @@ function extensions(handlers: { change: (v: string) => void; cursor: (line: numb
  * definition, and blocks fold from the gutter.
  */
 export function EditorPane({
-  value, onChange, jump, onCursorLine, diagnostics, definitions, theme, onThemeChange,
+  value, onChange, jump, onCursorLine, diagnostics, definitions, theme, customPalette, options,
 }: EditorPaneProps) {
   const host = useRef<HTMLDivElement>(null)
   const view = useRef<EditorView | null>(null)
@@ -222,17 +224,17 @@ export function EditorPane({
     <section className="pane">
       <header className="pane__header">
         <h2>Input</h2>
-        <Dropdown label="Options" panelLabel="Editor options">
-          <label className="options__row">
-            <span>Colours</span>
-            <select value={theme} onChange={(e) => onThemeChange(e.target.value as SyntaxThemeId)}>
-              {SYNTAX_THEMES.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-            </select>
-          </label>
-          <p className="options__help">{SYNTAX_THEMES.find((t) => t.id === theme)?.description}.</p>
-        </Dropdown>
+        <Dropdown label="Options" panelLabel="Editor options">{options}</Dropdown>
       </header>
-      <div className="editor-wrap" data-syntax-theme={theme} ref={host} />
+      <div
+        className="editor-wrap"
+        data-syntax-theme={theme}
+        // Custom colours are set right here, in place of a preset's stylesheet rules.
+        style={customPalette
+          ? Object.fromEntries(SYNTAX_TOKENS.map((t) => [`--syn-${t.id}`, customPalette[t.id]])) as CSSProperties
+          : undefined}
+        ref={host}
+      />
     </section>
   )
 }

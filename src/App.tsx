@@ -6,8 +6,12 @@ import { PreviewPane } from './components/PreviewPane.tsx'
 import { SplitPane } from './components/SplitPane.tsx'
 import { collectDefinitions, collectDiagnostics, evaluateSheet } from './lib/document.ts'
 import type { CalcOptions } from './lib/engine.ts'
-import { loadSyntaxTheme, saveSyntaxTheme, type SyntaxThemeId } from './editor/themes.ts'
-import { applyAppTheme, loadAppTheme, saveAppTheme, watchSystemTheme, type AppThemeId } from './appTheme.ts'
+import {
+  DEFAULT_SYNTAX_THEME, customPalette, loadCustomSyntax, loadSyntaxTheme, saveCustomSyntax, saveSyntaxTheme,
+  type CustomSyntax, type SyntaxThemeId,
+} from './editor/themes.ts'
+import { SyntaxOptions } from './components/SyntaxOptions.tsx'
+import { applyAppTheme, loadAppTheme, saveAppTheme, useAppearance, watchSystemTheme, type AppThemeId } from './appTheme.ts'
 import { ThemeMenu } from './components/ThemeMenu.tsx'
 import './App.css'
 
@@ -103,7 +107,25 @@ export default function App() {
     setAppTheme(id)
     saveAppTheme(id)
   }
+  // Custom colours: until any are set, Custom starts from the theme chosen before it.
+  const [customSyntax, setCustomSyntax] = useState<CustomSyntax | null>(loadCustomSyntax)
+  const changeCustomSyntax = (c: CustomSyntax) => {
+    setCustomSyntax(c)
+    saveCustomSyntax(c)
+  }
+  const appearance = useAppearance()
+  // Worked out on every render (it's cheap): a preset's colours depend on the app
+  // theme as well as light/dark (Minimal uses the text colour, for instance).
+  const activeCustom = customSyntax ?? { base: DEFAULT_SYNTAX_THEME }
+  const syntaxPalette = syntaxTheme === 'custom' ? customPalette(activeCustom, appearance.mode) : null
   const changeSyntaxTheme = (id: SyntaxThemeId) => {
+    if (id === 'custom') {
+      const untouched = !customSyntax
+        || !Object.keys({ ...customSyntax.light, ...customSyntax.dark }).length
+      if (untouched) {
+        changeCustomSyntax({ base: syntaxTheme === 'custom' ? DEFAULT_SYNTAX_THEME : syntaxTheme })
+      }
+    }
     setSyntaxTheme(id)
     saveSyntaxTheme(id)
   }
@@ -189,7 +211,17 @@ export default function App() {
               diagnostics={diagnostics}
               definitions={definitions}
               theme={syntaxTheme}
-              onThemeChange={changeSyntaxTheme}
+              customPalette={syntaxPalette}
+              options={
+                <SyntaxOptions
+                  theme={syntaxTheme}
+                  onThemeChange={changeSyntaxTheme}
+                  custom={activeCustom}
+                  palette={syntaxPalette}
+                  mode={appearance.mode}
+                  onCustomChange={changeCustomSyntax}
+                />
+              }
             />
           }
           right={

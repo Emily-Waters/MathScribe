@@ -74,7 +74,15 @@ from the arrows in the gutter.
 **Syntax colours** (Input → Options → Colours): **Default**, **Vivid**,
 **Classic** (familiar code-editor colours, a good match for the Charcoal theme),
 **High contrast** and **Minimal**, each with a light and a dark version that
-follows the app theme. The choice is remembered in the browser. The colours
+follows the app theme. The choice is remembered in the browser.
+
+**Custom** lets you pick a colour for each kind of text (numbers, units,
+variables, functions, constants, keywords, commands, notes, headings, text,
+LaTeX, block titles and operators) with your browser's colour picker, previewed
+live in the editor. It starts from the theme you had selected (change it with
+**Start from**); colours you haven't changed keep following that theme, and ↺
+puts one back. Light and dark colours are kept separately: you edit the set for
+the current app theme. The colours
 follow how MathScribe reads a line: in `9.81 m/s^2` the unit is coloured as a unit,
 and in `5 kg * m` the `m` is coloured as a variable.
 
@@ -598,7 +606,7 @@ and these names become available:
 - [x] **Hosting**: published to GitHub Pages on every push.
 - [ ] **Installable and offline**: make the app a progressive web app, so it can be
       installed from the browser and used without a connection.
-- [ ] **Custom colour theme**: per-category colour pickers in the editor options,
+- [x] **Custom colour theme**: per-category colour pickers in the editor options,
       starting from a preset, with separate light and dark colours.
 - [ ] **Remember the output options** (sig figs, substitution, ≈) in the browser.
 - [ ] **Go to definition for variables and constants** (`@rho_w` → its

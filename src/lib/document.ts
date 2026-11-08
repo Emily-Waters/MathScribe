@@ -580,7 +580,7 @@ export interface SheetSymbol {
   params?: string
 }
 
-const ASSIGNMENT = /^([A-Za-z]\w*)(?::(?:\d+|exact))?\s*=(?!=)/
+const ASSIGNMENT = /^([A-Za-z]\w*)(?::[^:=\s]+)*\s*=(?!=)/
 const ONE_LINE_DEF = /^([A-Za-z]\w*)\s*\(([^()]*)\)\s*=(?!=)/
 
 /**

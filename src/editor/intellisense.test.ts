@@ -33,6 +33,8 @@ const SOURCE = [
   'k = 2.0 kg   # mass in kil', // 21
   'Notes:   #text', // 22
   '    the mass ps', // 23
+  'phi:3:de', // 24
+  'Steps:', // 25
 ].join('\n')
 
 /** The labels suggested at the end of line `n`, filtered by what's typed. */
@@ -63,6 +65,11 @@ describe('suggestions', () => {
 
   it('offer constants after @', () => {
     expect(suggestions(13)).toEqual(['@h', '@hbar'])
+  })
+
+  it('offer display units after a : on the assigned name, but not after a block opener', () => {
+    expect(suggestions(24)).toEqual(expect.arrayContaining(['deg', 'degC']))
+    expect(suggestions(25)).toBeNull()
   })
 
   it('offer display commands after #', () => {

@@ -122,7 +122,9 @@ function token(stream: StringStream, state: State): string | null {
   if (word) {
     const id = word[0]
     const call = /^\s*\(/.test(stream.string.slice(stream.pos))
-    if ((wasAfterNumber || state.afterTo) && !call && isUnitName(id)) {
+    // A display unit on the assigned name: the deg in `phi:3:deg = …`.
+    const displayUnit = stream.string[stream.start - 1] === ':' && /^\s*[A-Za-z]\w*(?::[^:=\s]+)*$/.test(stream.string.slice(0, stream.pos))
+    if ((wasAfterNumber || state.afterTo || displayUnit) && !call && isUnitName(id)) {
       state.inUnit = true
       state.afterTo = false
       return 'unit'

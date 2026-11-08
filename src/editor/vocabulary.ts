@@ -49,6 +49,9 @@ export const BUILTIN_FUNCTIONS: { name: string; signature: string; description: 
   { name: 'min', signature: 'min(a, b, …)', description: 'Smallest value' },
   { name: 'max', signature: 'max(a, b, …)', description: 'Largest value' },
   { name: 'factorial', signature: 'factorial(n)', description: 'n!' },
+  { name: 'norm', signature: 'norm(r)', description: 'Length of a tuple: norm((3, 4)) = 5' },
+  { name: 'dot', signature: 'dot(a, b)', description: 'Dot product of two tuples' },
+  { name: 'cross', signature: 'cross(a, b)', description: 'Cross product of two 3-tuples' },
   { name: 'solve', signature: 'solve(equation, unknown, guess?)', description: 'Rearrange an equation for the unknown and evaluate it' },
 ]
 

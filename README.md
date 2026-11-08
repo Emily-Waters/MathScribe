@@ -160,6 +160,8 @@ your browser and your own files.
 | `f = P * dr to percent` | show a unitless result as a percentage |
 | `f(x) = x^2 + 1`, then `f(3)` | define and call a function |
 | `E(n, m to kg) = …` | a function whose argument is converted to kg |
+| `phi:3:deg = atan(y/x)` | show a result to 3 sig figs, in degrees |
+| `r = (x, y, z)` | a tuple, such as coordinates |
 | `x = 3  # note` | text after `#` becomes the line's description |
 | `x = 3  #val` | a display command (see below) |
 | `# Title` | `\section{Title}`, numbered 1, 2, … |
@@ -281,8 +283,9 @@ P = radialProb(r, psi_200)
 ```
 
 or, for several steps, Python-style: `def`, a name and parameters (a trailing `:` is
-optional), then an indented body of `name = …` lines ending in `return …`. The two
-styles behave the same.
+optional), then an indented body of `name = …` lines, usually ending in
+`return …`. Without a `return`, the function gives the value of its last line,
+so a `def` can simply show a series of steps. The two styles behave the same.
 
 ```
 def KE(mass, speed)
@@ -395,6 +398,27 @@ Everything mathjs supports works: `sqrt`, `sin`/`cos` (accepting `deg`), `log`,
   is still Euler's number (`e_avg` still averages the series).
 - Note that `phi` and `tau` are also built in (the golden ratio and 2π), so define
   them before using them as your own variables.
+- `atan2(y, x)` also takes coordinates with units, as long as they match
+  (`atan2(1.0 m, 2.0 m)`).
+
+### Tuples and coordinates
+
+A bracketed list with commas is a **tuple**, such as a point's coordinates:
+
+```
+r = (1.00 m, 2.00 m, 3.00 m)      # (1.00, 2.00, 3.00) m
+s = 2 * r                          # (2.00, 4.00, 6.00) m
+d = norm(r)                        # 3.74 m
+```
+
+- A unit shared by every value is written once, after the bracket; values with
+  different units each keep their own: (1.41 m, 45.0°).
+- Tuples scale, add and convert with `to`; `norm` gives the length, and `dot` and
+  `cross` work on them. A display unit (`r:cm = …`) applies to every value.
+- A function can return a tuple: `to_cart(r, th to rad) = (r*cos(th), r*sin(th))`.
+- Brackets that follow a name are a function call (`f(a, b)`), and brackets
+  without a comma are just grouping (`(1 + 2) * 3`).
+- For now, uncertainties don't carry into a tuple's values.
 
 ### Units
 
@@ -453,10 +477,21 @@ usual rules:
 
 Pick a number instead of Auto to show every result to that many sig figs.
 
-#### Declaring a variable's sig figs
+#### Declaring a variable's sig figs and unit
 
 Add `:n` to the name being assigned to set its sig figs yourself, instead of counting
-them from how the value is written:
+them from how the value is written. Add `:unit` to show (and keep) the value in that
+unit; the two combine in either order:
+
+```
+phi:3:deg = atan(y/x)   # 26.6°: an angle from atan, asin or acos counts as radians
+d:km = 1500. m * 2      # 3.000 km
+f:percent = 0.25        # 25 %
+```
+
+A unit that doesn't fit is an error ("3.0 m can't be shown in deg"); a plain number
+can only be given an angle unit this way. Uncertainties are converted too. The sig
+figs work as follows:
 
 ```
 m:4 = 2 kg          # m = 2.000 kg

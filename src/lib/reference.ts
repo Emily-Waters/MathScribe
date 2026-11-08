@@ -44,6 +44,11 @@ export const REFERENCE: ReferenceSection[] = [
       { source: 'g = 9.81 m/s^2', explain: 'A unit goes right after the number. Compound units have no spaces.' },
       { source: 'v = 25.0 m/s\nv to km/h', explain: 'to converts to another unit.' },
       { source: 'r = 0.400 angstrom', explain: 'Ångström is angstrom (A is the ampere).' },
+      {
+        source: 'phi:3:deg = atan(1.00 / 2.00)',
+        explain: 'name:unit shows (and keeps) the result in that unit; a plain angle from atan or asin counts as radians. '
+          + 'Combine it with sig figs in either order: phi:3:deg.',
+      },
       { source: 'theta = 30.0 deg', explain: 'Angles in deg or rad; trig functions accept either.' },
       {
         source: 'P = 0.950 angstrom^-1\ndr = 0.010 angstrom\nshell = P * dr to percent',
@@ -106,6 +111,31 @@ export const REFERENCE: ReferenceSection[] = [
         source: 'E(n, m to kg, L to m) = n^2 * @h^2 / (8*m*L^2)\nm_e = 9.11e-31 kg\nE_1 = E(1, m_e, 0.100 nm)',
         explain: 'name to unit converts that argument on the way in, so the working shows it in that unit. '
           + 'An argument in the wrong kind of unit, or with no unit, is an error.',
+      },
+      {
+        source: 'def steps(a, b)\n    s = a + b\n    p = 2 * s\nr = steps(1.0, 2.0)',
+        explain: 'Without a return, a def gives the value of its last line.',
+      },
+      {
+        source: [
+          'def polar(x, y)',
+          '    r = sqrt(x^2 + y^2)',
+          '    theta:deg = atan2(y, x)',
+          '    return (r, theta)',
+          'P = polar(1.00 m, 1.00 m)',
+        ].join('\n'),
+        explain: 'A function can return a tuple of values, such as coordinates.',
+      },
+    ],
+  },
+  {
+    id: 'tuples',
+    title: 'Tuples and coordinates',
+    examples: [
+      {
+        source: 'r = (1.00 m, 2.00 m, 3.00 m)\ns = 2 * r\nd = norm(r)',
+        explain: 'A bracketed list with commas is a tuple. A shared unit is written once; tuples scale, add, '
+          + 'convert with to, and norm, dot and cross work on them.',
       },
     ],
   },

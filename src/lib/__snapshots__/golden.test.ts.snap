@@ -316,6 +316,18 @@ exports[`the Reference tab’s examples > Functions: def KE(mass, speed) 1`] = `
      ↳ E = \\frac12· 2.00 kg·(3.00 m/s)^2 = 9.00 J"
 `;
 
+exports[`the Reference tab’s examples > Functions: def polar(x, y) 1`] = `
+"5: P = (r, \\theta) = (1.41 m, 45.0°)
+     ↳ r = \\sqrt(1.00 m)^2+(1.00 m)^2 = 1.41 m
+     ↳ \\theta = atan2(1.00 m, 1.00 m) = 45.0°"
+`;
+
+exports[`the Reference tab’s examples > Functions: def steps(a, b) 1`] = `
+"4: r = p = 6.0
+     ↳ s = 1.0+ 2.0 = 3.0
+     ↳ p = 2· s = 2· 3.0 = 6.0"
+`;
+
 exports[`the Reference tab’s examples > Functions: f(x) = 2 * x^2 + 1 1`] = `
 "1: f(x) = 2·x^2+ 1
 2: y = 2·3.0^2+ 1 = 19"
@@ -373,6 +385,12 @@ exports[`the Reference tab’s examples > Solving: v = 5.00 m/s 1`] = `
      ↳ v^2 = 2· a· d"
 `;
 
+exports[`the Reference tab’s examples > Tuples and coordinates: r = (1.00 m, 2.00 m, 3.00 m) 1`] = `
+"1: r = (1.00 m, 2.00 m, 3.00 m) = (1.00, 2.00, 3.00) m
+2: s = 2· r = 2· (1.00, 2.00, 3.00) m = (2.00, 4.00, 6.00) m
+3: d = \\left\\| r\\right\\| = \\left\\| (1.00, 2.00, 3.00) m\\right\\| = 3.74 m"
+`;
+
 exports[`the Reference tab’s examples > Uncertainty: d = 3.50 m pm 0.02 m 1`] = `"1: d = (3.50 ± 0.02) m"`;
 
 exports[`the Reference tab’s examples > Uncertainty: d = 3.50 m pm 0.02 m 2`] = `
@@ -392,6 +410,8 @@ exports[`the Reference tab’s examples > Units: P = 0.950 angstrom^-1 1`] = `
 `;
 
 exports[`the Reference tab’s examples > Units: g = 9.81 m/s^2 1`] = `"1: g = 9.81 m/s^2"`;
+
+exports[`the Reference tab’s examples > Units: phi:3:deg = atan(1.00 / 2.00) 1`] = `"1: \\phi = \\tan^-1(\\frac1.002.00) = 26.6°"`;
 
 exports[`the Reference tab’s examples > Units: r = 0.400 angstrom 1`] = `"1: r = 0.400 Å"`;
 

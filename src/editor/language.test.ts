@@ -38,6 +38,10 @@ describe('highlighting', () => {
     expect(tokens('d = 3.50 m pm 0.02 m')).toEqual(['d:var', '3.50:num', 'm:unit', 'pm:kw', '0.02:num', 'm:unit'])
   })
 
+  it('colours a display unit on the assigned name as a unit', () => {
+    expect(tokens('phi:3:deg = atan(y/x)')).toEqual(['phi:var', '3:num', 'deg:unit', 'atan:fn', 'y:var', 'x:var'])
+  })
+
   it('tells definitions from calls', () => {
     expect(tokens('E_k(n, m to kg) = n * m')[0]).toBe('E_k:def')
     expect(tokens('def KE(mass)').slice(0, 2)).toEqual(['def:kw', 'KE:def'])

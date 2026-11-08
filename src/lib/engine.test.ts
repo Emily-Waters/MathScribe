@@ -5,6 +5,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { last, lineAt, lines, readable, shown, value } from '../test/helpers.ts'
+import { rewriteTuples } from './engine.ts'
 
 describe('basic calculation', () => {
   it('substitutes values and tidies the unit', () => {
@@ -166,6 +167,12 @@ describe('functions', () => {
     expect(value('def KE(mass, speed)\n    E = 1/2 * mass * speed^2\n    return E\nE_k = KE(2.00 kg, 3.00 m/s)')).toBe('9.00 J')
   })
 
+  it('returns a def’s last line when it has no return', () => {
+    const src = 'def steps(a, b)\n    s = a + b\n    p = s * 2\nr = steps(1.0, 2.0)'
+    expect(shown(src)).toBe('r = p = 6.0')
+    expect(last(src).trace?.map((t) => readable(t.tex))).toEqual(['s = 1.0+ 2.0 = 3.0', 'p = s· 2 = 3.0· 2 = 6.0'])
+  })
+
   it('converts cast parameters on the way in', () => {
     const src = 'E_k(n, m to kg, L to m) = (n^2 * @h^2)/(8*m*L^2)\nm_e = 9.11e-31 kg\nE_1 = E_k(1, m_e, 0.100 nm)'
     expect(readable(lineAt(src, 1).tex)).toMatch(/^E_k\(n, m \[kg\], L \[m\]\)/)
@@ -189,6 +196,79 @@ describe('functions', () => {
   it('lays out every call of a #multiline function one = per row', () => {
     expect(last('area(r) = pi * r^2   #multiline\nr_1 = 2.0 cm\nA = area(r_1)').tex).toContain('\\begin{aligned}')
     expect(last('area(r) = pi * r^2\nr_1 = 2.0 cm\nA = area(r_1)').tex).not.toContain('\\begin{aligned}')
+  })
+})
+
+describe('display settings on the name', () => {
+  it('show a result in a unit, with sig figs, in either order', () => {
+    expect(value('y = 1.00\nx = 2.00\nphi:3:deg = atan(y/x)')).toBe('26.6°')
+    expect(value('phi:deg:3 = atan(1.00/2.00)')).toBe('26.6°')
+    expect(value('d:km = 1500. m * 2')).toBe('3.000 km')
+  })
+
+  it('treat a unitless angle as radians, and keep the unit afterwards', () => {
+    const src = 'phi:deg = atan(1.00/2.00)\ns = sin(phi)\nphi'
+    expect(resultOfLine(src, 2)).toBe('0.447')
+    expect(resultOfLine(src, 3)).toBe('26.6°')
+  })
+
+  it('convert the uncertainty too', () => {
+    expect(value('x = 2.00 m pm 0.05 m\ny = 1.00 m pm 0.05 m\nphi:deg = atan(y/x)')).toBe('(26.6 ± 1.3)°')
+  })
+
+  it('can show a percentage', () => {
+    expect(value('f:percent = 0.25')).toBe('25 %')
+  })
+
+  it('explain what doesn’t fit', () => {
+    expect(last('bad:deg = 3.0 m').error).toMatch(/can't be shown in deg: the units don't match/)
+    expect(last('bad:kg = 2.0').error).toMatch(/has no unit, so it can't be shown in kg/)
+    expect(last('bad:zz = 1').error).toMatch(/"zz" isn't a number of sig figs or a unit/)
+    expect(last('bad:0 = 1').error).toMatch(/at least 1 sig fig/)
+  })
+})
+
+describe('tuples', () => {
+  const src = 'x = 1.00 m\ny = 2.00 m\nz = 3.00 m\nr = (x, y, z)\ns = 2 * r\nt = r + r\nd = norm(r)\nrc = r to cm'
+
+  it('show a shared unit once, after the bracket', () => {
+    expect(shown(src.split('\n').slice(0, 4).join('\n'))).toBe('r = (x, y, z) = (1.00 m, 2.00 m, 3.00 m) = (1.00, 2.00, 3.00) m')
+    expect(shown('q = (1.0 m, 2.0 s)')).toBe('q = (1.0 m, 2.0 s)')
+  })
+
+  it('calculate: scaling, adding, length and conversion', () => {
+    expect(resultOfLine(src, 5)).toBe('(2.00, 4.00, 6.00) m')
+    expect(resultOfLine(src, 6)).toBe('(2.00, 4.00, 6.00) m')
+    expect(resultOfLine(src, 7)).toBe('3.74 m')
+    expect(resultOfLine(src, 8)).toBe('(1.00e2, 2.00e2, 3.00e2) cm')
+  })
+
+  it('can be a function’s result', () => {
+    expect(value('to_cart(rr, th to rad) = (rr * cos(th), rr * sin(th))\nP = to_cart(2.00 m, 30.0 deg)')).toBe('(1.73, 1.00) m')
+    const polar = 'def polar(px, py)\n    rr = sqrt(px^2 + py^2)\n    th:deg = atan2(py, px)\n    return (rr, th)\nQ = polar(1.00 m, 1.00 m)'
+    expect(value(polar)).toBe('(1.41 m, 45.0°)') // the body's :deg applies to what's returned
+  })
+
+  it('leave function calls and ordinary brackets alone', () => {
+    expect(value('f(a, b) = a + b\nk = f(1, 2)')).toBe('3')
+    expect(value('n = (1 + 2) * 3')).toBe('9')
+    expect(value('m = max(1, (2))')).toBe('2')
+  })
+})
+
+describe('rewriteTuples', () => {
+  it('turns bracketed lists into tuples, and nothing else', () => {
+    expect(rewriteTuples('r = (x, y, z)')).toBe('r = tuple(x, y, z)')
+    expect(rewriteTuples('f(a, b) + (1, (2, 3))')).toBe('f(a, b) + tuple(1, tuple(2, 3))')
+    expect(rewriteTuples('(1 + 2) * max(3, 4) + [1, 2]')).toBe('(1 + 2) * max(3, 4) + [1, 2]')
+  })
+})
+
+describe('atan2', () => {
+  it('takes coordinates with matching units', () => {
+    expect(value('g = atan2(1.0 m, 2.0 m)')).toBe('0.46')
+    expect(value('g = atan2(1.0 m, 100. cm)')).toBe('0.79') // different units, read in x's; 2 sig figs
+    expect(last('h = atan2(1.0 m, 2.0 s)').error).toMatch(/Units do not match/)
   })
 })
 

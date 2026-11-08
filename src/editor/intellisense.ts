@@ -139,6 +139,20 @@ export function complete(ctx: CompletionContext): CompletionResult | null {
     }
   }
 
+  // After a `:` on the name being assigned (`phi:3:de`): a display unit, or `exact`.
+  const spec = /^\s*[A-Za-z]\w*(?::[^:=\s]+)*:([A-Za-z]*)$/.exec(before)
+  if (spec && (spec[1] || ctx.explicit)) {
+    return {
+      from: ctx.pos - spec[1].length,
+      options: [
+        { label: 'exact', type: 'keyword', detail: 'full precision; never limits a result' },
+        { label: 'percent', type: 'unit', detail: 'a unitless result ×100, with %' },
+        ...unitOptions,
+      ],
+      validFor: /^[A-Za-z]*$/,
+    }
+  }
+
   // After a number or `to`: a unit.
   const unit = /(?:\d\.?|\bto)\s+([A-Za-z]*)$/.exec(before)
   if (unit && (unit[1] || ctx.explicit)) {

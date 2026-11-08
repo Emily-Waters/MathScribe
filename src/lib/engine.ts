@@ -44,6 +44,76 @@ const math = create(all)
 math.import({ lit: (text: string) => Number(text) })
 
 /**
+ * `(x, y, z)`: a tuple of values, such as coordinates. It's a one-dimensional
+ * matrix, so `2 * r`, `r1 + r2`, `norm(r)`, `dot` and `cross` all work, and it's
+ * shown as (1.0, 2.0, 3.0) m. Bracketed lists with commas are rewritten to
+ * `tuple(…)` before parsing (see rewriteTuples).
+ */
+math.import({ tuple: (...values: MathType[]) => math.matrix(values as never) })
+
+/**
+ * Rewrite `(a, b, c)` to `tuple(a, b, c)`: a bracket with commas at its top
+ * level that isn't a function call's argument list (it doesn't follow a name or
+ * a closing bracket).
+ */
+export function rewriteTuples(src: string): string {
+  let out = src
+  // Innermost first doesn't matter: each match only renames its own bracket.
+  for (let i = out.length - 1; i >= 0; i--) {
+    if (out[i] !== '(') continue
+    const before = out.slice(0, i).trimEnd()
+    if (/[\w)\]]$/.test(before)) continue // a call: f(a, b), solve(…), or (x)(y)
+    let depth = 0
+    let comma = false
+    for (let j = i; j < out.length; j++) {
+      const c = out[j]
+      if (c === '(' || c === '[' || c === '{') depth++
+      else if (c === ')' || c === ']' || c === '}') {
+        depth--
+        if (depth === 0) break
+      } else if (c === ',' && depth === 1) comma = true
+    }
+    if (comma) out = `${out.slice(0, i)}tuple${out.slice(i)}`
+  }
+  return out
+}
+
+/** A one-dimensional matrix: a tuple like (x, y, z). */
+const isTuple = (v: unknown): v is math.Matrix =>
+  math.isMatrix(v) && (v as math.Matrix).size().length === 1
+
+/**
+ * atan2(y, x) of two lengths (or any matching units), such as a point's
+ * coordinates: mathjs only takes plain numbers. The ratio is what matters, so
+ * both are read in x's unit.
+ */
+const mathAtan2 = math.atan2
+math.import({
+  atan2: (y: MathType, x: MathType) => {
+    if (math.isUnit(y) && math.isUnit(x)) {
+      const unit = (x as Unit).formatUnits()
+      return mathAtan2((y as Unit).toNumber(unit), (x as Unit).toNumber(unit))
+    }
+    return mathAtan2(y as never, x as never)
+  },
+}, { override: true })
+
+/**
+ * norm(r), the length of a tuple, also when it has units: mathjs's own norm
+ * starts its sum from a plain 0, which can't be added to 1.00 m.
+ */
+const mathNorm = math.norm
+math.import({
+  norm: (value: MathType, p?: number | string) => {
+    if (isTuple(value) && (p === undefined || p === 2)) {
+      const squares = (value.toArray() as MathType[]).map((v) => math.multiply(v, v) as MathType)
+      return math.sqrt(squares.reduce((sum, sq) => math.add(sum, sq) as MathType) as never)
+    }
+    return p === undefined ? mathNorm(value as never) : mathNorm(value as never, p as never)
+  },
+}, { override: true })
+
+/**
  * sin, cos and tan of exact angles come out with floating-point noise
  * (sin(pi) = 1.2e-16, sin(30 deg) = 0.49999999999999994). Results within 1e-14 of
  * 0, ±1/2 or ±1 are snapped to that value. Their outputs are bounded (or, for tan,
@@ -287,6 +357,7 @@ const CONVERSION = /\bto\s+/g
  */
 export function preprocess(src: string, isVariable: (id: string) => boolean): { text: string; shadowed: string[] } {
   const shadowed = new Set<string>()
+  src = rewriteTuples(src)
 
   // `... to kN`: the conversion target is always a unit.
   let out = ''
@@ -654,8 +725,68 @@ interface CustomConstant {
 /** How deep to show working for functions that call functions. */
 const MAX_TRACE_DEPTH = 6
 
-/** `name:n =` or `name:exact =` at the start of a line. */
-const DECLARED_SF = /^([A-Za-z]\w*):(\d+|exact)\s*=(?!=)/
+/**
+ * `name:3 =`, `name:deg =`, `phi:3:deg =`: display settings on the name being
+ * assigned, each after a `:` and in any order: sig figs (`3`, `exact`) and a unit.
+ */
+const DECLARED = /^([A-Za-z]\w*)((?::[^:=\s]+)+)\s*=(?!=)/
+
+interface Declaration {
+  name: string
+  /** The `name:… =` part of the line. */
+  length: number
+  sf?: number | 'exact'
+  /** Show the value in this unit (or `percent`). */
+  unit?: string
+}
+
+const isAngleUnit = (unit: string) => {
+  try {
+    return math.unit(unit).equalBase(math.unit('rad'))
+  } catch {
+    return false
+  }
+}
+
+const formatted = (v: unknown) => math.format(v as MathType, { precision: 4 })
+
+/**
+ * `value` in `unit`, for `phi:deg = …`. A unitless value can only be shown in an
+ * angle unit, as radians (atan, asin and acos give plain numbers in radians).
+ * Tuples are converted element by element.
+ */
+function toDisplayUnit(value: unknown, unit: string): unknown {
+  if (math.isMatrix(value)) return math.map(value, (v: MathType) => toDisplayUnit(v, unit) as MathType)
+  if (math.isUnit(value)) {
+    try {
+      return (value as Unit).to(unit)
+    } catch {
+      throw new Error(`${formatted(value)} can't be shown in ${unit}: the units don't match.`)
+    }
+  }
+  if (typeof value === 'number') {
+    if (isAngleUnit(unit)) return math.unit(value, 'rad').to(unit)
+    throw new Error(`${formatted(value)} has no unit, so it can't be shown in ${unit} `
+      + '(only an angle in radians, from atan or asin for example, can be given a unit this way).')
+  }
+  throw new Error(`This value can't be shown in ${unit}.`)
+}
+
+/** The display settings on a line's assigned name, or an error if one isn't understood. */
+function parseDeclaration(line: string): Declaration | { error: string } | null {
+  const m = DECLARED.exec(line)
+  if (!m) return null
+  const out: Declaration = { name: m[1], length: m[0].length }
+  for (const spec of m[2].slice(1).split(':')) {
+    if (spec === 'exact') out.sf = 'exact'
+    else if (/^\d+$/.test(spec)) {
+      if (Number(spec) === 0) return { error: `${m[1]}:0 isn't valid; use at least 1 sig fig, or :exact.` }
+      out.sf = Number(spec)
+    } else if (spec === 'percent' || isValidUnit(spec)) out.unit = spec
+    else return { error: `In ${m[1]}:${spec}, "${spec}" isn't a number of sig figs or a unit.` }
+  }
+  return out
+}
 
 /** `f(x, y) = expr`: a one-line function definition. */
 const ONE_LINE_FUNCTION = /^([A-Za-z]\w*)\s*\(([^()]*)\)\s*=(?!=)\s*(.+)$/
@@ -684,6 +815,8 @@ interface ParsedLine {
   declaredSf?: number | 'exact'
   /** `… to percent`: show the (unitless) result ×100 with a % sign. */
   asPercent?: boolean
+  /** `phi:deg = …`: show (and keep) the result in this unit. */
+  displayUnit?: string
 }
 
 /** `… to percent` at the end of a line. */
@@ -979,6 +1112,7 @@ export class Calculator {
     const parts = this.split(value, sf, forced)
     if (parts) return attachUnit(numberTex(parts.num), parts.unit ? unitTex(parts.unit) : '')
     if (typeof value === 'boolean') return `\\text{${value}}`
+    if (isTuple(value)) return this.tupleTex(value, sf, forced)
     if (math.isMatrix(value) || Array.isArray(value)) {
       try {
         return math.parse(math.format(value, this.format)).toTex()
@@ -987,6 +1121,21 @@ export class Calculator {
       }
     }
     return `\\text{${math.format(value, this.format)}}`
+  }
+
+  /**
+   * A tuple as (1.0, 2.0, 3.0) m: each value at `sf` sig figs, with a unit
+   * they all share written once after the bracket, or each with its own.
+   */
+  private tupleTex(tuple: math.Matrix, sf: number, forced: boolean): string {
+    const values = tuple.toArray() as unknown[]
+    const parts = values.map((v) => this.split(v, sf, forced))
+    const unit = parts[0]?.unit
+    if (values.length && parts.every((p) => p && p.unit === unit)) {
+      const nums = parts.map((p) => numberTex(p!.num)).join(', ')
+      return attachUnit(`\\left(${nums}\\right)`, unit ? unitTex(unit) : '')
+    }
+    return `\\left(${values.map((v) => this.valueTex(v, sf, undefined, undefined, forced)).join(', ')}\\right)`
   }
 
   /** A variable's value for the substitution step, at its own sig figs. */
@@ -1015,6 +1164,8 @@ export class Calculator {
 
   /** Node standing in for a variable's value in the substitution step. */
   private valueNode(value: unknown, sf: number, forced = false): MathNode {
+    // A tuple is already bracketed: (1.0, 2.0) m.
+    if (isTuple(value)) return rawNode(this.valueTex(value, sf, undefined, undefined, forced))
     const parts = this.split(value, sf, forced)
     if (!parts) return rawNode(`\\left(${this.valueTex(value, sf)}\\right)`)
     const numTex = numberTex(parts.num)
@@ -1041,6 +1192,9 @@ export class Calculator {
       if (isSymbolNode(n)) {
         if (n.name.startsWith(RAW)) return ` ${n.name.slice(1)}`
         return ` ${symbolTex(n.name)}`
+      }
+      if (isFunctionNode(n) && n.fn.name === 'tuple') {
+        return `\\left(${n.args.map((a) => a.toTex(options).trim()).join(', ')}\\right)`
       }
       if (isFunctionNode(n) && (!(n.fn.name in math) || typeof this.scope.get(n.fn.name) === 'function')) {
         // User-defined function (even one named like a built-in, e.g. sum): f(x), not \mathrm{f}(x)
@@ -1477,7 +1631,7 @@ export class Calculator {
   }
 
   defineConstant(input: string): CalcResult {
-    const name = /^([A-Za-z]\w*)(?::(?:\d+|exact))?\s*=(?!=)/.exec(input)?.[1]
+    const name = /^([A-Za-z]\w*)(?::[^:=\s]+)*\s*=(?!=)/.exec(input)?.[1]
     if (!name) return { tex: '', error: 'Inside @constants, each line is "name = value".' }
     this.pushScope()
     try {
@@ -1592,7 +1746,10 @@ export class Calculator {
     if (bad !== undefined) return { signature, body, error: `"${bad}" isn't a valid parameter: write a name, or "name to unit".` }
     const badUnit = casts.find((u) => u !== undefined && !isValidUnit(u))
     if (badUnit) return { signature, body, error: `"${badUnit}" isn't a unit MathScribe knows.` }
-    type Statement = { kind: 'assign'; name: string; code: math.EvalFunction } | { kind: 'return'; code: math.EvalFunction }
+    type Statement =
+      // `unit`: a display unit on the name (`th:deg = …`), which the value keeps.
+      | { kind: 'assign'; name: string; code: math.EvalFunction; unit?: string }
+      | { kind: 'return'; code: math.EvalFunction }
     const statements: Statement[] = []
     const sources: UserFunction['statements'] = []
 
@@ -1601,7 +1758,8 @@ export class Calculator {
 
     for (const { line, text, note, command, multiline: lineMultiline } of lines) {
       const ret = /^return\s+(.+)$/.exec(text)
-      const assign = /^([A-Za-z]\w*)(?::(?:\d+|exact))?\s*=(?!=)\s*(.+)$/.exec(text)
+      // `x = …`, or with display settings: `x:3 = …`, `theta:deg = …`.
+      const assign = /^([A-Za-z]\w*)(?::[^:=\s]+)*\s*=(?!=)\s*(.+)$/.exec(text)
       const source = ret?.[1] ?? assign?.[2]
       if (!source) {
         return { signature, body, error: `Line ${line}: inside a function, each line is "name = …" or "return …".` }
@@ -1619,7 +1777,9 @@ export class Calculator {
           sources.push({ kind: 'return', text: source, note, command, multiline: lineMultiline })
           body.push({ tex: `${signature} = ${this.toTex(node, literals)}`, note, line })
         } else {
-          statements.push({ kind: 'assign', name: assign![1], code })
+          const declared = parseDeclaration(text)
+          const unit = declared && !('error' in declared) && declared.unit !== 'percent' ? declared.unit : undefined
+          statements.push({ kind: 'assign', name: assign![1], code, unit })
           // Keep the line as written, so a declared `x:3 =` applies when its working is shown.
           sources.push({ kind: 'assign', text, note, command, multiline: lineMultiline })
           body.push({ tex: `${symbolTex(assign![1])} = ${this.toTex(node, literals)}`, note, line })
@@ -1628,8 +1788,14 @@ export class Calculator {
         return { signature, body, error: `Line ${line}: ${(e as Error).message}` }
       }
     }
+    // No `return`: the function's value is its last line's (so a def can just show steps).
     if (!statements.some((s) => s.kind === 'return')) {
-      return { signature, body, error: `${name} needs a "return …" line.` }
+      const lastAssigned = [...statements].reverse().find((s) => s.kind === 'assign')
+      if (!lastAssigned || lastAssigned.kind !== 'assign') {
+        return { signature, body, error: `${name} has no lines to calculate.` }
+      }
+      statements.push({ kind: 'return', code: math.parse(lastAssigned.name).compile() })
+      sources.push({ kind: 'return', text: lastAssigned.name })
     }
 
     const definedIn = this.scope
@@ -1643,7 +1809,7 @@ export class Calculator {
       for (const s of statements) {
         const v = s.code.evaluate(local)
         if (s.kind === 'return') return v
-        local.set(s.name, v)
+        local.set(s.name, s.unit ? toDisplayUnit(v, s.unit) : v)
       }
       return undefined
     }
@@ -1802,6 +1968,7 @@ export class Calculator {
     mode: DisplayMode,
     explicit: boolean,
     declaredSf?: number | 'exact',
+    displayUnit?: string,
   ): LineResult {
     const fail = (error: string, tex = '') => ({ tex, error })
     const target = call[1]
@@ -1873,7 +2040,7 @@ export class Calculator {
       const node = target ? new math.AssignmentNode(new math.SymbolNode(target), shown) : shown
       return this.evaluateParsed(node, {
         percent: false, literals, warnings: [], mode, explicit,
-        lhs: target ? undefined : symbolTex(x), prelude, info, declaredSf,
+        lhs: target ? undefined : symbolTex(x), prelude, info, declaredSf, displayUnit,
       })
     }
 
@@ -2039,11 +2206,12 @@ export class Calculator {
       }
     }
 
-    // `m:3 = …` declares the sig figs of what's assigned; take it off the name.
-    const declaration = DECLARED_SF.exec(input.trim())
-    if (declaration?.[2] === '0') return { tex: '', error: `${declaration[1]}:0 isn't valid; use at least 1 sig fig, or :exact.` }
-    const declaredSf = declaration ? (declaration[2] === 'exact' ? 'exact' as const : Number(declaration[2])) : undefined
-    if (declaration) input = `${declaration[1]} =${input.trim().slice(declaration[0].length)}`
+    // `m:3 = …`, `phi:3:deg = …` set how what's assigned is shown; take them off the name.
+    const declaration = parseDeclaration(input.trim())
+    if (declaration && 'error' in declaration) return { tex: '', error: declaration.error }
+    const declaredSf = declaration?.sf
+    const displayUnit = declaration?.unit === 'percent' ? undefined : declaration?.unit
+    if (declaration) input = `${declaration.name} =${input.trim().slice(declaration.length)}`
 
     // `delta F =` asks for F's uncertainty; a trailing = is just a prompt.
     const constants = this.expandConstants(input.replace(/=\s*$/, '').trim())
@@ -2053,7 +2221,7 @@ export class Calculator {
     const aggregateError = this.defineAggregates(cleaned, target)
     if (aggregateError) return { tex: '', error: aggregateError }
     // `… to percent` isn't a mathjs unit: take it off and show the result as a percentage.
-    const asPercent = TO_PERCENT.test(cleaned)
+    const asPercent = TO_PERCENT.test(cleaned) || declaration?.unit === 'percent'
     const line = expandParenPm(this.expandDeltaRefs(cleaned.replace(TO_PERCENT, '')))
 
     // Number literals as typed, so `2.0 kg` keeps its trailing zero.
@@ -2063,7 +2231,7 @@ export class Calculator {
     // `x = solve(lhs = rhs, x)`: the equation needs special parsing (its `=`).
     const solveCall = /^(?:([A-Za-z]\w*)\s*=\s*)?solve\s*\(/.exec(line)
     if (solveCall && !this.isUserFunction('solve')) {
-      return this.evaluateSolve(line, solveCall, literals, requestedMode, explicit, declaredSf)
+      return this.evaluateSolve(line, solveCall, literals, requestedMode, explicit, declaredSf, displayUnit)
     }
 
     // Separate `value pm uncertainty` on the right-hand side.
@@ -2098,7 +2266,9 @@ export class Calculator {
       return { tex, warning }
     }
 
-    return this.evaluateParsed(node, { uncNode, percent, literals, warnings, mode: requestedMode, explicit, declaredSf, asPercent })
+    return this.evaluateParsed(node, {
+      uncNode, percent, literals, warnings, mode: requestedMode, explicit, declaredSf, asPercent, displayUnit,
+    })
   }
 
   /**
@@ -2221,6 +2391,18 @@ export class Calculator {
         }
       }
       value = u.toNumber('')
+    }
+    // `phi:deg = …`: the result in that unit (a unitless angle counts as radians).
+    if (ctx.displayUnit && value !== undefined) {
+      try {
+        const angle = !math.isUnit(value) && !math.isMatrix(value) && isAngleUnit(ctx.displayUnit)
+        value = toDisplayUnit(value, ctx.displayUnit)
+        if (angle) {
+          contributions = new Map([...contributions].map(([k, c]) => [k, math.unit(c as number, 'rad')]))
+        }
+      } catch (e) {
+        return { tex: layoutEquation('full', parts(), multiline), warning, trace, info: ctx.info, error: (e as Error).message }
+      }
     }
     const unc = this.total(contributions, value)
     // A declared `2.0 kg pm 0.1 kg` keeps the uncertainty's sig figs as typed.

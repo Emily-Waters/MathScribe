@@ -385,16 +385,16 @@ exports[`the Reference tab’s examples > Solving: v = 5.00 m/s 1`] = `
      ↳ v^2 = 2· a· d"
 `;
 
+exports[`the Reference tab’s examples > Tuples and coordinates: p = tuple(1.414 m, 0.7854) 1`] = `
+"1: p = (1.414 m, 0.7854)
+2: (r, \\theta) = p = (1.41 m, 45.00°)
+3: x = r·\\cos(\\theta) = 1.41 m·\\cos(45.00°) = 1.00 m"
+`;
+
 exports[`the Reference tab’s examples > Tuples and coordinates: r = tuple(1.00 m, 2.00 m, 3.00 m) 1`] = `
 "1: r = (1.00 m, 2.00 m, 3.00 m) = (1.00, 2.00, 3.00) m
 2: s = 2· r = 2· (1.00, 2.00, 3.00) m = (2.00, 4.00, 6.00) m
 3: d = \\left\\| r\\right\\| = \\left\\| (1.00, 2.00, 3.00) m\\right\\| = 3.74 m"
-`;
-
-exports[`the Reference tab’s examples > Tuples and coordinates: r = tuple(3.0 m, 4.0 m) 1`] = `
-"1: r = (3.0 m, 4.0 m) = (3.0, 4.0) m
-2: (a, b) = r = (3.0, 4.0) m
-3: c = \\sqrta^2+b^2 = \\sqrt(3.0 m)^2+(4.0 m)^2 = 5.0 m"
 `;
 
 exports[`the Reference tab’s examples > Uncertainty: d = 3.50 m pm 0.02 m 1`] = `"1: d = (3.50 ± 0.02) m"`;

@@ -425,6 +425,9 @@ d = norm(r)                          # 3.74 m
   of its own, shown as (a, b, c) = (1.00, 2.00, 3.00) m. The right-hand side can be
   any tuple, such as a function's result: `tuple(r, theta) = polar(x, y)`. It works
   inside function bodies too.
+- Each name takes the same settings as a single assignment, sig figs and a unit
+  in any order: `tuple(r:3, theta:deg) = polar(x, y)` shows (1.41 m, 45.0°), and
+  `r` and `theta` keep those settings afterwards.
 - A bracketed list with commas on its own, like `(1, 2)`, is an error that points
   to `tuple(1, 2)`, so brackets only ever mean grouping or a function call.
 - For now, uncertainties don't carry into a tuple's values.

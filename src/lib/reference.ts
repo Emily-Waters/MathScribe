@@ -139,8 +139,9 @@ export const REFERENCE: ReferenceSection[] = [
           + 'convert with to, and norm, dot and cross work on them.',
       },
       {
-        source: 'r = tuple(3.0 m, 4.0 m)\ntuple(a, b) = r\nc = sqrt(a^2 + b^2)',
-        explain: 'tuple(a, b) = … unpacks a tuple: each value becomes a variable of its own.',
+        source: 'p = tuple(1.414 m, 0.7854)\ntuple(r:3, theta:deg) = p\nx = r * cos(theta)',
+        explain: 'tuple(a, b) = … unpacks a tuple: each value becomes a variable of its own. '
+          + 'Each name can take sig figs and a unit, like b:cm or theta:3:deg.',
       },
     ],
   },

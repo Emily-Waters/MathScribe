@@ -35,6 +35,7 @@ const SOURCE = [
   '    the mass ps', // 23
   'phi:3:de', // 24
   'Steps:', // 25
+  'tuple(r:3, theta:de', // 26
 ].join('\n')
 
 /** The labels suggested at the end of line `n`, filtered by what's typed. */
@@ -70,6 +71,7 @@ describe('suggestions', () => {
   it('offer display units after a : on the assigned name, but not after a block opener', () => {
     expect(suggestions(24)).toEqual(expect.arrayContaining(['deg', 'degC']))
     expect(suggestions(25)).toBeNull()
+    expect(suggestions(26)).toEqual(expect.arrayContaining(['deg'])) // on a name being unpacked
   })
 
   it('offer display commands after #', () => {

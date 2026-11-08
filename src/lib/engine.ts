@@ -781,6 +781,27 @@ function toDisplayUnit(value: unknown, unit: string): unknown {
   throw new Error(`This value can't be shown in ${unit}.`)
 }
 
+/** A name in `tuple(a, b:3, c:deg) = …`, with its display settings. */
+interface TupleName {
+  name: string
+  sf?: number | 'exact'
+  unit?: string
+}
+
+/** One name of an unpacking, `theta:3:deg`; or an error saying what's wrong with it. */
+function parseTupleName(entry: string): TupleName | { error: string } {
+  const name = /^[A-Za-z]\w*/.exec(entry)?.[0]
+  if (!name || !/^[A-Za-z]\w*(?::[^:=\s]+)*$/.test(entry)) {
+    return { error: `"${entry}" isn't a variable name: write tuple(a, b, c) = …, optionally with settings like b:3 or c:deg.` }
+  }
+  if (entry === name) return { name }
+  const d = parseDeclaration(`${entry} = 0`)
+  if (!d) return { name }
+  if ('error' in d) return d
+  if (d.unit === 'percent') return { error: `${name}:percent isn't available when unpacking; show it as a percentage on a line of its own.` }
+  return { name, sf: d.sf, unit: d.unit }
+}
+
 /** The display settings on a line's assigned name, or an error if one isn't understood. */
 function parseDeclaration(line: string): Declaration | { error: string } | null {
   const m = DECLARED.exec(line)
@@ -1138,13 +1159,19 @@ export class Calculator {
    */
   private tupleTex(tuple: math.Matrix, sf: number, forced: boolean): string {
     const values = tuple.toArray() as unknown[]
-    const parts = values.map((v) => this.split(v, sf, forced))
+    return this.valuesTex(values, values.map(() => ({ sf, forced })))
+  }
+
+  /** Values in a tuple's brackets, each at its own sig figs (as unpacked names can declare). */
+  private valuesTex(values: unknown[], shown: { sf: number; forced: boolean }[]): string {
+    const parts = values.map((v, i) => this.split(v, shown[i].sf, shown[i].forced))
     const unit = parts[0]?.unit
     if (values.length && parts.every((p) => p && p.unit === unit)) {
       const nums = parts.map((p) => numberTex(p!.num)).join(', ')
       return attachUnit(`\\left(${nums}\\right)`, unit ? unitTex(unit) : '')
     }
-    return `\\left(${values.map((v) => this.valueTex(v, sf, undefined, undefined, forced)).join(', ')}\\right)`
+    const each = values.map((v, i) => this.valueTex(v, shown[i].sf, undefined, undefined, shown[i].forced))
+    return `\\left(${each.join(', ')}\\right)`
   }
 
   /** A variable's value for the substitution step, at its own sig figs. */
@@ -1758,7 +1785,7 @@ export class Calculator {
     type Statement =
       // `unit`: a display unit on the name (`th:deg = …`), which the value keeps.
       | { kind: 'assign'; name: string; code: math.EvalFunction; unit?: string }
-      | { kind: 'unpack'; names: string[]; code: math.EvalFunction }
+      | { kind: 'unpack'; targets: TupleName[]; code: math.EvalFunction }
       | { kind: 'return'; code: math.EvalFunction }
     const statements: Statement[] = []
     const sources: UserFunction['statements'] = []
@@ -1777,10 +1804,11 @@ export class Calculator {
       if (!source) {
         return { signature, body, error: `Line ${line}: inside a function, each line is "name = …", "tuple(a, b) = …" or "return …".` }
       }
-      const badName = unpackNames?.find((n) => !/^[A-Za-z]\w*$/.test(n))
-      if (badName !== undefined) {
-        return { signature, body, error: `Line ${line}: "${badName}" isn't a variable name: write tuple(a, b, c) = ….` }
-      }
+      // Each unpacked name, with any settings (`tuple(r:3, th:deg) = …`).
+      const unpackTargets = unpackNames?.map(parseTupleName)
+      const badTarget = unpackTargets?.find((t) => 'error' in t)
+      if (badTarget && 'error' in badTarget) return { signature, body, error: `Line ${line}: ${badTarget.error}` }
+      const targets = unpackTargets as TupleName[] | undefined
       const literals = new Map<number, string>()
       for (const m of source.matchAll(NUMBER)) addLiteral(literals, m[0])
       try {
@@ -1790,9 +1818,10 @@ export class Calculator {
         const node = math.parse(preprocess(expanded.text, this.isVariable).text)
         const code = node.compile()
         if (unpackNames) {
-          statements.push({ kind: 'unpack', names: unpackNames, code })
+          statements.push({ kind: 'unpack', targets: targets!, code })
           sources.push({ kind: 'assign', text, note, command, multiline: lineMultiline })
-          body.push({ tex: `\\left(${unpackNames.map(symbolTex).join(', ')}\\right) = ${this.toTex(node, literals)}`, note, line })
+          const names = targets!.map((t) => symbolTex(t.name)).join(', ')
+          body.push({ tex: `\\left(${names}\\right) = ${this.toTex(node, literals)}`, note, line })
         } else if (ret) {
           statements.push({ kind: 'return', code })
           sources.push({ kind: 'return', text: source, note, command, multiline: lineMultiline })
@@ -1826,10 +1855,11 @@ export class Calculator {
         if (s.kind === 'return') return v
         if (s.kind === 'unpack') {
           const values = isTuple(v) ? v.toArray() as unknown[] : null
-          if (!values || values.length !== s.names.length) {
-            throw new Error(`In ${name}, tuple(${s.names.join(', ')}) = … needs a tuple of ${s.names.length} values.`)
+          if (!values || values.length !== s.targets.length) {
+            const names = s.targets.map((t) => t.name).join(', ')
+            throw new Error(`In ${name}, tuple(${names}) = … needs a tuple of ${s.targets.length} values.`)
           }
-          s.names.forEach((n, i) => local.set(n, values[i]))
+          s.targets.forEach((t, i) => local.set(t.name, t.unit ? toDisplayUnit(values[i], t.unit) : values[i]))
           continue
         }
         local.set(s.name, s.unit ? toDisplayUnit(v, s.unit) : v)
@@ -2242,10 +2272,16 @@ export class Calculator {
    * (a, b, c) = …), then store each of its values as a variable of its own.
    */
   private evaluateUnpack(namesText: string, rhs: string, mode: DisplayMode, explicit: boolean): LineResult {
-    const names = namesText.split(',').map((n) => n.trim())
-    const lhs = `\\left(${names.map((n) => (/^[A-Za-z]\w*$/.test(n) ? symbolTex(n) : n)).join(', ')}\\right)`
-    const bad = names.find((n) => !/^[A-Za-z]\w*$/.test(n))
-    if (bad !== undefined) return { tex: lhs, error: `"${bad}" isn't a variable name: write tuple(a, b, c) = ….` }
+    const entries = namesText.split(',').map((n) => n.trim())
+    const parsed = entries.map(parseTupleName)
+    const lhs = `\\left(${entries.map((n, i) => {
+      const p = parsed[i]
+      return 'error' in p ? n : symbolTex(p.name)
+    }).join(', ')}\\right)`
+    const bad = parsed.find((p) => 'error' in p)
+    if (bad && 'error' in bad) return { tex: lhs, error: bad.error }
+    const targets = parsed as TupleName[]
+    const names = targets.map((t) => t.name)
     const twice = names.find((n, i) => names.indexOf(n) !== i)
     if (twice) return { tex: lhs, error: `${twice} is listed twice.` }
 
@@ -2271,17 +2307,30 @@ export class Calculator {
         error: `The tuple has ${values.length} value${values.length === 1 ? '' : 's'}, but ${names.length} names are given.`,
       }
     }
-    names.forEach((name, i) => {
-      this.scope.set(name, values[i])
-      this.sigs.set(name, sf)
+    // Each name's own settings: `tuple(r:3, theta:deg) = …`.
+    let converted: unknown[]
+    try {
+      converted = values.map((v, i) => (targets[i].unit ? toDisplayUnit(v, targets[i].unit!) : v))
+    } catch (e) {
+      return { ...result, error: (e as Error).message }
+    }
+    const shown = targets.map((t) => (t.sf === undefined
+      ? { sf, forced: false }
+      : { sf: t.sf === 'exact' ? EXACT : t.sf, forced: true }))
+    targets.forEach(({ name }, i) => {
+      this.scope.set(name, converted[i])
+      this.sigs.set(name, shown[i].sf)
       this.uncs.set(name, new Map())
       this.uncSfs.set(name, undefined)
-      this.declared.set(name, undefined)
+      this.declared.set(name, shown[i].forced ? true : undefined)
       this.shown.set(name, undefined)
       this.defs.set(name, undefined)
       this.aggs.set(name, undefined)
     })
-    return result
+    // With settings on the names, the result shows each value that way.
+    if (!targets.some((t) => t.sf !== undefined || t.unit) || !result.parts) return result
+    const parts = { ...result.parts, result: this.valuesTex(converted, shown), approx: false }
+    return { ...result, parts, tex: layoutEquation(mode, parts, this.multiline) }
   }
 
   private evaluateLine(input: string, requestedMode: DisplayMode, explicit = false): LineResult {

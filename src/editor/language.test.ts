@@ -44,6 +44,7 @@ describe('highlighting', () => {
 
   it('colours tuple(a, b) = … as unpacking, not a function definition', () => {
     expect(tokens('tuple(a, b) = polar(x, y)')).toEqual(['tuple:fn', 'a:var', 'b:var', 'polar:fn', 'x:var', 'y:var'])
+    expect(tokens('tuple(r:3, theta:deg) = p')).toEqual(['tuple:fn', 'r:var', '3:num', 'theta:var', 'deg:unit', 'p:var'])
   })
 
   it('tells definitions from calls', () => {

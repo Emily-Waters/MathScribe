@@ -602,10 +602,10 @@ export function collectSymbols(sheet: Sheet, source: string): SheetSymbol[] {
           // `tuple(a, b) = …`: each name is a variable.
           const unpack = /^tuple\s*\(([^()]*)\)\s*=(?!=)/.exec(b.source)
           if (unpack) {
-            for (const name of unpack[1].split(',').map((n) => n.trim())) {
-              if (/^[A-Za-z]\w*$/.test(name)) {
-                out.push({ name, kind: 'variable', line: b.line, from: b.line + 1, to, tex: texOf(name, scope) })
-              }
+            for (const entry of unpack[1].split(',').map((n) => n.trim())) {
+              // The name without its display settings (`theta:deg` → theta).
+              const name = /^([A-Za-z]\w*)(?::[^:=\s]+)*$/.exec(entry)?.[1]
+              if (name) out.push({ name, kind: 'variable', line: b.line, from: b.line + 1, to, tex: texOf(name, scope) })
             }
             break
           }

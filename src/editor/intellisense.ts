@@ -141,6 +141,8 @@ export function complete(ctx: CompletionContext): CompletionResult | null {
 
   // After a `:` on the name being assigned (`phi:3:de`): a display unit, or `exact`.
   const spec = /^\s*[A-Za-z]\w*(?::[^:=\s]+)*:([A-Za-z]*)$/.exec(before)
+    // …or on a name being unpacked: `tuple(r:3, theta:de`
+    ?? /^\s*tuple\s*\((?:[^()=]*,)?\s*[A-Za-z]\w*(?::[^:=\s,()]+)*:([A-Za-z]*)$/.exec(before)
   if (spec && (spec[1] || ctx.explicit)) {
     return {
       from: ctx.pos - spec[1].length,

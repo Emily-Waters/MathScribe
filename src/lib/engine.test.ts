@@ -300,6 +300,25 @@ describe('unpacking a tuple', () => {
     expect(value('def f(p)\n    tuple(u, v) = p\n    return u + v\nk = f(tuple(1.0, 2.0))')).toBe('3.0')
   })
 
+  it('takes sig figs and a unit on each name, as a single assignment does', () => {
+    const src = 'def polar(px, py)\n    rr = sqrt(px^2 + py^2)\n    th = atan2(py, px)\n    return tuple(rr, th)\n'
+      + 'tuple(r:3, theta:deg) = polar(1.00 m, 1.00 m)\ntheta\nx2 = r * cos(theta)'
+    expect(readable(lineAt(src, 5).tex)).toBe('(r, \\theta) = (rr, th) = (1.41 m, 0.785) = (1.41 m, 45.0°)')
+    expect(resultOfLine(src, 6)).toBe('45.0°') // theta keeps the unit
+    expect(value(src)).toBe('1.00 m')
+    expect(value('tuple(a:km, b:2) = tuple(1500. m, 2.345 s)\nb')).toBe('2.3 s') // b keeps its sig figs
+  })
+
+  it('applies a name’s unit inside a function too', () => {
+    expect(value('def f(p)\n    tuple(u:cm, v) = p\n    return u\nk = f(tuple(1.00 m, 2.00))')).toBe('1.00e2 cm')
+  })
+
+  it('explains a setting that doesn’t fit', () => {
+    expect(last('tuple(a:deg, b) = tuple(1.0 m, 2.0)').error).toMatch(/can't be shown in deg/)
+    expect(last('tuple(a:zz, b) = tuple(1, 2)').error).toMatch(/"zz" isn't a number of sig figs or a unit/)
+    expect(last('tuple(a:percent, b) = tuple(1, 2)').error).toMatch(/isn't available when unpacking/)
+  })
+
   it('explains what doesn’t fit', () => {
     expect(last('tuple(a, b) = 5').error).toMatch(/isn't a tuple, so it can't be unpacked into a, b/)
     expect(last('tuple(a, b) = tuple(1, 2, 3)').error).toMatch(/has 3 values, but 2 names are given/)

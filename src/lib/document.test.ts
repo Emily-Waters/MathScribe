@@ -203,7 +203,7 @@ describe('editor information', () => {
   })
 
   it('collects the names a tuple is unpacked into', () => {
-    const unpackSrc = 'r = tuple(1.0, 2.0)\ntuple(a, b) = r'
+    const unpackSrc = 'r = tuple(1.0, 2.0)\ntuple(a, b:2) = r'
     const names = collectSymbols(sheet(unpackSrc), unpackSrc).map((s) => `${s.name}@${s.from}`)
     expect(names).toEqual(['r@2', 'a@3', 'b@3'])
   })

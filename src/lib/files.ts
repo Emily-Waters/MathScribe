@@ -14,6 +14,8 @@ export interface FileHandle {
   createWritable(): Promise<{ write(data: string): Promise<void>; close(): Promise<void> }>
   queryPermission?(options: { mode: 'readwrite' }): Promise<PermissionState>
   requestPermission?(options: { mode: 'readwrite' }): Promise<PermissionState>
+  /** Whether two handles are the same file (so it isn't opened twice). */
+  isSameEntry?(other: FileHandle): Promise<boolean>
 }
 
 interface PickerWindow {
@@ -21,7 +23,8 @@ interface PickerWindow {
   showSaveFilePicker?(options?: object): Promise<FileHandle>
 }
 
-const picker = window as unknown as PickerWindow
+// (Outside a browser, as in tests, there's no window and no file pickers.)
+const picker = (typeof window === 'undefined' ? {} : window) as unknown as PickerWindow
 const FILE_TYPES = [{ description: 'MathScribe sheet', accept: { 'text/plain': ['.txt'] } }]
 
 /** Whether files can stay linked for saving back (and auto-saving). */
@@ -36,17 +39,19 @@ export interface OpenedFile {
   handle?: FileHandle
 }
 
-/** Ask for a file to open. Resolves to null if the dialog is cancelled. */
-export async function openFile(): Promise<OpenedFile | null> {
+/** Ask for one or more files to open. Resolves to [] if the dialog is cancelled. */
+export async function openFiles(): Promise<OpenedFile[]> {
   if (canLinkFiles) {
     try {
-      const [handle] = await picker.showOpenFilePicker!({ types: FILE_TYPES, multiple: false })
-      const file = await handle.getFile()
-      // Ask now, while the click still counts as a user action, so auto-save can write later.
-      await handle.requestPermission?.({ mode: 'readwrite' }).catch(() => undefined)
-      return { text: await file.text(), name: file.name, handle }
+      const handles = await picker.showOpenFilePicker!({ types: FILE_TYPES, multiple: true })
+      return await Promise.all(handles.map(async (handle) => {
+        const file = await handle.getFile()
+        // Ask now, while the click still counts as a user action, so auto-save can write later.
+        await handle.requestPermission?.({ mode: 'readwrite' }).catch(() => undefined)
+        return { text: await file.text(), name: file.name, handle }
+      }))
     } catch (e) {
-      if (isCancel(e)) return null
+      if (isCancel(e)) return []
       throw e
     }
   }
@@ -54,11 +59,12 @@ export async function openFile(): Promise<OpenedFile | null> {
     const input = document.createElement('input')
     input.type = 'file'
     input.accept = '.txt,text/plain'
+    input.multiple = true
     input.onchange = async () => {
-      const file = input.files?.[0]
-      resolve(file ? { text: await file.text(), name: file.name } : null)
+      const files = [...(input.files ?? [])]
+      resolve(await Promise.all(files.map(async (file) => ({ text: await file.text(), name: file.name }))))
     }
-    input.oncancel = () => resolve(null)
+    input.oncancel = () => resolve([])
     input.click()
   })
 }
@@ -91,25 +97,59 @@ export function downloadFile(name: string, text: string): void {
 }
 
 // ---------------------------------------------------------------------------
-// The browser's own copy: kept on every edit, restored on load.
+// The browser's own copy of every open sheet: kept on every edit, restored on load.
 // ---------------------------------------------------------------------------
 
-const DRAFT_KEY = 'mathscribe:draft'
-
-export function loadDraft(): { text: string; name?: string } | null {
-  try {
-    const raw = localStorage.getItem(DRAFT_KEY)
-    return raw ? (JSON.parse(raw) as { text: string; name?: string }) : null
-  } catch {
-    return null
-  }
+/** An open sheet as kept in the browser (file links can't be kept, only the text). */
+export interface DraftSheet {
+  id: string
+  name: string
+  text: string
 }
 
-export function saveDraft(text: string, name?: string): boolean {
+export interface Drafts {
+  sheets: DraftSheet[]
+  active: string
+}
+
+const DRAFTS_KEY = 'mathscribe:drafts'
+/** The single-sheet copy kept before tabs; read once to carry it over. */
+const OLD_DRAFT_KEY = 'mathscribe:draft'
+
+export function loadDrafts(): Drafts | null {
   try {
-    localStorage.setItem(DRAFT_KEY, JSON.stringify({ text, name }))
+    const raw = localStorage.getItem(DRAFTS_KEY)
+    if (raw) {
+      const drafts = JSON.parse(raw) as Drafts
+      if (Array.isArray(drafts.sheets) && drafts.sheets.length) return drafts
+    }
+    const old = localStorage.getItem(OLD_DRAFT_KEY)
+    if (old) {
+      const { text, name } = JSON.parse(old) as { text: string; name?: string }
+      return { sheets: [{ id: 'sheet-1', name: name ?? 'sheet.txt', text }], active: 'sheet-1' }
+    }
+  } catch {
+    /* unreadable: start fresh */
+  }
+  return null
+}
+
+export function saveDrafts(drafts: Drafts): boolean {
+  try {
+    localStorage.setItem(DRAFTS_KEY, JSON.stringify(drafts))
     return true
   } catch {
     return false
+  }
+}
+
+/** `name`, or `name-2.txt`, `name-3.txt`, … if a sheet with that name is already open. */
+export function uniqueName(name: string, taken: string[]): string {
+  if (!taken.includes(name)) return name
+  const dot = name.lastIndexOf('.')
+  const [stem, ext] = dot > 0 ? [name.slice(0, dot), name.slice(dot)] : [name, '']
+  for (let n = 2; ; n++) {
+    const candidate = `${stem}-${n}${ext}`
+    if (!taken.includes(candidate)) return candidate
   }
 }

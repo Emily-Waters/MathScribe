@@ -111,19 +111,26 @@ and in `5 kg * m` the `m` is coloured as a variable.
 
 ## Saving
 
-Sheets are plain `.txt` files. The buttons in the top bar:
+Sheets are plain `.txt` files. Each open sheet has its own **tab** above the
+editor: click a tab to switch, × (or a middle-click) to close it, and + for a new
+sheet. A dot on a tab means it has changes not yet saved to a file; closing such a
+tab asks first. Each tab keeps its own undo history, cursor and scroll position,
+and the output always shows the active tab.
+
+The buttons in the top bar act on the active tab:
 
 | Button | Shortcut | Does |
 | --- | --- | --- |
-| New | | Starts an empty sheet (asks first if there are unsaved changes) |
-| Open | Ctrl/⌘ + O | Opens a sheet |
+| New | | Opens an empty sheet in a new tab |
+| Open | Ctrl/⌘ + O | Opens one or more sheets (select several in the dialog), each in its own tab; a file that's already open is switched to instead |
 | Save | Ctrl/⌘ + S | Saves to the current file, or asks where the first time |
 | Save as | Ctrl/⌘ + Shift + S | Saves to a new file |
 
 Auto-saving happens at two levels:
 
-- **In the browser, always.** Every edit is kept in the browser's storage, so a
-  refresh or closing the tab never loses work; the sheet comes back as you left it.
+- **In the browser, always.** Every open sheet is kept in the browser's storage on
+  every edit, so a refresh or closing the browser tab never loses work; all your
+  sheets come back as you left them, with the same one active.
 - **To the file, in Chrome and Edge.** Once you open or save a file, it stays linked
   and changes are written to it about a second after you stop typing. The top bar
   shows the file name and "saved", "saving…" or "unsaved changes". If the browser asks
@@ -709,8 +716,8 @@ Roughly in priority order.
   `src/lib/sample.ts`: the example sheet shown the first time
 - `*.test.ts` beside the code they test; `src/test/helpers.ts`: shared test
   helpers (evaluate a sheet, read a result as plain text)
-- `src/lib/files.ts`, `src/useSheetFile.ts`: opening, saving, auto-saving and the
-  browser draft
+- `src/lib/files.ts`, `src/useSheets.ts`: the open sheets (tabs), opening, saving,
+  auto-saving and the browser's copy; `src/components/SheetTabs.tsx`: the tab bar
 - `src/editor/language.ts`: the MathScribe language for CodeMirror (highlighting,
   indentation, folding)
 - `src/editor/themes.ts`: syntax colour themes; `src/appTheme.ts`: app themes

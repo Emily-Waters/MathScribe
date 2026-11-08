@@ -20,6 +20,10 @@ import type { SheetSymbol } from '../lib/document.ts'
 interface EditorPaneProps {
   value: string
   onChange: (value: string) => void
+  /** Which sheet (tab) is shown; each keeps its own undo history, cursor and scroll. */
+  docId: string
+  /** The sheets still open, so closed ones' editor states can be let go. */
+  openIds: string[]
   /** A request to put the cursor on a line (from clicking the output); `n` makes repeats distinct. */
   jump: { line: number; n: number } | null
   onCursorLine: (line: number) => void
@@ -192,30 +196,31 @@ function extensions(handlers: { change: (v: string) => void; cursor: (line: numb
  * definition, and blocks fold from the gutter.
  */
 export function EditorPane({
-  value, onChange, jump, onCursorLine, diagnostics, definitions, symbols, theme, dark, customPalette, options,
+  value, onChange, docId, openIds, jump, onCursorLine, diagnostics, definitions, symbols, theme, dark, customPalette,
+  options,
 }: EditorPaneProps) {
   const host = useRef<HTMLDivElement>(null)
   const view = useRef<EditorView | null>(null)
   /** The text the editor starts with; later changes arrive through the effect below. */
   const initialValue = useRef(value)
-  const initialDark = useRef(dark)
   // The editor is created once; these keep its callbacks current.
   const handlers = useRef({ change: onChange, cursor: onCursorLine })
   useEffect(() => {
     handlers.current = { change: onChange, cursor: onCursorLine }
   }, [onChange, onCursorLine])
 
+  const darkNow = useRef(dark)
+  /** A fresh editor state for a sheet's text. */
+  const makeState = useRef((text: string) => EditorState.create({
+    doc: text,
+    extensions: extensions({
+      change: (s) => handlers.current.change(s),
+      cursor: (l) => handlers.current.cursor(l),
+    }, darkNow.current),
+  }))
+
   useEffect(() => {
-    const v = new EditorView({
-      parent: host.current!,
-      state: EditorState.create({
-        doc: initialValue.current,
-        extensions: extensions({
-          change: (s) => handlers.current.change(s),
-          cursor: (l) => handlers.current.cursor(l),
-        }, initialDark.current),
-      }),
-    })
+    const v = new EditorView({ parent: host.current!, state: makeState.current(initialValue.current) })
     view.current = v
     return () => {
       v.destroy()
@@ -223,7 +228,32 @@ export function EditorPane({
     }
   }, [])
 
-  // A new sheet or an opened file replaces the text.
+  // Each sheet's editor state (text, undo history, cursor) and scroll position,
+  // kept while another tab is shown.
+  const saved = useRef(new Map<string, { state: EditorState; scroll: number }>())
+  const shownId = useRef(docId)
+  useEffect(() => {
+    const v = view.current
+    if (!v || shownId.current === docId) return
+    saved.current.set(shownId.current, { state: v.state, scroll: v.scrollDOM.scrollTop })
+    shownId.current = docId
+    const next = saved.current.get(docId)
+    v.setState(next?.state ?? makeState.current(value))
+    const scroll = next?.scroll ?? 0
+    requestAnimationFrame(() => {
+      v.scrollDOM.scrollTop = scroll
+    })
+    handlers.current.cursor(v.state.doc.lineAt(v.state.selection.main.head).number)
+    // Only on switching sheets; `value` is the new sheet's text at that moment.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [docId])
+
+  // Let go of closed sheets' editor states.
+  useEffect(() => {
+    for (const id of saved.current.keys()) if (!openIds.includes(id)) saved.current.delete(id)
+  }, [openIds])
+
+  // Text that changed outside the editor replaces it.
   useEffect(() => {
     const v = view.current
     if (v && v.state.doc.toString() !== value) {
@@ -231,21 +261,24 @@ export function EditorPane({
     }
   }, [value])
 
+  // What the evaluated sheet says (also after switching tabs, since a kept state
+  // may hold an older copy).
   useEffect(() => {
     view.current?.dispatch({ effects: setDiagnostics.of(diagnostics) })
-  }, [diagnostics])
+  }, [diagnostics, docId])
 
   useEffect(() => {
     view.current?.dispatch({ effects: setDefinitions.of(definitions) })
-  }, [definitions])
+  }, [definitions, docId])
 
   useEffect(() => {
     view.current?.dispatch({ effects: setSymbols.of(symbols) })
-  }, [symbols])
+  }, [symbols, docId])
 
   useEffect(() => {
+    darkNow.current = dark
     view.current?.dispatch({ effects: darkness.reconfigure(EditorView.darkTheme.of(dark)) })
-  }, [dark])
+  }, [dark, docId])
 
   // Jump requests from clicking the output: put the cursor at the start of that
   // line's text (not a selection, so typing doesn't replace the line) and scroll

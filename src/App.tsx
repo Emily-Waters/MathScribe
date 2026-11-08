@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { canLinkFiles, loadDraft } from './lib/files.ts'
-import { useSheetFile, type SaveState } from './useSheetFile.ts'
+import { canLinkFiles } from './lib/files.ts'
+import { useSheets, type SaveState } from './useSheets.ts'
+import { SheetTabs } from './components/SheetTabs.tsx'
 import { EditorPane } from './components/EditorPane.tsx'
 import { PreviewPane } from './components/PreviewPane.tsx'
 import { SplitPane } from './components/SplitPane.tsx'
@@ -14,11 +15,6 @@ import { SyntaxOptions } from './components/SyntaxOptions.tsx'
 import { applyAppTheme, loadAppTheme, saveAppTheme, useAppearance, watchSystemTheme, type AppThemeId } from './appTheme.ts'
 import { ThemeMenu } from './components/ThemeMenu.tsx'
 import './App.css'
-import { SAMPLE } from './lib/sample.ts'
-
-
-/** Pick up where you left off: the browser's copy, or the example sheet the first time. */
-const draft = loadDraft()
 
 const SAVE_LABELS: Record<SaveState, string> = {
   saved: 'saved',
@@ -28,9 +24,12 @@ const SAVE_LABELS: Record<SaveState, string> = {
 }
 
 export default function App() {
-  const [source, setSource] = useState(draft?.text ?? SAMPLE)
   const [options, setOptions] = useState<CalcOptions>({ precision: 'auto', showSubstitution: true, approxRounded: false })
-  const file = useSheetFile(source, setSource, draft?.name)
+  // The open sheets (tabs); everything below works on the active one.
+  const file = useSheets()
+  const source = file.active.text
+  const linked = file.active.handle !== null
+  const error = file.active.error
   const [syntaxTheme, setSyntaxTheme] = useState<SyntaxThemeId>(loadSyntaxTheme)
   const [appTheme, setAppTheme] = useState<AppThemeId>(loadAppTheme)
   useEffect(() => {
@@ -62,13 +61,6 @@ export default function App() {
     }
     setSyntaxTheme(id)
     saveSyntaxTheme(id)
-  }
-
-  const newSheet = () => {
-    // The file itself is safe if it's linked and saved; otherwise check first.
-    if (source.trim() && file.state !== 'saved'
-      && !window.confirm('Start a new sheet? Changes not saved to a file will be lost.')) return
-    file.newSheet()
   }
 
   // Ctrl/⌘+S saves, Ctrl/⌘+Shift+S saves as, Ctrl/⌘+O opens.
@@ -109,19 +101,19 @@ export default function App() {
         <div className="filebar">
           <span
             className={`filebar__status filebar__status--${file.state}`}
-            title={file.error ?? (file.linked
+            title={error ?? (linked
               ? 'Changes are saved to this file automatically.'
               : canLinkFiles
                 ? 'Kept in this browser. Save to a file to auto-save there too.'
                 : 'Kept in this browser. Save downloads a copy of the file.')}
           >
-            <span className="filebar__name">{file.name}</span>
+            <span className="filebar__name">{file.active.name}</span>
             {' · '}
-            {file.linked || file.state === 'saved' ? SAVE_LABELS[file.state] : 'in this browser'}
-            {file.linked && file.state !== 'error' && <span className="filebar__auto"> (auto-save on)</span>}
+            {linked || file.state === 'saved' ? SAVE_LABELS[file.state] : 'in this browser'}
+            {linked && file.state !== 'error' && <span className="filebar__auto"> (auto-save on)</span>}
           </span>
-          <button onClick={newSheet} title="Start an empty sheet">New</button>
-          <button onClick={() => void file.open()} title="Open a sheet (Ctrl+O)">Open</button>
+          <button onClick={file.newSheet} title="A new, empty sheet in its own tab">New</button>
+          <button onClick={() => void file.open()} title="Open one or more sheets, each in its own tab (Ctrl+O)">Open</button>
           <button onClick={() => void file.save()} title={canLinkFiles ? 'Save (Ctrl+S)' : 'Download the sheet (Ctrl+S)'}>
             Save
           </button>
@@ -129,18 +121,27 @@ export default function App() {
         </div>
         <ThemeMenu theme={appTheme} onChange={changeAppTheme} />
       </header>
-      {file.error && <div className="app__error" role="alert">{file.error}</div>}
+      {error && <div className="app__error" role="alert">{error}</div>}
       {!file.draftKept && (
         <div className="app__error" role="alert">
           This browser isn't letting MathScribe keep a copy of your work. Save to a file to keep it.
         </div>
       )}
+      <SheetTabs
+        sheets={file.sheets}
+        activeId={file.active.id}
+        onSelect={file.select}
+        onClose={file.close}
+        onNew={file.newSheet}
+      />
       <main className="app__main">
         <SplitPane
           left={
             <EditorPane
               value={source}
-              onChange={setSource}
+              onChange={file.setText}
+              docId={file.active.id}
+              openIds={file.sheets.map((s) => s.id)}
               jump={jump}
               onCursorLine={setActiveLine}
               diagnostics={diagnostics}

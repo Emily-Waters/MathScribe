@@ -578,11 +578,13 @@ body {
 
 /* Scoped blocks */
 .group {
-  margin: 10px 0;
+  margin: 12px 0;
   border: 1px solid var(--border);
   border-left: 3px solid var(--accent);
   border-radius: 6px;
   background: var(--surface);
+  /* Keeps the shaded header inside the rounded corners. */
+  overflow: clip;
 }
 
 .group .group {
@@ -594,16 +596,19 @@ body {
   align-items: baseline;
   justify-content: space-between;
   gap: 16px;
-  padding: 8px 12px 0;
+  padding: 7px 12px;
+  /* A lightly shaded band with a line under it, setting the title apart from the working. */
+  background: color-mix(in srgb, var(--surface-2) 70%, var(--surface));
+  border-bottom: 1px solid var(--border);
 }
 
 .group__title {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
 }
 
 .group__body {
-  padding: 0 12px 4px;
+  padding: 4px 12px 4px;
 }
 
 .group__body > .calc {

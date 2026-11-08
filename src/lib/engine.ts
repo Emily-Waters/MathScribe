@@ -44,38 +44,37 @@ const math = create(all)
 math.import({ lit: (text: string) => Number(text) })
 
 /**
- * `(x, y, z)`: a tuple of values, such as coordinates. It's a one-dimensional
- * matrix, so `2 * r`, `r1 + r2`, `norm(r)`, `dot` and `cross` all work, and it's
- * shown as (1.0, 2.0, 3.0) m. Bracketed lists with commas are rewritten to
- * `tuple(…)` before parsing (see rewriteTuples).
+ * `tuple(x, y, z)`: a tuple of values, such as coordinates. It's a
+ * one-dimensional matrix, so `2 * r`, `r1 + r2`, `norm(r)`, `dot` and `cross` all
+ * work, and it's shown as (1.0, 2.0, 3.0) m. `tuple(a, b, c) = …` unpacks one
+ * into separate variables (see evaluateUnpack).
  */
 math.import({ tuple: (...values: MathType[]) => math.matrix(values as never) })
 
 /**
- * Rewrite `(a, b, c)` to `tuple(a, b, c)`: a bracket with commas at its top
- * level that isn't a function call's argument list (it doesn't follow a name or
- * a closing bracket).
+ * The first bracketed list with commas, `(a, b)`, that isn't a function call's
+ * argument list (it doesn't follow a name or a closing bracket); null if none.
+ * It isn't a value: tuples are written tuple(a, b).
  */
-export function rewriteTuples(src: string): string {
-  let out = src
-  // Innermost first doesn't matter: each match only renames its own bracket.
-  for (let i = out.length - 1; i >= 0; i--) {
-    if (out[i] !== '(') continue
-    const before = out.slice(0, i).trimEnd()
+export function bareTuple(src: string): string | null {
+  for (let i = 0; i < src.length; i++) {
+    if (src[i] !== '(') continue
+    const before = src.slice(0, i).trimEnd()
     if (/[\w)\]]$/.test(before)) continue // a call: f(a, b), solve(…), or (x)(y)
     let depth = 0
     let comma = false
-    for (let j = i; j < out.length; j++) {
-      const c = out[j]
+    let j = i
+    for (; j < src.length; j++) {
+      const c = src[j]
       if (c === '(' || c === '[' || c === '{') depth++
       else if (c === ')' || c === ']' || c === '}') {
         depth--
         if (depth === 0) break
       } else if (c === ',' && depth === 1) comma = true
     }
-    if (comma) out = `${out.slice(0, i)}tuple${out.slice(i)}`
+    if (comma) return src.slice(i, j + 1)
   }
-  return out
+  return null
 }
 
 /** A one-dimensional matrix: a tuple like (x, y, z). */
@@ -357,7 +356,8 @@ const CONVERSION = /\bto\s+/g
  */
 export function preprocess(src: string, isVariable: (id: string) => boolean): { text: string; shadowed: string[] } {
   const shadowed = new Set<string>()
-  src = rewriteTuples(src)
+  const bare = bareTuple(src)
+  if (bare) throw new Error(`A bracketed list with commas, ${bare}, isn't a value: for coordinates, write tuple${bare}.`)
 
   // `... to kN`: the conversion target is always a unit.
   let out = ''
@@ -435,6 +435,13 @@ const parseSolvedName = (name: string) => /^solved__(.+)$/.exec(name)?.[1] ?? nu
 /** Hidden helper variables that aren't listed as the sheet's own variables. */
 const isHiddenName = (name: string) =>
   isUncertaintyName(name) || parseConstantRefName(name) !== null || parseSolvedName(name) !== null
+  || name.startsWith(UNPACKED)
+
+/** A hidden variable holding a tuple while `tuple(a, b) = …` unpacks it. */
+const UNPACKED = 'unpacked__'
+
+/** `tuple(a, b, c) = …`: unpack a tuple into variables. */
+const UNPACK = /^tuple\s*\(([^()]*)\)\s*=(?!=)\s*(.+)$/
 
 // ---------------------------------------------------------------------------
 // Series aggregates
@@ -709,6 +716,8 @@ interface UserFunction {
   definedIn: ScopeSet
   /** Defined with #multiline: every line that calls it is laid out one = per row. */
   multiline: boolean
+  /** Has a `return` line. Without one it gives no value, and can only be called on its own. */
+  returns: boolean
 }
 
 /** A constant defined in an `@constants { }` block. */
@@ -1749,6 +1758,7 @@ export class Calculator {
     type Statement =
       // `unit`: a display unit on the name (`th:deg = …`), which the value keeps.
       | { kind: 'assign'; name: string; code: math.EvalFunction; unit?: string }
+      | { kind: 'unpack'; names: string[]; code: math.EvalFunction }
       | { kind: 'return'; code: math.EvalFunction }
     const statements: Statement[] = []
     const sources: UserFunction['statements'] = []
@@ -1760,9 +1770,16 @@ export class Calculator {
       const ret = /^return\s+(.+)$/.exec(text)
       // `x = …`, or with display settings: `x:3 = …`, `theta:deg = …`.
       const assign = /^([A-Za-z]\w*)(?::[^:=\s]+)*\s*=(?!=)\s*(.+)$/.exec(text)
-      const source = ret?.[1] ?? assign?.[2]
+      // `tuple(a, b) = …` unpacks a tuple (checked first: it also looks like an assignment).
+      const unpack = UNPACK.exec(text)
+      const unpackNames = unpack?.[1].split(',').map((n) => n.trim())
+      const source = ret?.[1] ?? unpack?.[2] ?? assign?.[2]
       if (!source) {
-        return { signature, body, error: `Line ${line}: inside a function, each line is "name = …" or "return …".` }
+        return { signature, body, error: `Line ${line}: inside a function, each line is "name = …", "tuple(a, b) = …" or "return …".` }
+      }
+      const badName = unpackNames?.find((n) => !/^[A-Za-z]\w*$/.test(n))
+      if (badName !== undefined) {
+        return { signature, body, error: `Line ${line}: "${badName}" isn't a variable name: write tuple(a, b, c) = ….` }
       }
       const literals = new Map<number, string>()
       for (const m of source.matchAll(NUMBER)) addLiteral(literals, m[0])
@@ -1772,7 +1789,11 @@ export class Calculator {
         if (expanded.error) throw new Error(expanded.error)
         const node = math.parse(preprocess(expanded.text, this.isVariable).text)
         const code = node.compile()
-        if (ret) {
+        if (unpackNames) {
+          statements.push({ kind: 'unpack', names: unpackNames, code })
+          sources.push({ kind: 'assign', text, note, command, multiline: lineMultiline })
+          body.push({ tex: `\\left(${unpackNames.map(symbolTex).join(', ')}\\right) = ${this.toTex(node, literals)}`, note, line })
+        } else if (ret) {
           statements.push({ kind: 'return', code })
           sources.push({ kind: 'return', text: source, note, command, multiline: lineMultiline })
           body.push({ tex: `${signature} = ${this.toTex(node, literals)}`, note, line })
@@ -1788,15 +1809,9 @@ export class Calculator {
         return { signature, body, error: `Line ${line}: ${(e as Error).message}` }
       }
     }
-    // No `return`: the function's value is its last line's (so a def can just show steps).
-    if (!statements.some((s) => s.kind === 'return')) {
-      const lastAssigned = [...statements].reverse().find((s) => s.kind === 'assign')
-      if (!lastAssigned || lastAssigned.kind !== 'assign') {
-        return { signature, body, error: `${name} has no lines to calculate.` }
-      }
-      statements.push({ kind: 'return', code: math.parse(lastAssigned.name).compile() })
-      sources.push({ kind: 'return', text: lastAssigned.name })
-    }
+    // No `return`: like Python, the function gives no value. Called on a line of
+    // its own, it just shows its working; used in a calculation, it's an error.
+    const returns = statements.some((s) => s.kind === 'return')
 
     const definedIn = this.scope
     const fn = (...args: unknown[]) => {
@@ -1809,11 +1824,19 @@ export class Calculator {
       for (const s of statements) {
         const v = s.code.evaluate(local)
         if (s.kind === 'return') return v
+        if (s.kind === 'unpack') {
+          const values = isTuple(v) ? v.toArray() as unknown[] : null
+          if (!values || values.length !== s.names.length) {
+            throw new Error(`In ${name}, tuple(${s.names.join(', ')}) = … needs a tuple of ${s.names.length} values.`)
+          }
+          s.names.forEach((n, i) => local.set(n, values[i]))
+          continue
+        }
         local.set(s.name, s.unit ? toDisplayUnit(v, s.unit) : v)
       }
       return undefined
     }
-    this.userFunctions.set(fn, { params, casts, statements: sources, definedIn: this.currentScopes(), multiline })
+    this.userFunctions.set(fn, { params, casts, statements: sources, definedIn: this.currentScopes(), multiline, returns })
     this.scope.set(name, fn)
     this.uncs.set(name, new Map())
     this.defs.set(name, undefined)
@@ -1864,6 +1887,23 @@ export class Calculator {
    * shown; otherwise the calling line's mode applies. `#hide` still runs the step
    * (later lines may need it) but leaves it out, unless it has an error.
    */
+  /**
+   * A line that's only a call to a function without `return`: show the working
+   * inside it, with the call itself as the line (there's no value to show).
+   */
+  private showWorking(call: FunctionNode, ctx: ParsedLine): LineResult {
+    const tex = this.toTex(call, ctx.literals)
+    const warning = ctx.warnings.join(' ') || undefined
+    try {
+      // Run it, so mistakes (an argument that doesn't fit a cast, say) are reported.
+      call.compile().evaluate(this.scope)
+    } catch (e) {
+      return { tex, warning, error: (e as Error).message }
+    }
+    const traced = ctx.mode === 'val' ? null : this.traceCall(call, ctx.literals, ctx.mode, ctx.explicit)
+    return { tex, warning, trace: traced?.lines, info: ctx.info }
+  }
+
   private traceCall(call: FunctionNode, literals: Map<number, string>, mode: DisplayMode, explicit: boolean) {
     const fn = this.scope.get(call.fn.name)
     const def = typeof fn === 'function' ? this.userFunctions.get(fn) : undefined
@@ -2193,7 +2233,62 @@ export class Calculator {
   /** `#multiline` on the line being evaluated: each `=` (and in a call's working too) on its own row. */
   private multiline = false
 
+  /** The left-hand side to show instead of the assigned name (set while unpacking). */
+  private lhsOverride: string | undefined
+  private nextUnpack = 0
+
+  /**
+   * `tuple(a, b, c) = expr`: work out the tuple on the right (shown as
+   * (a, b, c) = …), then store each of its values as a variable of its own.
+   */
+  private evaluateUnpack(namesText: string, rhs: string, mode: DisplayMode, explicit: boolean): LineResult {
+    const names = namesText.split(',').map((n) => n.trim())
+    const lhs = `\\left(${names.map((n) => (/^[A-Za-z]\w*$/.test(n) ? symbolTex(n) : n)).join(', ')}\\right)`
+    const bad = names.find((n) => !/^[A-Za-z]\w*$/.test(n))
+    if (bad !== undefined) return { tex: lhs, error: `"${bad}" isn't a variable name: write tuple(a, b, c) = ….` }
+    const twice = names.find((n, i) => names.indexOf(n) !== i)
+    if (twice) return { tex: lhs, error: `${twice} is listed twice.` }
+
+    const hidden = `${UNPACKED}${this.nextUnpack++}`
+    this.lhsOverride = lhs
+    let result: LineResult
+    try {
+      result = this.evaluateLine(`${hidden} = ${rhs}`, mode, explicit)
+    } finally {
+      this.lhsOverride = undefined
+    }
+    const value = this.scope.get(hidden)
+    const sf = this.sigs.get(hidden) ?? EXACT
+    for (const m of [this.scope, this.sigs, this.uncs, this.uncSfs, this.declared, this.shown, this.defs, this.aggs]) m.delete(hidden)
+    if (result.error) return result
+    if (!isTuple(value)) {
+      return { ...result, error: `The right-hand side isn't a tuple, so it can't be unpacked into ${names.join(', ')}.` }
+    }
+    const values = value.toArray() as unknown[]
+    if (values.length !== names.length) {
+      return {
+        ...result,
+        error: `The tuple has ${values.length} value${values.length === 1 ? '' : 's'}, but ${names.length} names are given.`,
+      }
+    }
+    names.forEach((name, i) => {
+      this.scope.set(name, values[i])
+      this.sigs.set(name, sf)
+      this.uncs.set(name, new Map())
+      this.uncSfs.set(name, undefined)
+      this.declared.set(name, undefined)
+      this.shown.set(name, undefined)
+      this.defs.set(name, undefined)
+      this.aggs.set(name, undefined)
+    })
+    return result
+  }
+
   private evaluateLine(input: string, requestedMode: DisplayMode, explicit = false): LineResult {
+    // `tuple(a, b, c) = …` unpacks a tuple. (Before one-line functions: it looks like one.)
+    const unpack = UNPACK.exec(input.trim())
+    if (unpack) return this.evaluateUnpack(unpack[1], unpack[2], requestedMode, explicit)
+
     // `f(x, y) = …` is a one-line function, the same as a `def` whose body is just the return.
     const oneLiner = ONE_LINE_FUNCTION.exec(input.trim())
     const params = oneLiner?.[2].split(',').map((p) => p.trim()).filter(Boolean)
@@ -2280,6 +2375,24 @@ export class Calculator {
     let mode = ctx.mode
     const assigned = isAssignmentNode(node) ? node.object.name : undefined
     const expr = isAssignmentNode(node) ? node.value : node
+    // A function without `return` gives no value: it can only be called on a line of its own.
+    const valueless = this.userCalls(expr).find((c) => {
+      const f = this.scope.get(c.fn.name)
+      return typeof f === 'function' && this.userFunctions.get(f)?.returns === false
+    })
+    if (valueless) {
+      const name = valueless.fn.name
+      if (assigned || unwrap(expr) !== valueless) {
+        return {
+          tex: this.toTex(node, ctx.literals),
+          warning: ctx.warnings.join(' ') || undefined,
+          error: `${name} has no return line, so it doesn't give a value to ${assigned ? `store in ${assigned}` : 'calculate with'}. `
+            + `Add a "return …" line to ${name}, or call it on a line of its own to show its working.`,
+        }
+      }
+      return this.showWorking(valueless, ctx)
+    }
+
     // #multiline on the line, or a call to a function defined with #multiline.
     const multiline = this.multiline || this.userCalls(expr).some((c) => {
       const f = this.scope.get(c.fn.name)
@@ -2288,7 +2401,11 @@ export class Calculator {
     // For `x to kN`, show `x`; the conversion shows up in the result.
     const shown = isOperatorNode(expr) && isConversion(expr) ? expr.args[0] : expr
 
-    const lhsTex = assigned ? symbolTex(assigned) : ctx.lhs
+    // A given left-hand side, such as unpacking's (a, b, c), wins over the name assigned.
+    // It's for this line only, not the working of functions it calls, so take it now.
+    const override = this.lhsOverride
+    this.lhsOverride = undefined
+    const lhsTex = override ?? (assigned ? symbolTex(assigned) : ctx.lhs)
     let exprTex = uncNode ? this.pmTex(shown, uncNode, percent, literals) : this.toTex(shown, literals)
     const bare = unwrap(shown)
     /** Intermediate steps between the expression and the result. */

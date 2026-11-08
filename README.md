@@ -161,7 +161,8 @@ your browser and your own files.
 | `f(x) = x^2 + 1`, then `f(3)` | define and call a function |
 | `E(n, m to kg) = …` | a function whose argument is converted to kg |
 | `phi:3:deg = atan(y/x)` | show a result to 3 sig figs, in degrees |
-| `r = (x, y, z)` | a tuple, such as coordinates |
+| `r = tuple(x, y, z)` | a tuple, such as coordinates |
+| `tuple(a, b, c) = r` | unpack a tuple into variables |
 | `x = 3  # note` | text after `#` becomes the line's description |
 | `x = 3  #val` | a display command (see below) |
 | `# Title` | `\section{Title}`, numbered 1, 2, … |
@@ -284,8 +285,11 @@ P = radialProb(r, psi_200)
 
 or, for several steps, Python-style: `def`, a name and parameters (a trailing `:` is
 optional), then an indented body of `name = …` lines, usually ending in
-`return …`. Without a `return`, the function gives the value of its last line,
-so a `def` can simply show a series of steps. The two styles behave the same.
+`return …`. The two styles behave the same.
+
+A `def` without a `return` gives no value, as in Python. Call it on a line of its
+own (`steps(1.0, 2.0)`) to show its working; using it in a calculation
+(`r = steps(1.0, 2.0)`) is an error, since there's nothing to store.
 
 ```
 def KE(mass, speed)
@@ -403,21 +407,26 @@ Everything mathjs supports works: `sqrt`, `sin`/`cos` (accepting `deg`), `log`,
 
 ### Tuples and coordinates
 
-A bracketed list with commas is a **tuple**, such as a point's coordinates:
+`tuple(…)` makes a **tuple**, such as a point's coordinates. It's shown in
+brackets, as coordinates usually are:
 
 ```
-r = (1.00 m, 2.00 m, 3.00 m)      # (1.00, 2.00, 3.00) m
-s = 2 * r                          # (2.00, 4.00, 6.00) m
-d = norm(r)                        # 3.74 m
+r = tuple(1.00 m, 2.00 m, 3.00 m)   # (1.00, 2.00, 3.00) m
+s = 2 * r                            # (2.00, 4.00, 6.00) m
+d = norm(r)                          # 3.74 m
 ```
 
 - A unit shared by every value is written once, after the bracket; values with
   different units each keep their own: (1.41 m, 45.0°).
 - Tuples scale, add and convert with `to`; `norm` gives the length, and `dot` and
   `cross` work on them. A display unit (`r:cm = …`) applies to every value.
-- A function can return a tuple: `to_cart(r, th to rad) = (r*cos(th), r*sin(th))`.
-- Brackets that follow a name are a function call (`f(a, b)`), and brackets
-  without a comma are just grouping (`(1 + 2) * 3`).
+- A function can return a tuple: `to_cart(r, th to rad) = tuple(r*cos(th), r*sin(th))`.
+- **Unpacking:** `tuple(a, b, c) = …` stores each value of a tuple as a variable
+  of its own, shown as (a, b, c) = (1.00, 2.00, 3.00) m. The right-hand side can be
+  any tuple, such as a function's result: `tuple(r, theta) = polar(x, y)`. It works
+  inside function bodies too.
+- A bracketed list with commas on its own, like `(1, 2)`, is an error that points
+  to `tuple(1, 2)`, so brackets only ever mean grouping or a function call.
 - For now, uncertainties don't carry into a tuple's values.
 
 ### Units

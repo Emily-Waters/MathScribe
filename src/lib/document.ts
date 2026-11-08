@@ -599,6 +599,16 @@ export function collectSymbols(sheet: Sheet, source: string): SheetSymbol[] {
     for (const b of blocks) {
       switch (b.kind) {
         case 'calc': {
+          // `tuple(a, b) = …`: each name is a variable.
+          const unpack = /^tuple\s*\(([^()]*)\)\s*=(?!=)/.exec(b.source)
+          if (unpack) {
+            for (const name of unpack[1].split(',').map((n) => n.trim())) {
+              if (/^[A-Za-z]\w*$/.test(name)) {
+                out.push({ name, kind: 'variable', line: b.line, from: b.line + 1, to, tex: texOf(name, scope) })
+              }
+            }
+            break
+          }
           const def = ONE_LINE_DEF.exec(b.source)
           if (def) {
             out.push({

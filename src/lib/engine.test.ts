@@ -4,8 +4,8 @@
  * solving. Several of these pin down bugs found and fixed earlier.
  */
 import { describe, expect, it } from 'vitest'
-import { last, lineAt, lines, readable, shown, value } from '../test/helpers.ts'
-import { rewriteTuples } from './engine.ts'
+import { last, lineAt, lines, readable, sheet, shown, value } from '../test/helpers.ts'
+import { bareTuple } from './engine.ts'
 
 describe('basic calculation', () => {
   it('substitutes values and tidies the unit', () => {
@@ -167,10 +167,24 @@ describe('functions', () => {
     expect(value('def KE(mass, speed)\n    E = 1/2 * mass * speed^2\n    return E\nE_k = KE(2.00 kg, 3.00 m/s)')).toBe('9.00 J')
   })
 
-  it('returns a def’s last line when it has no return', () => {
-    const src = 'def steps(a, b)\n    s = a + b\n    p = s * 2\nr = steps(1.0, 2.0)'
-    expect(shown(src)).toBe('r = p = 6.0')
-    expect(last(src).trace?.map((t) => readable(t.tex))).toEqual(['s = 1.0+ 2.0 = 3.0', 'p = s· 2 = 3.0· 2 = 6.0'])
+  describe('a def without return', () => {
+    const def = 'def steps(a, b)\n    s = a + b\n    p = s * 2\n'
+
+    it('shows its working when called on a line of its own', () => {
+      const call = last(`${def}steps(1.0, 2.0)`)
+      expect(call.error).toBeUndefined()
+      expect(readable(call.tex)).toBe('steps(1.0, 2.0)')
+      expect(call.trace?.map((t) => readable(t.tex))).toEqual(['s = 1.0+ 2.0 = 3.0', 'p = s· 2 = 3.0· 2 = 6.0'])
+    })
+
+    it('can’t be used in a calculation, since it gives no value', () => {
+      expect(last(`${def}r = steps(1.0, 2.0)`).error).toMatch(/steps has no return line, so it doesn't give a value to store in r/)
+      expect(last(`${def}2 * steps(1.0, 2.0)`).error).toMatch(/doesn't give a value to calculate with/)
+    })
+
+    it('still reports a mistake in the call', () => {
+      expect(last('def show(m to kg)\n    w = m * 9.81 m/s^2\nshow(2.0 m)').error).toMatch(/can't be converted to kg/)
+    })
   })
 
   it('converts cast parameters on the way in', () => {
@@ -229,11 +243,11 @@ describe('display settings on the name', () => {
 })
 
 describe('tuples', () => {
-  const src = 'x = 1.00 m\ny = 2.00 m\nz = 3.00 m\nr = (x, y, z)\ns = 2 * r\nt = r + r\nd = norm(r)\nrc = r to cm'
+  const src = 'x = 1.00 m\ny = 2.00 m\nz = 3.00 m\nr = tuple(x, y, z)\ns = 2 * r\nt = r + r\nd = norm(r)\nrc = r to cm'
 
   it('show a shared unit once, after the bracket', () => {
     expect(shown(src.split('\n').slice(0, 4).join('\n'))).toBe('r = (x, y, z) = (1.00 m, 2.00 m, 3.00 m) = (1.00, 2.00, 3.00) m')
-    expect(shown('q = (1.0 m, 2.0 s)')).toBe('q = (1.0 m, 2.0 s)')
+    expect(shown('q = tuple(1.0 m, 2.0 s)')).toBe('q = (1.0 m, 2.0 s)')
   })
 
   it('calculate: scaling, adding, length and conversion', () => {
@@ -244,23 +258,57 @@ describe('tuples', () => {
   })
 
   it('can be a function’s result', () => {
-    expect(value('to_cart(rr, th to rad) = (rr * cos(th), rr * sin(th))\nP = to_cart(2.00 m, 30.0 deg)')).toBe('(1.73, 1.00) m')
-    const polar = 'def polar(px, py)\n    rr = sqrt(px^2 + py^2)\n    th:deg = atan2(py, px)\n    return (rr, th)\nQ = polar(1.00 m, 1.00 m)'
+    expect(value('to_cart(rr, th to rad) = tuple(rr * cos(th), rr * sin(th))\nP = to_cart(2.00 m, 30.0 deg)')).toBe('(1.73, 1.00) m')
+    const polar = 'def polar(px, py)\n    rr = sqrt(px^2 + py^2)\n    th:deg = atan2(py, px)\n    return tuple(rr, th)\nQ = polar(1.00 m, 1.00 m)'
     expect(value(polar)).toBe('(1.41 m, 45.0°)') // the body's :deg applies to what's returned
   })
 
-  it('leave function calls and ordinary brackets alone', () => {
+  it('must be written tuple(…): a bracketed list with commas is an error', () => {
+    expect(last('r = (1.0, 2.0)').error).toBe("A bracketed list with commas, (1.0, 2.0), isn't a value: for coordinates, write tuple(1.0, 2.0).")
     expect(value('f(a, b) = a + b\nk = f(1, 2)')).toBe('3')
     expect(value('n = (1 + 2) * 3')).toBe('9')
     expect(value('m = max(1, (2))')).toBe('2')
   })
 })
 
-describe('rewriteTuples', () => {
-  it('turns bracketed lists into tuples, and nothing else', () => {
-    expect(rewriteTuples('r = (x, y, z)')).toBe('r = tuple(x, y, z)')
-    expect(rewriteTuples('f(a, b) + (1, (2, 3))')).toBe('f(a, b) + tuple(1, tuple(2, 3))')
-    expect(rewriteTuples('(1 + 2) * max(3, 4) + [1, 2]')).toBe('(1 + 2) * max(3, 4) + [1, 2]')
+describe('bareTuple', () => {
+  it('finds a bracketed list with commas, but not calls, grouping or matrices', () => {
+    expect(bareTuple('r = (x, y, z)')).toBe('(x, y, z)')
+    expect(bareTuple('f(a, b) + 2 * (1, (2, 3))')).toBe('(1, (2, 3))')
+    expect(bareTuple('(1 + 2) * max(3, 4) + [1, 2] + tuple(5, 6)')).toBeNull()
+  })
+})
+
+describe('unpacking a tuple', () => {
+  it('stores each value as a variable of its own', () => {
+    const src = 'x = 1.00 m\ny = 2.00 m\nz = 3.00 m\ntuple(a, b, c) = tuple(x, y, z)\nd = a + b + c'
+    expect(readable(lineAt(src, 4).tex)).toBe('(a, b, c) = (x, y, z) = (1.00 m, 2.00 m, 3.00 m) = (1.00, 2.00, 3.00) m')
+    expect(value(src)).toBe('6.00 m')
+  })
+
+  it('takes a function’s result, and keeps each value’s unit', () => {
+    const src = 'def polar(px, py)\n    rr = sqrt(px^2 + py^2)\n    th:deg = atan2(py, px)\n    return tuple(rr, th)\n'
+      + 'tuple(r, theta) = polar(1.00 m, 1.00 m)\nx2 = r * cos(theta)'
+    const call = lineAt(src, 5)
+    expect(readable(call.tex)).toBe('(r, \\theta) = (rr, th) = (1.41 m, 45.0°)')
+    // The function's own working keeps its own names.
+    expect(call.trace?.map((t) => readable(t.tex).split(' = ')[0])).toEqual(['rr', 'th'])
+    expect(value(src)).toBe('1.00 m')
+  })
+
+  it('works inside a function', () => {
+    expect(value('def f(p)\n    tuple(u, v) = p\n    return u + v\nk = f(tuple(1.0, 2.0))')).toBe('3.0')
+  })
+
+  it('explains what doesn’t fit', () => {
+    expect(last('tuple(a, b) = 5').error).toMatch(/isn't a tuple, so it can't be unpacked into a, b/)
+    expect(last('tuple(a, b) = tuple(1, 2, 3)').error).toMatch(/has 3 values, but 2 names are given/)
+    expect(last('tuple(a, 2) = tuple(1, 2)').error).toMatch(/"2" isn't a variable name/)
+    expect(last('tuple(a, a) = tuple(1, 2)').error).toMatch(/a is listed twice/)
+  })
+
+  it('doesn’t leave its working variable behind', () => {
+    expect(sheet('tuple(a, b) = tuple(1, 2)').variables.map((v) => v.name)).toEqual(['a', 'b'])
   })
 })
 

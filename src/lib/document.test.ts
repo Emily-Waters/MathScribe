@@ -202,6 +202,12 @@ describe('editor information', () => {
     expect(find('y')[0]).toMatchObject({ kind: 'variable', from: 11, tex: expect.stringContaining('2.0') })
   })
 
+  it('collects the names a tuple is unpacked into', () => {
+    const unpackSrc = 'r = tuple(1.0, 2.0)\ntuple(a, b) = r'
+    const names = collectSymbols(sheet(unpackSrc), unpackSrc).map((s) => `${s.name}@${s.from}`)
+    expect(names).toEqual(['r@2', 'a@3', 'b@3'])
+  })
+
   it('marks errors by line', () => {
     const d = collectDiagnostics(sheet(src).blocks)
     expect(d.get(11)).toMatchObject({ kind: 'error' })

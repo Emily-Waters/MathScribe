@@ -133,7 +133,8 @@ function token(stream: StringStream, state: State): string | null {
     if (KEYWORDS.has(id)) return 'keyword'
     if (call) {
       // `def f(…)`, or `f(…) = …` at the start of a line: a definition.
-      const oneLiner = stream.start === /^\s*/.exec(stream.string)![0].length
+      // (Not `tuple(a, b) = …`, which unpacks a tuple rather than defining a function.)
+      const oneLiner = stream.start === /^\s*/.exec(stream.string)![0].length && id !== 'tuple'
         && /^\s*[A-Za-z]\w*\s*\([^()]*\)\s*=(?!=)/.test(stream.string)
       return state.kind === 'def' || oneLiner ? 'definition' : 'function'
     }

@@ -113,15 +113,16 @@ export const REFERENCE: ReferenceSection[] = [
           + 'An argument in the wrong kind of unit, or with no unit, is an error.',
       },
       {
-        source: 'def steps(a, b)\n    s = a + b\n    p = 2 * s\nr = steps(1.0, 2.0)',
-        explain: 'Without a return, a def gives the value of its last line.',
+        source: 'def steps(a, b)\n    s = a + b\n    p = 2 * s\nsteps(1.0, 2.0)',
+        explain: 'A def without return gives no value, as in Python: call it on a line of its own to show its working. '
+          + 'Using it in a calculation (r = steps(…)) is an error.',
       },
       {
         source: [
           'def polar(x, y)',
           '    r = sqrt(x^2 + y^2)',
           '    theta:deg = atan2(y, x)',
-          '    return (r, theta)',
+          '    return tuple(r, theta)',
           'P = polar(1.00 m, 1.00 m)',
         ].join('\n'),
         explain: 'A function can return a tuple of values, such as coordinates.',
@@ -133,9 +134,13 @@ export const REFERENCE: ReferenceSection[] = [
     title: 'Tuples and coordinates',
     examples: [
       {
-        source: 'r = (1.00 m, 2.00 m, 3.00 m)\ns = 2 * r\nd = norm(r)',
-        explain: 'A bracketed list with commas is a tuple. A shared unit is written once; tuples scale, add, '
+        source: 'r = tuple(1.00 m, 2.00 m, 3.00 m)\ns = 2 * r\nd = norm(r)',
+        explain: 'tuple(…) makes a tuple, shown as (x, y, z). A shared unit is written once; tuples scale, add, '
           + 'convert with to, and norm, dot and cross work on them.',
+      },
+      {
+        source: 'r = tuple(3.0 m, 4.0 m)\ntuple(a, b) = r\nc = sqrt(a^2 + b^2)',
+        explain: 'tuple(a, b) = … unpacks a tuple: each value becomes a variable of its own.',
       },
     ],
   },

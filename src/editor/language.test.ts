@@ -42,6 +42,10 @@ describe('highlighting', () => {
     expect(tokens('phi:3:deg = atan(y/x)')).toEqual(['phi:var', '3:num', 'deg:unit', 'atan:fn', 'y:var', 'x:var'])
   })
 
+  it('colours tuple(a, b) = … as unpacking, not a function definition', () => {
+    expect(tokens('tuple(a, b) = polar(x, y)')).toEqual(['tuple:fn', 'a:var', 'b:var', 'polar:fn', 'x:var', 'y:var'])
+  })
+
   it('tells definitions from calls', () => {
     expect(tokens('E_k(n, m to kg) = n * m')[0]).toBe('E_k:def')
     expect(tokens('def KE(mass)').slice(0, 2)).toEqual(['def:kw', 'KE:def'])

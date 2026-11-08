@@ -1,6 +1,6 @@
 import katex from 'katex'
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
-import { listItems, splitInlineMath, toLatexDocument, type Block, type Sheet } from '../lib/document.ts'
+import { listItems, splitInlineMath, titleSegments, toLatexDocument, type Block, type Sheet } from '../lib/document.ts'
 import type { CalcOptions } from '../lib/engine.ts'
 import { ReferencePane } from './ReferencePane.tsx'
 import { OptionsMenu } from './OptionsMenu.tsx'
@@ -13,6 +13,17 @@ export function Tex({ latex, display = false }: { latex: string; display?: boole
   return display
     ? <div className="math" dangerouslySetInnerHTML={{ __html: html }} />
     : <span dangerouslySetInnerHTML={{ __html: html }} />
+}
+
+/** A heading or block title, with `p_z` subscripts and `$…$` maths. */
+function Title({ text }: { text: string }) {
+  return (
+    <>
+      {titleSegments(text).map((s, i) => (s.kind === 'math'
+        ? <Tex key={i} latex={s.value} />
+        : s.kind === 'sub' ? <sub key={i}>{s.value}</sub> : <span key={i}>{s.value}</span>))}
+    </>
+  )
 }
 
 /** Whether a block or anything inside it has an error (so a hidden block still shows it). */
@@ -47,9 +58,10 @@ export function RenderedBlock({ block }: { block: Block }) {
   switch (block.kind) {
     case 'heading': {
       const number = block.number && <span className="doc__heading-number">{block.number}</span>
-      if (block.level === 1) return <h3 className="doc__heading doc__heading--section" {...link(block.line)}>{number}{block.text}</h3>
-      if (block.level === 2) return <h4 className="doc__heading doc__heading--subsection" {...link(block.line)}>{number}{block.text}</h4>
-      return <p className="doc__heading doc__heading--bold" {...link(block.line)}>{block.text}</p>
+      const text = <Title text={block.text} />
+      if (block.level === 1) return <h3 className="doc__heading doc__heading--section" {...link(block.line)}>{number}{text}</h3>
+      if (block.level === 2) return <h4 className="doc__heading doc__heading--subsection" {...link(block.line)}>{number}{text}</h4>
+      return <p className="doc__heading doc__heading--bold" {...link(block.line)}>{text}</p>
     }
     case 'text':
       return (
@@ -145,7 +157,7 @@ export function RenderedBlock({ block }: { block: Block }) {
       if (block.command === 'hide' && !hasError(block)) return null
       const title = (block.title || block.note) && (
         <p className="layout__title" {...link(block.line)}>
-          {block.title}
+          <Title text={block.title} />
           {block.note && <span className="calc__note">{block.note}</span>}
         </p>
       )
@@ -177,7 +189,7 @@ export function RenderedBlock({ block }: { block: Block }) {
       return (
         <section className={`group${block.error ? ' group--error' : ''}`}>
           <header className="group__header" {...link(block.line)}>
-            <span className="group__title">{block.title || 'Block'}</span>
+            <span className="group__title">{block.title ? <Title text={block.title} /> : 'Block'}</span>
             {block.note && <span className="calc__note">{block.note}</span>}
           </header>
           <div className="group__body">

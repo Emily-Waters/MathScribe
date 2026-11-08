@@ -464,6 +464,44 @@ export function splitInlineMath(text: string): { math: boolean; value: string }[
       : { math: false, value: s }))
 }
 
+/** A piece of a title: plain text, a subscript, or inline maths. */
+export type TitleSegment = { kind: 'text' | 'sub' | 'math'; value: string }
+
+/** `p_z`, `E_k`, `x_{max}`: a subscript after a letter or digit. `\_` is a plain underscore. */
+const SUBSCRIPT = /(?<=[A-Za-z0-9])(?<!\\)_(\{[^{}]*\}|[A-Za-z0-9]+)/g
+
+/**
+ * Headings and block titles: `2p_z` shows its subscript (as variable names do),
+ * and `$…$` is inline maths, as in `>` text.
+ */
+export function titleSegments(text: string): TitleSegment[] {
+  const out: TitleSegment[] = []
+  const plain = (s: string) => {
+    if (s) out.push({ kind: 'text', value: s.replace(/\\_/g, '_') })
+  }
+  for (const seg of splitInlineMath(text)) {
+    if (seg.math) {
+      out.push({ kind: 'math', value: seg.value })
+      continue
+    }
+    let last = 0
+    for (const m of seg.value.matchAll(SUBSCRIPT)) {
+      plain(seg.value.slice(last, m.index))
+      out.push({ kind: 'sub', value: m[1].replace(/^\{|\}$/g, '') })
+      last = m.index + m[0].length
+    }
+    plain(seg.value.slice(last))
+  }
+  return out
+}
+
+/** A heading or block title in LaTeX: `2p_z` → 2p\textsubscript{z}. */
+function titleToLatex(text: string): string {
+  return titleSegments(text).map((s) => (s.kind === 'math'
+    ? `$${s.value}$`
+    : s.kind === 'sub' ? `\\textsubscript{${escapeTex(s.value)}}` : escapeTex(s.value))).join('')
+}
+
 const escapeTex = (s: string) =>
   s.replace(/[\\{}#%&_^~$]/g, (c) =>
     c === '\\' ? '\\textbackslash{}' : c === '^' ? '\\^{}' : c === '~' ? '\\~{}' : `\\${c}`)
@@ -476,7 +514,7 @@ function joinBlocks(blocks: Block[]): string {
 function blockToLatex(b: Block): string {
   switch (b.kind) {
     case 'heading': {
-      const text = escapeTex(b.text)
+      const text = titleToLatex(b.text)
       if (b.level === 1) return `\\section{${text}}`
       if (b.level === 2) return `\\subsection{${text}}`
       return `\\noindent\\textbf{${text}}`
@@ -521,7 +559,7 @@ function blockToLatex(b: Block): string {
     case 'layout': {
       if (b.error && !b.children.length) return `% Line ${b.line}: ${b.title}:\n% Error: ${b.error}`
       if (b.command === 'hide') return ''
-      const title = [b.title, b.note].filter(Boolean).map((s) => escapeTex(s!)).join(' --- ')
+      const title = [b.title && titleToLatex(b.title), b.note && escapeTex(b.note)].filter(Boolean).join(' --- ')
       const env = b.style === 'center' ? 'center' : b.style === 'list' ? 'itemize' : b.style === 'numbered' ? 'enumerate' : 'quote'
       const body = env === 'itemize' || env === 'enumerate'
         ? listItems(b.children).map(({ item, subs }) =>
@@ -536,7 +574,7 @@ function blockToLatex(b: Block): string {
     }
     case 'group': {
       if (b.command === 'hide') return ''
-      const title = [b.title, b.note].filter(Boolean).map((s) => escapeTex(s!)).join(' --- ')
+      const title = [b.title && titleToLatex(b.title), b.note && escapeTex(b.note)].filter(Boolean).join(' --- ')
       return [
         title ? `\\paragraph{${title}}` : '',
         '\\begin{quote}',

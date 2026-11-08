@@ -24,7 +24,11 @@ export const REFERENCE: ReferenceSection[] = [
     examples: [
       { source: 'm = 2.00 kg   # mass of the block', explain: 'Assign a value. Text after # is a note shown beside the result.' },
       { source: 'm = 2.00 kg\nF = m * 9.81 m/s^2', explain: 'Use earlier variables; the working is shown with values substituted.' },
-      { source: '# Section\n## Subsection\n### Bold heading', explain: 'Headings. # and ## are numbered, like LaTeX sections.' },
+      {
+        source: '# Section\n## The 2p_z orbital\n### Energy $E_n$',
+        explain: 'Headings. # and ## are numbered, like LaTeX sections. In headings and block titles, '
+          + 'a_b is a subscript (write \\_ for a plain underscore) and $…$ is maths.',
+      },
       { source: '> Prose, with inline maths like $E = mc^2$.', explain: 'A line starting with > is a paragraph of text.' },
       { source: '$ \\int_0^\\infty e^{-x}\\,dx = 1', explain: 'A line starting with $ is raw LaTeX, displayed but not calculated.' },
       {

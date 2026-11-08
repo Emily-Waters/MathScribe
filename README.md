@@ -135,6 +135,12 @@ your browser and your own files.
 | `Title:  #numbered` + indented lines | a layout block: centered, bulleted or numbered |
 | `@c`, `@a_0:3 to angstrom` | constants, and setting their precision and unit |
 
+**Subscripts in headings and block titles:** as in variable names, `_` makes a
+subscript: `Hydrogen 2p_z orbital {` shows 2p with a subscript z, and `x_{max}`
+takes a longer one. Write `\_` for a plain underscore. `$…$` adds inline maths,
+as in `>` text: `## Energy $E_n = -13.6/n^2$ eV`. The LaTeX export uses
+`\textsubscript` and `$…$` to match.
+
 **Spacing:** one blank line between lines is just for readability in the input and
 doesn't change the output. Two or more blank lines leave one empty line in the
 output (and `\vspace{\baselineskip}` in the LaTeX export).

@@ -1,16 +1,67 @@
 # MathScribe
 
 A plain-text calculation sheet. Type calculations on the left, one per line;
-variables carry forward to later lines, units are tracked, and every line is
-typeset on the right as `symbolic = substituted = result`.
+variables carry forward to later lines, units, significant figures and
+uncertainties are tracked, and every line is typeset on the right as
+`symbolic = substituted = result`. The sheet exports to LaTeX.
 
 ```
 npm install
 npm run dev
 ```
 
-Built on [mathjs](https://mathjs.org) (parsing, evaluation, units, LaTeX) and
-[KaTeX](https://katex.org) (rendering).
+Built on [mathjs](https://mathjs.org) (parsing, evaluation, units),
+[KaTeX](https://katex.org) (rendering) and [CodeMirror](https://codemirror.net)
+(the editor).
+
+## The window
+
+- **Input** (left): the sheet, in a code editor with MathScribe syntax colours.
+  Its **Options ▾** menu picks the colour theme.
+- **Output** (right), in three tabs:
+  - **Rendered**: the typeset sheet.
+  - **LaTeX**: the whole sheet as a compilable `.tex` document, with a Copy button.
+  - **Reference**: every feature as an example you can copy, shown with its real
+    output (each example is evaluated live, so the reference always matches what
+    MathScribe actually does), plus the list of built-in constants.
+
+  Its **Options ▾** menu holds the output settings:
+
+  | Setting | Does |
+  | --- | --- |
+  | Sig figs | **Auto** works out each result's sig figs from its inputs; a number shows every result to that many |
+  | Show substitution | Include the step with values put in for the variables |
+  | Use ≈ for every rounded result | Off: ≈ only when every input is exact (`1/3 ≈ 0.333`); on: before any rounded result |
+
+**Linked input and output:** click any line of output (a calculation, a heading, a
+step inside a function or constants card) to put the editor's cursor on its source
+line. Moving the cursor in the editor highlights the matching output and scrolls it
+into view. Lines with an error get a red bar beside the line number, warnings an
+amber one; hover the bar to read the message.
+
+### The editor
+
+| Keys | Does |
+| --- | --- |
+| Tab / Shift+Tab | Indent / dedent by one level (4 spaces) |
+| Backspace in the indentation | Removes a whole level |
+| Enter | Keeps the indentation; one level deeper after a line ending in `{` or `:`, or a `def` |
+| `}` | Dedents itself to match its block |
+| Ctrl+X / Ctrl+C, nothing selected | Cut / copy the whole line (pasting it puts it above the current line) |
+| Alt+↑ / Alt+↓ | Move the line (or selected lines) up / down |
+| Shift+Alt+↑ / ↓ | Duplicate the line |
+| Ctrl+Click a function's name, or F12 | Go to its definition (names you can jump from are underlined while Ctrl is held) |
+| Ctrl+F | Find and replace |
+| Ctrl+Z / Ctrl+Y | Undo / redo |
+
+On a Mac, use ⌘ for Ctrl. `def` bodies, `:` layout blocks and `{ }` blocks fold
+from the arrows in the gutter.
+
+**Colour themes** (Input → Options → Colours): **Default**, **Vivid**, **High
+contrast** and **Minimal**, each with a light and a dark version that follows your
+system's light/dark setting. The choice is remembered in the browser. The colours
+follow how MathScribe reads a line: in `9.81 m/s^2` the unit is coloured as a unit,
+and in `5 kg * m` the `m` is coloured as a variable.
 
 ## Saving
 
@@ -37,6 +88,9 @@ Auto-saving happens at two levels:
 Firefox and Safari don't let web pages write to files, so there Save downloads the
 sheet as a file instead, and the browser copy keeps your work safe in between.
 
+Nothing is sent anywhere and there's no sign-in: your sheets and settings stay in
+your browser and your own files.
+
 ## Syntax
 
 | Line | Meaning |
@@ -44,21 +98,19 @@ sheet as a file instead, and the browser copy keeps your work safe in between.
 | `m = 2.0 kg` | define a variable (with a unit) |
 | `F = m * a` | compute from earlier variables |
 | `F to kN`, `v = d / t to km/h` | convert units |
+| `f = P * dr to percent` | show a unitless result as a percentage |
 | `f(x) = x^2 + 1`, then `f(3)` | define and call a function |
+| `E(n, m to kg) = …` | a function whose argument is converted to kg |
 | `x = 3  # note` | text after `#` becomes the line's description |
+| `x = 3  #val` | a display command (see below) |
 | `# Title` | `\section{Title}`, numbered 1, 2, … |
 | `## Title` | `\subsection{Title}`, numbered 1.1, 1.2, … |
 | `### Title` (or more `#`) | `\textbf{Title}` bold run-in heading |
 | `> Some text` | paragraph; `$...$` for inline LaTeX |
 | `$ \LaTeX` | raw LaTeX, displayed but not evaluated |
-
-**Linked input and output:** click any line of output (a calculation, a heading, a
-step inside a function or constants card) to put the editor's cursor on its source
-line. Moving the cursor in the editor highlights the matching output and scrolls it
-into view. The line numbers beside the editor are marked red for errors and amber
-for warnings; hover one to read the message, click it to go to that line. The editor
-doesn't wrap long lines, so the line numbers stay aligned; scroll sideways for long
-lines.
+| `Title {` … `}` | a block that scopes its variables |
+| `Title:  #numbered` + indented lines | a layout block: centered, bulleted or numbered |
+| `@c`, `@a_0:3 to angstrom` | constants, and setting their precision and unit |
 
 **Spacing:** one blank line between lines is just for readability in the input and
 doesn't change the output. Two or more blank lines leave one empty line in the
@@ -66,8 +118,8 @@ output (and `\vspace{\baselineskip}` in the LaTeX export).
 
 ### Display commands
 
-Put a command after a calculation to control how much of it is shown. It can go
-before or after the note:
+Put a command after a calculation to control how it's shown. It can go before or
+after the note:
 
 | Command | Shows | Example |
 | --- | --- | --- |
@@ -75,12 +127,18 @@ before or after the note:
 | `#sym` | the equation only | F = m·a |
 | `#val` | the result only | F = (20 ± 1) N |
 | `#hide` | nothing; the line is still calculated | |
+| `#multiline` | each `=` on its own row, lined up | F = m·a ⏎ = 2.0 kg · 9.81 m/s² ⏎ = (20 ± 1) N |
+| `#center`, `#list`, `#numbered` | layout (see Layout blocks) | |
 
 ```
 F = m * a  #val  # weight
 F = m * a  # weight  #val      (same thing)
+F = m * a  #sym #multiline     (commands combine)
 ```
 
+- `#multiline` is a layout, so it combines with `#sym`, `#val` and `#full`. A line
+  with only one `=` left to show stays on one line. On a function's definition
+  (`f(x) = …  #multiline`), every line that calls the function is shown multiline.
 - A variable **defined** with `#sym` stays a symbol in later substitution steps:
   after `k = 4.0 N/m * 2 #sym`, `F = k * x` shows `F = k·x = k · 0.150 m = 1.2 N`.
   Its value is still used in every calculation;
@@ -97,10 +155,56 @@ F = m * a  # weight  #val      (same thing)
 - Only these exact words are commands; any other `#word` (like `#3`) stays part of
   the note.
 
+**= or ≈:** a result whose inputs are all exact (whole numbers, π, `:exact`
+constants) and that has been rounded for display follows ≈: `1/3 ≈ 0.333333`,
+`π/4 ≈ 0.785398`. Measured results use =, since their sig figs already say they're
+rounded; turn on *Use ≈ for every rounded result* in the Output options to use ≈
+for those too. Values with a `±` always use =.
+
+### Layout blocks
+
+A line ending in `:` holds the lines indented under it, and arranges them:
+
+```
+Assumptions:   #list
+    > The electron is confined to a 1-D box
+    > The walls are infinitely high
+        > so ψ = 0 at the walls          (indent further for a sub-list)
+
+Steps:   #numbered   # the 1s orbital
+    sigma = Z*r/a_0
+    psi = pi^(-0.5) * (Z/a_0)^(3/2) * e^(-sigma)
+
+Key result:   #center
+    P = 4 * pi * r^2 * psi^2
+
+F = 2.00 kg * 9.81 m/s^2   #center        (a single calculation, centered)
+```
+
+- `#list` makes bullets, `#numbered` a numbered list and `#center` centers the
+  lines. With none of them, `Title:` is just a titled, indented section.
+- The block ends at the first line indented no further than its opener, like a
+  `def` body. Blank lines don't end it.
+- Layout blocks only arrange lines: variables assigned inside **stay available**
+  afterwards (unlike `{ }` blocks, which scope them).
+- The title is optional (`:  #numbered` on its own). A note after the opener is
+  shown beside the title, and display commands on the opener apply to the lines
+  inside, as on `{ }` blocks.
+- In the LaTeX export, lists become `itemize` / `enumerate` (each calculation inline
+  beside its marker) and centered blocks `center`.
+
 ### Functions
 
-Define a function Python-style: `def`, a name and parameters (a trailing `:` is
-optional), then an indented body of `name = …` lines ending in `return …`.
+Write a one-line function the way it's written in maths:
+
+```
+radialProb(r, psi) = 4 * pi * r^2 * psi^2
+P = radialProb(r, psi_200)
+```
+
+or, for several steps, Python-style: `def`, a name and parameters (a trailing `:` is
+optional), then an indented body of `name = …` lines ending in `return …`. The two
+styles behave the same.
 
 ```
 def KE(mass, speed)
@@ -110,11 +214,11 @@ def KE(mass, speed)
 K = KE(m, v)
 ```
 
-A call shows the working inside the function, with the arguments' values filled in,
-followed by the line itself:
+A call shows the working inside the function, in terms of **what you passed in**
+(here `m` and `v`, not `mass` and `speed`), followed by the line itself:
 
 ```
-E = ½ · mass · speed² = ½ · 2.0 kg · (3.00 m/s)² = (9.0 ± 0.5) J
+E = ½ · m · v² = ½ · 2.0 kg · (3.00 m/s)² = (9.0 ± 0.5) J
 K = E = (9.0 ± 0.5) J
 ```
 
@@ -124,9 +228,20 @@ K = E = (9.0 ± 0.5) J
   expression); when the call is part of a bigger expression (`w = 2 * KE(m, v)`), the
   working is shown above and the line is shown as usual.
 - Functions that call functions show their working too, innermost first.
-- `#sym` on the calling line shows the body equations without values
-  (`E = ½ · mass · speed²`, `K = E`); `#val` skips the working and shows just
-  `K = (9.0 ± 0.5) J`.
+- `#sym` on the calling line shows the body equations without values; `#val` skips
+  the working and shows just `K = (9.0 ± 0.5) J`.
+
+**Casting parameters:** write `name to unit` in the parameter list to convert that
+argument when the function is called, so the working shows it in that unit:
+
+```
+E_k(n, m to kg, L to m) = n^2 * @h^2 / (8*m*L^2)
+E_1 = E_k(1, m_e, 0.100 nm)       # working shows 1.00 × 10⁻¹⁰ m
+```
+
+An argument in the wrong kind of unit (a length for `m to kg`), or with no unit at
+all, is an error rather than a silent assumption. The definition shows the casts:
+E_k(n, m [kg], L [m]).
 
 Body lines can have their own notes and commands, which apply whenever the function
 is called:
@@ -141,35 +256,28 @@ def calc(a, b)
 ```
 
 - A body line's command decides how that step is shown; lines without one follow the
-  calling line (or its block's command).
+  calling line (or its block's command). `#multiline` on the `def` line or a body
+  line lays out that working one `=` per row.
 - `#hide` still runs the step, since later lines may use it, but leaves it out of the
   working. If it has an error, it's shown anyway.
 - The `return` line's note goes on the calling line, unless that line has its own
   note. Its command sets how the calling line is shown, unless the calling line (or
   its block) has a command of its own.
-- On the definition card, notes are shown beside each body line.
-
 - The body is every following line indented further than `def` (spaces or tabs).
   Blank lines and `#` comment lines inside it are fine; notes after a line work too.
 - Each call gets its own local scope: assignments in the body stay inside it. The
-  body can read variables from where the function was defined (like `g` below), and
-  a function defined inside a `{ }` block is only visible in that block.
+  body can read variables from where the function was defined, and a function
+  defined inside a `{ }` block is only visible in that block.
 - Calls work like any other function: units, sig figs and uncertainties carry
   through, so `KE(m, v)` propagates the uncertainties of `m` and `v`.
 - Your function takes precedence over a built-in of the same name (e.g. `def sum(a, b)`).
 - The definition is shown as a card with each body line as an equation, the return
   line reading `KE(mass, speed) = E`. `#hide` on the `def` line hides the card.
-- One-line definitions still work: `f(x) = x^2 + 1`.
-
-```
-g = 9.81 m/s^2
-def weight(mass)
-    return mass * g
-```
 
 Two limits for now: bodies are straight-line (no `if` or loops), and a variable the
-body reads from outside (like `g`) contributes its value but not its uncertainty;
-pass it as a parameter if its uncertainty matters.
+body reads from outside contributes its value but not its uncertainty; pass it as a
+parameter if its uncertainty matters. A cast unit can't contain spaces or brackets
+(write `J/mol/K`, not `J/(mol*K)`).
 
 ### Blocks and scope
 
@@ -193,18 +301,9 @@ a                   # still the outer value
   name that already exists outside shadows it; the outer value is untouched.
 - Functions see the variables from where they were defined (lexical scope).
 - Each block lists its local variables underneath.
+- For arranging lines without scoping them, use a layout block (`Title:`) instead.
 
-The editor is CodeMirror, with MathScribe syntax colours (Options → Editor
-colours: Default, Vivid, High contrast or Minimal). Tab indents by one level
-(4 spaces) and Shift+Tab removes one; Backspace in the indentation removes a
-whole level. Enter keeps the indentation (one level deeper after a line ending
-in `{` or `:`, or a `def`), and typing `}` dedents it. As in VS Code, Ctrl+X /
-Ctrl+C with nothing selected cut or copy the whole line, Alt+↑/↓ move lines,
-Shift+Alt+↑/↓ duplicate them, Ctrl+F finds and replaces, and Ctrl+Click (or F12)
-on a function's name goes to its definition. Blocks, `def` bodies and `:` layout
-blocks fold from the gutter.
-
-### Functions and constants
+### Built-in functions
 
 Everything mathjs supports works: `sqrt`, `sin`/`cos` (accepting `deg`), `log`,
 `exp`, `abs`, constants `pi` and `e`, matrices `[1, 2; 3, 4]`, and so on.
@@ -227,13 +326,27 @@ written without spaces (`9.81 m/s^2`, `kg*m^2`). To multiply a number by a
 variable whose name is also a unit, use `*`: `1/2 * m * v^2`, not `1/2 m v^2`.
 A warning is shown when a line looks like that mistake.
 
-Computed results are shown in tidy units: `N/kg` becomes `m/s^2`, `kg m/s^2`
-becomes `N`. Use `to` to choose a unit yourself.
+- **A value you type keeps its unit** wherever it's shown later: `m = 9.11e-31 kg`
+  stays in kg and `L = 1.00e-10 m` in m, in later lines and function working.
+- **Computed results are shown in tidy units:** `N/kg` becomes `m/s^2`, `kg m/s^2`
+  becomes `N`, `Å² · Å⁻³` becomes `Å⁻¹`, and a sensible prefix is chosen
+  (`3.0 km`, `5.00 mm`). Prefixes beyond pico and tera (ronto, zepto, exa, …) are
+  never used; such values stay in their own unit in scientific notation. A single
+  unit with a fractional power, like `Å^-1.5`, is kept as it is.
+- Use `to` to choose a unit yourself. A variable defined with `to` (`a = @a_0 to
+  angstrom`) keeps that unit.
+- Ångström is written `angstrom` (shown as Å); `A` is the ampere.
+- **Percentages:** `… to percent` shows a unitless result ×100 with a % sign, with
+  its sig figs and uncertainty: `shell = P * dr to percent` → 0.95 %. The variable
+  stores the fraction (0.0095), so later lines calculate with it correctly. A value
+  that still has units (like a probability density in Å⁻¹) can't be a percentage
+  and gives an error.
 
 ### Significant figures
 
-With **Sig figs: Auto** (the default), every value keeps the significant figures
-it was written with, and computed results are rounded by the usual rules:
+With **Sig figs: Auto** (the default, in the Output options), every value keeps the
+significant figures it was written with, and computed results are rounded by the
+usual rules:
 
 | Situation | Rule | Example |
 | --- | --- | --- |
@@ -244,6 +357,11 @@ it was written with, and computed results are rounded by the usual rules:
 
 - A number is **measured** if it has a unit or is written with a decimal point or
   exponent. Integers without a unit are **exact**.
+- **Exponents written as plain numbers** (`^0.5`, `^(3/2)`, `^(-0.5)`) are part of
+  the formula, not measurements, so they never limit the result; only the base does.
+- **Zeros:** a measured zero counts by decimal places (`0.00` shows as 0.00), and a
+  zero passed to a function doesn't limit it: `cos(0.00°)` is 1, known far better
+  than 2 sig figs.
 - Trailing zeros in whole numbers don't count (`300 m` has 1 sig fig). Write `300. m`
   or `3.00e2 m` if they do; a warning points these out.
 - Values are kept at full precision and only rounded for display, so rounding
@@ -251,6 +369,8 @@ it was written with, and computed results are rounded by the usual rules:
   to its own sig figs.
 - Results use scientific notation when plain digits would misstate the precision:
   19.6 at 2 sig figs shows as 2.0 × 10¹, not 20.
+- Results of exact inputs aren't limited by sig figs (`1/3 ≈ 0.333333`); write
+  `name:3 = …` to choose.
 - Hover a variable in a block's Local row to see its sig figs.
 
 Pick a number instead of Auto to show every result to that many sig figs.
@@ -336,11 +456,12 @@ V = n * @R * T / @atm to L
 
 - The rounded value counts as a measured value with that many sig figs, as when a
   problem says "use g = 9.81 m/s²".
-- **Set a constant's precision for the whole sheet** with a line that's just `@c:4`
-  (or `@g:exact`). Every plain `@c` in the sheet then uses 4 sig figs, including
-  lines above the declaration and constants defined from it. The declaration line
-  shows the value it sets (`c = 2.998 × 10⁸ m/s`). A use with its own `:n` still
-  wins, and a second declaration for the same constant is ignored with a warning.
+- **Set a constant's precision and unit for the whole sheet** with a line that's
+  just the constant: `@c:4`, `@g:exact`, `@a_0 to angstrom` or `@a_0:3 to angstrom`.
+  Every plain `@c` in the sheet then uses 4 sig figs (every `@a_0` is 0.529 Å),
+  including lines above the declaration and constants defined from it. The
+  declaration line shows the value it sets. A use with its own `:n` still wins, and
+  a second declaration for the same constant is ignored with a warning.
   Declarations can also go inside an `@constants { }` block.
 - Constants carry units, so conversions just work (`@R` in J/(mol·K) gives litres
   when you ask `to L`).
@@ -348,7 +469,8 @@ V = n * @R * T / @atm to L
 - `@e` is the elementary charge and `@g` standard gravity; they don't clash with
   Euler's `e`, grams, or a variable of your own called `g`.
 
-Built-in constants (CODATA 2018; "exact" means exact by definition in the SI):
+Built-in constants (CODATA 2018; "exact" means exact by definition in the SI). The
+Reference tab lists them too:
 
 | Name | Constant | Name | Constant |
 | --- | --- | --- | --- |
@@ -423,6 +545,8 @@ guess (`solve(…, x, -1)`) to choose the solution nearest it.
 
 Angles from asin, acos and atan are in radians; add `to deg` for degrees.
 
+`to percent` isn't supported on a `solve` line yet.
+
 ### Series: sums, means and counts
 
 Numbered variables form a series. Define `t1`, `t2`, `t3`, … (or `t_1`, `t_2`, …)
@@ -450,9 +574,19 @@ and these names become available:
   in a formula is correctly treated as correlated.
 - Members must all have compatible units. Results are shown in the first member's unit.
 - The series aggregates aren't listed in a block's Local row, since they're derived.
+- A name that only matches one numbered variable still forms a series: if a block
+  defines `psi_200` and you write `psi`, it means that one-member series. Check the
+  name if a value appears where you expected an "undefined" error.
 
 ## To do
 
+- [ ] **Hosting**: publish to GitHub Pages, and make the app installable and usable
+      offline (a progressive web app).
+- [ ] **Custom colour theme**: per-category colour pickers in the editor options,
+      starting from a preset, with separate light and dark colours.
+- [ ] **Remember the output options** (sig figs, substitution, ≈) in the browser.
+- [ ] **Go to definition for variables and constants** (`@rho_w` → its
+      `@constants` entry).
 - [ ] **Graphs**: plot data and functions (e.g. `plot(h, t^2, fit)`), with error bars
       from uncertainties and an optional fitted line, included in the LaTeX export.
 - [ ] **Tables**: a table block whose columns become series (so `t_avg`, `t_std`,
@@ -463,8 +597,22 @@ and these names become available:
 
 ## Structure
 
-- `src/lib/engine.ts`: evaluation with scoped variables, unit-literal handling, sig-fig tracking, LaTeX generation
+- `src/lib/engine.ts`: evaluation with scoped variables, unit-literal handling,
+  sig-fig tracking, uncertainty propagation, functions, LaTeX generation
+- `src/lib/document.ts`: line types and blocks (`{ }`, layout, `def`,
+  `@constants`), sheet evaluation, the `.tex` export, diagnostics and definitions
+  for the editor
 - `src/lib/sigfigs.ts`: counting, propagating and formatting significant figures
-- `src/lib/document.ts`: line types, sheet evaluation, full `.tex` export
-- `src/components/SplitPane.tsx`: resizable two-pane layout (drag, arrow keys, double-click to reset)
-- `src/components/EditorPane.tsx` / `PreviewPane.tsx`: input, rendered output, options, variables
+- `src/lib/solve.ts`: `solve(…)`: rearranging, linear, quadratic and numeric solving
+- `src/lib/constants.ts`: the built-in `@` constants
+- `src/lib/reference.ts`: the examples shown in the Reference tab
+- `src/lib/files.ts`, `src/useSheetFile.ts`: opening, saving, auto-saving and the
+  browser draft
+- `src/editor/language.ts`: the MathScribe language for CodeMirror (highlighting,
+  indentation, folding)
+- `src/editor/themes.ts`: colour themes (their colours are in `App.css`)
+- `src/editor/gotoDefinition.ts`: Ctrl+Click / F12 go to definition
+- `src/components/EditorPane.tsx`: the editor; `PreviewPane.tsx`: rendered output,
+  LaTeX and Reference tabs; `ReferencePane.tsx`: the Reference tab;
+  `OptionsMenu.tsx` / `Dropdown.tsx`: the options menus; `SplitPane.tsx`: resizable
+  two-pane layout (drag, arrow keys, double-click to reset)

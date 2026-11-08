@@ -5,10 +5,19 @@ variables carry forward to later lines, units, significant figures and
 uncertainties are tracked, and every line is typeset on the right as
 `symbolic = substituted = result`. The sheet exports to LaTeX.
 
+**Use it online:** <https://emily-waters.github.io/MathScribe/>
+
+To run it locally:
+
 ```
 npm install
 npm run dev
 ```
+
+**Deploying:** every push to `main` builds the site and publishes it to GitHub
+Pages (`.github/workflows/deploy.yml`); progress shows in the repository's Actions
+tab. The build uses `/MathScribe/` as its base path (`vite.config.ts`), so if the
+repository is renamed, change it there too.
 
 Built on [mathjs](https://mathjs.org) (parsing, evaluation, units),
 [KaTeX](https://katex.org) (rendering) and [CodeMirror](https://codemirror.net)
@@ -580,8 +589,9 @@ and these names become available:
 
 ## To do
 
-- [ ] **Hosting**: publish to GitHub Pages, and make the app installable and usable
-      offline (a progressive web app).
+- [x] **Hosting**: published to GitHub Pages on every push.
+- [ ] **Installable and offline**: make the app a progressive web app, so it can be
+      installed from the browser and used without a connection.
 - [ ] **Custom colour theme**: per-category colour pickers in the editor options,
       starting from a preset, with separate light and dark colours.
 - [ ] **Remember the output options** (sig figs, substitution, ≈) in the browser.

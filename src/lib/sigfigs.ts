@@ -51,10 +51,14 @@ export function sigFigsFromPlace(x: number, place: number): number {
  * zeros that count (19.62 at 2 s.f. → "20.", 90 → "90."), and where that can't
  * (19620 at 3 s.f.), scientific notation does: "1.96e+4".
  */
-export function formatSigFigs(x: number, sf: number): string {
+export function formatSigFigs(x: number, sf: number, notation?: Notation): string {
   const digits = Math.min(Math.max(Math.round(sf), 1), 15)
   // A zero's "sig figs" are its decimal places (see countSigFigs): 0.00 → 2 → "0.00".
   if (x === 0) return digits === 1 ? '0' : (0).toFixed(digits)
+  if (!Number.isFinite(x)) return String(x)
+  // (× 10⁰ goes without saying.)
+  if (notation === 'sci') return x.toExponential(digits - 1).replace(/e\+0$/, '')
+  if (notation === 'dec') return decimal(x, digits)
   const plain = x.toPrecision(digits)
   if (!/e/i.test(plain) && x !== 0 && countSigFigs(plain) !== digits) {
     // Trailing zeros that count, as typed: 90 to 2 sig figs is "90.", the same
@@ -64,6 +68,43 @@ export function formatSigFigs(x: number, sf: number): string {
     return x.toExponential(digits - 1)
   }
   return plain
+}
+
+/**
+ * How a variable's numbers are written (`x:sci =`, `x:dec =`): always in
+ * scientific notation, or always as plain decimal digits. Unset, MathScribe
+ * picks: plain digits, with scientific notation for very large or small values
+ * and where plain digits can't show the precision.
+ */
+export type Notation = 'sci' | 'dec'
+
+/**
+ * `x` to `digits` sig figs as plain decimal digits, however large or small:
+ * 0.0000123, 19600 (where trailing zeros can't be marked as counting), 90.
+ * Beyond what plain digits can reasonably show (over 1e21, or more than 100
+ * decimal places), scientific notation.
+ */
+function decimal(x: number, digits: number): string {
+  const rounded = Number(x.toPrecision(digits))
+  const place = Math.floor(Math.log10(Math.abs(rounded))) - digits + 1
+  if (Math.abs(rounded) >= 1e21 || -place > 100) return x.toExponential(digits - 1)
+  const s = rounded.toFixed(Math.max(0, -place))
+  if (!s.includes('.') && countSigFigs(s) !== digits && countSigFigs(`${s}.`) === digits) return `${s}.`
+  return s
+}
+
+/**
+ * A number shown at full precision (an exact value), up to `digits` digits, in
+ * the given notation; trailing zeros dropped, since they don't mean anything here.
+ */
+export function formatExact(x: number, digits: number, notation: Notation): string {
+  if (x === 0 || !Number.isFinite(x)) return String(x)
+  if (notation === 'sci') {
+    return x.toExponential(Math.max(digits - 1, 0)).replace(/\.?0+e/, 'e').replace(/e\+0$/, '')
+  }
+  const s = decimal(x, digits)
+  if (/e/.test(s)) return s.replace(/\.?0+e/, 'e')
+  return s.includes('.') ? s.replace(/\.?0+$/, '') : s.replace(/\.$/, '')
 }
 
 // ---------------------------------------------------------------------------
@@ -88,6 +129,7 @@ export function formatWithUncertainty(
   x: number,
   dx: number,
   uncSf: number = uncertaintySigFigs(dx),
+  notation?: Notation,
 ): { num: string; unc: string; exp?: number; sf: number } {
   // Decimal place of the uncertainty's last digit, after rounding: 0.96 → 1 (place 0).
   const place = Math.floor(Math.log10(Number(dx.toPrecision(uncSf)))) - (uncSf - 1)
@@ -98,7 +140,12 @@ export function formatWithUncertainty(
   const dr = round(dx)
   const mag = Math.floor(Math.log10(Math.abs(xr) || dr))
   const sf = Math.max(1, mag - place + 1)
-  if (mag >= 5 || mag <= -4) {
+  // A shared power of ten: for very large or small values, or always (except
+  // 10⁰) in scientific notation; never in decimal notation.
+  const shareExp = notation === 'sci' ? mag !== 0
+    : notation === 'dec' ? -place > 100 || mag > 20
+      : mag >= 5 || mag <= -4
+  if (shareExp) {
     const decimals = Math.max(0, mag - place)
     return { num: (xr / 10 ** mag).toFixed(decimals), unc: (dr / 10 ** mag).toFixed(decimals), exp: mag, sf }
   }

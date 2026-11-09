@@ -22,8 +22,10 @@ import {
 import {
   EXACT,
   countSigFigs,
+  formatExact,
   formatSigFigs,
   formatWithUncertainty,
+  type Notation,
   uncertaintySigFigs,
   hasAmbiguousZeros,
   isMeasuredLiteral,
@@ -701,6 +703,7 @@ interface ScopeSet {
   uncs: Scope<Contributions>
   uncSfs: Scope<number | undefined>
   declared: Scope<boolean | undefined>
+  notations: Scope<Notation | undefined>
   shown: Scope<string | undefined>
   defs: Scope<MathNode | undefined>
   aggs: Scope<Aggregate | undefined>
@@ -720,6 +723,8 @@ interface UserFunction {
   returns: boolean
   /** Sig figs declared for the result (`f(x):3 = …`), which every call's result has. */
   returnSf?: number
+  /** Notation declared for the result (`f(x):sci = …`). */
+  returnNotation?: Notation
 }
 
 /** A constant defined in an `@constants { }` block. */
@@ -738,7 +743,8 @@ const MAX_TRACE_DEPTH = 6
 
 /**
  * `name:3 =`, `name:deg =`, `phi:3:deg =`: display settings on the name being
- * assigned, each after a `:` and in any order: sig figs (`3`, `exact`) and a unit.
+ * assigned, each after a `:` and in any order: sig figs (`3`, `exact`), a unit,
+ * and a notation (`sci`, `dec`).
  */
 const DECLARED = /^([A-Za-z]\w*)((?::[^:=\s]+)+)\s*=(?!=)/
 
@@ -749,6 +755,8 @@ interface Declaration {
   sf?: number | 'exact'
   /** Show the value in this unit (or `percent`). */
   unit?: string
+  /** Always scientific (`sci`) or always decimal (`dec`) notation. */
+  notation?: Notation
 }
 
 const isAngleUnit = (unit: string) => {
@@ -788,6 +796,7 @@ interface TupleName {
   name: string
   sf?: number | 'exact'
   unit?: string
+  notation?: Notation
 }
 
 /** One name of an unpacking, `theta:3:deg`; or an error saying what's wrong with it. */
@@ -801,7 +810,7 @@ function parseTupleName(entry: string): TupleName | { error: string } {
   if (!d) return { name }
   if ('error' in d) return d
   if (d.unit === 'percent') return { error: `${name}:percent isn't available when unpacking; show it as a percentage on a line of its own.` }
-  return { name, sf: d.sf, unit: d.unit }
+  return { name, sf: d.sf, unit: d.unit, notation: d.notation }
 }
 
 /** The display settings on a line's assigned name, or an error if one isn't understood. */
@@ -811,11 +820,14 @@ function parseDeclaration(line: string): Declaration | { error: string } | null 
   const out: Declaration = { name: m[1], length: m[0].length }
   for (const spec of m[2].slice(1).split(':')) {
     if (spec === 'exact') out.sf = 'exact'
-    else if (/^\d+$/.test(spec)) {
+    else if (spec === 'sci' || spec === 'dec') {
+      if (out.notation && out.notation !== spec) return { error: `${m[1]} can't be both :sci and :dec.` }
+      out.notation = spec
+    } else if (/^\d+$/.test(spec)) {
       if (Number(spec) === 0) return { error: `${m[1]}:0 isn't valid; use at least 1 sig fig, or :exact.` }
       out.sf = Number(spec)
     } else if (spec === 'percent' || isValidUnit(spec)) out.unit = spec
-    else return { error: `In ${m[1]}:${spec}, "${spec}" isn't a number of sig figs or a unit.` }
+    else return { error: `In ${m[1]}:${spec}, "${spec}" isn't a number of sig figs, a unit, or sci/dec.` }
   }
   return out
 }
@@ -849,6 +861,8 @@ interface ParsedLine {
   asPercent?: boolean
   /** `phi:deg = …`: show (and keep) the result in this unit. */
   displayUnit?: string
+  /** `x:sci = …`, `x:dec = …`: the notation the result (and the variable) is shown in. */
+  notation?: Notation
 }
 
 /** `… to percent` at the end of a line. */
@@ -972,6 +986,10 @@ export class Calculator {
   private uncSfs = new Scope<number | undefined>()
   /** Whether a variable's sig figs were declared (`m:3 = …`); then they beat the global setting. */
   private declared = new Scope<boolean | undefined>()
+  /** A variable's declared notation (`x:sci = …`), used wherever its value is shown. */
+  private notations = new Scope<Notation | undefined>()
+  /** Notation numbers are being formatted in right now (see inNotation). */
+  private notation: Notation | undefined
   /**
    * How to show a variable in substitution steps when its value is made only of
    * numbers and built-in constants (`theta = pi/4` shows as π/4, not 0.785).
@@ -1033,8 +1051,20 @@ export class Calculator {
   }
 
   private formatNumber(x: number, sf: number, forced = false): string {
-    if ((this.autoSigFigs || forced) && Number.isFinite(sf)) return formatSigFigs(x, sf)
+    if ((this.autoSigFigs || forced) && Number.isFinite(sf)) return formatSigFigs(x, sf, this.notation)
+    if (this.notation) return formatExact(x, this.format.precision, this.notation)
     return math.format(x, this.format)
+  }
+
+  /** Run `fn` with numbers formatted in `notation` (undefined: the default). */
+  private inNotation<T>(notation: Notation | undefined, fn: () => T): T {
+    const saved = this.notation
+    this.notation = notation
+    try {
+      return fn()
+    } finally {
+      this.notation = saved
+    }
   }
 
   /**
@@ -1113,7 +1143,7 @@ export class Calculator {
     const dx = this.inDisplayUnits(value, unc, p.x, p.unit)
     if (!(dx > 0)) return null
     // The value is rounded to the uncertainty's last decimal place.
-    return { ...formatWithUncertainty(p.x, dx, this.uncSigFigs(uncSf)), unit: p.unit }
+    return { ...formatWithUncertainty(p.x, dx, this.uncSigFigs(uncSf), this.notation), unit: p.unit }
   }
 
   /**
@@ -1126,7 +1156,7 @@ export class Calculator {
     const dx = like === undefined ? p.x : this.inDisplayUnits(like, unc, p.x, p.unit)
     let num = numberTex(this.formatNumber(dx, EXACT))
     if (dx > 0) {
-      const f = formatWithUncertainty(dx, dx, this.uncSigFigs(uncSf))
+      const f = formatWithUncertainty(dx, dx, this.uncSigFigs(uncSf), this.notation)
       num = f.unc + (f.exp !== undefined ? ` \\times 10^{${f.exp}}` : '')
     }
     return attachUnit(num, p.unit ? unitTex(p.unit) : '')
@@ -1161,18 +1191,19 @@ export class Calculator {
    */
   private tupleTex(tuple: math.Matrix, sf: number, forced: boolean): string {
     const values = tuple.toArray() as unknown[]
-    return this.valuesTex(values, values.map(() => ({ sf, forced })))
+    return this.valuesTex(values, values.map(() => ({ sf, forced, notation: this.notation })))
   }
 
-  /** Values in a tuple's brackets, each at its own sig figs (as unpacked names can declare). */
-  private valuesTex(values: unknown[], shown: { sf: number; forced: boolean }[]): string {
-    const parts = values.map((v, i) => this.split(v, shown[i].sf, shown[i].forced))
+  /** Values in a tuple's brackets, each at its own sig figs and notation (as unpacked names can declare). */
+  private valuesTex(values: unknown[], shown: { sf: number; forced: boolean; notation?: Notation }[]): string {
+    const parts = values.map((v, i) => this.inNotation(shown[i].notation, () => this.split(v, shown[i].sf, shown[i].forced)))
     const unit = parts[0]?.unit
     if (values.length && parts.every((p) => p && p.unit === unit)) {
       const nums = parts.map((p) => numberTex(p!.num)).join(', ')
       return attachUnit(`\\left(${nums}\\right)`, unit ? unitTex(unit) : '')
     }
-    const each = values.map((v, i) => this.valueTex(v, shown[i].sf, undefined, undefined, shown[i].forced))
+    const each = values.map((v, i) => this.inNotation(shown[i].notation,
+      () => this.valueTex(v, shown[i].sf, undefined, undefined, shown[i].forced)))
     return `\\left(${each.join(', ')}\\right)`
   }
 
@@ -1180,7 +1211,8 @@ export class Calculator {
   private variableNode(name: string): MathNode {
     const shown = this.shown.get(name)
     if (shown) return rawNode(shown)
-    return this.valueNode(this.scope.get(name), this.sigs.get(name) ?? EXACT, this.declared.get(name) === true)
+    return this.inNotation(this.notations.get(name),
+      () => this.valueNode(this.scope.get(name), this.sigs.get(name) ?? EXACT, this.declared.get(name) === true))
   }
 
   /**
@@ -1562,6 +1594,7 @@ export class Calculator {
     this.uncs.set(name, contributions)
     this.uncSfs.set(name, undefined)
     this.declared.set(name, undefined)
+    this.notations.set(name, undefined)
     this.shown.set(name, undefined)
     this.defs.set(name, undefined)
     this.aggs.set(name, agg)
@@ -1800,6 +1833,7 @@ export class Calculator {
     }
     const returnUnit = shownUnit
     const returnSf = returnSettings?.sf === 'exact' ? EXACT : returnSettings?.sf
+    const returnNotation = returnSettings?.notation
     const bad = paramSpecs.find((_, i) => !parsed[i])
     if (bad !== undefined) return { signature, body, error: `"${bad}" isn't a valid parameter: write a name, or "name to unit".` }
     const badUnit = casts.find((u) => u !== undefined && !isValidUnit(u))
@@ -1889,7 +1923,7 @@ export class Calculator {
       return undefined
     }
     this.userFunctions.set(fn, {
-      params, casts, statements: sources, definedIn: this.currentScopes(), multiline, returns, returnSf,
+      params, casts, statements: sources, definedIn: this.currentScopes(), multiline, returns, returnSf, returnNotation,
     })
     this.scope.set(name, fn)
     this.uncs.set(name, new Map())
@@ -1901,7 +1935,7 @@ export class Calculator {
   private currentScopes(): ScopeSet {
     return {
       scope: this.scope, sigs: this.sigs, uncs: this.uncs, uncSfs: this.uncSfs,
-      declared: this.declared, shown: this.shown, defs: this.defs, aggs: this.aggs,
+      declared: this.declared, notations: this.notations, shown: this.shown, defs: this.defs, aggs: this.aggs,
     }
   }
 
@@ -1911,6 +1945,7 @@ export class Calculator {
     this.uncs = s.uncs
     this.uncSfs = s.uncSfs
     this.declared = s.declared
+    this.notations = s.notations
     this.shown = s.shown
     this.defs = s.defs
     this.aggs = s.aggs
@@ -1993,7 +2028,7 @@ export class Calculator {
     const d = def.definedIn
     this.restoreScopes({
       scope: new Scope(d.scope), sigs: new Scope(d.sigs), uncs: new Scope(d.uncs),
-      uncSfs: new Scope(d.uncSfs), declared: new Scope(d.declared), shown: new Scope(d.shown),
+      uncSfs: new Scope(d.uncSfs), declared: new Scope(d.declared), notations: new Scope(d.notations), shown: new Scope(d.shown),
       defs: new Scope(d.defs), aggs: new Scope(d.aggs),
     })
     this.traceDepth++
@@ -2005,6 +2040,7 @@ export class Calculator {
         this.uncs.set(p, args[i].contributions)
         this.uncSfs.set(p, undefined)
         this.declared.set(p, undefined)
+        this.notations.set(p, undefined)
         this.shown.set(p, args[i].shown)
         this.defs.set(p, undefined)
         this.aggs.set(p, undefined)
@@ -2063,6 +2099,7 @@ export class Calculator {
     explicit: boolean,
     declaredSf?: number | 'exact',
     displayUnit?: string,
+    notation?: Notation,
   ): LineResult {
     const fail = (error: string, tex = '') => ({ tex, error })
     const target = call[1]
@@ -2134,7 +2171,7 @@ export class Calculator {
       const node = target ? new math.AssignmentNode(new math.SymbolNode(target), shown) : shown
       return this.evaluateParsed(node, {
         percent: false, literals, warnings: [], mode, explicit,
-        lhs: target ? undefined : symbolTex(x), prelude, info, declaredSf, displayUnit,
+        lhs: target ? undefined : symbolTex(x), prelude, info, declaredSf, displayUnit, notation,
       })
     }
 
@@ -2323,7 +2360,9 @@ export class Calculator {
     }
     const value = this.scope.get(hidden)
     const sf = this.sigs.get(hidden) ?? EXACT
-    for (const m of [this.scope, this.sigs, this.uncs, this.uncSfs, this.declared, this.shown, this.defs, this.aggs]) m.delete(hidden)
+    for (const m of [this.scope, this.sigs, this.uncs, this.uncSfs, this.declared, this.notations, this.shown, this.defs, this.aggs]) {
+      m.delete(hidden)
+    }
     if (result.error) return result
     if (!isTuple(value)) {
       return { ...result, error: `The right-hand side isn't a tuple, so it can't be unpacked into ${names.join(', ')}.` }
@@ -2343,20 +2382,21 @@ export class Calculator {
       return { ...result, error: (e as Error).message }
     }
     const shown = targets.map((t) => (t.sf === undefined
-      ? { sf, forced: false }
-      : { sf: t.sf === 'exact' ? EXACT : t.sf, forced: true }))
+      ? { sf, forced: false, notation: t.notation }
+      : { sf: t.sf === 'exact' ? EXACT : t.sf, forced: true, notation: t.notation }))
     targets.forEach(({ name }, i) => {
       this.scope.set(name, converted[i])
       this.sigs.set(name, shown[i].sf)
       this.uncs.set(name, new Map())
       this.uncSfs.set(name, undefined)
       this.declared.set(name, shown[i].forced ? true : undefined)
+      this.notations.set(name, shown[i].notation)
       this.shown.set(name, undefined)
       this.defs.set(name, undefined)
       this.aggs.set(name, undefined)
     })
     // With settings on the names, the result shows each value that way.
-    if (!targets.some((t) => t.sf !== undefined || t.unit) || !result.parts) return result
+    if (!targets.some((t) => t.sf !== undefined || t.unit || t.notation) || !result.parts) return result
     const parts = { ...result.parts, result: this.valuesTex(converted, shown), approx: false }
     return { ...result, parts, tex: layoutEquation(mode, parts, this.multiline) }
   }
@@ -2404,7 +2444,7 @@ export class Calculator {
     // `x = solve(lhs = rhs, x)`: the equation needs special parsing (its `=`).
     const solveCall = /^(?:([A-Za-z]\w*)\s*=\s*)?solve\s*\(/.exec(line)
     if (solveCall && !this.isUserFunction('solve')) {
-      return this.evaluateSolve(line, solveCall, literals, requestedMode, explicit, declaredSf, displayUnit)
+      return this.evaluateSolve(line, solveCall, literals, requestedMode, explicit, declaredSf, displayUnit, declaration?.notation)
     }
 
     // Separate `value pm uncertainty` on the right-hand side.
@@ -2441,6 +2481,7 @@ export class Calculator {
 
     return this.evaluateParsed(node, {
       uncNode, percent, literals, warnings, mode: requestedMode, explicit, declaredSf, asPercent, displayUnit,
+      notation: declaration?.notation,
     })
   }
 
@@ -2625,11 +2666,29 @@ export class Calculator {
         declaredSf = ctx.declaredSf === 'exact' ? EXACT : ctx.declaredSf
         shownSf = declaredSf
         // A typed value shows at the declared precision: m:4 = 2 kg → 2.000 kg.
-        if (isLiteral(expr) && Number.isFinite(declaredSf)) exprTex = this.valueTex(value, declaredSf, undefined, undefined, true)
+        if (isLiteral(expr) && Number.isFinite(declaredSf) && !ctx.notation) {
+          exprTex = this.valueTex(value, declaredSf, undefined, undefined, true)
+        }
       }
     }
 
+    // `x:sci = …`, `x:dec = …`: the notation the result is shown in. Otherwise a
+    // variable shown on its own (`x`, `x to km`, `delta x`) keeps its own, and a
+    // call keeps its function's (`f(x):sci = …`).
+    const callee = isFunctionNode(bare) ? this.scope.get(bare.fn.name) : undefined
+    const notation = ctx.notation
+      ?? (deltaOf ? this.notations.get(deltaOf) : undefined)
+      ?? (isSymbolNode(bare) ? this.notations.get(bare.name) : undefined)
+      ?? (typeof callee === 'function' ? this.userFunctions.get(callee)?.returnNotation : undefined)
+    // A typed value is shown in the declared notation: x:sci = 12000. m → 1.2000 × 10⁴ m.
+    if (ctx.notation && isLiteral(expr) && value !== undefined) {
+      exprTex = this.inNotation(notation, () => (declaredSf !== undefined
+        ? this.valueTex(value, declaredSf, undefined, undefined, true)
+        : this.valueTex(value, shownSf, unc, declaredUncSf)))
+    }
+
     if (assigned) {
+      this.notations.set(assigned, notation)
       this.scope.set(assigned, value)
       this.sigs.set(assigned, shownSf)
       this.uncs.set(assigned, contributions)
@@ -2643,6 +2702,7 @@ export class Calculator {
       this.aggs.set(assigned, undefined)
     }
 
+    const { result, approx } = this.inNotation(notation, () => {
     let result: string | undefined
     if (ctx.asPercent && value !== undefined) {
       // Stored as the fraction (so later lines calculate with it); shown ×100 with a %.
@@ -2666,6 +2726,8 @@ export class Calculator {
       const shownValue = ctx.asPercent ? math.multiply(value as MathType, 100) : value
       approx = this.isRounded(shownValue, declaredSf ?? sf, declaredSf !== undefined)
     }
+    return { result, approx }
+    })
     const finalParts = { ...parts(result), approx }
     return {
       tex: layoutEquation(mode, finalParts, multiline), parts: finalParts, warning, trace, returnNote,
@@ -2704,6 +2766,7 @@ export class Calculator {
     this.uncs = new Scope(this.uncs)
     this.uncSfs = new Scope(this.uncSfs)
     this.declared = new Scope(this.declared)
+    this.notations = new Scope(this.notations)
     this.shown = new Scope(this.shown)
     this.defs = new Scope(this.defs)
     this.aggs = new Scope(this.aggs)
@@ -2717,6 +2780,7 @@ export class Calculator {
     this.uncs = this.uncs.parent ?? this.uncsRoot
     this.uncSfs = this.uncSfs.parent ?? this.uncSfs
     this.declared = this.declared.parent ?? this.declared
+    this.notations = this.notations.parent ?? this.notations
     this.shown = this.shown.parent ?? this.shown
     this.defs = this.defs.parent ?? this.defs
     this.aggs = this.aggs.parent ?? this.aggs

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  EXACT, countSigFigs, formatSigFigs, formatWithUncertainty, hasAmbiguousZeros, isMeasuredLiteral,
+  EXACT, countSigFigs, formatExact, formatSigFigs, formatWithUncertainty, hasAmbiguousZeros, isMeasuredLiteral,
   lastPlace, sigFigsFromPlace, uncertaintySigFigs,
 } from './sigfigs.ts'
 
@@ -36,6 +36,28 @@ describe('formatSigFigs', () => {
     expect(formatSigFigs(1500, 3)).toBe('1.50e+3')
   })
 
+  it('always uses scientific notation with :sci', () => {
+    expect(formatSigFigs(12.5, 3, 'sci')).toBe('1.25e+1')
+    expect(formatSigFigs(90, 2, 'sci')).toBe('9.0e+1')
+    expect(formatSigFigs(2.5, 2, 'sci')).toBe('2.5') // not 2.5 × 10⁰
+  })
+
+  it('always uses plain digits with :dec', () => {
+    expect(formatSigFigs(5.32e-7, 3, 'dec')).toBe('0.000000532')
+    expect(formatSigFigs(6.02e23, 3, 'dec')).toBe('6.02e+23')
+    expect(formatSigFigs(1.96e6, 3, 'dec')).toBe('1960000')
+    expect(formatSigFigs(19620, 3, 'dec')).toBe('19600')
+    expect(formatSigFigs(90, 2, 'dec')).toBe('90.')
+    expect(formatSigFigs(2.5, 3, 'dec')).toBe('2.50')
+  })
+
+  it('formats exact values in a notation without trailing zeros', () => {
+    expect(formatExact(1 / 3, 6, 'sci')).toBe('3.33333e-1')
+    expect(formatExact(2000, 6, 'sci')).toBe('2e+3')
+    expect(formatExact(1e-7, 6, 'dec')).toBe('0.0000001')
+    expect(formatExact(1.5e6, 6, 'dec')).toBe('1500000')
+  })
+
   it('shows a zero with as many decimal places as it was counted with', () => {
     expect(formatSigFigs(0, 2)).toBe('0.00')
     expect(formatSigFigs(0, 1)).toBe('0')
@@ -56,6 +78,12 @@ describe('uncertainties', () => {
   it('shares a power of ten for very large values', () => {
     expect(formatWithUncertainty(19620, 300)).toMatchObject({ num: '19600', unc: '300' })
     expect(formatWithUncertainty(1.96e6, 3e4)).toMatchObject({ num: '1.96', unc: '0.03', exp: 6 })
+  })
+
+  it('follows a declared notation', () => {
+    expect(formatWithUncertainty(19.62, 1.04, undefined, 'sci')).toMatchObject({ num: '1.96', unc: '0.10', exp: 1 })
+    expect(formatWithUncertainty(2.89, 0.07, undefined, 'sci')).toMatchObject({ num: '2.89', unc: '0.07' })
+    expect(formatWithUncertainty(1.96e6, 3e4, undefined, 'dec')).toMatchObject({ num: '1960000', unc: '30000' })
   })
 })
 

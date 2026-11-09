@@ -365,6 +365,12 @@ exports[`the Reference tab’s examples > Significant figures: L = 300 m 1`] = `
      WARNING Trailing zeros in 300 aren't significant. Add a decimal point (300.) or use scientific notation if they are."
 `;
 
+exports[`the Reference tab’s examples > Significant figures: N:sci = 1500. * 12.0 1`] = `
+"1: N = 1500.· 12.0 = 1.80e4
+2: \\lambda = 0.000000532 m
+3: x = \\frac\\lambda2 = \\frac0.000000532 m2 = 2.66e-7 m"
+`;
+
 exports[`the Reference tab’s examples > Significant figures: d = 2 * 1.50 m 1`] = `"1: d = 2· 1.50 m = 3.00 m"`;
 
 exports[`the Reference tab’s examples > Significant figures: q = pi / 4 1`] = `

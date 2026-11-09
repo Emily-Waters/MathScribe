@@ -161,6 +161,7 @@ your browser and your own files.
 | `f(x) = x^2 + 1`, then `f(3)` | define and call a function |
 | `E(n, m to kg) = …` | a function whose argument is converted to kg |
 | `phi:3:deg = atan(y/x)` | show a result to 3 sig figs, in degrees |
+| `N:sci = …`, `L:dec = …` | always scientific notation, or always plain digits |
 | `r = tuple(x, y, z)` | a tuple, such as coordinates |
 | `tuple(a, b, c) = r` | unpack a tuple into variables |
 | `x = 3  # note` | text after `#` becomes the line's description |
@@ -542,6 +543,26 @@ k:exact = 2.5       # exact: never limits a result
 - A function's result takes its sig figs from its `return` line, so a declared
   `q:2 = …` inside a function, or a measured number in its body, carries through to
   the calling line.
+
+#### Scientific or decimal notation
+
+By default a number is written as plain digits, switching to scientific notation for
+very large or small values, or where plain digits can't show the precision (19600 to
+3 sig figs is 1.96 × 10⁴). `:sci` and `:dec` on the name choose for that variable:
+
+```
+N:sci = 1500. * 12.0     # 1.80 × 10⁴
+L:dec = 5.32e-7 m        # 0.000000532 m
+x:3:sci:km = 2500. m     # combines with sig figs and a unit, in any order
+```
+
+- `:sci` always uses a power of ten (but not × 10⁰: 2.50 stays 2.50); `:dec` never
+  does, even where trailing zeros then can't show the precision (19600).
+- The variable keeps its notation wherever its value is shown: in substitutions,
+  on a line of its own, `x to km`, `delta x`, and in a value assigned straight from
+  it (`y = x`).
+- It works with uncertainties ((1.50 ± 0.02) × 10³ m), tuples and their unpacked
+  names (`tuple(a:sci, b) = …`), and a function's result (`f(x):sci = …`).
 
 ### Uncertainty
 

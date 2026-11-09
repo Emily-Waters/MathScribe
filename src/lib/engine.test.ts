@@ -196,7 +196,7 @@ describe('functions', () => {
 
     it('explain what doesn’t fit', () => {
       const [g, h] = lines('g(x):zz = x\nh(x):percent = x')
-      expect(g.error).toMatch(/"zz" isn't a number of sig figs or a unit/)
+      expect(g.error).toMatch(/"zz" isn't a number of sig figs, a unit, or sci\/dec/)
       expect(h.error).toMatch(/isn't available on a function/)
       expect(last('m(x):kg = 2.0 m\nk = m(1)').error).toMatch(/can't be shown in kg/)
     })
@@ -272,8 +272,35 @@ describe('display settings on the name', () => {
   it('explain what doesn’t fit', () => {
     expect(last('bad:deg = 3.0 m').error).toMatch(/can't be shown in deg: the units don't match/)
     expect(last('bad:kg = 2.0').error).toMatch(/has no unit, so it can't be shown in kg/)
-    expect(last('bad:zz = 1').error).toMatch(/"zz" isn't a number of sig figs or a unit/)
+    expect(last('bad:zz = 1').error).toMatch(/"zz" isn't a number of sig figs, a unit, or sci\/dec/)
     expect(last('bad:0 = 1').error).toMatch(/at least 1 sig fig/)
+    expect(last('bad:sci:dec = 1.0').error).toMatch(/can't be both :sci and :dec/)
+  })
+})
+
+describe('notation on the name', () => {
+  it(':sci always shows scientific notation, with sig figs and units', () => {
+    expect(value('N:sci = 15.0 * 12.0')).toBe('1.80e2')
+    expect(value('E:sci:2:J = 2500. N * 1.00 m')).toBe('2.5e3 J')
+  })
+
+  it(':dec always shows plain digits', () => {
+    expect(value('L:dec = 5.32e-7 m')).toBe('0.000000532 m')
+    expect(value('N:dec = 6.0e3 * 1000')).toBe('6000000')
+  })
+
+  it('stays with the variable wherever its value is shown', () => {
+    const src = 'N:sci = 15.0 * 12.0\nM = N + 1.0\nN'
+    expect(shown(src.split('\n').slice(0, 2).join('\n'))).toBe('M = N+ 1.0 = 1.80e2+ 1.0 = 181')
+    expect(resultOfLine(src, 3)).toBe('1.80e2')
+  })
+
+  it('applies to uncertainties, tuples, unpacked names and function results', () => {
+    expect(value('x:sci = 2.0 m pm 0.1 m\ny = x')).toBe('(2.0 ± 0.1) m')
+    expect(value('x = 1500. m pm 20 m\ny:sci = x')).toBe('(1.50 ± 0.02)e3 m')
+    expect(value('r:sci = tuple(100., 2000.)')).toBe('(1.00e2, 2.00e3)')
+    expect(resultOfLine('tuple(a:sci, b) = tuple(150., 2.0)\na', 2)).toBe('1.5e2') // a tuple's values share its sig figs
+    expect(value('f(x):sci = 2 * x\ny = f(150.)')).toBe('3.00e2')
   })
 })
 
@@ -357,7 +384,7 @@ describe('unpacking a tuple', () => {
 
   it('explains a setting that doesn’t fit', () => {
     expect(last('tuple(a:deg, b) = tuple(1.0 m, 2.0)').error).toMatch(/can't be shown in deg/)
-    expect(last('tuple(a:zz, b) = tuple(1, 2)').error).toMatch(/"zz" isn't a number of sig figs or a unit/)
+    expect(last('tuple(a:zz, b) = tuple(1, 2)').error).toMatch(/"zz" isn't a number of sig figs, a unit, or sci\/dec/)
     expect(last('tuple(a:percent, b) = tuple(1, 2)').error).toMatch(/isn't available when unpacking/)
   })
 

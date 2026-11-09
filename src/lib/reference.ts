@@ -68,6 +68,11 @@ export const REFERENCE: ReferenceSection[] = [
       },
       { source: 'third:3 = 1/3', explain: 'name:n = … sets the sig figs of a result.' },
       { source: 'third:exact = 1/3', explain: ':exact shows full precision.' },
+      {
+        source: 'N:sci = 1500. * 12.0\nlambda:dec = 5.32e-7 m\nx = lambda / 2',
+        explain: ':sci always shows scientific notation, :dec always plain digits. A variable keeps its notation '
+          + 'wherever its value appears; combine with sig figs and units, like E:3:sci:eV.',
+      },
       { source: 'side = (4.00 m^2)^0.5', explain: 'Exponents written as plain numbers (^0.5, ^(3/2)) don’t limit sig figs.' },
       { source: 'theta = 0.00 deg\nc = cos(theta)', explain: 'A measured zero counts by decimal places, and doesn’t limit a function’s result.' },
     ],

@@ -139,7 +139,7 @@ export function complete(ctx: CompletionContext): CompletionResult | null {
     }
   }
 
-  // After a `:` on the name being assigned (`phi:3:de`): a display unit, or `exact`.
+  // After a `:` on the name being assigned (`phi:3:de`): a display unit, `exact`, `sci` or `dec`.
   const spec = /^\s*[A-Za-z]\w*(?::[^:=\s]+)*:([A-Za-z]*)$/.exec(before)
     // …or on a name being unpacked: `tuple(r:3, theta:de`
     ?? /^\s*tuple\s*\((?:[^()=]*,)?\s*[A-Za-z]\w*(?::[^:=\s,()]+)*:([A-Za-z]*)$/.exec(before)
@@ -150,6 +150,8 @@ export function complete(ctx: CompletionContext): CompletionResult | null {
       from: ctx.pos - spec[1].length,
       options: [
         { label: 'exact', type: 'keyword', detail: 'full precision; never limits a result' },
+        { label: 'sci', type: 'keyword', detail: 'always scientific notation' },
+        { label: 'dec', type: 'keyword', detail: 'always decimal notation, no powers of ten' },
         { label: 'percent', type: 'unit', detail: 'a unitless result ×100, with %' },
         ...unitOptions,
       ],

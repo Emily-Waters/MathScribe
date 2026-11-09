@@ -320,6 +320,31 @@ describe('notation on the name', () => {
   })
 })
 
+describe('#sci and #dec', () => {
+  it('show a line’s result in that notation, named or not', () => {
+    expect(shown('p = 0.0707\np^2   #sci')).toBe('p^2 = 0.0707^2 = 5.00e-3')
+    expect(shown('p:sci = 0.0707\np^2   #dec')).toBe('p^2 = (7.07e-2)^2 = 0.00500')
+    expect(shown('a = 12000. m   #sci')).toBe('a = 1.2000e4 m') // a typed value too
+    expect(value('p = 0.0707\np^2   #val #sci')).toBe('5.00e-3') // combines with other commands
+  })
+
+  it('only change how the line is shown: the variable doesn’t keep it', () => {
+    expect(value('q = 0.0707 * 2   #sci\nq')).toBe('0.141')
+  })
+
+  it('apply to every line in a block, below a name’s or a variable’s own notation', () => {
+    const src = 'p:dec = 2.5e-3\nQ {   #sci\n    a = 0.0707 * 2\n    b:dec = 0.0707 * 2\n    p\n    c = 0.0707 * 3   #dec\n}'
+    expect(resultOfLine(src, 3)).toBe('1.41e-1')
+    expect(resultOfLine(src, 4)).toBe('0.141') // the name's :dec
+    expect(resultOfLine(src, 5)).toBe('0.0025') // p keeps its own :dec
+    expect(resultOfLine(src, 6)).toBe('0.212') // the line's own command
+  })
+
+  it('aren’t taken into the note', () => {
+    expect(last('x = 2.0   #sci   # a note').tex).toBe('x = 2.0')
+  })
+})
+
 describe('expandVectors', () => {
   it('reads <…> as a vector where a value can start, with any unit after it', () => {
     expect(expandVectors('F = <3.0, 4.0> N')).toBe('F = (vector(3.0, 4.0) * unit("N"))')

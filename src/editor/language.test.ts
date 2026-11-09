@@ -52,6 +52,10 @@ describe('highlighting', () => {
     expect(tokens('tuple(r:3, theta:deg) = p')).toEqual(['tuple:fn', 'r:var', '3:num', 'theta:var', 'deg:unit', 'p:var'])
   })
 
+  it('colours #sci and #dec as commands', () => {
+    expect(tokens('p^2   #sci   # density')).toEqual(['p:var', '2:num', '#sci:cmd', '# density:note'])
+  })
+
   it('reads a unit after a vector as a unit, but not after a comparison', () => {
     expect(tokens('F = <3.0, 4.0> N')).toEqual(['F:var', '3.0:num', '4.0:num', 'N:unit'])
     expect(tokens('q = a > m')).toEqual(['q:var', 'a:var', 'm:var'])

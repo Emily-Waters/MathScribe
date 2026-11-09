@@ -991,11 +991,24 @@ function parseDeclaration(line: string): Declaration | { error: string } | null 
 }
 
 
+/**
+ * `#sci` / `#dec` for a line: its own command, and the nearest block's. They
+ * rank differently: a name's `:sci` or `:dec` beats the line's own command,
+ * which beats a variable's own notation (`x` after `x:sci = …`), which beats
+ * the block's.
+ */
+export interface LineNotation {
+  own?: Notation
+  block?: Notation
+}
+
 /** Internal result of evaluating a line, with the pieces of its equation. */
 interface LineResult extends CalcResult {
   parts?: EquationParts
   /** Sig figs of the result. */
   sf?: number
+  /** The notation the result is shown in. */
+  notation?: Notation
 }
 
 /** A parsed line ready for evaluateParsed, with what the text stage worked out. */
@@ -1562,6 +1575,13 @@ export class Calculator {
       // -2.0 m, not -(2.0 m)
       if (isOperatorNode(n) && n.fn === 'unaryMinus' && (isNumberWithUnit(unwrap(n.args[0])) || isLiteral(n.args[0]))) {
         return ` -${unwrap(n.args[0]).toTex(options).trim()}`
+      }
+      // A value in scientific notation raised to a power is bracketed: (7.07 × 10⁻²)², not 7.07 × 10⁻²².
+      if (isOperatorNode(n) && n.fn === 'pow') {
+        const base = unwrap(n.args[0])
+        if (isSymbolNode(base) && base.name.startsWith(RAW) && base.name.includes('\\times')) {
+          return `\\left(${base.name.slice(1)}\\right)^{${n.args[1].toTex(options).trim()}}`
+        }
       }
       if (isSymbolNode(n)) {
         if (n.name.startsWith(RAW)) return ` ${n.name.slice(1)}`
@@ -2616,20 +2636,26 @@ export class Calculator {
   /**
    * Evaluate one line. `explicit` says the mode was asked for with a command
    * (on the line or its block), so it isn't overridden by a called function's
-   * return-line command.
+   * return-line command. `notation`: `#sci` or `#dec` on the line, or on a
+   * block around it.
    */
-  evaluate(input: string, mode: DisplayMode = 'full', explicit = false, multiline = false): CalcResult {
+  evaluate(input: string, mode: DisplayMode = 'full', explicit = false, multiline = false, notation: LineNotation = {}): CalcResult {
     this.multiline = multiline
+    this.lineNotation = notation
     try {
       const { tex, error, warning, info, trace, returnNote } = this.evaluateLine(input, mode, explicit)
       return { tex, error, warning, info, returnNote, trace: trace?.length ? trace : undefined }
     } finally {
       this.multiline = false
+      this.lineNotation = {}
     }
   }
 
   /** `#multiline` on the line being evaluated: each `=` (and in a call's working too) on its own row. */
   private multiline = false
+
+  /** `#sci` / `#dec` on the line being evaluated, or on a block around it. */
+  private lineNotation: LineNotation = {}
 
   /** The left-hand side to show instead of the assigned name (set while unpacking). */
   private lhsOverride: string | undefined
@@ -2799,6 +2825,7 @@ export class Calculator {
     }
     const sf = this.sigs.get(name) ?? EXACT
     const declared = this.declared.get(name) === true
+    // Kept as the vector's notation; shown as its line is (with #sci or #dec too).
     const notation = this.notations.get(name)
     // Each at the vector's sig figs, or for a typed vector, as typed.
     const typed = declared ? undefined : this.typedSfs.get(this.scope.get(name) as object)
@@ -2806,7 +2833,7 @@ export class Calculator {
     components.forEach((c, i) => this.store(c.name, { value: c.value, sf: sfs[i], declared, notation }))
     if (mode === 'sym') return result
     const rows = components.map((c, i) =>
-      `${symbolTex(c.name)} &= ${this.inNotation(notation, () => this.valueTex(c.value, sfs[i], undefined, undefined, declared))}`)
+      `${symbolTex(c.name)} &= ${this.inNotation(result.notation, () => this.valueTex(c.value, sfs[i], undefined, undefined, declared))}`)
     return { ...result, tex: withRows(result.tex, symbolTex(name), rows) }
   }
 
@@ -2997,6 +3024,8 @@ export class Calculator {
 
     // Declared sig figs (`m:3 = …`) replace the counted ones, and beat the global
     // setting, unless the value has an uncertainty, which sets its precision instead.
+    /** A notation asked for on this line or its block (not just inherited from a variable). */
+    const explicitNotation = ctx.notation ?? this.lineNotation.own ?? this.lineNotation.block
     let declaredSf: number | undefined
     if (ctx.declaredSf !== undefined && assigned) {
       if (unc !== undefined) {
@@ -3006,20 +3035,23 @@ export class Calculator {
         declaredSf = ctx.declaredSf === EXACT_SETTING ? EXACT : ctx.declaredSf
         shownSf = declaredSf
         // A typed value shows at the declared precision: m:4 = 2 kg → 2.000 kg.
-        if (isLiteral(expr) && Number.isFinite(declaredSf) && !ctx.notation) {
+        if (isLiteral(expr) && Number.isFinite(declaredSf) && !explicitNotation) {
           exprTex = this.valueTex(value, declaredSf, undefined, undefined, true)
         }
       }
     }
 
-    // `x:sci = …`, `x:dec = …`: the notation the result is shown in. Otherwise a
-    // variable shown on its own (`x`, `x to km`, `delta x`) keeps its own, and a
-    // call keeps its function's (`f(x):sci = …`).
+    // `x:sci = …`, `x:dec = …`: the notation the result is shown in, and the
+    // variable keeps. Otherwise a variable shown on its own (`x`, `x to km`,
+    // `delta x`) keeps its own, and a call keeps its function's (`f(x):sci = …`).
     const callee = isFunctionNode(bare) ? this.scope.get(bare.fn.name) : undefined
-    const notation = ctx.notation
+    const kept = ctx.notation
       ?? (deltaOf ? this.notations.get(deltaOf) : undefined)
       ?? (isSymbolNode(bare) ? this.notations.get(bare.name) : undefined)
       ?? (typeof callee === 'function' ? this.userFunctions.get(callee)?.returnNotation : undefined)
+    // `#sci` / `#dec` only change how this line is shown: the line's own command
+    // beats a variable's notation, and a block's doesn't (see LineNotation).
+    const notation = ctx.notation ?? this.lineNotation.own ?? kept ?? this.lineNotation.block
     // `F:ijk = …`: the vector with unit vectors. Otherwise a vector keeps the look
     // of the vectors it's made from (see vectorStyleOf); a plain tuple has none.
     const vector = isTuple(value) ? ctx.vector ?? this.vectorStyleOf(expr) : undefined
@@ -3038,7 +3070,7 @@ export class Calculator {
         () => this.valueTex(value, declaredSf ?? shownSf, undefined, undefined, declaredSf !== undefined)))
     }
     // A typed value is shown in the declared notation: x:sci = 12000. m → 1.2000 × 10⁴ m.
-    if (ctx.notation && isLiteral(expr) && value !== undefined) {
+    if (explicitNotation && isLiteral(expr) && value !== undefined) {
       exprTex = this.inNotation(notation, () => (declaredSf !== undefined
         ? this.valueTex(value, declaredSf, undefined, undefined, true)
         : this.valueTex(value, shownSf, unc, declaredUncSf)))
@@ -3049,7 +3081,7 @@ export class Calculator {
       // symbol instead of the value. Otherwise, constant-only values stay symbolic.
       const keepSymbol = ctx.mode === 'sym' && explicit
       this.store(assigned, {
-        value, sf: shownSf, contributions, uncSf: declaredUncSf, declared: declaredSf !== undefined, notation, vector,
+        value, sf: shownSf, contributions, uncSf: declaredUncSf, declared: declaredSf !== undefined, notation: kept, vector,
         shown: keepSymbol ? symbolTex(assigned) : this.constantForm(expr, literals),
         def: isLiteral(expr) ? undefined : expr,
       })
@@ -3084,7 +3116,7 @@ export class Calculator {
     const finalParts = { ...parts(result), approx }
     return {
       tex: layoutEquation(mode, finalParts, multiline), parts: finalParts, warning, trace, returnNote,
-      info: ctx.info, sf: shownSf,
+      info: ctx.info, sf: shownSf, notation,
     }
   }
 

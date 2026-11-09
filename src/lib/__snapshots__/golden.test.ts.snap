@@ -299,6 +299,11 @@ exports[`the Reference tab’s examples > Display commands: m = 2.00 kg 1`] = `
 2: F = m· 9.81 m/s^2 = 2.00 kg· 9.81 m/s^2 = 19.6 N"
 `;
 
+exports[`the Reference tab’s examples > Display commands: p = 0.0707 1`] = `
+"1: p = 0.0707
+2: p^2 = 0.0707^2 = 5.00e-3"
+`;
+
 exports[`the Reference tab’s examples > Functions: E(n, m to kg, L to m) = n^2 * @h^2 / (8*m*L^2) 1`] = `
 "1: E(n, m [kg], L [m]) = \\fracn^2·h^28· m·L^2
 2: m_e = 9.11e-31 kg

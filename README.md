@@ -217,6 +217,7 @@ after the note:
 | `#val` | the result only | F = (20 ± 1) N |
 | `#hide` | nothing; the line is still calculated | |
 | `#multiline` | each `=` on its own row, lined up | F = m·a ⏎ = 2.0 kg · 9.81 m/s² ⏎ = (20 ± 1) N |
+| `#sci`, `#dec` | the result in scientific notation, or plain digits | ψ² = 5.000 × 10⁻³ Å⁻¹ |
 | `#center`, `#list`, `#numbered`, `#text` | layout (see Layout blocks) | |
 
 ```
@@ -228,6 +229,11 @@ F = m * a  #sym #multiline     (commands combine)
 - `#multiline` is a layout, so it combines with `#sym`, `#val` and `#full`. A line
   with only one `=` left to show stays on one line. On a function's definition
   (`f(x) = …  #multiline`), every line that calls the function is shown multiline.
+- `#sci` and `#dec` combine with the others too. They're for lines without a name to
+  put `:sci` on (`psi_4^2  #sci`), and for whole blocks (`Q7 {  #sci`). They only
+  change how the line is shown: the variable doesn't keep the notation (use
+  `x:sci = …` for that). A name's own `:sci`/`:dec` beats the line's command, which
+  beats a variable's own notation (`x` after `x:dec = …`), which beats the block's.
 - A variable **defined** with `#sym` stays a symbol in later substitution steps:
   after `k = 4.0 N/m * 2 #sym`, `F = k * x` shows `F = k·x = k · 0.150 m = 1.2 N`.
   Its value is still used in every calculation;
@@ -613,6 +619,8 @@ x:3:sci:km = 2500. m     # combines with sig figs and a unit, in any order
   it (`y = x`).
 - It works with uncertainties ((1.50 ± 0.02) × 10³ m), tuples and their unpacked
   names (`tuple(a:sci, b) = …`), and a function's result (`f(x):sci = …`).
+- For a line with no name, such as `psi_4^2`, or a whole block, use the `#sci` and
+  `#dec` commands (see Display commands).
 
 ### Uncertainty
 

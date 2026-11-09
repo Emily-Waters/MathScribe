@@ -195,6 +195,10 @@ export const REFERENCE: ReferenceSection[] = [
     examples: [
       { source: 'F = 2.00 kg * 9.81 m/s^2   #sym', explain: '#sym shows the equation only.' },
       { source: 'F = 2.00 kg * 9.81 m/s^2   #val', explain: '#val shows the result only.' },
+      {
+        source: 'p = 0.0707\np^2   #sci',
+        explain: '#sci shows the result in scientific notation, #dec in plain digits: for a line with no name to put :sci on, or a whole block.',
+      },
       { source: 'm = 2.00 kg   #hide\nF = m * 9.81 m/s^2', explain: '#hide calculates the line but doesn’t show it.' },
       {
         source: 'm = 2.00 kg\nF = m * 9.81 m/s^2   #multiline',

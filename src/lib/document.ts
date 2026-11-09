@@ -9,7 +9,8 @@ import {
 } from './engine.ts'
 import {
   ASSIGNMENT, CONSTANT_DECLARATION, EXACT_SETTING, DEF, DEF_HEAD, FUNCTION_HEAD, LAYOUT_STYLES, LEADING_NAME, LINE_COMMANDS,
-  MULTILINE, NAME_WITH_SETTINGS, UNPACK_HEAD, commandPattern, indentOf, type LayoutStyle, type LineCommand,
+  MULTILINE, NAME_WITH_SETTINGS, NOTATIONS, UNPACK_HEAD, commandPattern, indentOf, type LayoutStyle, type LineCommand,
+  type Notation,
 } from './syntax.ts'
 
 /**
@@ -30,6 +31,7 @@ import {
  *   #full  show everything (the default; overrides a block's command)
  *   #hide  calculate, but don't show the line (or the whole block)
  *   #multiline  put each = on its own row, lined up (combines with the above)
+ *   #sci, #dec  show results in scientific notation, or plain digits (combine too)
  * On a block opener, the command applies to every line inside unless a line
  * has its own.
  *
@@ -112,6 +114,8 @@ export interface GroupBlock {
   command?: Command
   /** `#multiline` on the opener: every line inside is laid out one `=` per row. */
   multiline?: boolean
+  /** `#sci` / `#dec` on the opener: the notation results inside are shown in. */
+  notation?: Notation
 }
 
 export type { LayoutStyle }
@@ -137,6 +141,7 @@ export interface LayoutBlock {
   /** Display command given on the opener, inherited by lines inside. */
   command?: Command
   multiline?: boolean
+  notation?: Notation
   /** Indentation of the opener; a line indented no further ends the block. */
   indent: number
   /** Indentation of its first line; a line indented further starts a sub-list. */
@@ -156,6 +161,8 @@ export type Command = LineCommand
 const COMMAND = commandPattern(LINE_COMMANDS, 'gi')
 /** `#multiline`: a layout, so it combines with the commands above. */
 const MULTILINE_COMMAND = commandPattern([MULTILINE], 'gi')
+/** `#sci`, `#dec`: the notation results are shown in, which combines with the others too. */
+const NOTATION_COMMAND = commandPattern(NOTATIONS, 'gi')
 /** `#center`, `#list`, `#numbered`, `#text`: how a layout block (or one line) is arranged. */
 const LAYOUT = commandPattern(LAYOUT_STYLES, 'gi')
 
@@ -175,10 +182,11 @@ function parseDeclaration(body: string): Declaration | null {
  * Only the known commands are taken; any other `#word` stays in the note.
  */
 function splitNote(text: string): {
-  body: string; note?: string; command?: Command; multiline: boolean; layout?: LayoutStyle
+  body: string; note?: string; command?: Command; multiline: boolean; notation?: Notation; layout?: LayoutStyle
 } {
   let command: Command | undefined
   let multiline = false
+  let notation: Notation | undefined
   let layout: LayoutStyle | undefined
   const rest = text
     .replace(LAYOUT, (_m, space: string, style: string) => {
@@ -193,9 +201,13 @@ function splitNote(text: string): {
       multiline = true
       return space
     })
+    .replace(NOTATION_COMMAND, (_m, space: string, n: string) => {
+      notation = n.toLowerCase() as Notation
+      return space
+    })
   const hash = rest.indexOf('#')
-  if (hash < 0) return { body: rest.trim(), command, multiline, layout }
-  return { body: rest.slice(0, hash).trim(), note: rest.slice(hash + 1).trim() || undefined, command, multiline, layout }
+  if (hash < 0) return { body: rest.trim(), command, multiline, notation, layout }
+  return { body: rest.slice(0, hash).trim(), note: rest.slice(hash + 1).trim() || undefined, command, multiline, notation, layout }
 }
 
 /** Read and evaluate a whole sheet, line by line, into blocks. */
@@ -363,10 +375,11 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
       continue
     }
 
-    const { body, note, command, multiline: ownMultiline, layout } = splitNote(trimmed)
+    const { body, note, command, multiline: ownMultiline, notation: ownNotation, layout } = splitNote(trimmed)
     // A line's own command wins; otherwise the nearest enclosing block's.
     const inherited = [...open].reverse().find((g) => g.command)?.command
     const multiline = ownMultiline || open.some((g) => g.multiline)
+    const blockNotation = [...open].reverse().find((g) => g.notation)?.notation
 
     // `def f(a, b)`: the function body is every following line indented further.
     // (`def f(x):3:deg`: settings for the result after the parameters; a lone trailing `:` is fine too.)
@@ -442,6 +455,7 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
         kind: 'layout', line, title: body.slice(0, -1).trim(), note, style: layout, children: [], indent,
         command: command ?? (inherited === 'hide' ? 'hide' : undefined),
         multiline: ownMultiline || undefined,
+        notation: ownNotation,
       }
       add(block)
       open.push(block)
@@ -450,6 +464,7 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
         kind: 'group', line, title: body.slice(0, -1).trim(), note, children: [], locals: [],
         command: command ?? (inherited === 'hide' ? 'hide' : undefined),
         multiline: ownMultiline || undefined,
+        notation: ownNotation,
       }
       add(group)
       open.push(group)
@@ -457,7 +472,7 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
     } else {
       const effective = command ?? inherited ?? 'full'
       const mode = effective === 'hide' ? 'full' : effective
-      const result = calc.evaluate(body, mode, (command ?? inherited) !== undefined, multiline)
+      const result = calc.evaluate(body, mode, (command ?? inherited) !== undefined, multiline, { own: ownNotation, block: blockNotation })
       // `#center` (or another layout) on a single line: lay out just that line.
       const own: LayoutBlock | undefined = layout && layout !== 'text'
         ? { kind: 'layout', line, endLine: line, title: '', style: layout, children: [], indent }

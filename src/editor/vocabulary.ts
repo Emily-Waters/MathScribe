@@ -15,6 +15,8 @@ const COMMAND_DESCRIPTIONS: Record<CommandName, string> = {
   val: 'Show the result only',
   hide: 'Calculate, but don’t show the line or block',
   multiline: 'Each = on its own row, lined up',
+  sci: 'Results in scientific notation (on a line, or every line in a block)',
+  dec: 'Results in plain decimal digits, no powers of ten (on a line, or every line in a block)',
   center: 'Center the line, or a : block’s lines',
   list: 'A : block’s lines as a bulleted list',
   numbered: 'A : block’s lines as a numbered list',

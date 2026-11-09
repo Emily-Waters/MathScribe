@@ -176,8 +176,8 @@ export const MULTILINE = 'multiline'
 export const LAYOUT_STYLES = ['center', 'list', 'numbered', 'text'] as const
 export type LayoutStyle = typeof LAYOUT_STYLES[number]
 
-/** Every display command, in the order the editor lists them. */
-export const COMMAND_NAMES = [...LINE_COMMANDS, MULTILINE, ...LAYOUT_STYLES] as const
+/** Every display command, in the order the editor lists them. (`#sci` and `#dec` are the notations, NOTATIONS.) */
+export const COMMAND_NAMES = [...LINE_COMMANDS, MULTILINE, ...NOTATIONS, ...LAYOUT_STYLES] as const
 export type CommandName = typeof COMMAND_NAMES[number]
 
 /**

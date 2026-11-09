@@ -798,6 +798,18 @@ Roughly in priority order.
       compile service such as texlive.net (simple, but sends the sheet off the
       device), pdfTeX compiled to WebAssembly (private, but tens of MB), or an
       "Open in Overleaf" button.
+- [ ] **Chemistry** (stoichiometry already works by hand, with `mol`, `g/mol` and
+      `@N_A`, `@R`, `@F`, `@V_m`):
+  - **Molar mass from a formula**: `M(H2O)` → 18.02 g/mol from a built-in table of
+    atomic weights, including brackets and hydrates (`Ca(OH)2`, `CuSO4·5H2O`), with
+    the sum shown as working and sig figs from the atomic weights.
+  - **Formulas typeset**: H₂O, SO₄²⁻ in names and output (`n_H2O` → n(H₂O)).
+  - **Balancing equations**: `balance(C3H8 + O2 -> CO2 + H2O)` → C₃H₈ + 5 O₂ →
+    3 CO₂ + 4 H₂O, with the coefficients usable as mole ratios.
+  - **Limiting reagent and yield**: which reactant runs out, theoretical and
+    percent yield.
+  - **Concentration**: a molarity unit (`M` itself is taken by the mega prefix, so
+    `molar`, or just `mol/L`).
 
 ### 5. Housekeeping
 

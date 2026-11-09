@@ -448,7 +448,7 @@ exports[`the Reference tab’s examples > Vectors: F = <3.0, 4.0> N 1`] = `
 exports[`the Reference tab’s examples > Vectors: a:xyz = <0.50, -9.81> m/s^2 1`] = `
 "1: a = ⟨0.50, -9.81⟩ m/s^2 a_x = 0.50 m/s^2 a_y = -9.81 m/s^2
 2: t = 2.0 s
-3: d_y = \\frac12· a_y·t^2 = \\frac12· -9.81 m/s^2·(2.0 s)^2 = -20. m"
+3: d_y = \\frac12· a_y·t^2 = \\frac12· (-9.81 m/s^2)·(2.0 s)^2 = -20. m"
 `;
 
 exports[`the Reference tab’s examples > Vectors: v:ijk = <2.0, -1.5, 4.0> m/s 1`] = `

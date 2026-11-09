@@ -1538,7 +1538,12 @@ export class Calculator {
     const parts = this.split(value, sf, forced)
     if (!parts) return rawNode(`\\left(${this.valueTex(value, sf)}\\right)`)
     const numTex = numberTex(parts.num)
-    if (!parts.unit) return rawNode(parts.num.startsWith('-') ? `\\left(${numTex}\\right)` : numTex)
+    // A negative value is bracketed, so its sign doesn't read as an operator:
+    // ½ · (−9.81 m/s²) · t², not ½ · −9.81 m/s² · t².
+    if (parts.num.startsWith('-')) {
+      return rawNode(`\\left(${parts.unit ? attachUnit(numTex, unitTex(parts.unit)) : numTex}\\right)`)
+    }
+    if (!parts.unit) return rawNode(numTex)
     const unit = new math.FunctionNode(new math.SymbolNode('unit'), [new math.ConstantNode(parts.unit)])
     return new math.ParenthesisNode(new math.OperatorNode('*', 'multiply', [rawNode(numTex), unit]))
   }

@@ -12,6 +12,12 @@ describe('basic calculation', () => {
     expect(shown('m = 2.00 kg\nF = m * 9.81 m/s^2')).toBe('F = m· 9.81 m/s^2 = 2.00 kg· 9.81 m/s^2 = 19.6 N')
   })
 
+  it('brackets a negative value it substitutes, so its sign doesn’t read as an operator', () => {
+    expect(shown('a = 3.5e3 J\nb = -1.9e3 J\nW = a + b')).toBe('W = a+ b = 3.5e3 J+ (-1.9e3 J) = 1.6 kJ')
+    expect(shown('g = -9.81 m/s^2\nF = g * 2.0 kg')).toBe('F = g· 2.0 kg = (-9.81 m/s^2)· 2.0 kg = -20. N')
+    expect(shown('k = -2.0\nz = k * 3')).toBe('z = k· 3 = (-2.0)· 3 = -6.0')
+  })
+
   it('converts with to', () => {
     expect(shown('v = 25.0 m/s\nv to km/h')).toBe('v = 90.0 km/h')
   })

@@ -52,6 +52,11 @@ describe('highlighting', () => {
     expect(tokens('tuple(r:3, theta:deg) = p')).toEqual(['tuple:fn', 'r:var', '3:num', 'theta:var', 'deg:unit', 'p:var'])
   })
 
+  it('reads a unit after a vector as a unit, but not after a comparison', () => {
+    expect(tokens('F = <3.0, 4.0> N')).toEqual(['F:var', '3.0:num', '4.0:num', 'N:unit'])
+    expect(tokens('q = a > m')).toEqual(['q:var', 'a:var', 'm:var'])
+  })
+
   it('tells definitions from calls', () => {
     expect(tokens('E_k(n, m to kg) = n * m')[0]).toBe('E_k:def')
     expect(tokens('def KE(mass)').slice(0, 2)).toEqual(['def:kw', 'KE:def'])

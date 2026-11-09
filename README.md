@@ -179,6 +179,8 @@ your browser and your own files.
 | `E(n, m to kg) = …` | a function whose argument is converted to kg |
 | `phi:3:deg = atan(y/x)` | show a result to 3 sig figs, in degrees |
 | `N:sci = …`, `L:dec = …` | always scientific notation, or always plain digits |
+| `F = <3.0, 4.0> N` | a vector |
+| `F:ijk = …`, `F:xyz = …` | a vector with unit vectors, or broken into components F_x, F_y |
 | `r = tuple(x, y, z)` | a tuple, such as coordinates |
 | `tuple(a, b, c) = r` | unpack a tuple into variables |
 | `x = 3  # note` | text after `#` becomes the line's description |
@@ -437,6 +439,37 @@ Everything mathjs supports works: `sqrt`, `sin`/`cos` (accepting `deg`), `log`,
   them before using them as your own variables.
 - `atan2(y, x)` also takes coordinates with units, as long as they match
   (`atan2(1.0 m, 2.0 m)`).
+
+### Vectors
+
+`<…>` makes a **vector**, shown in angle brackets. A unit after the `>` applies to
+every component:
+
+```
+F = <3.0, 4.0> N                 # ⟨3.0, 4.0⟩ N
+G = 2 * F + <1.0, -1.0> N        # ⟨7.0, 7.0⟩ N
+mag = norm(F)                    # 5.0 N
+```
+
+- A vector is a tuple (below), so everything that works on tuples works on it:
+  scaling, adding, `to`, `norm`, `dot`, `cross` and unpacking. `vector(…)` is the
+  same as `<…>`.
+- What's worked out from a vector is a vector too, and so is a function's result
+  when its body writes one (`f(x) = <x, 2*x>`). A plain tuple stays a tuple.
+- Each typed component keeps its own sig figs: `<0.50, -9.81>` shows as typed.
+  What's worked out from it has the fewest sig figs of its components, as with
+  tuples.
+- `<` only starts a vector where a value can start (after `=`, `(`, a comma, an
+  operator or `return`) and when there's a comma inside, so `a < b` is still a
+  comparison.
+- **`:ijk`** shows a vector with unit vectors: `v:ijk = <2.0, -1.5, 4.0> m/s` shows
+  (2.0 î − 1.5 ĵ + 4.0 k̂) m/s. Vectors worked out from it are shown that way too, and
+  it works on a function's result (`f(x):ijk = …`).
+- **`:xyz`** also stores each component as a variable of its own, shown under the
+  vector: `a:xyz = <0.50, -9.81> m/s^2` adds a_x = 0.50 m/s² and a_y = −9.81 m/s²
+  (and a_z for a 3D vector). It combines with the other settings (`F_net:3:ijk:xyz`),
+  and works inside function bodies. With `#sym`, the components are made but not
+  shown.
 
 ### Tuples and coordinates
 
@@ -828,6 +861,8 @@ Roughly in priority order.
 
 ### Done
 
+- [x] **Vectors**: `<…>` notation, unit vectors with `:ijk`, and components as
+      variables with `:xyz`.
 - [x] **Equation library**: first-year physics and general chemistry, inserted at
       the cursor as one-line functions.
 - [x] **Word export**: a `.docx` with editable equations, which also opens in

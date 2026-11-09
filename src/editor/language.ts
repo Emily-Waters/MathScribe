@@ -9,7 +9,7 @@
  */
 import { StreamLanguage, foldService, indentService, type StringStream } from '@codemirror/language'
 import { tags } from '@lezer/highlight'
-import { isUnitName } from '../lib/engine.ts'
+import { closesVector, isUnitName } from '../lib/engine.ts'
 import {
   COMMAND_NAMES, CONSTANT_TOKEN, FUNCTION_HEAD, INDENT_WIDTH, NAME, NUMBER, SETTINGS, commandPattern, indentOf,
 } from '../lib/syntax.ts'
@@ -167,6 +167,12 @@ function token(stream: StringStream, state: State): string | null {
   }
 
   if (stream.match('±') || stream.match('+-')) return 'keyword'
+  // The `>` closing a vector, `<3.0, 4.0> N`: a unit can follow it, as after a number.
+  if (stream.peek() === '>' && closesVector(stream.string, stream.pos)) {
+    stream.next()
+    state.afterNumber = true
+    return 'operator'
+  }
   if (stream.match(/[-+*/^=<>!%,·]/)) return 'operator'
   if (stream.match(/[()[\]{}]/)) return 'bracket'
   if (stream.match(':')) return 'operator'

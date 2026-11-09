@@ -8,13 +8,13 @@ exports[`golden sheets > hydrogen orbitals 1`] = `
 7: Z = 1
 8: r = 0.400 Å
 9: s = \\fracZ· ra_0 = \\frac1· 0.400 Å0.529 Å = 0.756
-10: \\psi = \\pi^- 0.5·(\\fracZa_0)^\\frac32·e^- s = \\pi^- 0.5·(\\frac10.529 Å)^\\frac32·e^- 0.756 = 0.688 Å^-1.5
+10: \\psi = \\pi^-0.5·(\\fracZa_0)^\\frac32·e^- s = \\pi^-0.5·(\\frac10.529 Å)^\\frac32·e^- 0.756 = 0.688 Å^-1.5
 11: P = 4· \\pi·r^2·\\psi^2 = 4· \\pi·(0.400 Å)^2·(0.688 Å^-1.5)^2 = 0.953 Å^-1
 12: shell = P· 0.010 Å = 0.953 Å^-1· 0.010 Å = 0.95 %
 16: Z = 1
 17: r = 3.500 Å
 18: s = \\fracZ· ra_0 = \\frac1· 3.500 Å0.529 Å = 6.62
-19: \\psi_200 = (32~ \\pi)^- 0.5·(\\fracZa_0)^\\frac32·(2- s)·e^\\frac- s2 = (32~ \\pi)^- 0.5·(\\frac10.529 Å)^\\frac32·(2- 6.62)·e^\\frac- 6.622 = -0.0438 Å^-1.5
+19: \\psi_200 = (32~ \\pi)^-0.5·(\\fracZa_0)^\\frac32·(2- s)·e^\\frac- s2 = (32~ \\pi)^-0.5·(\\frac10.529 Å)^\\frac32·(2- 6.62)·e^\\frac- 6.622 = -0.0438 Å^-1.5
 20: P = 4· \\pi·r^2·\\psi_200^2 = 4· \\pi·(3.500 Å)^2·(-0.0438 Å^-1.5)^2 = 0.295 Å^-1
 24: Z = 1
 25: r = 3.000 Å
@@ -437,4 +437,21 @@ exports[`the Reference tab’s examples > Units: theta = 30.0 deg 1`] = `"1: \\t
 exports[`the Reference tab’s examples > Units: v = 25.0 m/s 1`] = `
 "1: v = 25.0 m/s
 2: v = 90.0 km/h"
+`;
+
+exports[`the Reference tab’s examples > Vectors: F = <3.0, 4.0> N 1`] = `
+"1: F = ⟨3.0, 4.0⟩ N
+2: F_2 = 2· F+⟨1.0, -1.0⟩ N = 2· ⟨3.0, 4.0⟩ N+⟨1.0, -1.0⟩ N = ⟨7.0, 7.0⟩ N
+3: mag = \\left\\| F\\right\\| = \\left\\| ⟨3.0, 4.0⟩ N\\right\\| = 5.0 N"
+`;
+
+exports[`the Reference tab’s examples > Vectors: a:xyz = <0.50, -9.81> m/s^2 1`] = `
+"1: a = ⟨0.50, -9.81⟩ m/s^2 a_x = 0.50 m/s^2 a_y = -9.81 m/s^2
+2: t = 2.0 s
+3: d_y = \\frac12· a_y·t^2 = \\frac12· -9.81 m/s^2·(2.0 s)^2 = -20. m"
+`;
+
+exports[`the Reference tab’s examples > Vectors: v:ijk = <2.0, -1.5, 4.0> m/s 1`] = `
+"1: v = (2.0 î - 1.5 ĵ + 4.0 k̂) m/s
+2: w = 2· v = 2· (2.0 î - 1.5 ĵ + 4.0 k̂) m/s = (4.0 î - 3.0 ĵ + 8.0 k̂) m/s"
 `;

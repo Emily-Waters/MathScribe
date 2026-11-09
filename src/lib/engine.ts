@@ -34,9 +34,11 @@ import {
 } from './sigfigs.ts'
 import { BUILTIN_CONSTANTS, DEFAULT_CONSTANT_SIG_FIGS, suggestConstant } from './constants.ts'
 import {
-  ASSIGNMENT, ASSIGNMENT_WITH_VALUE, CONSTANT_REF, DECLARED, EXACT_SETTING, IS_NAME, LEADING_NAME, NAME,
-  NAME_WITH_SETTINGS, NOTATIONS, NUMBER, ONE_LINE_FUNCTION, PERCENT, SERIES_SUFFIXES, UNCERTAINTY_WORDS, UNPACK,
+  ASSIGNMENT, ASSIGNMENT_WITH_VALUE, AXES, COMPONENTS_SETTING, CONSTANT_REF, DECLARED, EXACT_SETTING, IS_NAME,
+  LEADING_NAME, NAME, NAME_WITH_SETTINGS, NOTATIONS, NUMBER, ONE_LINE_FUNCTION, PERCENT, SERIES_SUFFIXES,
+  UNCERTAINTY_WORDS, UNIT_VECTOR_SETTING, UNPACK, VECTOR_FUNCTION,
   type DisplayMode, type LineCommand, type Notation, type Precision, type SeriesSuffix, type UncertaintyWord,
+  type VectorStyle,
 } from './syntax.ts'
 import { Solver, contains, countOccurrences, matchingParen, splitArgs, splitEquation } from './solve.ts'
 
@@ -58,6 +60,73 @@ math.import({ lit: (text: string) => Number(text) })
  * into separate variables (see evaluateUnpack).
  */
 math.import({ tuple: (...values: MathType[]) => math.matrix(values as never) })
+
+/**
+ * `<3.0, 4.0> N`: a vector. It's a tuple like any other (so everything that
+ * works on tuples works on it), but it's shown in angle brackets, ⟨3.0, 4.0⟩ N,
+ * or with unit vectors (`F:ijk`). `<…>` is rewritten to `vector(…)` before parsing.
+ */
+math.import({ [VECTOR_FUNCTION]: (...values: MathType[]) => math.matrix(values as never) })
+
+/** Characters after which a `<` opens a vector rather than comparing: the start, `=`, `(`, `[`, `,`, an operator. */
+const VECTOR_OPENS_AFTER = /(?:^|[=([,+\-*/^<]|\breturn)\s*$/
+
+/**
+ * Where the vector opened by the `<` at `start` closes: the index of its `>`,
+ * or -1 if `<` there doesn't open a vector (it's a comparison, or nothing
+ * closes it, or there's no comma inside). Brackets and vectors may nest.
+ */
+function vectorEnd(src: string, start: number): number {
+  if (!VECTOR_OPENS_AFTER.test(src.slice(0, start))) return -1
+  let depth = 0
+  let comma = false
+  for (let i = start + 1; i < src.length; i++) {
+    const c = src[i]
+    if (c === '(' || c === '[' || c === '{') depth++
+    else if (c === ')' || c === ']' || c === '}') {
+      if (--depth < 0) return -1
+    } else if (c === '<' && depth === 0) {
+      const inner = vectorEnd(src, i)
+      if (inner < 0) return -1
+      i = inner
+    } else if (c === ',' && depth === 0) comma = true
+    else if (c === '>' && depth === 0) return comma ? i : -1
+  }
+  return -1
+}
+
+/**
+ * `<3.0, 4.0> N` → `(vector(3.0, 4.0) * N)`. A unit right after the `>` applies
+ * to every component; other `<` and `>` (comparisons) are left alone.
+ */
+export function expandVectors(src: string): string {
+  let out = ''
+  let last = 0
+  for (let i = 0; i < src.length; i++) {
+    if (src[i] !== '<') continue
+    const end = vectorEnd(src, i)
+    if (end < 0) continue
+    const inside = expandVectors(src.slice(i + 1, end))
+    const unit = readUnit(src, end + 1)
+    out += src.slice(last, i)
+    out += unit
+      ? `(${VECTOR_FUNCTION}(${inside}) * unit("${unit.text}"))`
+      : `${VECTOR_FUNCTION}(${inside})`
+    last = unit ? unit.end : end + 1
+    i = last - 1
+  }
+  return out + src.slice(last)
+}
+
+/** Whether the `>` at `end` closes a vector (so a unit can follow it), for the editor. */
+export function closesVector(src: string, end: number): boolean {
+  for (let i = end - 1; i >= 0; i--) if (src[i] === '<' && vectorEnd(src, i) === end) return true
+  return false
+}
+
+/** Whether some text has a vector written `<…>` or `vector(…)` in it. */
+const hasVector = (src: string) =>
+  expandVectors(src) !== src || new RegExp(`\\b${VECTOR_FUNCTION}\\s*\\(`).test(src)
 
 /**
  * The first bracketed list with commas, `(a, b)`, that isn't a function call's
@@ -368,7 +437,11 @@ const CONVERSION = /\bto\s+/g
 export function preprocess(src: string, isVariable: (id: string) => boolean): { text: string; shadowed: string[] } {
   const shadowed = new Set<string>()
   const bare = bareTuple(src)
-  if (bare) throw new Error(`A bracketed list with commas, ${bare}, isn't a value: for coordinates, write tuple${bare}.`)
+  if (bare) {
+    throw new Error(`A bracketed list with commas, ${bare}, isn't a value: `
+      + `for a vector, write <${bare.slice(1, -1)}>; for other coordinates, tuple${bare}.`)
+  }
+  src = expandVectors(src)
 
   // `... to kN`: the conversion target is always a unit.
   let out = ''
@@ -549,7 +622,7 @@ function namePart(s: string): string {
   return `\\mathrm{${s}}`
 }
 
-/** `v_0` → v_{0}, `F_net` → F_{\mathrm{net}}, `theta` → \theta, `a2` → a_{2} */
+/** `v_0` → v_{0}, `F_net` → F_{\mathrm{net}}, `F_net_x` → F_{\mathrm{net},x}, `theta` → \theta, `a2` → a_{2} */
 export function symbolTex(name: string): string {
   if (name === 'Infinity') return '\\infty'
   const unc = parseUncertaintyName(name)
@@ -569,9 +642,10 @@ export function symbolTex(name: string): string {
   }
   const trailingDigits = /^([A-Za-z]+?)(\d+)$/.exec(name)
   if (trailingDigits) return `${namePart(trailingDigits[1])}_{${trailingDigits[2]}}`
+  // More than one subscript (`F_net_x`, a component) reads F_{net,x}.
   const [base, ...rest] = name.split('_')
-  const sub = rest.join('_')
-  return sub ? `${namePart(base)}_{${namePart(sub)}}` : namePart(base)
+  const subs = rest.filter(Boolean)
+  return subs.length ? `${namePart(base)}_{${subs.map(namePart).join(',')}}` : namePart(base)
 }
 
 /** `1.235e+8` → 1.235 \times 10^{8} */
@@ -632,6 +706,13 @@ function isLiteral(n: MathNode): boolean {
   if (isOperatorNode(n) && n.fn === 'unaryMinus') return isLiteral(n.args[0])
   if (isOperatorNode(n) && n.fn === 'multiply' && isUnitCall(n.args[1])) return isLiteral(n.args[0])
   return false
+}
+
+/** A vector of typed values: `<3.0, 4.0> N`, `<1.0 m, 2.0 m>`. */
+function isVectorLiteral(n: MathNode): boolean {
+  n = unwrap(n)
+  if (isOperatorNode(n) && n.fn === 'multiply' && isUnitCall(n.args[1])) n = unwrap(n.args[0])
+  return isFunctionNode(n) && n.fn.name === VECTOR_FUNCTION && n.args.every(isLiteral)
 }
 
 /** An expression made only of number literals and arithmetic, like `-(0.5)` or `3/2`. */
@@ -734,6 +815,7 @@ interface ScopeSet {
   uncSfs: Scope<number | undefined>
   declared: Scope<boolean | undefined>
   notations: Scope<Notation | undefined>
+  vectors: Scope<VectorStyle | undefined>
   shown: Scope<string | undefined>
   defs: Scope<MathNode | undefined>
   aggs: Scope<Aggregate | undefined>
@@ -755,6 +837,8 @@ interface UserFunction {
   returnSf?: number
   /** Notation declared for the result (`f(x):sci = …`). */
   returnNotation?: Notation
+  /** How a vector it returns is shown: declared (`f(x):ijk = …`), or ⟨…⟩ if its body writes a vector. */
+  returnVector?: VectorStyle
   /** Unit declared for the result (`f(x):mol/L = …`), which every call's result is shown in. */
   returnUnit?: string
 }
@@ -776,7 +860,7 @@ const MAX_TRACE_DEPTH = 6
 /**
  * Display settings on the name being assigned (`name:3 =`, `name:deg =`,
  * `phi:3:deg =`), each after a `:` and in any order: sig figs (`3`, `exact`),
- * a unit, and a notation (`sci`, `dec`).
+ * a unit, a notation (`sci`, `dec`), and for a vector `ijk` and `xyz`.
  */
 interface Declaration {
   name: string
@@ -787,6 +871,10 @@ interface Declaration {
   unit?: string
   /** Always scientific (`sci`) or always decimal (`dec`) notation. */
   notation?: Notation
+  /** `F:ijk`: show the vector with unit vectors. */
+  vector?: VectorStyle
+  /** `F:xyz`: also store (and show) each component as a variable, F_x, F_y, F_z. */
+  components?: boolean
 }
 
 /** Whether a unit measures angles. */
@@ -823,6 +911,36 @@ function toDisplayUnit(value: unknown, unit: string): unknown {
   throw new Error(`This value can't be shown in ${unit}.`)
 }
 
+/** A tuple or vector's TeX, bracketed if it isn't already (a sum of unit vectors), to drop into a substitution. */
+const bracketed = (tex: string) => (/^(?:\\left|\()/.test(tex) ? tex : `(${tex})`)
+
+/** The unit vectors î, ĵ, k̂, one per axis. */
+const UNIT_VECTOR_TEX = ['\\hat{\\imath}', '\\hat{\\jmath}', '\\hat{k}']
+
+/** A vector's components, as the variables `F:xyz` makes: F → F_x, F_y (and F_z). */
+function componentsOf(name: string, value: unknown): { name: string; value: unknown }[] {
+  const values = isTuple(value) ? value.toArray() as unknown[] : null
+  if (!values || values.length < 2 || values.length > AXES.length) {
+    throw new Error(`${name}:${COMPONENTS_SETTING} needs a vector of 2 or 3 values, like <3.0, 4.0> N.`)
+  }
+  return values.map((v, i) => ({ name: `${name}_${AXES[i]}`, value: v }))
+}
+
+/**
+ * An equation with more rows under it, lined up on their `=`: `F = …` then
+ * `F_x = …`, `F_y = …`. `lhs` is the equation's left-hand side, where its
+ * first `=` (or ≈) is; an equation already laid out one `=` per row gets the
+ * rows added to the end.
+ */
+function withRows(tex: string, lhs: string, rows: string[]): string {
+  const ALIGNED_END = '\\end{aligned}'
+  if (tex.startsWith('\\begin{aligned}') && tex.endsWith(ALIGNED_END)) {
+    return `${tex.slice(0, -ALIGNED_END.length)} \\\\ ${rows.join(' \\\\ ')}${ALIGNED_END}`
+  }
+  const first = tex.startsWith(`${lhs} `) ? `${lhs} &${tex.slice(lhs.length + 1)}` : `&${tex}`
+  return `\\begin{aligned}${[first, ...rows].join(' \\\\ ')}\\end{aligned}`
+}
+
 /** A name in `tuple(a, b:3, c:deg) = …`, with its display settings. */
 interface TupleName {
   name: string
@@ -842,6 +960,9 @@ function parseTupleName(entry: string): TupleName | { error: string } {
   if (!d) return { name }
   if ('error' in d) return d
   if (d.unit === PERCENT) return { error: `${name}:percent isn't available when unpacking; show it as a percentage on a line of its own.` }
+  if (d.vector || d.components) {
+    return { error: `${name}:${d.vector ?? COMPONENTS_SETTING} is for a vector, but an unpacked name gets a single value.` }
+  }
   return { name, sf: d.sf, unit: d.unit, notation: d.notation }
 }
 
@@ -858,11 +979,13 @@ function parseDeclaration(line: string): Declaration | { error: string } | null 
     else if (isNotation(spec)) {
       if (out.notation && out.notation !== spec) return { error: `${m[1]} can't be both :${NOTATIONS[0]} and :${NOTATIONS[1]}.` }
       out.notation = spec
-    } else if (/^\d+$/.test(spec)) {
+    } else if (spec === UNIT_VECTOR_SETTING) out.vector = UNIT_VECTOR_SETTING
+    else if (spec === COMPONENTS_SETTING) out.components = true
+    else if (/^\d+$/.test(spec)) {
       if (Number(spec) === 0) return { error: `${m[1]}:0 isn't valid; use at least 1 sig fig, or :exact.` }
       out.sf = Number(spec)
     } else if (spec === PERCENT || isValidUnit(spec)) out.unit = spec
-    else return { error: `In ${m[1]}:${spec}, "${spec}" isn't a number of sig figs, a unit, or sci/dec.` }
+    else return { error: `In ${m[1]}:${spec}, "${spec}" isn't a number of sig figs, a unit, or a setting like sci or ijk.` }
   }
   return out
 }
@@ -896,6 +1019,8 @@ interface ParsedLine {
   displayUnit?: string
   /** `x:sci = …`, `x:dec = …`: the notation the result (and the variable) is shown in. */
   notation?: Notation
+  /** `F:ijk = …`: show the vector with unit vectors. */
+  vector?: VectorStyle
 }
 
 /** `… to percent` at the end of a line. */
@@ -1050,6 +1175,24 @@ const sameValue = (a: unknown, b: unknown) => {
   return Math.abs(x - y) <= SAME_VALUE_TOLERANCE * Math.max(Math.abs(x), Math.abs(y), TINY)
 }
 
+/** Everything kept about a variable: its value, and how it's shown and worked with. */
+interface StoredVariable {
+  value: unknown
+  sf: number
+  /** Uncertainty contributions (none: no uncertainty). */
+  contributions?: Contributions
+  uncSf?: number
+  /** Its sig figs were declared, so they beat the global setting. */
+  declared?: boolean
+  notation?: Notation
+  vector?: VectorStyle
+  /** How to show it in substitutions, if not as its value. */
+  shown?: string
+  /** Its defining expression, for ΔX working. */
+  def?: MathNode
+  agg?: Aggregate
+}
+
 /** Evaluates a sheet line by line, keeping its variables, their sig figs and uncertainties, and the functions it defines. */
 export class Calculator {
   private readonly root = new Scope()
@@ -1068,6 +1211,16 @@ export class Calculator {
   private notations = new Scope<Notation | undefined>()
   /** Notation numbers are being formatted in right now (see inNotation). */
   private notation: Notation | undefined
+  /** How a variable holding a vector is shown (⟨…⟩, or with unit vectors), wherever its value appears. */
+  private vectors = new Scope<VectorStyle | undefined>()
+  /** How tuples are being shown right now (undefined: as a plain tuple, (…)); see inVectorStyle. */
+  private vectorStyle: VectorStyle | undefined
+  /**
+   * The sig figs of each component of a vector as typed (`<0.50, -9.81>` → 2, 3),
+   * keyed by the value itself: a copy (`b = a`) shows the same, while anything
+   * worked out from it is a new value, at the fewest sig figs of its inputs.
+   */
+  private readonly typedSfs = new WeakMap<object, number[]>()
   /** Sig figs of each call to a user function's result, from its return line. */
   private readonly callSigFigs = new WeakMap<MathNode, number>()
   /**
@@ -1147,6 +1300,49 @@ export class Calculator {
       return fn()
     } finally {
       this.notation = saved
+    }
+  }
+
+  /** Set a variable, with everything kept about it (in the current scope). */
+  private store(name: string, v: StoredVariable): void {
+    this.scope.set(name, v.value)
+    this.sigs.set(name, v.sf)
+    this.uncs.set(name, v.contributions ?? new Map())
+    this.uncSfs.set(name, v.uncSf)
+    this.declared.set(name, v.declared || undefined)
+    this.notations.set(name, v.notation)
+    this.vectors.set(name, v.vector)
+    this.shown.set(name, v.shown)
+    this.defs.set(name, v.def)
+    this.aggs.set(name, v.agg)
+  }
+
+  /**
+   * How an expression's result is shown if it's a vector: with unit vectors if
+   * any vector in it is (`F:ijk`), else ⟨…⟩ if it has a vector in it at all
+   * (`<…>`, a variable holding one, a function returning one); undefined if
+   * it has none (a plain tuple).
+   */
+  private vectorStyleOf(node: MathNode): VectorStyle | undefined {
+    const styles = node.filter((n) => isSymbolNode(n) || isFunctionNode(n)).map((n) => {
+      if (isSymbolNode(n)) return this.vectors.get(n.name)
+      const name = (n as FunctionNode).fn.name
+      if (name === VECTOR_FUNCTION) return 'angle'
+      const f = this.scope.get(name)
+      return typeof f === 'function' ? this.userFunctions.get(f)?.returnVector : undefined
+    })
+    if (styles.includes(UNIT_VECTOR_SETTING)) return UNIT_VECTOR_SETTING
+    return styles.includes('angle') ? 'angle' : undefined
+  }
+
+  /** Run `fn` with tuples shown as vectors in `style` (undefined: as plain tuples). */
+  private inVectorStyle<T>(style: VectorStyle | undefined, fn: () => T): T {
+    const saved = this.vectorStyle
+    this.vectorStyle = style
+    try {
+      return fn()
+    } finally {
+      this.vectorStyle = saved
     }
   }
 
@@ -1274,28 +1470,46 @@ export class Calculator {
    */
   private tupleTex(tuple: math.Matrix, sf: number, forced: boolean): string {
     const values = tuple.toArray() as unknown[]
-    return this.valuesTex(values, values.map(() => ({ sf, forced, notation: this.notation })))
+    // A typed vector shows each component as typed (unless sig figs were declared).
+    const typed = forced ? undefined : this.typedSfs.get(tuple)
+    return this.valuesTex(values, values.map((_, i) => ({ sf: typed?.[i] ?? sf, forced, notation: this.notation })), this.vectorStyle)
   }
 
-  /** Values in a tuple's brackets, each at its own sig figs and notation (as unpacked names can declare). */
-  private valuesTex(values: unknown[], shown: { sf: number; forced: boolean; notation?: Notation }[]): string {
+  /**
+   * Values in a tuple's brackets, each at its own sig figs and notation (as
+   * unpacked names can declare). As a vector (`style`), in angle brackets,
+   * ⟨3.0, 4.0⟩ N, or with unit vectors, (3.0 î + 4.0 ĵ) N.
+   */
+  private valuesTex(values: unknown[], shown: { sf: number; forced: boolean; notation?: Notation }[], style?: VectorStyle): string {
     const parts = values.map((v, i) => this.inNotation(shown[i].notation, () => this.split(v, shown[i].sf, shown[i].forced)))
     const unit = parts[0]?.unit
-    if (values.length && parts.every((p) => p && p.unit === unit)) {
-      const nums = parts.map((p) => numberTex(p!.num)).join(', ')
-      return attachUnit(`\\left(${nums}\\right)`, unit ? unitTex(unit) : '')
+    const shared = values.length > 0 && parts.every((p) => p && p.unit === unit)
+    // Each value on its own; with a shared unit, the unit is written once instead.
+    const each = values.map((v, i) => (shared
+      ? numberTex(parts[i]!.num)
+      : this.inNotation(shown[i].notation, () => this.valueTex(v, shown[i].sf, undefined, undefined, shown[i].forced))))
+    const sharedUnit = shared && unit ? unitTex(unit) : ''
+    if (style === UNIT_VECTOR_SETTING && values.length >= 2 && values.length <= UNIT_VECTOR_TEX.length) {
+      // 3.0 î − 4.0 ĵ: each value's sign joins the terms.
+      const sum = each.map((tex, i) => {
+        const negative = tex.startsWith('-')
+        const term = `${negative ? tex.slice(1) : tex}\\,${UNIT_VECTOR_TEX[i]}`
+        if (i === 0) return negative ? `-${term}` : term
+        return `${negative ? '-' : '+'} ${term}`
+      }).join(' ')
+      // (Plain brackets: \left( would grow to fit the hats.)
+      return sharedUnit ? attachUnit(`(${sum})`, sharedUnit) : sum
     }
-    const each = values.map((v, i) => this.inNotation(shown[i].notation,
-      () => this.valueTex(v, shown[i].sf, undefined, undefined, shown[i].forced)))
-    return `\\left(${each.join(', ')}\\right)`
+    const [open, close] = style ? ['\\left\\langle ', '\\right\\rangle'] : ['\\left(', '\\right)']
+    return attachUnit(`${open}${each.join(', ')}${close}`, sharedUnit)
   }
 
   /** A variable's value for the substitution step, at its own sig figs. */
   private variableNode(name: string): MathNode {
     const shown = this.shown.get(name)
     if (shown) return rawNode(shown)
-    return this.inNotation(this.notations.get(name),
-      () => this.valueNode(this.scope.get(name), this.sigs.get(name) ?? EXACT, this.declared.get(name) === true))
+    return this.inNotation(this.notations.get(name), () => this.inVectorStyle(this.vectors.get(name),
+      () => this.valueNode(this.scope.get(name), this.sigs.get(name) ?? EXACT, this.declared.get(name) === true)))
   }
 
   /**
@@ -1317,8 +1531,10 @@ export class Calculator {
 
   /** Node standing in for a variable's value in the substitution step. */
   private valueNode(value: unknown, sf: number, forced = false): MathNode {
-    // A tuple is already bracketed: (1.0, 2.0) m.
-    if (isTuple(value)) return rawNode(this.valueTex(value, sf, undefined, undefined, forced))
+    // A tuple is already bracketed, (1.0, 2.0) m; a sum of unit vectors needs brackets, unless it has a unit.
+    if (isTuple(value)) {
+      return rawNode(bracketed(this.valueTex(value, sf, undefined, undefined, forced)))
+    }
     const parts = this.split(value, sf, forced)
     if (!parts) return rawNode(`\\left(${this.valueTex(value, sf)}\\right)`)
     const numTex = numberTex(parts.num)
@@ -1339,7 +1555,7 @@ export class Calculator {
         return attachUnit(n.args[0].toTex(options), unitTex(unitCallText(n.args[1])))
       }
       // -2.0 m, not -(2.0 m)
-      if (isOperatorNode(n) && n.fn === 'unaryMinus' && isNumberWithUnit(unwrap(n.args[0]))) {
+      if (isOperatorNode(n) && n.fn === 'unaryMinus' && (isNumberWithUnit(unwrap(n.args[0])) || isLiteral(n.args[0]))) {
         return ` -${unwrap(n.args[0]).toTex(options).trim()}`
       }
       if (isSymbolNode(n)) {
@@ -1348,6 +1564,9 @@ export class Calculator {
       }
       if (isFunctionNode(n) && n.fn.name === 'tuple') {
         return `\\left(${n.args.map((a) => a.toTex(options).trim()).join(', ')}\\right)`
+      }
+      if (isFunctionNode(n) && n.fn.name === VECTOR_FUNCTION) {
+        return `\\left\\langle ${n.args.map((a) => a.toTex(options).trim()).join(', ')}\\right\\rangle`
       }
       if (isFunctionNode(n) && (!(n.fn.name in math) || typeof this.scope.get(n.fn.name) === 'function')) {
         // User-defined function (even one named like a built-in, e.g. sum): f(x), not \mathrm{f}(x)
@@ -1675,15 +1894,7 @@ export class Calculator {
     const unc = this.total(contributions, value)
     if (unc !== undefined) sf = this.uncertainParts(value, unc)?.sf ?? sf
 
-    this.scope.set(name, value)
-    this.sigs.set(name, sf)
-    this.uncs.set(name, contributions)
-    this.uncSfs.set(name, undefined)
-    this.declared.set(name, undefined)
-    this.notations.set(name, undefined)
-    this.shown.set(name, undefined)
-    this.defs.set(name, undefined)
-    this.aggs.set(name, agg)
+    this.store(name, { value, sf, contributions, agg })
   }
 
   /** Uncertainty of a sum: each member's contributions added source by source. */
@@ -1917,16 +2128,20 @@ export class Calculator {
     if (returnSettings?.unit === PERCENT) {
       return { signature, body, error: `${name}:percent isn't available on a function; show a result as a percentage where it's used.` }
     }
+    if (returnSettings?.components) {
+      return { signature, body, error: `${name}:${COMPONENTS_SETTING} isn't available on a function; use it on the variable that stores the result.` }
+    }
     const returnUnit = shownUnit
     const returnSf = returnSettings?.sf === EXACT_SETTING ? EXACT : returnSettings?.sf
     const returnNotation = returnSettings?.notation
+    const returnVector = returnSettings?.vector ?? (lines.some((l) => hasVector(l.text)) ? 'angle' : undefined)
     const bad = paramSpecs.find((_, i) => !parsed[i])
     if (bad !== undefined) return { signature, body, error: `"${bad}" isn't a valid parameter: write a name, or "name to unit".` }
     const badUnit = casts.find((u) => u !== undefined && !isValidUnit(u))
     if (badUnit) return { signature, body, error: `"${badUnit}" isn't a unit MathScribe knows.` }
     type Statement =
       // `unit`: a display unit on the name (`th:deg = …`), which the value keeps.
-      | { kind: 'assign'; name: string; code: math.EvalFunction; unit?: string }
+      | { kind: 'assign'; name: string; code: math.EvalFunction; unit?: string; components?: boolean }
       | { kind: 'unpack'; targets: TupleName[]; code: math.EvalFunction }
       | { kind: 'return'; code: math.EvalFunction }
     const statements: Statement[] = []
@@ -1971,7 +2186,8 @@ export class Calculator {
         } else {
           const declared = parseDeclaration(text)
           const unit = declared && !('error' in declared) && declared.unit !== PERCENT ? declared.unit : undefined
-          statements.push({ kind: 'assign', name: assign![1], code, unit })
+          const components = declared && !('error' in declared) ? declared.components : undefined
+          statements.push({ kind: 'assign', name: assign![1], code, unit, components })
           // Keep the line as written, so a declared `x:3 =` applies when its working is shown.
           sources.push({ kind: 'assign', text, note, command, multiline: lineMultiline })
           body.push({ tex: `${symbolTex(assign![1])} = ${this.toTex(node, literals)}`, note, line })
@@ -2004,12 +2220,14 @@ export class Calculator {
           s.targets.forEach((t, i) => local.set(t.name, t.unit ? toDisplayUnit(values[i], t.unit) : values[i]))
           continue
         }
-        local.set(s.name, s.unit ? toDisplayUnit(v, s.unit) : v)
+        const value = s.unit ? toDisplayUnit(v, s.unit) : v
+        local.set(s.name, value)
+        if (s.components) componentsOf(s.name, value).forEach((c) => local.set(c.name, c.value))
       }
       return undefined
     }
     this.userFunctions.set(fn, {
-      params, casts, statements: sources, definedIn: this.currentScopes(), multiline, returns, returnSf, returnNotation, returnUnit,
+      params, casts, statements: sources, definedIn: this.currentScopes(), multiline, returns, returnSf, returnNotation, returnVector, returnUnit,
     })
     this.scope.set(name, fn)
     this.uncs.set(name, new Map())
@@ -2021,7 +2239,7 @@ export class Calculator {
   private currentScopes(): ScopeSet {
     return {
       scope: this.scope, sigs: this.sigs, uncs: this.uncs, uncSfs: this.uncSfs,
-      declared: this.declared, notations: this.notations, shown: this.shown, defs: this.defs, aggs: this.aggs,
+      declared: this.declared, notations: this.notations, vectors: this.vectors, shown: this.shown, defs: this.defs, aggs: this.aggs,
     }
   }
 
@@ -2032,6 +2250,7 @@ export class Calculator {
     this.uncSfs = s.uncSfs
     this.declared = s.declared
     this.notations = s.notations
+    this.vectors = s.vectors
     this.shown = s.shown
     this.defs = s.defs
     this.aggs = s.aggs
@@ -2110,26 +2329,23 @@ export class Calculator {
     const aliases = new Map<string, MathNode>()
     call.args.forEach((a, i) => aliases.set(def.params[i], this.withAliases(unwrap(a))))
 
+    // A vector passed in is shown inside the function as it is outside.
+    const argStyles = call.args.map((a) => this.vectorStyleOf(a))
     const caller = this.currentScopes()
     const d = def.definedIn
     this.restoreScopes({
       scope: new Scope(d.scope), sigs: new Scope(d.sigs), uncs: new Scope(d.uncs),
-      uncSfs: new Scope(d.uncSfs), declared: new Scope(d.declared), notations: new Scope(d.notations), shown: new Scope(d.shown),
+      uncSfs: new Scope(d.uncSfs), declared: new Scope(d.declared), notations: new Scope(d.notations), vectors: new Scope(d.vectors), shown: new Scope(d.shown),
       defs: new Scope(d.defs), aggs: new Scope(d.aggs),
     })
     this.traceDepth++
     this.paramAliases = aliases
     try {
       def.params.forEach((p, i) => {
-        this.scope.set(p, args[i].value)
-        this.sigs.set(p, args[i].sf)
-        this.uncs.set(p, args[i].contributions)
-        this.uncSfs.set(p, undefined)
-        this.declared.set(p, undefined)
-        this.notations.set(p, undefined)
-        this.shown.set(p, args[i].shown)
-        this.defs.set(p, undefined)
-        this.aggs.set(p, undefined)
+        this.store(p, {
+          value: args[i].value, sf: args[i].sf, contributions: args[i].contributions, shown: args[i].shown,
+          vector: isTuple(args[i].value) ? argStyles[i] : undefined,
+        })
       })
       const lines: TraceLine[] = []
       for (const s of def.statements) {
@@ -2446,7 +2662,7 @@ export class Calculator {
     }
     const value = this.scope.get(hidden)
     const sf = this.sigs.get(hidden) ?? EXACT
-    for (const m of [this.scope, this.sigs, this.uncs, this.uncSfs, this.declared, this.notations, this.shown, this.defs, this.aggs]) {
+    for (const m of [this.scope, this.sigs, this.uncs, this.uncSfs, this.declared, this.notations, this.vectors, this.shown, this.defs, this.aggs]) {
       m.delete(hidden)
     }
     if (result.error) return result
@@ -2470,17 +2686,9 @@ export class Calculator {
     const shown = targets.map((t) => (t.sf === undefined
       ? { sf, forced: false, notation: t.notation }
       : { sf: t.sf === EXACT_SETTING ? EXACT : t.sf, forced: true, notation: t.notation }))
-    targets.forEach(({ name }, i) => {
-      this.scope.set(name, converted[i])
-      this.sigs.set(name, shown[i].sf)
-      this.uncs.set(name, new Map())
-      this.uncSfs.set(name, undefined)
-      this.declared.set(name, shown[i].forced ? true : undefined)
-      this.notations.set(name, shown[i].notation)
-      this.shown.set(name, undefined)
-      this.defs.set(name, undefined)
-      this.aggs.set(name, undefined)
-    })
+    targets.forEach(({ name }, i) => this.store(name, {
+      value: converted[i], sf: shown[i].sf, declared: shown[i].forced, notation: shown[i].notation,
+    }))
     // With settings on the names, the result shows each value that way.
     if (!targets.some((t) => t.sf !== undefined || t.unit || t.notation) || !result.parts) return result
     const parts = { ...result.parts, result: this.valuesTex(converted, shown), approx: false }
@@ -2565,10 +2773,36 @@ export class Calculator {
       return { tex, warning }
     }
 
-    return this.evaluateParsed(node, {
+    const result = this.evaluateParsed(node, {
       uncNode, percent, literals, warnings, mode: requestedMode, explicit, declaredSf, asPercent, displayUnit,
-      notation: declaration?.notation,
+      notation: declaration?.notation, vector: declaration?.vector,
     })
+    return declaration?.components && !result.error ? this.withComponents(declaration.name, result, requestedMode) : result
+  }
+
+  /**
+   * `F:xyz = …`: store each component of the vector F as a variable of its own
+   * (F_x, F_y, F_z), at F's sig figs and notation, and show them under F's line
+   * (except with #sym, which shows only the equation).
+   */
+  private withComponents(name: string, result: LineResult, mode: DisplayMode): LineResult {
+    let components: ReturnType<typeof componentsOf>
+    try {
+      components = componentsOf(name, this.scope.get(name))
+    } catch (e) {
+      return { ...result, error: (e as Error).message }
+    }
+    const sf = this.sigs.get(name) ?? EXACT
+    const declared = this.declared.get(name) === true
+    const notation = this.notations.get(name)
+    // Each at the vector's sig figs, or for a typed vector, as typed.
+    const typed = declared ? undefined : this.typedSfs.get(this.scope.get(name) as object)
+    const sfs = components.map((_, i) => typed?.[i] ?? sf)
+    components.forEach((c, i) => this.store(c.name, { value: c.value, sf: sfs[i], declared, notation }))
+    if (mode === 'sym') return result
+    const rows = components.map((c, i) =>
+      `${symbolTex(c.name)} &= ${this.inNotation(notation, () => this.valueTex(c.value, sfs[i], undefined, undefined, declared))}`)
+    return { ...result, tex: withRows(result.tex, symbolTex(name), rows) }
   }
 
   /**
@@ -2711,6 +2945,15 @@ export class Calculator {
       // A value typed with a unit keeps that unit wherever it's shown (L = 1.00e-10 m
       // stays in m, not 100 pm), as a conversion's result does.
       if (isLiteral(expr) && math.isUnit(value)) (value as Unit).fixPrefix = true
+      // So does each component of a typed vector: <3000., 4000.> N stays in N, not kN.
+      if (isVectorLiteral(expr) && isTuple(value)) {
+        value = math.map(value, (v: MathType) => {
+          if (!math.isUnit(v)) return v
+          const u = (v as Unit).clone()
+          u.fixPrefix = true
+          return u
+        })
+      }
       contributions = this.propagate(expr)
       if (uncNode) contributions.set(this.nextSource++, this.declaredUncertainty(uncNode, value, percent))
     } catch (e) {
@@ -2772,6 +3015,23 @@ export class Calculator {
       ?? (deltaOf ? this.notations.get(deltaOf) : undefined)
       ?? (isSymbolNode(bare) ? this.notations.get(bare.name) : undefined)
       ?? (typeof callee === 'function' ? this.userFunctions.get(callee)?.returnNotation : undefined)
+    // `F:ijk = …`: the vector with unit vectors. Otherwise a vector keeps the look
+    // of the vectors it's made from (see vectorStyleOf); a plain tuple has none.
+    const vector = isTuple(value) ? ctx.vector ?? this.vectorStyleOf(expr) : undefined
+    if (ctx.vector && !isTuple(value) && value !== undefined) {
+      const ignored = `:${ctx.vector} is ignored because the result isn't a vector.`
+      warning = warning ? `${warning} ${ignored}` : ignored
+    }
+    // A typed vector keeps each component's sig figs as typed: <0.50, -9.81>
+    // shows as typed, not rounded to the fewest.
+    if (isVectorLiteral(expr) && isTuple(value) && unc === undefined) {
+      this.typedSfs.set(value, this.componentSigFigs(expr, literals))
+    }
+    // A typed vector is shown with unit vectors straight away: F:ijk = <3.0, 4.0> N → F = (3.0 î + 4.0 ĵ) N.
+    if (ctx.vector && vector && isVectorLiteral(expr)) {
+      exprTex = this.inNotation(notation, () => this.inVectorStyle(vector,
+        () => this.valueTex(value, declaredSf ?? shownSf, undefined, undefined, declaredSf !== undefined)))
+    }
     // A typed value is shown in the declared notation: x:sci = 12000. m → 1.2000 × 10⁴ m.
     if (ctx.notation && isLiteral(expr) && value !== undefined) {
       exprTex = this.inNotation(notation, () => (declaredSf !== undefined
@@ -2780,21 +3040,17 @@ export class Calculator {
     }
 
     if (assigned) {
-      this.notations.set(assigned, notation)
-      this.scope.set(assigned, value)
-      this.sigs.set(assigned, shownSf)
-      this.uncs.set(assigned, contributions)
-      this.uncSfs.set(assigned, declaredUncSf)
-      this.declared.set(assigned, declaredSf !== undefined ? true : undefined)
       // Defined with #sym (on the line or its block): later substitutions keep the
       // symbol instead of the value. Otherwise, constant-only values stay symbolic.
       const keepSymbol = ctx.mode === 'sym' && explicit
-      this.shown.set(assigned, keepSymbol ? symbolTex(assigned) : this.constantForm(expr, literals))
-      this.defs.set(assigned, isLiteral(expr) ? undefined : expr)
-      this.aggs.set(assigned, undefined)
+      this.store(assigned, {
+        value, sf: shownSf, contributions, uncSf: declaredUncSf, declared: declaredSf !== undefined, notation, vector,
+        shown: keepSymbol ? symbolTex(assigned) : this.constantForm(expr, literals),
+        def: isLiteral(expr) ? undefined : expr,
+      })
     }
 
-    const { result, approx } = this.inNotation(notation, () => {
+    const { result, approx } = this.inNotation(notation, () => this.inVectorStyle(vector, () => {
     let result: string | undefined
     if (ctx.asPercent && value !== undefined) {
       // Stored as the fraction (so later lines calculate with it); shown ×100 with a %.
@@ -2819,12 +3075,22 @@ export class Calculator {
       approx = this.isRounded(shownValue, declaredSf ?? sf, declaredSf !== undefined)
     }
     return { result, approx }
-    })
+    }))
     const finalParts = { ...parts(result), approx }
     return {
       tex: layoutEquation(mode, finalParts, multiline), parts: finalParts, warning, trace, returnNote,
       info: ctx.info, sf: shownSf,
     }
+  }
+
+  /** Sig figs of each component of a typed vector (`<0.50, -9.81> m/s^2` → 2, 3). */
+  private componentSigFigs(node: MathNode, literals: Map<number, string>): number[] {
+    let n = unwrap(node)
+    if (isOperatorNode(n) && n.fn === 'multiply') n = unwrap(n.args[0])
+    return (n as FunctionNode).args.map((a) => {
+      const c = unwrap(a)
+      return this.literalSigFigs(isOperatorNode(c) && c.fn === 'unaryMinus' ? c.args[0] : c, literals) ?? EXACT
+    })
   }
 
   /** Sig figs of a number typed directly, with or without a unit (`0.1 kg` → 1). */
@@ -2859,6 +3125,7 @@ export class Calculator {
     this.uncSfs = new Scope(this.uncSfs)
     this.declared = new Scope(this.declared)
     this.notations = new Scope(this.notations)
+    this.vectors = new Scope(this.vectors)
     this.shown = new Scope(this.shown)
     this.defs = new Scope(this.defs)
     this.aggs = new Scope(this.aggs)
@@ -2873,6 +3140,7 @@ export class Calculator {
     this.uncSfs = this.uncSfs.parent ?? this.uncSfs
     this.declared = this.declared.parent ?? this.declared
     this.notations = this.notations.parent ?? this.notations
+    this.vectors = this.vectors.parent ?? this.vectors
     this.shown = this.shown.parent ?? this.shown
     this.defs = this.defs.parent ?? this.defs
     this.aggs = this.aggs.parent ?? this.aggs

@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { last, lineAt, lines, readable, sheet, shown, value } from '../test/helpers.ts'
-import { bareTuple } from './engine.ts'
+import { bareTuple, expandVectors } from './engine.ts'
 
 describe('basic calculation', () => {
   it('substitutes values and tidies the unit', () => {
@@ -160,7 +160,7 @@ describe('functions', () => {
 
   it('shows a number argument once, and a negative one in brackets', () => {
     expect(shown('f(x) = 2.0 m * x\ny = f(3.0)')).toBe('y = 2.0 m· 3.0 = 6.0 m')
-    expect(shown('f(x) = 2.0 m * x\nz = f(-2.0)')).toBe('z = 2.0 m· (- 2.0) = -4.0 m')
+    expect(shown('f(x) = 2.0 m * x\nz = f(-2.0)')).toBe('z = 2.0 m· (-2.0) = -4.0 m')
   })
 
   it('runs def bodies', () => {
@@ -206,7 +206,7 @@ describe('functions', () => {
 
     it('explain what doesn’t fit', () => {
       const [g, h] = lines('g(x):zz = x\nh(x):percent = x')
-      expect(g.error).toMatch(/"zz" isn't a number of sig figs, a unit, or sci\/dec/)
+      expect(g.error).toMatch(/"zz" isn't a number of sig figs, a unit, or a setting like sci or ijk/)
       expect(h.error).toMatch(/isn't available on a function/)
       expect(last('m(x):kg = 2.0 m\nk = m(1)').error).toMatch(/can't be shown in kg/)
     })
@@ -282,7 +282,7 @@ describe('display settings on the name', () => {
   it('explain what doesn’t fit', () => {
     expect(last('bad:deg = 3.0 m').error).toMatch(/can't be shown in deg: the units don't match/)
     expect(last('bad:kg = 2.0').error).toMatch(/has no unit, so it can't be shown in kg/)
-    expect(last('bad:zz = 1').error).toMatch(/"zz" isn't a number of sig figs, a unit, or sci\/dec/)
+    expect(last('bad:zz = 1').error).toMatch(/"zz" isn't a number of sig figs, a unit, or a setting like sci or ijk/)
     expect(last('bad:0 = 1').error).toMatch(/at least 1 sig fig/)
     expect(last('bad:sci:dec = 1.0').error).toMatch(/can't be both :sci and :dec/)
   })
@@ -314,6 +314,83 @@ describe('notation on the name', () => {
   })
 })
 
+describe('expandVectors', () => {
+  it('reads <…> as a vector where a value can start, with any unit after it', () => {
+    expect(expandVectors('F = <3.0, 4.0> N')).toBe('F = (vector(3.0, 4.0) * unit("N"))')
+    expect(expandVectors('c = cross(<1, 0, 0>, <0, 1, 0>)')).toBe('c = cross(vector(1, 0, 0), vector(0, 1, 0))')
+    expect(expandVectors('r = <max(1, 2), <1, 2>>')).toBe('r = vector(max(1, 2), vector(1, 2))')
+  })
+
+  it('leaves comparisons alone', () => {
+    expect(expandVectors('q = a < b')).toBe('q = a < b')
+    expect(expandVectors('q = (a < b) and (c > d)')).toBe('q = (a < b) and (c > d)')
+  })
+})
+
+describe('vectors', () => {
+  it('are written <…>, shown ⟨…⟩, with a unit after the > for every component', () => {
+    expect(shown('F = <3.0, 4.0> N')).toBe('F = ⟨3.0, 4.0⟩ N')
+    expect(shown('r = <1.00 m, 2.00 m>')).toBe('r = ⟨1.00 m, 2.00 m⟩ = ⟨1.00, 2.00⟩ m')
+    // A typed value keeps its unit: N, not kN.
+    expect(shown('P = <3000., 4000.> N')).toBe('P = ⟨3000., 4000.⟩ N')
+  })
+
+  it('keep each typed component’s sig figs', () => {
+    expect(shown('a = <0.50, -9.81> m/s^2')).toBe('a = ⟨0.50, -9.81⟩ m/s^2')
+    expect(shown('a = <0.50, -9.81> m/s^2\nb = a')).toBe('b = a = ⟨0.50, -9.81⟩ m/s^2')
+  })
+
+  it('calculate as tuples do, and what’s worked out from one is a vector too', () => {
+    const src = 'F = <3.0, 4.0> N\nG = 2 * F + <1.0, -1.0> N\nn = norm(F)\nd = dot(F, F)\nc = cross(<1, 0, 0>, <0, 1, 0>)'
+    expect(resultOfLine(src, 2)).toBe('⟨7.0, 7.0⟩ N')
+    expect(resultOfLine(src, 3)).toBe('5.0 N')
+    expect(resultOfLine(src, 4)).toBe('25 N^2')
+    expect(resultOfLine(src, 5)).toBe('⟨0, 0, 1⟩')
+    // A plain tuple stays a tuple.
+    expect(value('p = 2 * tuple(1.0, 2.0)')).toBe('(2.0, 4.0)')
+  })
+
+  it('come back from a function as vectors', () => {
+    expect(value('f(x) = <x, 2 * x>\ng = f(3.0)')).toBe('⟨3.0, 6.0⟩')
+    expect(value('def push(m, a)\n    F = m * a\n    return F\nk = push(2.0 kg, <1.0, 2.0> m/s^2)')).toBe('⟨2.0, 4.0⟩ N')
+  })
+
+  it('show with unit vectors with :ijk, and so does what’s worked out from them', () => {
+    expect(shown('v:ijk = <2.0, -1.5, 4.0> m/s')).toBe('v = (2.0 î - 1.5 ĵ + 4.0 k̂) m/s')
+    expect(shown('v:ijk = <2.0, -1.5, 4.0> m/s\nw = 2 * v')).toBe('w = 2· v = 2· (2.0 î - 1.5 ĵ + 4.0 k̂) m/s = (4.0 î - 3.0 ĵ + 8.0 k̂) m/s')
+    // Unitless, and a substitution brackets the sum.
+    expect(shown('u:ijk = <1, 2>\nw = 3 * u')).toBe('w = 3· u = 3· (1 î + 2 ĵ) = 3 î + 6 ĵ')
+    expect(last('z:ijk = 3').warning).toBe(':ijk is ignored because the result isn’t a vector.'.replace('’', '\''))
+  })
+
+  it('break into components with :xyz, each a variable of its own', () => {
+    const src = 'a:xyz = <0.50, -9.81> m/s^2\nt = 2.0 s\nd_y = 1/2 * a_y * t^2'
+    expect(readable(lineAt(src, 1).tex)).toBe('a = ⟨0.50, -9.81⟩ m/s^2 a_x = 0.50 m/s^2 a_y = -9.81 m/s^2')
+    expect(lineAt(src, 1).tex).toMatch(/^\\begin\{aligned\}a &= .* \\\\ a_\{x\} &= .* \\\\ a_\{y\} &= .*\\end\{aligned\}$/)
+    expect(value(src)).toBe('-20. m')
+    // Combined with :ijk, on a name with a subscript already.
+    expect(readable(last('F_net:ijk:xyz = <3.0, 4.0, 1.5> N').tex))
+      .toBe('F_net = (3.0 î + 4.0 ĵ + 1.5 k̂) N F_net,x = 3.0 N F_net,y = 4.0 N F_net,z = 1.5 N')
+    // #sym shows only the equation (the components are still made).
+    expect(shown('v:xyz = <1.0, 2.0> m   #sym\nw = v_y')).toBe('w = v_y = 2.0 m')
+  })
+
+  it('add the components as rows under a #multiline line', () => {
+    const tex = last('F = <3.0, 4.0> N\nG:xyz = F + 2 * F   #multiline').tex
+    expect(tex).toMatch(/^\\begin\{aligned\}G &= F\+ 2\\cdot F \\\\ &= .* \\\\ G_\{x\} &= 9\.0\\,\\mathrm\{N\} \\\\ G_\{y\} &= 12\\,\\mathrm\{N\}\\end\{aligned\}$/)
+  })
+
+  it('make components inside a function, too', () => {
+    expect(value('def fx(m, a)\n    F:xyz = m * a\n    return F_x\nk = fx(2.0 kg, <1.0, 2.0> m/s^2)')).toBe('2.0 N')
+  })
+
+  it('explain settings that don’t fit', () => {
+    expect(last('bad:xyz = 3').error).toBe('bad:xyz needs a vector of 2 or 3 values, like <3.0, 4.0> N.')
+    expect(last('tuple(a:ijk, b) = <1, 2>').error).toMatch(/a:ijk is for a vector/)
+    expect(last('f(x):xyz = <x, x>').error).toMatch(/isn't available on a function/)
+  })
+})
+
 describe('tuples', () => {
   const src = 'x = 1.00 m\ny = 2.00 m\nz = 3.00 m\nr = tuple(x, y, z)\ns = 2 * r\nt = r + r\nd = norm(r)\nrc = r to cm'
 
@@ -336,7 +413,7 @@ describe('tuples', () => {
   })
 
   it('must be written tuple(…): a bracketed list with commas is an error', () => {
-    expect(last('r = (1.0, 2.0)').error).toBe("A bracketed list with commas, (1.0, 2.0), isn't a value: for coordinates, write tuple(1.0, 2.0).")
+    expect(last('r = (1.0, 2.0)').error).toBe("A bracketed list with commas, (1.0, 2.0), isn't a value: for a vector, write <1.0, 2.0>; for other coordinates, tuple(1.0, 2.0).")
     expect(value('f(a, b) = a + b\nk = f(1, 2)')).toBe('3')
     expect(value('n = (1 + 2) * 3')).toBe('9')
     expect(value('m = max(1, (2))')).toBe('2')
@@ -394,7 +471,7 @@ describe('unpacking a tuple', () => {
 
   it('explains a setting that doesn’t fit', () => {
     expect(last('tuple(a:deg, b) = tuple(1.0 m, 2.0)').error).toMatch(/can't be shown in deg/)
-    expect(last('tuple(a:zz, b) = tuple(1, 2)').error).toMatch(/"zz" isn't a number of sig figs, a unit, or sci\/dec/)
+    expect(last('tuple(a:zz, b) = tuple(1, 2)').error).toMatch(/"zz" isn't a number of sig figs, a unit, or a setting like sci or ijk/)
     expect(last('tuple(a:percent, b) = tuple(1, 2)').error).toMatch(/isn't available when unpacking/)
   })
 

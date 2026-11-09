@@ -141,6 +141,25 @@ export const REFERENCE: ReferenceSection[] = [
     ],
   },
   {
+    id: 'vectors',
+    title: 'Vectors',
+    examples: [
+      {
+        source: 'F = <3.0, 4.0> N\nF_2 = 2 * F + <1.0, -1.0> N\nmag = norm(F)',
+        explain: '<…> is a vector, shown ⟨…⟩. A unit after the > applies to every component. Vectors scale and add, '
+          + 'and norm, dot and cross work on them.',
+      },
+      {
+        source: 'v:ijk = <2.0, -1.5, 4.0> m/s\nw = 2 * v',
+        explain: 'name:ijk shows a vector with unit vectors, î ĵ k̂. Vectors worked out from it are shown that way too.',
+      },
+      {
+        source: 'a:xyz = <0.50, -9.81> m/s^2\nt = 2.0 s\nd_y = 1/2 * a_y * t^2',
+        explain: 'name:xyz also makes each component a variable of its own, a_x, a_y (and a_z), shown under the vector.',
+      },
+    ],
+  },
+  {
     id: 'tuples',
     title: 'Tuples and coordinates',
     examples: [

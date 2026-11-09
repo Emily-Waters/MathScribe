@@ -93,6 +93,25 @@ export type Notation = typeof NOTATIONS[number]
 /** Show a unitless result ×100 with a % sign: `f:percent = …`, `… to percent`. */
 export const PERCENT = 'percent'
 
+/** Show a vector with unit vectors, (3.0 î + 4.0 ĵ) N: `F:ijk = …`. */
+export const UNIT_VECTOR_SETTING = 'ijk'
+
+/** Break a vector into its components, each a variable of its own (F_x, F_y, F_z): `F:xyz = …`. */
+export const COMPONENTS_SETTING = 'xyz'
+
+// ---------------------------------------------------------------------------
+// Vectors
+// ---------------------------------------------------------------------------
+
+/** A vector typed as `<3.0, 4.0> N` is read as a call to this function (which can also be typed). */
+export const VECTOR_FUNCTION = 'vector'
+
+/** The axes of a vector's components, in order: F_x, F_y, F_z. */
+export const AXES = ['x', 'y', 'z'] as const
+
+/** How a vector is shown: ⟨3.0, 4.0⟩ N, or with unit vectors, (3.0 î + 4.0 ĵ) N. */
+export type VectorStyle = 'angle' | typeof UNIT_VECTOR_SETTING
+
 // ---------------------------------------------------------------------------
 // Uncertainties and series
 // ---------------------------------------------------------------------------

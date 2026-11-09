@@ -4,7 +4,8 @@
  * come from lib/syntax.ts, which the engine uses too.)
  */
 import {
-  COMMAND_NAMES, EXACT_SETTING, NOTATIONS, PERCENT, type CommandName, type Notation, type SeriesSuffix,
+  COMMAND_NAMES, COMPONENTS_SETTING, EXACT_SETTING, NOTATIONS, PERCENT, UNIT_VECTOR_SETTING, VECTOR_FUNCTION,
+  type CommandName, type Notation, type SeriesSuffix,
 } from '../lib/syntax.ts'
 
 /** What each display command does. */
@@ -35,6 +36,8 @@ export const SETTING_WORDS: { name: string; description: string }[] = [
   { name: EXACT_SETTING, description: 'full precision; never limits a result' },
   ...NOTATIONS.map((n) => ({ name: n, description: NOTATION_DESCRIPTIONS[n] })),
   { name: PERCENT, description: 'a unitless result ×100, with %' },
+  { name: UNIT_VECTOR_SETTING, description: 'a vector with unit vectors: (3.0 î + 4.0 ĵ) N' },
+  { name: COMPONENTS_SETTING, description: 'a vector’s components as variables too: F_x, F_y, F_z' },
 ]
 
 /** Words of the sheet language, with what they do. */
@@ -73,9 +76,10 @@ export const BUILTIN_FUNCTIONS: { name: string; signature: string; description: 
   { name: 'max', signature: 'max(a, b, …)', description: 'Largest value' },
   { name: 'factorial', signature: 'factorial(n)', description: 'n!' },
   { name: 'tuple', signature: 'tuple(x, y, …)', description: 'A tuple of values, such as coordinates; tuple(a, b) = … unpacks one' },
-  { name: 'norm', signature: 'norm(r)', description: 'Length of a tuple: norm(tuple(3, 4)) = 5' },
-  { name: 'dot', signature: 'dot(a, b)', description: 'Dot product of two tuples' },
-  { name: 'cross', signature: 'cross(a, b)', description: 'Cross product of two 3-tuples' },
+  { name: VECTOR_FUNCTION, signature: 'vector(x, y, …)', description: 'A vector, the same as <x, y, …>' },
+  { name: 'norm', signature: 'norm(r)', description: 'Length of a vector or tuple: norm(<3, 4>) = 5' },
+  { name: 'dot', signature: 'dot(a, b)', description: 'Dot product of two vectors' },
+  { name: 'cross', signature: 'cross(a, b)', description: 'Cross product of two 3D vectors' },
   { name: 'solve', signature: 'solve(equation, unknown, guess?)', description: 'Rearrange an equation for the unknown and evaluate it' },
 ]
 

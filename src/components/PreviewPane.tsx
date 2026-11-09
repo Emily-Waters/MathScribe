@@ -230,6 +230,8 @@ interface PreviewPaneProps {
   onOptionsChange: (options: CalcOptions) => void
   /** The editor's cursor line; its output is highlighted. */
   activeLine: number | null
+  /** Changes when the active line was clicked in the editor, to centre its output. */
+  centerRequest: number
   /** Clicking output moves the editor cursor to that source line. */
   onJump: (line: number) => void
   /** The sheet's file name, for the downloaded .tex file. */
@@ -240,7 +242,7 @@ interface PreviewPaneProps {
 
 /** The Output pane: the rendered sheet, its LaTeX (and Word) export, the equation library and the reference. */
 export function PreviewPane({
-  sheet, options, onOptionsChange, activeLine, onJump, fileName, onInsert,
+  sheet, options, onOptionsChange, activeLine, centerRequest, onJump, fileName, onInsert,
 }: PreviewPaneProps) {
   const [tab, setTab] = useState<Tab>('rendered')
   const [flash, showFlash] = useFlash<'latex'>()
@@ -260,10 +262,14 @@ export function PreviewPane({
   const docRef = useRef<HTMLDivElement>(null)
   const link = useMemo(() => ({ activeLine, onJump }), [activeLine, onJump])
 
-  // Keep the output for the cursor's line in view.
+  // Keep the output for the cursor's line in view: centred after a click in the
+  // editor; while typing or moving with the keys, scrolled only as far as needed.
+  const centered = useRef(centerRequest)
   useEffect(() => {
-    docRef.current?.querySelector('[data-active="true"]')?.scrollIntoView({ block: 'nearest' })
-  }, [activeLine, tab])
+    const block: ScrollLogicalPosition = centered.current === centerRequest ? 'nearest' : 'center'
+    centered.current = centerRequest
+    docRef.current?.querySelector('[data-active="true"]')?.scrollIntoView({ block })
+  }, [activeLine, centerRequest, tab])
 
   const copy = async () => {
     if (await copyText(latexSource)) showFlash('latex', 'Copied')

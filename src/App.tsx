@@ -93,6 +93,12 @@ export default function App() {
   // Text from the Library tab, put in at the editor's cursor; `n` makes repeats distinct.
   const [insert, setInsert] = useState<{ text: string; n: number } | null>(null)
   const insertText = useCallback((text: string) => setInsert((i) => ({ text, n: (i?.n ?? 0) + 1 })), [])
+  // A click in the editor centres that line's output; `n` makes repeat clicks distinct.
+  const [centerOutput, setCenterOutput] = useState(0)
+  const followCursor = useCallback((line: number, clicked: boolean) => {
+    setActiveLine(line)
+    if (clicked) setCenterOutput((n) => n + 1)
+  }, [])
   const jumpTo = useCallback((line: number) => {
     setActiveLine(line)
     setJump((j) => ({ line, n: (j?.n ?? 0) + 1 }))
@@ -149,7 +155,7 @@ export default function App() {
               openIds={file.sheets.map((s) => s.id)}
               jump={jump}
               insert={insert}
-              onCursorLine={setActiveLine}
+              onCursorLine={followCursor}
               diagnostics={diagnostics}
               definitions={definitions}
               symbols={symbols}
@@ -174,6 +180,7 @@ export default function App() {
               options={options}
               onOptionsChange={setOptions}
               activeLine={activeLine}
+              centerRequest={centerOutput}
               onJump={jumpTo}
               fileName={file.active.name}
               onInsert={insertText}

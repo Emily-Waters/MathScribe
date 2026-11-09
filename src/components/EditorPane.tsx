@@ -28,7 +28,8 @@ interface EditorPaneProps {
   jump: { line: number; n: number } | null
   /** Text to put in at the cursor (from the Library tab); `n` makes repeats distinct. */
   insert: { text: string; n: number } | null
-  onCursorLine: (line: number) => void
+  /** The cursor moved to `line`; `clicked` if it was put there with the mouse. */
+  onCursorLine: (line: number, clicked: boolean) => void
   /** Errors and warnings by line, marked in the gutter. */
   diagnostics: Map<number, Diagnostic>
   /** Where each function is defined (for Ctrl+Click / F12). */
@@ -151,7 +152,7 @@ const baseTheme = EditorView.theme({
 const darkness = new Compartment()
 
 /** Everything a sheet's editor is set up with; `on` reports edits and cursor moves to the app. */
-function extensions(handlers: { change: (v: string) => void; cursor: (line: number) => void }, dark: boolean): Extension[] {
+function extensions(handlers: { change: (v: string) => void; cursor: (line: number, clicked: boolean) => void }, dark: boolean): Extension[] {
   return [
     lineNumbers(),
     diagnosticsGutter,
@@ -188,7 +189,10 @@ function extensions(handlers: { change: (v: string) => void; cursor: (line: numb
     ]),
     EditorView.updateListener.of((u) => {
       if (u.docChanged) handlers.change(u.state.doc.toString())
-      if (u.docChanged || u.selectionSet) handlers.cursor(u.state.doc.lineAt(u.state.selection.main.head).number)
+      if (u.docChanged || u.selectionSet) {
+        const clicked = u.transactions.some((tr) => tr.isUserEvent('select.pointer'))
+        handlers.cursor(u.state.doc.lineAt(u.state.selection.main.head).number, clicked)
+      }
     }),
   ]
 }
@@ -220,7 +224,7 @@ export function EditorPane({
     doc: text,
     extensions: extensions({
       change: (s) => handlers.current.change(s),
-      cursor: (l) => handlers.current.cursor(l),
+      cursor: (l, clicked) => handlers.current.cursor(l, clicked),
     }, darkNow.current),
   }))
 
@@ -248,7 +252,7 @@ export function EditorPane({
     requestAnimationFrame(() => {
       v.scrollDOM.scrollTop = scroll
     })
-    handlers.current.cursor(v.state.doc.lineAt(v.state.selection.main.head).number)
+    handlers.current.cursor(v.state.doc.lineAt(v.state.selection.main.head).number, false)
     // Only on switching sheets; `value` is the new sheet's text at that moment.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [docId])
@@ -293,7 +297,7 @@ export function EditorPane({
     if (!jump || !v) return
     const line = v.state.doc.line(Math.min(Math.max(jump.line, 1), v.state.doc.lines))
     const at = line.from + /^\s*/.exec(line.text)![0].length
-    v.dispatch({ selection: { anchor: at }, effects: EditorView.scrollIntoView(at, { y: 'nearest' }) })
+    v.dispatch({ selection: { anchor: at }, effects: EditorView.scrollIntoView(at, { y: 'center' }) })
     v.focus()
   }, [jump])
 

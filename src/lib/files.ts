@@ -87,8 +87,8 @@ export async function writeFile(handle: FileHandle, text: string): Promise<void>
 }
 
 /** Save by downloading, for browsers that can't write to files directly. */
-export function downloadFile(name: string, text: string): void {
-  const url = URL.createObjectURL(new Blob([text], { type: 'text/plain' }))
+export function downloadFile(name: string, text: string | Uint8Array<ArrayBuffer>, type = 'text/plain'): void {
+  const url = URL.createObjectURL(new Blob([text], { type }))
   const a = document.createElement('a')
   a.href = url
   a.download = name

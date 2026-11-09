@@ -240,7 +240,13 @@ export function PreviewPane({
     saveLatexOptions(o)
   }
   const latexSource = useMemo(() => toLatexDocument(sheet.blocks, latexOptions), [sheet.blocks, latexOptions])
-  const downloadTex = () => downloadFile(fileName.replace(/\.[^.]*$/, '') + '.tex', latexSource)
+  const baseName = fileName.replace(/\.[^.]*$/, '')
+  const downloadTex = () => downloadFile(`${baseName}.tex`, latexSource)
+  // The Word writer loads only when it's first used.
+  const downloadDocx = async () => {
+    const { toDocx, DOCX_TYPE } = await import('../lib/docx.ts')
+    downloadFile(`${baseName}.docx`, toDocx(sheet.blocks, latexOptions) as Uint8Array<ArrayBuffer>, DOCX_TYPE)
+  }
   const docRef = useRef<HTMLDivElement>(null)
   const link = useMemo(() => ({ activeLine, onJump }), [activeLine, onJump])
 
@@ -295,6 +301,10 @@ export function PreviewPane({
             <LatexOptionsMenu options={latexOptions} onChange={changeLatexOptions} />
             <button className="source__button" onClick={downloadTex} title="Download the LaTeX as a .tex file">
               Download .tex
+            </button>
+            <button className="source__button" onClick={downloadDocx}
+              title="Download a Word document with editable equations (opens in Google Docs too)">
+              Download .docx
             </button>
             <button className="source__button" onClick={copy}>{copied ? 'Copied' : 'Copy'}</button>
           </div>

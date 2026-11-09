@@ -49,6 +49,15 @@ the browser.
     alignment, spacing, cards (which use the standard `mdframed` package), section
     numbering, font size, paper, margins and an optional title, author and date;
     the choices are remembered in the browser.
+
+    **Download .docx** saves the sheet as a Word document with the same layout and
+    Document options, and with real Word equations you can edit (not pictures).
+    Notes sit at the right margin beside their equation (under it, when the
+    equation is too wide to share the line), blocks are cards with a shaded title,
+    `#list` / `#numbered` blocks are Word lists, and headings use Word's Heading
+    styles, so they appear in the navigation pane. For Google Docs, upload the
+    file to Drive and open it with Google Docs; its equations become Google Docs
+    equations.
   - **Reference**: every feature as an example you can copy, shown with its real
     output (each example is evaluated live, so the reference always matches what
     MathScribe actually does), plus the list of built-in constants.
@@ -799,6 +808,8 @@ Roughly in priority order.
 
 ### Done
 
+- [x] **Word export**: a `.docx` with editable equations, which also opens in
+      Google Docs.
 - [x] **Hosting**: published to GitHub Pages on every push.
 - [x] **Custom colour theme**: per-category colour pickers in the editor options,
       starting from a preset, with separate light and dark colours.
@@ -814,7 +825,10 @@ Roughly in priority order.
   `@constants`), sheet evaluation, diagnostics, definitions and symbols for the
   editor
 - `src/lib/latex.ts`: the `.tex` export and its document options;
-  `src/components/LatexOptionsMenu.tsx`: the LaTeX tab's Document menu
+  `src/components/LatexOptionsMenu.tsx`: the LaTeX tab's Document menu (used by
+  both exports)
+- `src/lib/docx.ts`: the `.docx` (Word) export; `src/lib/omml.ts`: LaTeX → Word
+  equations (OMML), by way of KaTeX's MathML
 - `src/lib/sigfigs.ts`: counting, propagating and formatting significant figures
 - `src/lib/solve.ts`: `solve(…)`: rearranging, linear, quadratic and numeric solving
 - `src/lib/constants.ts`: the built-in `@` constants

@@ -28,6 +28,34 @@ describe('basic calculation', () => {
   })
 })
 
+describe('products', () => {
+  const src = 'm = 2.00 kg\nv = 4.0 m/s\ntheta = 30. deg\nr = 2.0 m\nFn = 3.0\n'
+
+  it('are written as in a textbook, with no dot between symbols', () => {
+    expect(readable(last(`${src}E = 1/2 * m * v^2`).tex).split(' = ')[1]).toBe('\\frac12 m v^2') // ½mv²
+    expect(readable(last(`${src}N = m * @g * cos(theta)`).tex).split(' = ')[1]).toBe('m g \\cos(\\theta)')
+    expect(readable(last(`${src}C = 2 * pi * r`).tex).split(' = ')[1]).toBe('2 \\pi r')
+    // Beside a word-like name, a thin space keeps the names apart.
+    expect(last(`${src}G = Fn * m`).tex).toMatch(/^G = \\mathrm\{Fn\}\\,m =/)
+  })
+
+  it('keep a dot where numbers would run together, or a number could read as a mixed fraction', () => {
+    // Substituted values: 2.00 kg · (4.0 m/s)².
+    expect(shown(`${src}E = 1/2 * m * v^2`)).toBe('E = \\frac12 m v^2 = \\frac12· 2.00 kg· (4.0 m/s)^2 = 16 J')
+    expect(readable(last(`${src}x = m * 2`).tex).split(' = ')[1]).toBe('m· 2')
+    expect(readable(last(`${src}x = 2 * (1/3)`).tex).split(/ = | ≈ /)[1]).toBe('2· \\frac13')
+  })
+
+  it('bracket a sum or a negative factor', () => {
+    expect(readable(last(`${src}y = m * (v + v)`).tex).split(' = ')[1]).toBe('m (v+ v)')
+    expect(readable(last(`${src}z = m * -v`).tex).split(' = ')[1]).toBe('m (- v)')
+  })
+
+  it('show a dot between every factor with the dots option on', () => {
+    expect(readable(last(`${src}E = 1/2 * m * v^2`, { productDots: true }).tex).split(' = ')[1]).toBe('\\frac12· m·v^2')
+  })
+})
+
 describe('significant figures', () => {
   it('treats whole numbers as exact', () => {
     expect(value('d = 2 * 1.50 m')).toBe('3.00 m')
@@ -113,7 +141,7 @@ describe('unit display', () => {
     expect(lines(src).map((l) => readable(l.tex))).toEqual([
       'm = 9.11e-31 kg',
       'm = 9.11e-31 kg', // not 0.911 rg
-      'x = 2· m = 2· 9.11e-31 kg = 1.82e-30 kg',
+      'x = 2 m = 2· 9.11e-31 kg = 1.82e-30 kg',
       'L = 1.00e-10 m',
       'L = 1.00e-10 m', // not 100 pm
     ])
@@ -161,7 +189,7 @@ describe('constants', () => {
 
 describe('functions', () => {
   it('shows working in terms of what was passed in', () => {
-    expect(shown('area(r) = pi * r^2\nr_1 = 2.0 cm\nA = area(r_1)')).toBe('A = \\pi·r_1^2 = \\pi·(2.0 cm)^2 = 13 cm^2')
+    expect(shown('area(r) = pi * r^2\nr_1 = 2.0 cm\nA = area(r_1)')).toBe('A = \\pi r_1^2 = \\pi· (2.0 cm)^2 = 13 cm^2')
   })
 
   it('shows a number argument once, and a negative one in brackets', () => {
@@ -388,9 +416,9 @@ describe('vectors', () => {
 
   it('show with unit vectors with :ijk, and so does what’s worked out from them', () => {
     expect(shown('v:ijk = <2.0, -1.5, 4.0> m/s')).toBe('v = (2.0 î - 1.5 ĵ + 4.0 k̂) m/s')
-    expect(shown('v:ijk = <2.0, -1.5, 4.0> m/s\nw = 2 * v')).toBe('w = 2· v = 2· (2.0 î - 1.5 ĵ + 4.0 k̂) m/s = (4.0 î - 3.0 ĵ + 8.0 k̂) m/s')
+    expect(shown('v:ijk = <2.0, -1.5, 4.0> m/s\nw = 2 * v')).toBe('w = 2 v = 2· (2.0 î - 1.5 ĵ + 4.0 k̂) m/s = (4.0 î - 3.0 ĵ + 8.0 k̂) m/s')
     // Unitless, and a substitution brackets the sum.
-    expect(shown('u:ijk = <1, 2>\nw = 3 * u')).toBe('w = 3· u = 3· (1 î + 2 ĵ) = 3 î + 6 ĵ')
+    expect(shown('u:ijk = <1, 2>\nw = 3 * u')).toBe('w = 3 u = 3· (1 î + 2 ĵ) = 3 î + 6 ĵ')
     expect(last('z:ijk = 3').warning).toBe(':ijk is ignored because the result isn’t a vector.'.replace('’', '\''))
   })
 
@@ -408,7 +436,7 @@ describe('vectors', () => {
 
   it('add the components as rows under a #multiline line', () => {
     const tex = last('F = <3.0, 4.0> N\nG:xyz = F + 2 * F   #multiline').tex
-    expect(tex).toMatch(/^\\begin\{aligned\}G &= F\+ 2\\cdot F \\\\ &= .* \\\\ G_\{x\} &= 9\.0\\,\\mathrm\{N\} \\\\ G_\{y\} &= 12\\,\\mathrm\{N\}\\end\{aligned\}$/)
+    expect(tex).toMatch(/^\\begin\{aligned\}G &= F\+ 2 F \\\\ &= .* \\\\ G_\{x\} &= 9\.0\\,\\mathrm\{N\} \\\\ G_\{y\} &= 12\\,\\mathrm\{N\}\\end\{aligned\}$/)
   })
 
   it('make components inside a function, too', () => {

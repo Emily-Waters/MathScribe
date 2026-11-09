@@ -77,6 +77,7 @@ the browser.
   | Sig figs | **Auto** works out each result's sig figs from its inputs; a number shows every result to that many |
   | Show substitution | Include the step with values put in for the variables |
   | Use ≈ for every rounded result | Off: ≈ only when every input is exact (`1/3 ≈ 0.333`); on: before any rounded result |
+  | Show · in every product | Off: products as in a textbook, ½mv²; on: ½·m·v² |
 
 **Linked input and output:** click any line of output (a calculation, a heading, a
 step inside a function or constants card) to put the editor's cursor on its source
@@ -255,6 +256,14 @@ constants) and that has been rounded for display follows ≈: `1/3 ≈ 0.333333`
 `π/4 ≈ 0.785398`. Measured results use =, since their sig figs already say they're
 rounded; turn on *Use ≈ for every rounded result* in the Output options to use ≈
 for those too. Values with a `±` always use =.
+
+**Products:** type `*` between factors, and they're written as in a textbook:
+`1/2 * m * v^2` shows ½mv², `m * @g * cos(theta)` shows mg cos θ, and `2 * pi * r`
+shows 2πr. A dot is kept where it's needed: before a number or a value (`m · 2`,
+and between the values in a substitution step, 2.00 kg · 9.81 m/s²), after a value
+with a unit, and between a number and a fraction (2 · ½, not 2½). A word-like name
+gets a thin space (Fn m). Sums and negative factors are bracketed: m(v + u),
+m(−v). Turn on *Show · in every product* in the Output options for m·g·cos θ.
 
 ### Layout blocks
 

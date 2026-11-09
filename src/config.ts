@@ -35,7 +35,9 @@ export const STORAGE_KEYS = {
 // ---------------------------------------------------------------------------
 
 /** The Output options a session starts with. */
-export const DEFAULT_CALC_OPTIONS: CalcOptions = { precision: 'auto', showSubstitution: true, approxRounded: false }
+export const DEFAULT_CALC_OPTIONS: CalcOptions = {
+  precision: 'auto', showSubstitution: true, approxRounded: false, productDots: false,
+}
 
 /**
  * Fixed settings for the examples in the Reference and Library tabs, so they

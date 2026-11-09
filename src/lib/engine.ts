@@ -243,6 +243,12 @@ export interface CalcOptions {
    * (1/3 ≈ 0.333), since a measured result's sig figs already say it's rounded.
    */
   approxRounded?: boolean
+  /**
+   * Show a dot between every pair of factors (m·a). Off: products are written
+   * as in a textbook, ma, ½mv², mg cos θ, with a dot only where it's needed to
+   * keep numbers apart (2.0 kg · 9.81 m/s²).
+   */
+  productDots?: boolean
 }
 
 /** The pieces of an equation, put together by layoutEquation. */
@@ -1141,6 +1147,68 @@ function castArgument(param: string, unit: string | undefined, value: unknown): 
 const isNumberWithUnit = (n: MathNode): n is math.OperatorNode =>
   isOperatorNode(n) && n.fn === 'multiply' && isUnitCall(n.args[1])
 
+// ---------------------------------------------------------------------------
+// Products without dots: ma, ½mv², 2πr
+// ---------------------------------------------------------------------------
+
+/**
+ * What a factor shows at one edge, which decides what goes between it and its
+ * neighbour in a product: a number, a quantity (a number with a unit, or a
+ * substituted value), a minus sign, a fraction, a name (one letter, or Greek),
+ * a wide name (an upright word, like Fn), or anything else (brackets, a call).
+ */
+type Edge = 'number' | 'quantity' | 'minus' | 'fraction' | 'name' | 'wide' | 'other'
+
+/** What `node` shows at its `side` edge. */
+function edgeOf(node: MathNode, side: 'left' | 'right'): Edge {
+  const n = unwrap(node)
+  if (isConstantNode(n) || isLitCall(n)) return 'number'
+  if (isUnitCall(n) || isNumberWithUnit(n)) return 'quantity'
+  if (isSymbolNode(n)) {
+    // A substituted value, bracketed or not, is a quantity: 2.0 m · (−2.0).
+    if (n.name.startsWith(RAW)) return 'quantity'
+    return symbolTex(n.name).startsWith('\\mathrm') ? 'wide' : 'name'
+  }
+  if (isOperatorNode(n)) {
+    if (needsBrackets(n, side === 'left' ? 'right' : 'left')) return 'other'
+    if (n.fn === 'divide') return 'fraction'
+    if (n.fn === 'multiply') return edgeOf(side === 'left' ? n.args[0] : n.args[n.args.length - 1], side)
+    // A power ends in its exponent, which is raised: x² y reads fine. But a
+    // substituted value squared is still a value: (0.400 Å)² · (0.688 Å⁻¹ᐟ²)².
+    if (n.fn === 'pow') {
+      const base = edgeOf(n.args[0], side)
+      return side === 'left' || base === 'quantity' || base === 'number' ? base : 'name'
+    }
+  }
+  return 'other'
+}
+
+/**
+ * Whether a factor needs brackets in a product, on the `side` of it it's on:
+ * a sum, a conversion, a comparison, and a negative after another factor.
+ */
+function needsBrackets(node: MathNode, side: 'left' | 'right'): boolean {
+  const n = unwrap(node)
+  if (!isOperatorNode(n)) return false
+  if (n.fn === 'unaryMinus') return side === 'right'
+  return !['multiply', 'divide', 'pow', 'unaryPlus'].includes(n.fn)
+}
+
+/**
+ * What goes between two factors: a dot where a number or quantity comes next
+ * (x · 2, not x2), after a quantity (2.0 kg · m), or between a number and a
+ * fraction (2 · ½, not the mixed number 2½); a thin space beside a wide name
+ * (Fn F); otherwise nothing.
+ */
+function productSeparator(left: MathNode, right: MathNode): string {
+  const l = edgeOf(left, 'right')
+  const r = edgeOf(right, 'left')
+  if (r === 'number' || r === 'quantity' || r === 'minus' || l === 'quantity'
+    || (r === 'fraction' && (l === 'number' || l === 'fraction'))) return '\\cdot '
+  if (l === 'wide' || r === 'wide') return '\\,'
+  return ' '
+}
+
 /** Prefixes people expect to read: pico to tera, plus centi. */
 const COMMON_PREFIXES = new Set(['', 'p', 'n', 'u', 'm', 'c', 'k', 'M', 'G', 'T'])
 
@@ -1575,6 +1643,15 @@ export class Calculator {
       // -2.0 m, not -(2.0 m)
       if (isOperatorNode(n) && n.fn === 'unaryMinus' && (isNumberWithUnit(unwrap(n.args[0])) || isLiteral(n.args[0]))) {
         return ` -${unwrap(n.args[0]).toTex(options).trim()}`
+      }
+      // Products as in a textbook (unless the dots option is on): ma, ½mv², 2.0 kg · 9.81 m/s².
+      if (!this.options.productDots && isOperatorNode(n) && n.fn === 'multiply') {
+        const factor = (a: MathNode, side: 'left' | 'right') => {
+          const tex = a.toTex(options).trim()
+          return needsBrackets(a, side) ? `\\left(${tex}\\right)` : tex
+        }
+        return ` ${n.args.slice(1).reduce((out, a, i) => `${out}${productSeparator(n.args[i], a)}${factor(a, 'right')}`,
+          factor(n.args[0], 'left'))}`
       }
       // A value in scientific notation raised to a power is bracketed: (7.07 × 10⁻²)², not 7.07 × 10⁻²².
       if (isOperatorNode(n) && n.fn === 'pow') {

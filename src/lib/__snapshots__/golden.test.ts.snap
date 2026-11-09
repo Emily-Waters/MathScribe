@@ -3,25 +3,25 @@
 exports[`golden sheets > hydrogen orbitals 1`] = `
 "1: a_0 = 0.529 Å
      INFO Every @a_0 in this sheet uses this value, to 3 sig figs, in angstrom, unless written with its own :n.
-3: \\psi_prob(r, \\psi) = 4· \\pi·r^2·\\psi^2
-4: \\sigma(Z, r [Å]) = \\fracZ· ra_0
+3: \\psi_prob(r, \\psi) = 4 \\pi r^2 \\psi^2
+4: \\sigma(Z, r [Å]) = \\fracZ ra_0
 7: Z = 1
 8: r = 0.400 Å
-9: s = \\fracZ· ra_0 = \\frac1· 0.400 Å0.529 Å = 0.756
-10: \\psi = \\pi^-0.5·(\\fracZa_0)^\\frac32·e^- s = \\pi^-0.5·(\\frac10.529 Å)^\\frac32·e^- 0.756 = 0.688 Å^-1.5
-11: P = 4· \\pi·r^2·\\psi^2 = 4· \\pi·(0.400 Å)^2·(0.688 Å^-1.5)^2 = 0.953 Å^-1
+9: s = \\fracZ ra_0 = \\frac1· 0.400 Å0.529 Å = 0.756
+10: \\psi = \\pi^-0.5 (\\fracZa_0)^\\frac32 e^- s = \\pi^-0.5 (\\frac10.529 Å)^\\frac32 e^- 0.756 = 0.688 Å^-1.5
+11: P = 4 \\pi r^2 \\psi^2 = 4 \\pi· (0.400 Å)^2· (0.688 Å^-1.5)^2 = 0.953 Å^-1
 12: shell = P· 0.010 Å = 0.953 Å^-1· 0.010 Å = 0.95 %
 16: Z = 1
 17: r = 3.500 Å
-18: s = \\fracZ· ra_0 = \\frac1· 3.500 Å0.529 Å = 6.62
-19: \\psi_200 = (32~ \\pi)^-0.5·(\\fracZa_0)^\\frac32·(2- s)·e^\\frac- s2 = (32~ \\pi)^-0.5·(\\frac10.529 Å)^\\frac32·(2- 6.62)·e^\\frac- 6.622 = -0.0438 Å^-1.5
-20: P = 4· \\pi·r^2·\\psi_200^2 = 4· \\pi·(3.500 Å)^2·(-0.0438 Å^-1.5)^2 = 0.295 Å^-1
+18: s = \\fracZ ra_0 = \\frac1· 3.500 Å0.529 Å = 6.62
+19: \\psi_200 = (32 \\pi)^-0.5 (\\fracZa_0)^\\frac32 (2- s) e^\\frac- s2 = (32 \\pi)^-0.5 (\\frac10.529 Å)^\\frac32 (2- 6.62) e^\\frac- 6.622 = -0.0438 Å^-1.5
+20: P = 4 \\pi r^2 \\psi_200^2 = 4 \\pi· (3.500 Å)^2· (-0.0438 Å^-1.5)^2 = 0.295 Å^-1
 24: Z = 1
 25: r = 3.000 Å
-26: s = \\fracZ· ra_0 = \\frac1· 3.000 Å0.529 Å = 5.67
+26: s = \\fracZ ra_0 = \\frac1· 3.000 Å0.529 Å = 5.67
 27: \\theta = 0.00°
-28: \\psi_210 = (32~ \\pi)^-\\frac12·(\\fracZa_0)^\\frac32· s·e^-\\fracs2·\\cos(\\theta) = (32~ \\pi)^-\\frac12·(\\frac10.529 Å)^\\frac32· 5.67·e^-\\frac5.672·\\cos(0.00°) = 0.0863 Å^-1.5
-29: P = 4· \\pi·r^2·\\psi_210^2 = 4· \\pi·(3.000 Å)^2·(0.0863 Å^-1.5)^2 = 0.842 Å^-1"
+28: \\psi_210 = (32 \\pi)^-\\frac12 (\\fracZa_0)^\\frac32 s e^-\\fracs2 \\cos(\\theta) = (32 \\pi)^-\\frac12 (\\frac10.529 Å)^\\frac32· 5.67· e^-\\frac5.672 \\cos(0.00°) = 0.0863 Å^-1.5
+29: P = 4 \\pi r^2 \\psi_210^2 = 4 \\pi· (3.000 Å)^2· (0.0863 Å^-1.5)^2 = 0.842 Å^-1"
 `;
 
 exports[`golden sheets > the sample sheet 1`] = `
@@ -29,14 +29,14 @@ exports[`golden sheets > the sample sheet 1`] = `
 5: g = 9.81 m/s^2
 6: \\theta = (30.0 ± 0.5)°
 7: d = (3.50 ± 0.02) m
-10: F_g = m· g = 2.00 kg· 9.81 m/s^2 = 19.6 N
-11: F_par = F_g·\\sin(\\theta) = 19.6 N·\\sin(30.0°) = (9.81 ± 0.15) N
+10: F_g = m g = 2.00 kg· 9.81 m/s^2 = 19.6 N
+11: F_par = F_g \\sin(\\theta) = 19.6 N· \\sin(30.0°) = (9.81 ± 0.15) N
 12: a = \\fracF_parm = \\frac9.81 N2.00 kg = (4.91 ± 0.07) m/s^2
-15: v_f = \\sqrt2· a· d = \\sqrt2· 4.91 m/s^2· 3.50 m = (5.86 ± 0.05) m/s
+15: v_f = \\sqrt2 a d = \\sqrt2· 4.91 m/s^2· 3.50 m = (5.86 ± 0.05) m/s
 16: t = \\fracv_fa = \\frac5.86 m/s4.91 m/s^2 = (1.19 ± 0.01) s
-17: E_k = \\frac12· m·v_f^2 = \\frac12· 2.00 kg·(5.86 m/s)^2 = (34.3 ± 0.6) J
+17: E_k = \\frac12 m v_f^2 = \\frac12· 2.00 kg· (5.86 m/s)^2 = (34.3 ± 0.6) J
 18: v_f = (21.09 ± 0.17) km/h
-22: \\delta v_f = \\sqrt(\\frac\\partial v_f\\partial a· \\delta a)^2 + (\\frac\\partial v_f\\partial d· \\delta d)^2 = \\sqrt(\\fracd\\sqrt2· a· d· \\delta a)^2 + (\\fraca\\sqrt2· a· d· \\delta d)^2 = \\sqrt(\\frac3.50 m\\sqrt2· 4.91 m/s^2· 3.50 m· 0.07 m/s^2)^2 + (\\frac4.91 m/s^2\\sqrt2· 4.91 m/s^2· 3.50 m· 0.02 m)^2 = 0.05 m/s
+22: \\delta v_f = \\sqrt(\\frac\\partial v_f\\partial a· \\delta a)^2 + (\\frac\\partial v_f\\partial d· \\delta d)^2 = \\sqrt(\\fracd\\sqrt2 a d· \\delta a)^2 + (\\fraca\\sqrt2 a d· \\delta d)^2 = \\sqrt(\\frac3.50 m\\sqrt2· 4.91 m/s^2· 3.50 m· 0.07 m/s^2)^2 + (\\frac4.91 m/s^2\\sqrt2· 4.91 m/s^2· 3.50 m· 0.02 m)^2 = 0.05 m/s
 23: \\frac\\delta v_fv_f = \\frac0.05 m/s5.86 m/s = 0.008
 27: t_1 = 1.21 s
 28: t_2 = 1.17 s
@@ -44,23 +44,23 @@ exports[`golden sheets > the sample sheet 1`] = `
 30: t_4 = 1.19 s
 31: \\bart = \\frac14\\sum_i=1^4 t_i = \\fract_1 + t_2 + t_3 + t_44 = \\frac1.21 s + 1.17 s + 1.24 s + 1.19 s4 = (1.203 ± 0.015) s
 32: n_t = 4
-33: a_exp = \\frac2· d\\bart^2 = \\frac2· 3.50 m(1.202 s)^2 = (4.84 ± 0.12) m/s^2
+33: a_exp = \\frac2 d\\bart^2 = \\frac2· 3.50 m(1.202 s)^2 = (4.84 ± 0.12) m/s^2
 40: E_bottom = E = (34.3 ± 0.6) J
-     ↳ E = \\frac12· m·v_f^2 = \\frac12· 2.00 kg·(5.86 m/s)^2 = (34.3 ± 0.6) J
-42: p(mass, speed) = mass· speed
-43: p_bottom = m· v_f = 2.00 kg· 5.86 m/s = (11.72 ± 0.09) kg· m/s
+     ↳ E = \\frac12 m v_f^2 = \\frac12· 2.00 kg· (5.86 m/s)^2 = (34.3 ± 0.6) J
+42: p(mass, speed) = mass speed
+43: p_bottom = m v_f = 2.00 kg· 5.86 m/s = (11.72 ± 0.09) kg· m/s
 48: \\rho_w = 998 kg/m^3
-50: P_water = \\rho_w· g· 0.250 m = 998 kg/m^3· 9.81 m/s^2· 0.250 m = 2.45 kPa
-51: E_photon = \\frach· c532 nm = \\frac6.63e-34 J· s· 3.00e8 m/s532 nm = 2.33 eV
-55: d_stop = \\fracv_f^22· a = \\frac(5.86 m/s)^22· 4.91 m/s^2 = (3.500 ± 0.020) m
-     ↳ v_f^2 = 2· a· d_stop
+50: P_water = \\rho_w g· 0.250 m = 998 kg/m^3· 9.81 m/s^2· 0.250 m = 2.45 kPa
+51: E_photon = \\frach c532 nm = \\frac6.63e-34 J· s· 3.00e8 m/s532 nm = 2.33 eV
+55: d_stop = \\fracv_f^22 a = \\frac(5.86 m/s)^22· 4.91 m/s^2 = (3.500 ± 0.020) m
+     ↳ v_f^2 = 2 a d_stop
 56: h_0 = 2.00 m
-57: t_fall = \\frac\\sqrtv_f^2+ 2· g· h_0- v_fg = \\frac\\sqrt(5.86 m/s)^2+ 2· 9.81 m/s^2· 2.00 m- 5.86 m/s9.81 m/s^2 = (0.2771 ± 0.0015) s
-     ↳ h_0 = \\frac12· g·t_fall^2+ v_f· t_fall
+57: t_fall = \\frac\\sqrtv_f^2+ 2 g h_0- v_fg = \\frac\\sqrt(5.86 m/s)^2+ 2· 9.81 m/s^2· 2.00 m- 5.86 m/s9.81 m/s^2 = (0.2771 ± 0.0015) s
+     ↳ h_0 = \\frac12 g t_fall^2+ v_f t_fall
      INFO Also a solution: $t_{\\mathrm{fall}} = -1.47\\,\\mathrm{s}$. Give a guess to choose it: solve(…, t_fall, guess).
 62: \\theta = 45°
-63: a = g·\\sin(\\theta) = 9.81 m/s^2·\\sin(45°) = 6.9 m/s^2
-64: v_f = \\sqrt2· a· d = \\sqrt2· 6.9 m/s^2· 3.50 m = (6.968 ± 0.020) m/s
+63: a = g \\sin(\\theta) = 9.81 m/s^2· \\sin(45°) = 6.9 m/s^2
+64: v_f = \\sqrt2 a d = \\sqrt2· 6.9 m/s^2· 3.50 m = (6.968 ± 0.020) m/s
 66: v_f = (5.86 ± 0.05) m/s"
 `;
 
@@ -109,17 +109,17 @@ A block is released from rest on a frictionless incline.
 \\subsection{Forces}
 
 \\begin{gather*}
-  F_{g} = m\\cdot g = 2.00\\,\\mathrm{kg}\\cdot 9.81\\,\\mathrm{m}/\\mathrm{s}^{2} = 19.6\\,\\mathrm{N} \\tag*{weight} \\\\
-  F_{\\mathrm{par}} = F_{g}\\cdot\\sin\\left(\\theta\\right) = 19.6\\,\\mathrm{N}\\cdot\\sin\\left(30.0^{\\circ}\\right) = \\left(9.81 \\pm 0.15\\right)\\,\\mathrm{N} \\tag*{component along the ramp} \\\\
+  F_{g} = m g = 2.00\\,\\mathrm{kg}\\cdot 9.81\\,\\mathrm{m}/\\mathrm{s}^{2} = 19.6\\,\\mathrm{N} \\tag*{weight} \\\\
+  F_{\\mathrm{par}} = F_{g} \\sin\\left(\\theta\\right) = 19.6\\,\\mathrm{N}\\cdot \\sin\\left(30.0^{\\circ}\\right) = \\left(9.81 \\pm 0.15\\right)\\,\\mathrm{N} \\tag*{component along the ramp} \\\\
   a = \\frac{F_{\\mathrm{par}}}{m} = \\frac{9.81\\,\\mathrm{N}}{2.00\\,\\mathrm{kg}} = \\left(4.91 \\pm 0.07\\right)\\,\\mathrm{m}/\\mathrm{s}^{2} \\tag*{acceleration}
 \\end{gather*}
 
 \\subsection{Motion}
 
 \\begin{gather*}
-  v_{f} = \\sqrt{2\\cdot a\\cdot d} = \\sqrt{2\\cdot 4.91\\,\\mathrm{m}/\\mathrm{s}^{2}\\cdot 3.50\\,\\mathrm{m}} = \\left(5.86 \\pm 0.05\\right)\\,\\mathrm{m}/\\mathrm{s} \\tag*{speed at the bottom} \\\\
+  v_{f} = \\sqrt{2 a d} = \\sqrt{2\\cdot 4.91\\,\\mathrm{m}/\\mathrm{s}^{2}\\cdot 3.50\\,\\mathrm{m}} = \\left(5.86 \\pm 0.05\\right)\\,\\mathrm{m}/\\mathrm{s} \\tag*{speed at the bottom} \\\\
   t = \\frac{v_{f}}{a} = \\frac{5.86\\,\\mathrm{m}/\\mathrm{s}}{4.91\\,\\mathrm{m}/\\mathrm{s}^{2}} = \\left(1.19 \\pm 0.01\\right)\\,\\mathrm{s} \\tag*{time on the ramp} \\\\
-  E_{k} = \\frac{1}{2}\\cdot m\\cdot{v_{f}}^{2} = \\frac{1}{2}\\cdot 2.00\\,\\mathrm{kg}\\cdot{\\left(5.86\\,\\mathrm{m}/\\mathrm{s}\\right)}^{2} = \\left(34.3 \\pm 0.6\\right)\\,\\mathrm{J} \\tag*{kinetic energy at the bottom} \\\\
+  E_{k} = \\frac{1}{2} m {v_{f}}^{2} = \\frac{1}{2}\\cdot 2.00\\,\\mathrm{kg}\\cdot {\\left(5.86\\,\\mathrm{m}/\\mathrm{s}\\right)}^{2} = \\left(34.3 \\pm 0.6\\right)\\,\\mathrm{J} \\tag*{kinetic energy at the bottom} \\\\
   v_{f} = \\left(21.09 \\pm 0.17\\right)\\,\\mathrm{km}/\\mathrm{h}
 \\end{gather*}
 
@@ -128,7 +128,7 @@ A block is released from rest on a frictionless incline.
 Values with pm carry an uncertainty; results combine them in quadrature.
 
 \\begin{gather*}
-  \\delta v_{f} = \\sqrt{\\left(\\frac{\\partial v_{f}}{\\partial a}\\cdot \\delta a\\right)^{2} + \\left(\\frac{\\partial v_{f}}{\\partial d}\\cdot \\delta d\\right)^{2}} = \\sqrt{\\left(\\frac{d}{\\sqrt{2\\cdot a\\cdot d}}\\cdot \\delta a\\right)^{2} + \\left(\\frac{a}{\\sqrt{2\\cdot a\\cdot d}}\\cdot \\delta d\\right)^{2}} = \\sqrt{\\left(\\frac{3.50\\,\\mathrm{m}}{\\sqrt{2\\cdot 4.91\\,\\mathrm{m}/\\mathrm{s}^{2}\\cdot 3.50\\,\\mathrm{m}}}\\cdot 0.07\\,\\mathrm{m}/\\mathrm{s}^{2}\\right)^{2} + \\left(\\frac{4.91\\,\\mathrm{m}/\\mathrm{s}^{2}}{\\sqrt{2\\cdot 4.91\\,\\mathrm{m}/\\mathrm{s}^{2}\\cdot 3.50\\,\\mathrm{m}}}\\cdot 0.02\\,\\mathrm{m}\\right)^{2}} = 0.05\\,\\mathrm{m}/\\mathrm{s} \\tag*{how the uncertainty in v\\_f is worked out} \\\\
+  \\delta v_{f} = \\sqrt{\\left(\\frac{\\partial v_{f}}{\\partial a}\\cdot \\delta a\\right)^{2} + \\left(\\frac{\\partial v_{f}}{\\partial d}\\cdot \\delta d\\right)^{2}} = \\sqrt{\\left(\\frac{d}{\\sqrt{2 a d}}\\cdot \\delta a\\right)^{2} + \\left(\\frac{a}{\\sqrt{2 a d}}\\cdot \\delta d\\right)^{2}} = \\sqrt{\\left(\\frac{3.50\\,\\mathrm{m}}{\\sqrt{2\\cdot 4.91\\,\\mathrm{m}/\\mathrm{s}^{2}\\cdot 3.50\\,\\mathrm{m}}}\\cdot 0.07\\,\\mathrm{m}/\\mathrm{s}^{2}\\right)^{2} + \\left(\\frac{4.91\\,\\mathrm{m}/\\mathrm{s}^{2}}{\\sqrt{2\\cdot 4.91\\,\\mathrm{m}/\\mathrm{s}^{2}\\cdot 3.50\\,\\mathrm{m}}}\\cdot 0.02\\,\\mathrm{m}\\right)^{2}} = 0.05\\,\\mathrm{m}/\\mathrm{s} \\tag*{how the uncertainty in v\\_f is worked out} \\\\
   \\frac{\\delta v_{f}}{v_{f}} = \\frac{0.05\\,\\mathrm{m}/\\mathrm{s}}{5.86\\,\\mathrm{m}/\\mathrm{s}} = 0.008 \\tag*{relative uncertainty}
 \\end{gather*}
 
@@ -143,7 +143,7 @@ Numbered variables form a series: t is their sum, t\\_avg the mean ± σ/√n.
   t_{4} = 1.19\\,\\mathrm{s} \\\\
   \\bar{t} = \\frac{1}{4}\\sum_{i=1}^{4} t_{i} = \\frac{t_{1} + t_{2} + t_{3} + t_{4}}{4} = \\frac{1.21\\,\\mathrm{s} + 1.17\\,\\mathrm{s} + 1.24\\,\\mathrm{s} + 1.19\\,\\mathrm{s}}{4} = \\left(1.203 \\pm 0.015\\right)\\,\\mathrm{s} \\tag*{mean time down the ramp} \\\\
   n_{t} = 4 \\\\
-  a_{\\mathrm{exp}} = \\frac{2\\cdot d}{{\\bar{t}}^{2}} = \\frac{2\\cdot 3.50\\,\\mathrm{m}}{{\\left(1.202\\,\\mathrm{s}\\right)}^{2}} = \\left(4.84 \\pm 0.12\\right)\\,\\mathrm{m}/\\mathrm{s}^{2} \\tag*{measured acceleration, with uncertainty}
+  a_{\\mathrm{exp}} = \\frac{2 d}{{\\bar{t}}^{2}} = \\frac{2\\cdot 3.50\\,\\mathrm{m}}{{\\left(1.202\\,\\mathrm{s}\\right)}^{2}} = \\left(4.84 \\pm 0.12\\right)\\,\\mathrm{m}/\\mathrm{s}^{2} \\tag*{measured acceleration, with uncertainty}
 \\end{gather*}
 
 \\subsection{Functions}
@@ -152,14 +152,14 @@ Define a function with def and an indented body; values and uncertainties flow t
 
 \\begin{mdframed}[style=msblock, frametitle={Function $\\mathrm{KE}\\left(\\mathrm{mass}, \\mathrm{speed}\\right)$}]
 \\begin{gather*}
-  E = \\frac{1}{2}\\cdot \\mathrm{mass}\\cdot{\\mathrm{speed}}^{2} \\tag*{local to the function} \\\\
+  E = \\frac{1}{2}\\,\\mathrm{mass}\\,{\\mathrm{speed}}^{2} \\tag*{local to the function} \\\\
   \\mathrm{KE}\\left(\\mathrm{mass}, \\mathrm{speed}\\right) = E
 \\end{gather*}
 \\end{mdframed}
 
 \\begin{msworking}
 \\begin{gather*}
-  E = \\frac{1}{2}\\cdot m\\cdot{v_{f}}^{2} = \\frac{1}{2}\\cdot 2.00\\,\\mathrm{kg}\\cdot{\\left(5.86\\,\\mathrm{m}/\\mathrm{s}\\right)}^{2} = \\left(34.3 \\pm 0.6\\right)\\,\\mathrm{J} \\tag*{local to the function}
+  E = \\frac{1}{2} m {v_{f}}^{2} = \\frac{1}{2}\\cdot 2.00\\,\\mathrm{kg}\\cdot {\\left(5.86\\,\\mathrm{m}/\\mathrm{s}\\right)}^{2} = \\left(34.3 \\pm 0.6\\right)\\,\\mathrm{J} \\tag*{local to the function}
 \\end{gather*}
 \\end{msworking}
 \\begin{gather*}
@@ -169,8 +169,8 @@ Define a function with def and an indented body; values and uncertainties flow t
 A one-line function can be written the way it is in maths.
 
 \\begin{gather*}
-  p\\left(\\mathrm{mass}, \\mathrm{speed}\\right) = \\mathrm{mass}\\cdot \\mathrm{speed} \\\\
-  p_{\\mathrm{bottom}} = m\\cdot v_{f} = 2.00\\,\\mathrm{kg}\\cdot 5.86\\,\\mathrm{m}/\\mathrm{s} = \\left(11.72 \\pm 0.09\\right)\\,\\mathrm{kg}\\cdot \\mathrm{m}/\\mathrm{s}
+  p\\left(\\mathrm{mass}, \\mathrm{speed}\\right) = \\mathrm{mass}\\,\\mathrm{speed} \\\\
+  p_{\\mathrm{bottom}} = m v_{f} = 2.00\\,\\mathrm{kg}\\cdot 5.86\\,\\mathrm{m}/\\mathrm{s} = \\left(11.72 \\pm 0.09\\right)\\,\\mathrm{kg}\\cdot \\mathrm{m}/\\mathrm{s}
 \\end{gather*}
 
 \\subsection{Constants}
@@ -184,8 +184,8 @@ Built-in constants start with @ (3 sig figs unless you write @name:n or @name:ex
 \\end{mdframed}
 
 \\begin{gather*}
-  P_{\\mathrm{water}} = \\rho_{w}\\cdot g\\cdot 0.250\\,\\mathrm{m} = 998\\,\\mathrm{kg}/\\mathrm{m}^{3}\\cdot 9.81\\,\\mathrm{m}/\\mathrm{s}^{2}\\cdot 0.250\\,\\mathrm{m} = 2.45\\,\\mathrm{kPa} \\tag*{pressure 25 cm under water} \\\\
-  E_{\\mathrm{photon}} = \\frac{h\\cdot c}{532\\,\\mathrm{nm}} = \\frac{6.63 \\times 10^{-34}\\,\\mathrm{J}\\cdot \\mathrm{s}\\cdot 3.00 \\times 10^{8}\\,\\mathrm{m}/\\mathrm{s}}{532\\,\\mathrm{nm}} = 2.33\\,\\mathrm{eV} \\tag*{green laser photon}
+  P_{\\mathrm{water}} = \\rho_{w} g\\cdot 0.250\\,\\mathrm{m} = 998\\,\\mathrm{kg}/\\mathrm{m}^{3}\\cdot 9.81\\,\\mathrm{m}/\\mathrm{s}^{2}\\cdot 0.250\\,\\mathrm{m} = 2.45\\,\\mathrm{kPa} \\tag*{pressure 25 cm under water} \\\\
+  E_{\\mathrm{photon}} = \\frac{h c}{532\\,\\mathrm{nm}} = \\frac{6.63 \\times 10^{-34}\\,\\mathrm{J}\\cdot \\mathrm{s}\\cdot 3.00 \\times 10^{8}\\,\\mathrm{m}/\\mathrm{s}}{532\\,\\mathrm{nm}} = 2.33\\,\\mathrm{eV} \\tag*{green laser photon}
 \\end{gather*}
 
 \\subsection{Solving}
@@ -194,11 +194,11 @@ solve(equation, unknown) rearranges the equation and evaluates the result.
 
 \\begin{msworking}
 \\begin{gather*}
-  {v_{f}}^{2} = 2\\cdot a\\cdot d_{\\mathrm{stop}} \\tag*{solving for d\\_stop}
+  {v_{f}}^{2} = 2 a d_{\\mathrm{stop}} \\tag*{solving for d\\_stop}
 \\end{gather*}
 \\end{msworking}
 \\begin{gather*}
-  d_{\\mathrm{stop}} = \\frac{{v_{f}}^{2}}{2\\cdot a} = \\frac{{\\left(5.86\\,\\mathrm{m}/\\mathrm{s}\\right)}^{2}}{2\\cdot 4.91\\,\\mathrm{m}/\\mathrm{s}^{2}} = \\left(3.500 \\pm 0.020\\right)\\,\\mathrm{m} \\tag*{ramp length needed to reach v\\_f}
+  d_{\\mathrm{stop}} = \\frac{{v_{f}}^{2}}{2 a} = \\frac{{\\left(5.86\\,\\mathrm{m}/\\mathrm{s}\\right)}^{2}}{2\\cdot 4.91\\,\\mathrm{m}/\\mathrm{s}^{2}} = \\left(3.500 \\pm 0.020\\right)\\,\\mathrm{m} \\tag*{ramp length needed to reach v\\_f}
 \\end{gather*}
 
 \\begin{gather*}
@@ -207,11 +207,11 @@ solve(equation, unknown) rearranges the equation and evaluates the result.
 
 \\begin{msworking}
 \\begin{gather*}
-  h_{0} = \\frac{1}{2}\\cdot g\\cdot{t_{\\mathrm{fall}}}^{2}+ v_{f}\\cdot t_{\\mathrm{fall}} \\tag*{solving for t\\_fall}
+  h_{0} = \\frac{1}{2} g {t_{\\mathrm{fall}}}^{2}+ v_{f} t_{\\mathrm{fall}} \\tag*{solving for t\\_fall}
 \\end{gather*}
 \\end{msworking}
 \\begin{gather*}
-  t_{\\mathrm{fall}} = \\frac{\\sqrt{{v_{f}}^{2}+ 2\\cdot g\\cdot h_{0}}- v_{f}}{g} = \\frac{\\sqrt{{\\left(5.86\\,\\mathrm{m}/\\mathrm{s}\\right)}^{2}+ 2\\cdot 9.81\\,\\mathrm{m}/\\mathrm{s}^{2}\\cdot 2.00\\,\\mathrm{m}}- 5.86\\,\\mathrm{m}/\\mathrm{s}}{9.81\\,\\mathrm{m}/\\mathrm{s}^{2}} = \\left(0.2771 \\pm 0.0015\\right)\\,\\mathrm{s} \\tag*{quadratic: positive root}
+  t_{\\mathrm{fall}} = \\frac{\\sqrt{{v_{f}}^{2}+ 2 g h_{0}}- v_{f}}{g} = \\frac{\\sqrt{{\\left(5.86\\,\\mathrm{m}/\\mathrm{s}\\right)}^{2}+ 2\\cdot 9.81\\,\\mathrm{m}/\\mathrm{s}^{2}\\cdot 2.00\\,\\mathrm{m}}- 5.86\\,\\mathrm{m}/\\mathrm{s}}{9.81\\,\\mathrm{m}/\\mathrm{s}^{2}} = \\left(0.2771 \\pm 0.0015\\right)\\,\\mathrm{s} \\tag*{quadratic: positive root}
 \\end{gather*}
 
 \\subsection{What if?}
@@ -221,8 +221,8 @@ Variables assigned inside a block are local to it, like a scoped block in code.
 \\begin{mdframed}[style=msblock, frametitle={Steeper ramp --- outer values are readable, and can be shadowed}]
 \\begin{gather*}
   \\theta = 45^{\\circ} \\tag*{2 sig figs, so results here have 2} \\\\
-  a = g\\cdot\\sin\\left(\\theta\\right) = 9.81\\,\\mathrm{m}/\\mathrm{s}^{2}\\cdot\\sin\\left(45^{\\circ}\\right) = 6.9\\,\\mathrm{m}/\\mathrm{s}^{2} \\\\
-  v_{f} = \\sqrt{2\\cdot a\\cdot d} = \\sqrt{2\\cdot 6.9\\,\\mathrm{m}/\\mathrm{s}^{2}\\cdot 3.50\\,\\mathrm{m}} = \\left(6.968 \\pm 0.020\\right)\\,\\mathrm{m}/\\mathrm{s}
+  a = g \\sin\\left(\\theta\\right) = 9.81\\,\\mathrm{m}/\\mathrm{s}^{2}\\cdot \\sin\\left(45^{\\circ}\\right) = 6.9\\,\\mathrm{m}/\\mathrm{s}^{2} \\\\
+  v_{f} = \\sqrt{2 a d} = \\sqrt{2\\cdot 6.9\\,\\mathrm{m}/\\mathrm{s}^{2}\\cdot 3.50\\,\\mathrm{m}} = \\left(6.968 \\pm 0.020\\right)\\,\\mathrm{m}/\\mathrm{s}
 \\end{gather*}
 \\end{mdframed}
 
@@ -243,7 +243,7 @@ exports[`the Reference tab’s examples > Basics: > Prose, with inline maths lik
 exports[`the Reference tab’s examples > Basics: g = 9.81 m/s^2 1`] = `
 "1: g = 9.81 m/s^2
 3: \\theta = 45.0°
-4: a = g·\\sin(\\theta) = 9.81 m/s^2·\\sin(45.0°) = 6.94 m/s^2"
+4: a = g \\sin(\\theta) = 9.81 m/s^2· \\sin(45.0°) = 6.94 m/s^2"
 `;
 
 exports[`the Reference tab’s examples > Basics: m = 2.00 kg   # mass of the block 1`] = `"1: m = 2.00 kg"`;
@@ -256,7 +256,7 @@ exports[`the Reference tab’s examples > Basics: m = 2.00 kg 1`] = `
 exports[`the Reference tab’s examples > Constants: @a_0:3 to angstrom 1`] = `
 "1: a_0 = 0.529 Å
      INFO Every @a_0 in this sheet uses this value, to 3 sig figs, in angstrom, unless written with its own :n.
-2: r = 2· a_0 = 2· 0.529 Å = 1.06 Å"
+2: r = 2 a_0 = 2· 0.529 Å = 1.06 Å"
 `;
 
 exports[`the Reference tab’s examples > Constants: @c:4 1`] = `
@@ -267,10 +267,10 @@ exports[`the Reference tab’s examples > Constants: @c:4 1`] = `
 
 exports[`the Reference tab’s examples > Constants: @constants { 1`] = `
 "2: \\rho_w = 998 kg/m^3
-4: P = \\rho_w· g· 0.250 m = 998 kg/m^3· 9.81 m/s^2· 0.250 m = 2.45 kPa"
+4: P = \\rho_w g· 0.250 m = 998 kg/m^3· 9.81 m/s^2· 0.250 m = 2.45 kPa"
 `;
 
-exports[`the Reference tab’s examples > Constants: E = @h * @c / 532 nm to eV 1`] = `"1: E = \\frach· c532 nm = \\frac6.63e-34 J· s· 3.00e8 m/s532 nm = 2.33 eV"`;
+exports[`the Reference tab’s examples > Constants: E = @h * @c / 532 nm to eV 1`] = `"1: E = \\frach c532 nm = \\frac6.63e-34 J· s· 3.00e8 m/s532 nm = 2.33 eV"`;
 
 exports[`the Reference tab’s examples > Constants: F = @G:5 * 5.972e24 kg * 70.0 kg / (6.371e6 m)^2 1`] = `"1: F = \\fracG· 5.972e24 kg· 70.0 kg(6.371e6 m)^2 = \\frac6.6743e-11 N· m^2/kg^2· 5.972e24 kg· 70.0 kg(6.371e6 m)^2 = 687 N"`;
 
@@ -284,9 +284,9 @@ exports[`the Reference tab’s examples > Display commands: Results only {   #va
 `;
 
 exports[`the Reference tab’s examples > Display commands: area(r) = pi * r^2   #multiline 1`] = `
-"1: area(r) = \\pi·r^2
+"1: area(r) = \\pi r^2
 2: r_1 = 2.0 cm
-3: A = \\pi·r_1^2 = \\pi·(2.0 cm)^2 = 13 cm^2"
+3: A = \\pi r_1^2 = \\pi· (2.0 cm)^2 = 13 cm^2"
 `;
 
 exports[`the Reference tab’s examples > Display commands: m = 2.00 kg   #hide 1`] = `
@@ -305,9 +305,9 @@ exports[`the Reference tab’s examples > Display commands: p = 0.0707 1`] = `
 `;
 
 exports[`the Reference tab’s examples > Functions: E(n, m to kg, L to m) = n^2 * @h^2 / (8*m*L^2) 1`] = `
-"1: E(n, m [kg], L [m]) = \\fracn^2·h^28· m·L^2
+"1: E(n, m [kg], L [m]) = \\fracn^2 h^28 m L^2
 2: m_e = 9.11e-31 kg
-3: E_1 = \\frac1^2·h^28· m_e·(0.100 nm)^2 = \\frac1^2·(6.63e-34 J· s)^28· 9.11e-31 kg·(1.00e-10 m)^2 = 6.03e-18 J"
+3: E_1 = \\frac1^2 h^28 m_e· (0.100 nm)^2 = \\frac1^2· (6.63e-34 J· s)^28· 9.11e-31 kg· (1.00e-10 m)^2 = 6.03e-18 J"
 `;
 
 exports[`the Reference tab’s examples > Functions: ang(y, x):3:deg = atan(y / x) 1`] = `
@@ -316,14 +316,14 @@ exports[`the Reference tab’s examples > Functions: ang(y, x):3:deg = atan(y / 
 `;
 
 exports[`the Reference tab’s examples > Functions: area(r) = pi * r^2 1`] = `
-"1: area(r) = \\pi·r^2
+"1: area(r) = \\pi r^2
 2: r_1 = 2.0 cm
-3: A = \\pi·r_1^2 = \\pi·(2.0 cm)^2 = 13 cm^2"
+3: A = \\pi r_1^2 = \\pi· (2.0 cm)^2 = 13 cm^2"
 `;
 
 exports[`the Reference tab’s examples > Functions: def KE(mass, speed) 1`] = `
 "4: E_k = E = 9.00 J
-     ↳ E = \\frac12· 2.00 kg·(3.00 m/s)^2 = 9.00 J"
+     ↳ E = \\frac12· 2.00 kg· (3.00 m/s)^2 = 9.00 J"
 `;
 
 exports[`the Reference tab’s examples > Functions: def polar(x, y) 1`] = `
@@ -335,12 +335,12 @@ exports[`the Reference tab’s examples > Functions: def polar(x, y) 1`] = `
 exports[`the Reference tab’s examples > Functions: def steps(a, b) 1`] = `
 "4: steps(1.0, 2.0)
      ↳ s = 1.0+ 2.0 = 3.0
-     ↳ p = 2· s = 2· 3.0 = 6.0"
+     ↳ p = 2 s = 2· 3.0 = 6.0"
 `;
 
 exports[`the Reference tab’s examples > Functions: f(x) = 2 * x^2 + 1 1`] = `
-"1: f(x) = 2·x^2+ 1
-2: y = 2·3.0^2+ 1 = 19"
+"1: f(x) = 2 x^2+ 1
+2: y = 2· 3.0^2+ 1 = 19"
 `;
 
 exports[`the Reference tab’s examples > Layout: Assumptions:   #list 1`] = `""`;
@@ -349,7 +349,7 @@ exports[`the Reference tab’s examples > Layout: Discussion:   #text 1`] = `""`
 
 exports[`the Reference tab’s examples > Layout: F = 2.00 kg * 9.81 m/s^2   #center 1`] = `"1: F = 2.00 kg· 9.81 m/s^2 = 19.6 N"`;
 
-exports[`the Reference tab’s examples > Layout: Key result:   #center 1`] = `"2: E = 2.00 kg·(3.00e8 m/s)^2 = 1.80e17 J"`;
+exports[`the Reference tab’s examples > Layout: Key result:   #center 1`] = `"2: E = 2.00 kg· (3.00e8 m/s)^2 = 1.80e17 J"`;
 
 exports[`the Reference tab’s examples > Layout: Steps:   #numbered 1`] = `
 "2: m = 2.00 kg
@@ -397,19 +397,19 @@ exports[`the Reference tab’s examples > Significant figures: third:exact = 1/3
 exports[`the Reference tab’s examples > Solving: v = 5.00 m/s 1`] = `
 "1: v = 5.00 m/s
 2: a = 2.00 m/s^2
-3: d = \\fracv^22· a = \\frac(5.00 m/s)^22· 2.00 m/s^2 = 6.25 m
-     ↳ v^2 = 2· a· d"
+3: d = \\fracv^22 a = \\frac(5.00 m/s)^22· 2.00 m/s^2 = 6.25 m
+     ↳ v^2 = 2 a d"
 `;
 
 exports[`the Reference tab’s examples > Tuples and coordinates: p = tuple(1.414 m, 0.7854) 1`] = `
 "1: p = (1.414 m, 0.7854)
 2: (r, \\theta) = p = (1.41 m, 45.00°)
-3: x = r·\\cos(\\theta) = 1.41 m·\\cos(45.00°) = 1.00 m"
+3: x = r \\cos(\\theta) = 1.41 m· \\cos(45.00°) = 1.00 m"
 `;
 
 exports[`the Reference tab’s examples > Tuples and coordinates: r = tuple(1.00 m, 2.00 m, 3.00 m) 1`] = `
 "1: r = (1.00 m, 2.00 m, 3.00 m) = (1.00, 2.00, 3.00) m
-2: s = 2· r = 2· (1.00, 2.00, 3.00) m = (2.00, 4.00, 6.00) m
+2: s = 2 r = 2· (1.00, 2.00, 3.00) m = (2.00, 4.00, 6.00) m
 3: d = \\left\\| r\\right\\| = \\left\\| (1.00, 2.00, 3.00) m\\right\\| = 3.74 m"
 `;
 
@@ -428,7 +428,7 @@ exports[`the Reference tab’s examples > Uncertainty: m = 2.00 kg pm 2% 1`] = `
 exports[`the Reference tab’s examples > Units: P = 0.950 angstrom^-1 1`] = `
 "1: P = 0.950 Å^-1
 2: dr = 0.010 Å
-3: shell = P· dr = 0.950 Å^-1· 0.010 Å = 0.95 %"
+3: shell = P dr = 0.950 Å^-1· 0.010 Å = 0.95 %"
 `;
 
 exports[`the Reference tab’s examples > Units: g = 9.81 m/s^2 1`] = `"1: g = 9.81 m/s^2"`;
@@ -446,17 +446,17 @@ exports[`the Reference tab’s examples > Units: v = 25.0 m/s 1`] = `
 
 exports[`the Reference tab’s examples > Vectors: F = <3.0, 4.0> N 1`] = `
 "1: F = ⟨3.0, 4.0⟩ N
-2: F_2 = 2· F+⟨1.0, -1.0⟩ N = 2· ⟨3.0, 4.0⟩ N+⟨1.0, -1.0⟩ N = ⟨7.0, 7.0⟩ N
+2: F_2 = 2 F+⟨1.0, -1.0⟩ N = 2· ⟨3.0, 4.0⟩ N+⟨1.0, -1.0⟩ N = ⟨7.0, 7.0⟩ N
 3: mag = \\left\\| F\\right\\| = \\left\\| ⟨3.0, 4.0⟩ N\\right\\| = 5.0 N"
 `;
 
 exports[`the Reference tab’s examples > Vectors: a:xyz = <0.50, -9.81> m/s^2 1`] = `
 "1: a = ⟨0.50, -9.81⟩ m/s^2 a_x = 0.50 m/s^2 a_y = -9.81 m/s^2
 2: t = 2.0 s
-3: d_y = \\frac12· a_y·t^2 = \\frac12· (-9.81 m/s^2)·(2.0 s)^2 = -20. m"
+3: d_y = \\frac12 a_y t^2 = \\frac12· (-9.81 m/s^2)· (2.0 s)^2 = -20. m"
 `;
 
 exports[`the Reference tab’s examples > Vectors: v:ijk = <2.0, -1.5, 4.0> m/s 1`] = `
 "1: v = (2.0 î - 1.5 ĵ + 4.0 k̂) m/s
-2: w = 2· v = 2· (2.0 î - 1.5 ĵ + 4.0 k̂) m/s = (4.0 î - 3.0 ĵ + 8.0 k̂) m/s"
+2: w = 2 v = 2· (2.0 î - 1.5 ĵ + 4.0 k̂) m/s = (4.0 î - 3.0 ĵ + 8.0 k̂) m/s"
 `;

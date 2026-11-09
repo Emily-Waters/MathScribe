@@ -35,8 +35,10 @@ export interface LibraryTopic {
   entries: LibraryEntry[]
 }
 
+/** A symbol for an entry’s key. */
 const s = (name: string, meaning: string, unit?: string): LibrarySymbol => ({ name, meaning, unit })
 
+/** The equations, by topic. */
 export const LIBRARY: LibraryTopic[] = [
   // -------------------------------------------------------------------------
   // Physics

@@ -1,11 +1,13 @@
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, type RefObject } from 'react'
+import { EXAMPLE_CALC_OPTIONS } from '../config.ts'
 import { evaluateSheet } from '../lib/document.ts'
 import { BUILTIN_CONSTANTS } from '../lib/constants.ts'
 import { REFERENCE } from '../lib/reference.ts'
+import { copyText, useFlash } from '../useFlash.ts'
 import { RenderedBlock, Tex } from './PreviewPane.tsx'
 
-/** Fixed settings, so the reference looks the same whatever the toolbar says. */
-const OPTIONS = { precision: 'auto', showSubstitution: true } as const
+/** The id of the built-in constants list, for the section links. */
+const BUILTINS_ID = 'builtins'
 
 /**
  * The Reference tab: each example's source beside its live output.
@@ -15,29 +17,19 @@ export function ReferencePane() {
   // Evaluated once, when the tab is first opened.
   const rendered = useMemo(() => REFERENCE.map((section) => ({
     ...section,
-    examples: section.examples.map((ex) => ({ ...ex, blocks: evaluateSheet(ex.source, OPTIONS).blocks })),
+    examples: section.examples.map((ex) => ({ ...ex, blocks: evaluateSheet(ex.source, EXAMPLE_CALC_OPTIONS).blocks })),
   })), [])
-  const [copied, setCopied] = useState<string | null>(null)
+  const [flash, showFlash] = useFlash<string>()
   const scroller = useRef<HTMLDivElement>(null)
 
   const copy = async (source: string) => {
-    try {
-      await navigator.clipboard.writeText(source)
-      setCopied(source)
-      setTimeout(() => setCopied((c) => (c === source ? null : c)), 1500)
-    } catch {
-      /* clipboard blocked */
-    }
+    if (await copyText(source)) showFlash(source, 'Copied')
   }
-
-  const jump = (id: string) =>
-    scroller.current?.querySelector(`#ref-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 
   return (
     <div className="ref" ref={scroller}>
       <nav className="ref__nav" aria-label="Reference sections">
-        {rendered.map((s) => <button key={s.id} onClick={() => jump(s.id)}>{s.title}</button>)}
-        <button onClick={() => jump('builtins')}>Constant list</button>
+        <SectionLinks scroller={scroller} prefix="ref" sections={[...rendered, { id: BUILTINS_ID, title: 'Constant list' }]} />
       </nav>
 
       {rendered.map((s) => (
@@ -50,10 +42,10 @@ export function ReferencePane() {
                 <button
                   className="ref__source"
                   title="Copy to clipboard"
-                  onClick={() => copy(ex.source)}
+                  onClick={() => void copy(ex.source)}
                 >
                   <pre>{ex.source}</pre>
-                  <span className="ref__copied">{copied === ex.source ? 'Copied' : 'Copy'}</span>
+                  <span className="ref__copied">{flash?.key === ex.source ? flash.message : 'Copy'}</span>
                 </button>
                 <div className="ref__output">
                   {ex.blocks.map((b) => <RenderedBlock key={`${b.line}-${b.kind}`} block={b} />)}
@@ -64,7 +56,7 @@ export function ReferencePane() {
         </section>
       ))}
 
-      <section id="ref-builtins" className="ref__section">
+      <section id={`ref-${BUILTINS_ID}`} className="ref__section">
         <h3 className="doc__heading doc__heading--section">Built-in constants</h3>
         <p className="ref__explain">Write @name (3 sig figs), @name:n, or @name:exact.</p>
         <table className="ref__table">
@@ -80,5 +72,23 @@ export function ReferencePane() {
         </table>
       </section>
     </div>
+  )
+}
+
+/**
+ * Buttons that scroll `scroller` to each of a tab's sections (whose ids are
+ * `${prefix}-${section id}`). Used by the Reference and Library tabs.
+ */
+export function SectionLinks({ sections, scroller, prefix }: {
+  sections: { id: string; title: string }[]
+  scroller: RefObject<HTMLDivElement | null>
+  prefix: string
+}) {
+  const jump = (id: string) =>
+    scroller.current?.querySelector(`#${prefix}-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  return (
+    <>
+      {sections.map((s) => <button key={s.id} onClick={() => jump(s.id)}>{s.title}</button>)}
+    </>
   )
 }

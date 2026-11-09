@@ -1,20 +1,14 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react'
+import { SPLIT, STORAGE_KEYS } from '../config.ts'
+import { readStored, writeStored } from '../lib/storage.ts'
 
-const MIN = 15
-const MAX = 85
-const DEFAULT = 50
-const STORAGE_KEY = 'mathscribe:split'
+/** Keep the divider within its limits. */
+const clamp = (v: number) => Math.min(SPLIT.max, Math.max(SPLIT.min, v))
 
-const clamp = (v: number) => Math.min(MAX, Math.max(MIN, v))
-
+/** Where the divider was left, in this browser. */
 function loadSplit(): number {
-  try {
-    const v = Number(localStorage.getItem(STORAGE_KEY))
-    if (v >= MIN && v <= MAX) return v
-  } catch {
-    /* storage unavailable */
-  }
-  return DEFAULT
+  const v = Number(readStored(STORAGE_KEYS.split))
+  return v >= SPLIT.min && v <= SPLIT.max ? v : SPLIT.default
 }
 
 interface SplitPaneProps {
@@ -32,11 +26,7 @@ export function SplitPane({ left, right }: SplitPaneProps) {
   const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, String(percent))
-    } catch {
-      /* storage unavailable */
-    }
+    writeStored(STORAGE_KEYS.split, String(percent))
   }, [percent])
 
   const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
@@ -57,12 +47,12 @@ export function SplitPane({ left, right }: SplitPaneProps) {
   }
 
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
-    const step = e.shiftKey ? 10 : 2
+    const step = e.shiftKey ? SPLIT.bigKeyStep : SPLIT.keyStep
     const moves: Record<string, number> = {
       ArrowLeft: percent - step,
       ArrowRight: percent + step,
-      Home: MIN,
-      End: MAX,
+      Home: SPLIT.min,
+      End: SPLIT.max,
     }
     if (e.key in moves) {
       e.preventDefault()
@@ -80,8 +70,8 @@ export function SplitPane({ left, right }: SplitPaneProps) {
         role="separator"
         aria-orientation="vertical"
         aria-label="Resize panes"
-        aria-valuemin={MIN}
-        aria-valuemax={MAX}
+        aria-valuemin={SPLIT.min}
+        aria-valuemax={SPLIT.max}
         aria-valuenow={Math.round(percent)}
         tabIndex={0}
         title="Drag to resize · double-click to reset"
@@ -89,7 +79,7 @@ export function SplitPane({ left, right }: SplitPaneProps) {
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
-        onDoubleClick={() => setPercent(DEFAULT)}
+        onDoubleClick={() => setPercent(SPLIT.default)}
         onKeyDown={onKeyDown}
       />
       <div className="split__pane" style={{ flex: '1 1 0' }}>

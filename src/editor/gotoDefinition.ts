@@ -12,8 +12,10 @@ import { Decoration, EditorView, ViewPlugin, keymap, type DecorationSet, type Vi
 /** Function name → the lines it's defined on, in order. */
 type Definitions = Map<string, number[]>
 
+/** Replaces where each function is defined (after each evaluation of the sheet). */
 export const setDefinitions = StateEffect.define<Definitions>()
 
+/** Where each function is defined, for Ctrl+Click and F12. */
 const definitionsField = StateField.define<Definitions>({
   create: () => new Map(),
   update: (value, tr) => {
@@ -57,6 +59,7 @@ function goToDefinition(view: EditorView, pos: number): boolean {
   return true
 }
 
+/** Underlines a name (or nothing), as the link Ctrl+Click would follow. */
 const setHover = StateEffect.define<{ from: number; to: number } | null>()
 
 /** The underlined name under the mouse while Ctrl is held. */
@@ -73,6 +76,7 @@ const hoverField = StateField.define<DecorationSet>({
   provide: (f) => EditorView.decorations.from(f),
 })
 
+/** Ctrl, or ⌘ on a Mac: held to make names into links. */
 const isModifier = (e: MouseEvent | KeyboardEvent) => e.ctrlKey || e.metaKey
 
 /** Tracks the mouse and the Ctrl key to underline the name under the pointer. */
@@ -121,6 +125,7 @@ const hoverPlugin = ViewPlugin.fromClass(class {
   },
 })
 
+/** Go to definition: Ctrl+Click or F12 on a function call jumps to its definition. */
 export const gotoDefinition: Extension = [
   definitionsField,
   hoverField,

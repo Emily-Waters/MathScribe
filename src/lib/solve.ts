@@ -26,6 +26,7 @@ export function contains(node: MathNode, x: string): boolean {
   return node.filter((n, path) => isSymbolNode(n) && n.name === x && path !== 'fn').length > 0
 }
 
+/** How many times `x` appears in an expression. */
 export function countOccurrences(node: MathNode, x: string): number {
   return node.filter((n, path) => isSymbolNode(n) && n.name === x && path !== 'fn').length
 }
@@ -41,6 +42,7 @@ function numericValue(n: MathNode): number | undefined {
   return undefined
 }
 
+/** Rearranges an equation for an unknown, when it can be done exactly. */
 export class Solver {
   private math: MathJsInstance
 

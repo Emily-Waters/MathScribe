@@ -6,6 +6,8 @@
  * saves (and auto-saves) write straight back to the same file. Elsewhere,
  * Open uses a file input and Save downloads the file.
  */
+import { SHEET_FILE, STORAGE_KEYS, TIMING } from '../config.ts'
+import { readStoredJson, writeStoredJson } from './storage.ts'
 
 /** The parts of a file handle used here (the API isn't in TypeScript's DOM types). */
 export interface FileHandle {
@@ -18,6 +20,7 @@ export interface FileHandle {
   isSameEntry?(other: FileHandle): Promise<boolean>
 }
 
+/** The browser's file dialogs, where it has them (they aren't in TypeScript's DOM types). */
 interface PickerWindow {
   showOpenFilePicker?(options?: object): Promise<FileHandle[]>
   showSaveFilePicker?(options?: object): Promise<FileHandle>
@@ -25,14 +28,17 @@ interface PickerWindow {
 
 // (Outside a browser, as in tests, there's no window and no file pickers.)
 const picker = (typeof window === 'undefined' ? {} : window) as unknown as PickerWindow
-const FILE_TYPES = [{ description: 'MathScribe sheet', accept: { 'text/plain': ['.txt'] } }]
+/** Sheets, as the Open and Save dialogs describe and filter them. */
+const FILE_TYPES = [{ description: SHEET_FILE.description, accept: { [SHEET_FILE.mimeType]: [SHEET_FILE.extension] } }]
 
 /** Whether files can stay linked for saving back (and auto-saving). */
 export const canLinkFiles = typeof picker.showOpenFilePicker === 'function'
   && typeof picker.showSaveFilePicker === 'function'
 
+/** Whether an error is just the dialog being cancelled. */
 const isCancel = (e: unknown) => e instanceof DOMException && e.name === 'AbortError'
 
+/** A file that was opened: its text and name, and its handle if it can stay linked. */
 export interface OpenedFile {
   text: string
   name: string
@@ -58,7 +64,7 @@ export async function openFiles(): Promise<OpenedFile[]> {
   return new Promise((resolve) => {
     const input = document.createElement('input')
     input.type = 'file'
-    input.accept = '.txt,text/plain'
+    input.accept = `${SHEET_FILE.extension},${SHEET_FILE.mimeType}`
     input.multiple = true
     input.onchange = async () => {
       const files = [...(input.files ?? [])]
@@ -80,20 +86,21 @@ export async function chooseSaveFile(suggestedName: string): Promise<FileHandle 
   }
 }
 
+/** Write a sheet to a linked file. */
 export async function writeFile(handle: FileHandle, text: string): Promise<void> {
   const writable = await handle.createWritable()
   await writable.write(text)
   await writable.close()
 }
 
-/** Save by downloading, for browsers that can't write to files directly. */
-export function downloadFile(name: string, text: string | Uint8Array<ArrayBuffer>, type = 'text/plain'): void {
+/** Save by downloading (for browsers that can't write to files directly, and for exports). */
+export function downloadFile(name: string, text: string | Uint8Array<ArrayBuffer>, type: string = SHEET_FILE.mimeType): void {
   const url = URL.createObjectURL(new Blob([text], { type }))
   const a = document.createElement('a')
   a.href = url
   a.download = name
   a.click()
-  setTimeout(() => URL.revokeObjectURL(url), 1000)
+  setTimeout(() => URL.revokeObjectURL(url), TIMING.downloadLinkMs)
 }
 
 // ---------------------------------------------------------------------------
@@ -107,47 +114,39 @@ export interface DraftSheet {
   text: string
 }
 
+/** Every open sheet, and which one is showing. */
 export interface Drafts {
   sheets: DraftSheet[]
   active: string
 }
 
-const DRAFTS_KEY = 'mathscribe:drafts'
-/** The single-sheet copy kept before tabs; read once to carry it over. */
-const OLD_DRAFT_KEY = 'mathscribe:draft'
+/** The id the sheet carried over from before tabs gets. */
+const LEGACY_SHEET_ID = 'sheet-1'
 
+/** The sheets kept last time in this browser, or null to start fresh. */
 export function loadDrafts(): Drafts | null {
-  try {
-    const raw = localStorage.getItem(DRAFTS_KEY)
-    if (raw) {
-      const drafts = JSON.parse(raw) as Drafts
-      if (Array.isArray(drafts.sheets) && drafts.sheets.length) return drafts
-    }
-    const old = localStorage.getItem(OLD_DRAFT_KEY)
-    if (old) {
-      const { text, name } = JSON.parse(old) as { text: string; name?: string }
-      return { sheets: [{ id: 'sheet-1', name: name ?? 'sheet.txt', text }], active: 'sheet-1' }
-    }
-  } catch {
-    /* unreadable: start fresh */
+  const drafts = readStoredJson<Drafts>(STORAGE_KEYS.drafts)
+  if (drafts && Array.isArray(drafts.sheets) && drafts.sheets.length) return drafts
+  const old = readStoredJson<{ text: string; name?: string }>(STORAGE_KEYS.legacyDraft)
+  if (old && typeof old.text === 'string') {
+    return { sheets: [{ id: LEGACY_SHEET_ID, name: old.name ?? SHEET_FILE.defaultName, text: old.text }], active: LEGACY_SHEET_ID }
   }
   return null
 }
 
-export function saveDrafts(drafts: Drafts): boolean {
-  try {
-    localStorage.setItem(DRAFTS_KEY, JSON.stringify(drafts))
-    return true
-  } catch {
-    return false
-  }
+/** Keep the open sheets in the browser. Returns whether they were kept. */
+export const saveDrafts = (drafts: Drafts): boolean => writeStoredJson(STORAGE_KEYS.drafts, drafts)
+
+/** A file name's stem and extension: `lab 3.txt` → `lab 3` and `.txt` (a leading dot isn't an extension). */
+export function splitExtension(name: string): { stem: string; ext: string } {
+  const dot = name.lastIndexOf('.')
+  return dot > 0 ? { stem: name.slice(0, dot), ext: name.slice(dot) } : { stem: name, ext: '' }
 }
 
 /** `name`, or `name-2.txt`, `name-3.txt`, … if a sheet with that name is already open. */
 export function uniqueName(name: string, taken: string[]): string {
   if (!taken.includes(name)) return name
-  const dot = name.lastIndexOf('.')
-  const [stem, ext] = dot > 0 ? [name.slice(0, dot), name.slice(dot)] : [name, '']
+  const { stem, ext } = splitExtension(name)
   for (let n = 2; ; n++) {
     const candidate = `${stem}-${n}${ext}`
     if (!taken.includes(candidate)) return candidate

@@ -21,20 +21,26 @@ import {
 } from 'mathjs'
 import {
   EXACT,
+  MAX_DIGITS,
   countSigFigs,
   formatExact,
   formatSigFigs,
   formatWithUncertainty,
-  type Notation,
   uncertaintySigFigs,
   hasAmbiguousZeros,
   isMeasuredLiteral,
   lastPlace,
   sigFigsFromPlace,
 } from './sigfigs.ts'
-import { BUILTIN_CONSTANTS, CONSTANT_REF, DEFAULT_CONSTANT_SIG_FIGS, suggestConstant } from './constants.ts'
+import { BUILTIN_CONSTANTS, DEFAULT_CONSTANT_SIG_FIGS, suggestConstant } from './constants.ts'
+import {
+  ASSIGNMENT, ASSIGNMENT_WITH_VALUE, CONSTANT_REF, DECLARED, EXACT_SETTING, IS_NAME, LEADING_NAME, NAME,
+  NAME_WITH_SETTINGS, NOTATIONS, NUMBER, ONE_LINE_FUNCTION, PERCENT, SERIES_SUFFIXES, UNCERTAINTY_WORDS, UNPACK,
+  type DisplayMode, type LineCommand, type Notation, type Precision, type SeriesSuffix, type UncertaintyWord,
+} from './syntax.ts'
 import { Solver, contains, countOccurrences, matchingParen, splitArgs, splitEquation } from './solve.ts'
 
+/** Our own mathjs instance, with the functions below added or replaced. */
 const math = create(all)
 
 /**
@@ -123,10 +129,15 @@ math.import({
  * themselves near 0.
  */
 const SNAP_TARGETS = [0, 0.5, -0.5, 1, -1]
+/** How close a result must be to a target to snap to it. */
+const SNAP_TOLERANCE = 1e-14
+/** An angle (in rad) this small is genuinely tiny, so its sine isn't snapped to 0. */
+const TINY_ANGLE = 1e-6
+/** A trig function's result, snapped if it's floating-point noise away from a target. */
 const snap = (r: unknown, angle: unknown) => {
   if (typeof r !== 'number') return r
   const radians = Math.abs(math.isUnit(angle) ? ((angle as Unit).value ?? 0) : Number(angle))
-  const target = SNAP_TARGETS.find((t) => Math.abs(r - t) < 1e-14 && (t !== 0 || radians > 1e-6))
+  const target = SNAP_TARGETS.find((t) => Math.abs(r - t) < SNAP_TOLERANCE && (t !== 0 || radians > TINY_ANGLE))
   return target === undefined ? r : target
 }
 for (const name of ['sin', 'cos', 'tan'] as const) {
@@ -145,10 +156,11 @@ const BUILTIN_CONSTANT_NAMES = new Set([
 function markLiterals(src: string): string {
   return src
     .split(/("[^"]*")/)
-    .map((part, i) => (i % 2 ? part : part.replace(NUMBER, (m) => (String(Number(m)) === m ? m : `lit("${m}")`))))
+    .map((part, i) => (i % 2 ? part : part.replace(NUMBER_LITERAL, (m) => (String(Number(m)) === m ? m : `lit("${m}")`))))
     .join('')
 }
 
+/** Settings for evaluating a sheet (the Output options). */
 export interface CalcOptions {
   /**
    * 'auto': track significant figures from the measured values and round each
@@ -164,14 +176,7 @@ export interface CalcOptions {
   approxRounded?: boolean
 }
 
-/**
- * How much of a calculation to show:
- *   full  F = m·a = 2.0 kg · 9.81 m/s² = 19.6 N
- *   sym   F = m·a                       (the equation only)
- *   val   F = 19.6 N                    (the result only)
- */
-export type DisplayMode = 'full' | 'sym' | 'val'
-
+/** The pieces of an equation, put together by layoutEquation. */
 interface EquationParts {
   lhs?: string
   expr: string
@@ -219,8 +224,6 @@ export interface FunctionResult {
   error?: string
 }
 
-/** A display command on a line: how much to show, or hide it. */
-export type LineCommand = DisplayMode | 'hide'
 
 /** A body line of a multi-line function, with its note and command already split off. */
 export interface FunctionLine {
@@ -238,6 +241,7 @@ export interface TraceLine {
   note?: string
 }
 
+/** A line, evaluated: its LaTeX, and anything to say about it. */
 export interface CalcResult {
   tex: string
   /**
@@ -253,6 +257,7 @@ export interface CalcResult {
   info?: string
 }
 
+/** A variable as the sheet lists it: its name, value as LaTeX, and sig figs. */
 export interface Variable {
   name: string
   tex: string
@@ -274,6 +279,7 @@ export interface Variable {
 /** Single-letter units that are far more often meant as variables. */
 const UNIT_DENYLIST = new Set(['b', 'B'])
 
+/** Whether a word is a unit (used after a number, or after `to`). */
 export function isUnitName(id: string): boolean {
   if (UNIT_DENYLIST.has(id)) return false
   try {
@@ -308,13 +314,14 @@ export function describeUnit(name: string): string | null {
     const si = u.toSI()
     // In a derived unit where one fits (1 eV = 1.6e-19 J), else in base units (1 N = 1 kg m/s^2).
     const derived = DERIVED_UNITS.find((d) => si.equalBase(d) && d.formatUnits() !== name)
-    const text = math.format(derived ? si.to(derived.formatUnits()) : si, { precision: 6 })
+    const text = math.format(derived ? si.to(derived.formatUnits()) : si, { precision: MESSAGE_DIGITS })
     return text === `1 ${name}` ? null : `1 ${name} = ${text}`
   } catch {
     return null
   }
 }
 
+/** Pieces of a unit expression, read one after another: a power (`^2`, `^(-1)`), the first unit, then `/unit` or `*unit`. */
 const POWER = /\^(\(-?\d+(?:\.\d+)?\)|-?\d+(?:\.\d+)?)/y
 const FIRST_UNIT = /[ \t]*([A-Za-z]+)(?![\w(])/y
 const NEXT_UNIT = /([*/·])([A-Za-z]+)(?![\w(])/y
@@ -348,7 +355,9 @@ function readUnit(src: string, pos: number): { text: string; end: number } | nul
   return { text, end }
 }
 
-const NUMBER = /(?<![\w.])(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?/g
+/** Every number in a line, but not digits inside a name (`v_0`) or after a point. */
+const NUMBER_LITERAL = new RegExp(String.raw`(?<![\w.])${NUMBER}`, 'g')
+/** `to` before a unit. */
 const CONVERSION = /\bto\s+/g
 
 /**
@@ -376,7 +385,7 @@ export function preprocess(src: string, isVariable: (id: string) => boolean): { 
   // `9.81 m/s^2` → `(9.81 * unit("m/s^2"))`
   out = ''
   last = 0
-  for (const m of src.matchAll(NUMBER)) {
+  for (const m of src.matchAll(NUMBER_LITERAL)) {
     if (m.index < last) continue
     const unit = readUnit(src, m.index + m[0].length)
     if (!unit) continue
@@ -401,20 +410,23 @@ export function preprocess(src: string, isVariable: (id: string) => boolean): { 
 //   delta F / Delta F        the uncertainty of F, rendered δF / ΔF as typed
 // ---------------------------------------------------------------------------
 
-type UncertaintyLetter = 'delta' | 'Delta'
-
 /**
  * Hidden variable holding a variable's uncertainty. The letter as typed is kept
  * in the name so it renders the same way: `delta F` → `delta__F` (δF),
  * `Delta F` → `Delta__F` (ΔF).
  */
-const uncertaintyName = (letter: UncertaintyLetter, of: string) => `${letter}__${of}`
+const uncertaintyName = (letter: UncertaintyWord, of: string) => `${letter}__${of}`
 
-function parseUncertaintyName(name: string): { letter: UncertaintyLetter; of: string } | null {
-  const m = /^(delta|Delta)__(.+)$/.exec(name)
-  return m ? { letter: m[1] as UncertaintyLetter, of: m[2] } : null
+/** A hidden uncertainty variable's name (1: the word, 2: whose uncertainty). */
+const HIDDEN_UNCERTAINTY = new RegExp(`^(${UNCERTAINTY_WORDS.join('|')})__(.+)$`)
+
+/** The parts of a hidden uncertainty variable's name, or null if it isn't one. */
+function parseUncertaintyName(name: string): { letter: UncertaintyWord; of: string } | null {
+  const m = HIDDEN_UNCERTAINTY.exec(name)
+  return m ? { letter: m[1] as UncertaintyWord, of: m[2] } : null
 }
 
+/** Whether a name is a hidden uncertainty variable's. */
 const isUncertaintyName = (name: string) => parseUncertaintyName(name) !== null
 
 // ---------------------------------------------------------------------------
@@ -424,14 +436,17 @@ const isUncertaintyName = (name: string) => parseUncertaintyName(name) !== null
 // `@c:5` → `at__c__5`, so it substitutes and counts sig figs like any variable.
 // ---------------------------------------------------------------------------
 
-const constantRefName = (name: string, digits: number | 'exact') => `at__${name}__${digits === 'exact' ? 'x' : digits}`
+/** The hidden variable for a constant at a precision: `@c:5` → `at__c__5`. */
+const constantRefName = (name: string, digits: Precision) => `at__${name}__${digits === EXACT_SETTING ? 'x' : digits}`
 
+/** The constant a hidden variable holds, or null if it isn't one. */
 function parseConstantRefName(name: string): string | null {
   return /^at__(.+)__(?:\d+|x)$/.exec(name)?.[1] ?? null
 }
 
 /** Hidden variable holding a numerically solved unknown: `x` → `solved__x`. */
 const solvedName = (x: string) => `solved__${x}`
+/** The unknown a hidden variable holds the solution for, or null. */
 const parseSolvedName = (name: string) => /^solved__(.+)$/.exec(name)?.[1] ?? null
 
 /** Hidden helper variables that aren't listed as the sheet's own variables. */
@@ -442,8 +457,11 @@ const isHiddenName = (name: string) =>
 /** A hidden variable holding a tuple while `tuple(a, b) = …` unpacks it. */
 const UNPACKED = 'unpacked__'
 
-/** `tuple(a, b, c) = …`: unpack a tuple into variables. */
-const UNPACK = /^tuple\s*\(([^()]*)\)\s*=(?!=)\s*(.+)$/
+/** `delta F` (or `Delta F`): F's uncertainty (1: the letter, 2: the name). */
+const DELTA_REF = new RegExp(String.raw`\b(${UNCERTAINTY_WORDS.join('|')})\s+(${NAME})`, 'g')
+
+/** `x = solve(…`, or a bare `solve(…` (1: the name assigned, if any). */
+const SOLVE_CALL = new RegExp(String.raw`^(?:(${NAME})\s*=\s*)?solve\s*\(`)
 
 // ---------------------------------------------------------------------------
 // Series aggregates
@@ -456,8 +474,10 @@ const UNPACK = /^tuple\s*\(([^()]*)\)\s*=(?!=)\s*(.+)$/
 //   a_count   number of values
 // ---------------------------------------------------------------------------
 
-type AggregateKind = 'sum' | 'mean' | 'std' | 'sem' | 'count'
+/** What a series name works out: the sum, or one of the suffixed names' statistics. */
+type AggregateKind = 'sum' | typeof SERIES_SUFFIXES[SeriesSuffix]
 
+/** A name worked out from a series, and the variables it uses. */
 interface Aggregate {
   kind: AggregateKind
   base: string
@@ -465,17 +485,19 @@ interface Aggregate {
   members: string[]
 }
 
-const AGGREGATE_SUFFIXES: Record<string, AggregateKind> = {
-  avg: 'mean', mean: 'mean', std: 'std', sem: 'sem', count: 'count',
-}
+/** A series name with its suffix: `t_avg` (1: the series, 2: the suffix). */
+const SERIES_NAME = new RegExp(`^(.+?)_(${Object.keys(SERIES_SUFFIXES).join('|')})$`)
 
+/** What a name asks of a series: `t_avg` → t's mean; a name without a suffix, the sum. */
 function parseAggregateName(name: string): { base: string; kind: AggregateKind } {
-  const m = /^(.+?)_(avg|mean|std|sem|count)$/.exec(name)
-  return m ? { base: m[1], kind: AGGREGATE_SUFFIXES[m[2]] } : { base: name, kind: 'sum' }
+  const m = SERIES_NAME.exec(name)
+  return m ? { base: m[1], kind: SERIES_SUFFIXES[m[2] as SeriesSuffix] } : { base: name, kind: 'sum' }
 }
 
+/** Text, escaped to match literally in a regular expression. */
 const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
+/** `(2.0 pm 0.1)`: a bracketed value with its uncertainty (1: value, 2: uncertainty, 3: `%` if relative). */
 const PAREN_PM = /\(\s*([-+]?[\d.]+(?:[eE][+-]?\d+)?)\s*(?:pm\b|±|\+-)\s*([\d.]+(?:[eE][+-]?\d+)?)(%?)\s*\)/g
 
 /** `(2.0 pm 0.1) kg` → `2.0 kg pm 0.1 kg` */
@@ -512,6 +534,7 @@ function splitPm(src: string): [string, string] | null {
 // LaTeX helpers
 // ---------------------------------------------------------------------------
 
+/** Names written as Greek letters: `theta` → θ. */
 const GREEK = new Set([
   'alpha', 'beta', 'gamma', 'delta', 'epsilon', 'varepsilon', 'zeta', 'eta', 'theta',
   'vartheta', 'iota', 'kappa', 'lambda', 'mu', 'nu', 'xi', 'pi', 'rho', 'sigma', 'tau',
@@ -519,6 +542,7 @@ const GREEK = new Set([
   'Xi', 'Pi', 'Sigma', 'Upsilon', 'Phi', 'Psi', 'Omega',
 ])
 
+/** One part of a name, as LaTeX: Greek letters, single letters and digits as they are, words upright. */
 function namePart(s: string): string {
   if (GREEK.has(s)) return `\\${s}`
   if (s.length === 1 || /^\d+$/.test(s)) return s
@@ -585,15 +609,18 @@ function attachUnit(num: string, unit: string): string {
   return /\^\{[^{}]*\}\s*$/.test(num) ? `${num}{}${unit}` : `${num}${unit}`
 }
 
+/** A unit as mathjs reads it: unit("kg"). */
 const isUnitCall = (n: MathNode | undefined): n is FunctionNode =>
   !!n && isFunctionNode(n) && n.fn.name === 'unit' && isConstantNode(n.args[0])
 
+/** The unit inside unit("kg"). */
 const unitCallText = (n: FunctionNode) => String((n.args[0] as math.ConstantNode).value)
 
 /** A number kept as typed: lit("2.00"). */
 const isLitCall = (n: MathNode | undefined): n is FunctionNode =>
   !!n && isFunctionNode(n) && n.fn.name === 'lit' && isConstantNode(n.args[0])
 
+/** A node without any brackets around it. */
 function unwrap(n: MathNode): MathNode {
   return isParenthesisNode(n) ? unwrap(n.content) : n
 }
@@ -616,6 +643,7 @@ function isPureNumber(n: MathNode): boolean {
   return false
 }
 
+/** `x to unit`. */
 const isConversion = (n: MathNode) => isOperatorNode(n) && n.fn === 'to'
 
 // ---------------------------------------------------------------------------
@@ -625,6 +653,7 @@ const isConversion = (n: MathNode) => isOperatorNode(n) && n.fn === 'to'
 /** Derived SI units preferred over base-unit combinations (kg m/s^2 → N). */
 const DERIVED_UNITS = ['N', 'J', 'W', 'Pa', 'C', 'V', 'ohm', 'F', 'T', 'Wb', 'H'].map((u) => math.unit(u))
 
+/** How many unit names a unit is written with (`kg m/s^2` → 3). */
 const unitTokens = (s: string) => (s.match(/[A-Za-z]+/g) ?? []).length
 
 /**
@@ -656,6 +685,7 @@ function mergeLikeUnits(u: Unit): Unit | null {
   }
 }
 
+/** A computed quantity in tidy units (see above); `keepUnits` leaves a chosen unit alone. */
 function normalise(value: unknown, keepUnits: boolean): unknown {
   if (!math.isUnit(value)) return value
   const u = value as Unit
@@ -744,23 +774,22 @@ interface CustomConstant {
 const MAX_TRACE_DEPTH = 6
 
 /**
- * `name:3 =`, `name:deg =`, `phi:3:deg =`: display settings on the name being
- * assigned, each after a `:` and in any order: sig figs (`3`, `exact`), a unit,
- * and a notation (`sci`, `dec`).
+ * Display settings on the name being assigned (`name:3 =`, `name:deg =`,
+ * `phi:3:deg =`), each after a `:` and in any order: sig figs (`3`, `exact`),
+ * a unit, and a notation (`sci`, `dec`).
  */
-const DECLARED = /^([A-Za-z]\w*)((?::[^:=\s]+)+)\s*=(?!=)/
-
 interface Declaration {
   name: string
   /** The `name:… =` part of the line. */
   length: number
-  sf?: number | 'exact'
+  sf?: Precision
   /** Show the value in this unit (or `percent`). */
   unit?: string
   /** Always scientific (`sci`) or always decimal (`dec`) notation. */
   notation?: Notation
 }
 
+/** Whether a unit measures angles. */
 const isAngleUnit = (unit: string) => {
   try {
     return math.unit(unit).equalBase(math.unit('rad'))
@@ -769,7 +798,8 @@ const isAngleUnit = (unit: string) => {
   }
 }
 
-const formatted = (v: unknown) => math.format(v as MathType, { precision: 4 })
+/** A value in brief, for an error message. */
+const formatted = (v: unknown) => math.format(v as MathType, { precision: BRIEF_DIGITS })
 
 /**
  * `value` in `unit`, for `phi:deg = …`. A unitless value can only be shown in an
@@ -796,24 +826,27 @@ function toDisplayUnit(value: unknown, unit: string): unknown {
 /** A name in `tuple(a, b:3, c:deg) = …`, with its display settings. */
 interface TupleName {
   name: string
-  sf?: number | 'exact'
+  sf?: Precision
   unit?: string
   notation?: Notation
 }
 
 /** One name of an unpacking, `theta:3:deg`; or an error saying what's wrong with it. */
 function parseTupleName(entry: string): TupleName | { error: string } {
-  const name = /^[A-Za-z]\w*/.exec(entry)?.[0]
-  if (!name || !/^[A-Za-z]\w*(?::[^:=\s]+)*$/.test(entry)) {
+  const name = LEADING_NAME.exec(entry)?.[0]
+  if (!name || !NAME_WITH_SETTINGS.test(entry)) {
     return { error: `"${entry}" isn't a variable name: write tuple(a, b, c) = …, optionally with settings like b:3 or c:deg.` }
   }
   if (entry === name) return { name }
   const d = parseDeclaration(`${entry} = 0`)
   if (!d) return { name }
   if ('error' in d) return d
-  if (d.unit === 'percent') return { error: `${name}:percent isn't available when unpacking; show it as a percentage on a line of its own.` }
+  if (d.unit === PERCENT) return { error: `${name}:percent isn't available when unpacking; show it as a percentage on a line of its own.` }
   return { name, sf: d.sf, unit: d.unit, notation: d.notation }
 }
+
+/** Whether a setting is a notation (`sci`, `dec`). */
+const isNotation = (s: string): s is Notation => (NOTATIONS as readonly string[]).includes(s)
 
 /** The display settings on a line's assigned name, or an error if one isn't understood. */
 function parseDeclaration(line: string): Declaration | { error: string } | null {
@@ -821,21 +854,19 @@ function parseDeclaration(line: string): Declaration | { error: string } | null 
   if (!m) return null
   const out: Declaration = { name: m[1], length: m[0].length }
   for (const spec of m[2].slice(1).split(':')) {
-    if (spec === 'exact') out.sf = 'exact'
-    else if (spec === 'sci' || spec === 'dec') {
-      if (out.notation && out.notation !== spec) return { error: `${m[1]} can't be both :sci and :dec.` }
+    if (spec === EXACT_SETTING) out.sf = EXACT_SETTING
+    else if (isNotation(spec)) {
+      if (out.notation && out.notation !== spec) return { error: `${m[1]} can't be both :${NOTATIONS[0]} and :${NOTATIONS[1]}.` }
       out.notation = spec
     } else if (/^\d+$/.test(spec)) {
       if (Number(spec) === 0) return { error: `${m[1]}:0 isn't valid; use at least 1 sig fig, or :exact.` }
       out.sf = Number(spec)
-    } else if (spec === 'percent' || isValidUnit(spec)) out.unit = spec
+    } else if (spec === PERCENT || isValidUnit(spec)) out.unit = spec
     else return { error: `In ${m[1]}:${spec}, "${spec}" isn't a number of sig figs, a unit, or sci/dec.` }
   }
   return out
 }
 
-/** `f(x, y) = expr`: a one-line function definition. */
-const ONE_LINE_FUNCTION = /^([A-Za-z]\w*)\s*\(([^()]*)\)((?::[^:=\s]+)*)\s*=(?!=)\s*(.+)$/
 
 /** Internal result of evaluating a line, with the pieces of its equation. */
 interface LineResult extends CalcResult {
@@ -858,7 +889,7 @@ interface ParsedLine {
   prelude?: TraceLine[]
   info?: string
   /** Sig figs declared on the left-hand side: `m:3 = …`. */
-  declaredSf?: number | 'exact'
+  declaredSf?: Precision
   /** `… to percent`: show the (unitless) result ×100 with a % sign. */
   asPercent?: boolean
   /** `phi:deg = …`: show (and keep) the result in this unit. */
@@ -872,9 +903,9 @@ const TO_PERCENT = /\s+to\s+percent\s*$/
 
 /** Marks a SymbolNode whose name is pre-rendered TeX (used for substituted values). */
 const RAW = '\u0001'
+/** A node standing for pre-rendered TeX. */
 const rawNode = (tex: string) => new math.SymbolNode(RAW + tex)
 
-const FIXED_FORMAT = { lowerExp: -3, upperExp: 6 }
 
 /**
  * A value's uncertainty, broken down by where it came from: each `pm`
@@ -886,6 +917,47 @@ type Contributions = Map<number, unknown>
 
 /** Relative step for numerical derivatives, as a fraction of each uncertainty. */
 const STEP = 1e-4
+
+// ---------------------------------------------------------------------------
+// Numerical settings: digits shown, and the tolerances comparisons allow
+// ---------------------------------------------------------------------------
+
+/** Significant digits a value is quoted with in a message or a unit's description. */
+const MESSAGE_DIGITS = 6
+
+/** Fewer, for a value mentioned in passing inside a sentence. */
+const BRIEF_DIGITS = 4
+
+/** Digits for a value that has no sig-fig count (an exact value, a matrix), with sig figs on Auto. */
+const EXACT_DISPLAY_DIGITS = 6
+
+/** Plain digits from 10⁻³ up to 10⁶; scientific notation outside that (mathjs's format bounds). */
+const FIXED_FORMAT = { lowerExp: -3, upperExp: 6 }
+
+/** Two values this close, relative to their size, are the same value. */
+const SAME_VALUE_TOLERANCE = 1e-9
+
+/** A relative difference this small is floating-point noise, not rounding. */
+const FLOAT_NOISE = 1e-12
+
+/** Keeps a relative tolerance meaningful (and finite) for values at or near zero. */
+const TINY = 1e-300
+
+/** `… to percent` and `pm 5%`: a fraction as a percentage. */
+const PERCENT_SCALE = 100
+
+/** Solving numerically (the secant method), for `solve(…, x, guess)`. */
+const SOLVER = {
+  maxIterations: 100,
+  /** The second starting point, relative to the guess (or absolute, if the guess is 0). */
+  secondPoint: 1.01,
+  secondPointFromZero: 1e-3,
+  /** Converged when a step changes x by less than this, relative to x (or 1, if smaller). */
+  tolerance: 1e-12,
+  /** Step for the slope at the solution (for its uncertainty), relative to x (or absolute, at 0). */
+  slopeStep: 1e-6,
+  slopeStepAtZero: 1e-9,
+}
 
 /**
  * Remember how a number was typed, keyed by its value. Numbers typed with extra
@@ -899,10 +971,11 @@ function addLiteral(literals: Map<number, string>, text: string): void {
 
 /** A function parameter: `m`, or `m to kg` (cast to kg on the way in). */
 function parseParam(spec: string): { name: string; unit?: string } | null {
-  const m = /^([A-Za-z]\w*)(?:\s+to\s+(\S+))?$/.exec(spec.trim())
+  const m = new RegExp(String.raw`^(${NAME})(?:\s+to\s+(\S+))?$`).exec(spec.trim())
   return m ? { name: m[1], unit: m[2] } : null
 }
 
+/** Whether mathjs reads some text as a unit. */
 function isValidUnit(text: string): boolean {
   try {
     return math.isUnit(math.unit(text))
@@ -916,16 +989,17 @@ function castArgument(param: string, unit: string | undefined, value: unknown): 
   if (unit === undefined) return value
   if (!math.isUnit(value)) {
     throw new Error(`${param} is cast to ${unit}, so it needs a value with a unit, `
-      + `but was given ${math.format(value as MathType, { precision: 6 })}.`)
+      + `but was given ${math.format(value as MathType, { precision: MESSAGE_DIGITS })}.`)
   }
   try {
     return (value as Unit).to(unit)
   } catch {
     throw new Error(`${param} is cast to ${unit}, but was given `
-      + `${math.format(value as Unit, { precision: 6 })}, which can't be converted to ${unit}.`)
+      + `${math.format(value as Unit, { precision: MESSAGE_DIGITS })}, which can't be converted to ${unit}.`)
   }
 }
 
+/** A number followed by its unit: `2.0 kg`. */
 const isNumberWithUnit = (n: MathNode): n is math.OperatorNode =>
   isOperatorNode(n) && n.fn === 'multiply' && isUnitCall(n.args[1])
 
@@ -969,12 +1043,14 @@ const isRealValue = (v: unknown) =>
   (typeof v === 'number' && Number.isFinite(v))
   || (math.isUnit(v) && typeof (v as Unit).value === 'number' && Number.isFinite((v as Unit).value))
 
+/** Whether two values are the same, give or take floating-point noise. */
 const sameValue = (a: unknown, b: unknown) => {
   const x = magnitudeOf(a)
   const y = magnitudeOf(b)
-  return Math.abs(x - y) <= 1e-9 * Math.max(Math.abs(x), Math.abs(y), 1e-300)
+  return Math.abs(x - y) <= SAME_VALUE_TOLERANCE * Math.max(Math.abs(x), Math.abs(y), TINY)
 }
 
+/** Evaluates a sheet line by line, keeping its variables, their sig figs and uncertainties, and the functions it defines. */
 export class Calculator {
   private readonly root = new Scope()
   private scope = this.root
@@ -1013,7 +1089,7 @@ export class Calculator {
   /** Constants from `@constants { }` blocks, available anywhere as `@name`. */
   private readonly customConstants = new Map<string, CustomConstant>()
   /** Sheet-wide precision from a line like `@c:4`, used wherever `@c` has no `:n` of its own. */
-  private readonly constantPrecision = new Map<string, number | 'exact'>()
+  private readonly constantPrecision = new Map<string, Precision>()
   /** Sheet-wide unit from a line like `@a_0 to angstrom`. */
   private readonly constantUnit = new Map<string, string>()
   /** Set while evaluating a line whose sum/difference has no significant figures. */
@@ -1031,10 +1107,9 @@ export class Calculator {
   /** mathjs format options for values without a sig-fig count (exact values, matrices). */
   private get format() {
     const p = this.options.precision
-    return { ...FIXED_FORMAT, precision: p === 'auto' ? 6 : p }
+    return { ...FIXED_FORMAT, precision: p === 'auto' ? EXACT_DISPLAY_DIGITS : p }
   }
 
-  /** `forced`: the sig figs were declared (`m:3 = …`), so they apply even with a fixed setting. */
   /** Evaluate `node`; a value typed with a unit (`1.00e-10 m`) keeps that unit for display. */
   private typedValue(node: MathNode): unknown {
     const v = node.compile().evaluate(this.scope) as unknown
@@ -1051,9 +1126,13 @@ export class Calculator {
     const p = this.split(value, sf, forced)
     if (!p) return false
     const shown = Number(p.num)
-    return Number.isFinite(shown) && Math.abs(shown - p.x) > 1e-12 * Math.max(Math.abs(p.x), 1e-300)
+    return Number.isFinite(shown) && Math.abs(shown - p.x) > FLOAT_NOISE * Math.max(Math.abs(p.x), TINY)
   }
 
+  /**
+   * `x` to `sf` sig figs, in the current notation. `forced`: the sig figs were
+   * declared (`m:3 = …`), so they apply even with a fixed sig-fig setting.
+   */
   private formatNumber(x: number, sf: number, forced = false): string {
     if ((this.autoSigFigs || forced) && Number.isFinite(sf)) return formatSigFigs(x, sf, this.notation)
     if (this.notation) return formatExact(x, this.format.precision, this.notation)
@@ -1114,7 +1193,7 @@ export class Calculator {
     if (typeof value === 'number') return { x: value, num: this.formatNumber(value, sf, forced) }
     if (math.isUnit(value)) {
       // Full precision first (mathjs picks the unit prefix), then round ourselves.
-      const s = math.format(displayUnit(value as Unit), { precision: 15 })
+      const s = math.format(displayUnit(value as Unit), { precision: MAX_DIGITS })
       const m = /^(\S+)\s+(.+)$/.exec(s)
       if (!m) return null
       const x = Number(m[1])
@@ -1437,7 +1516,7 @@ export class Calculator {
    * uncertainty. Not followed by a defined variable, they stay Greek letters.
    */
   private expandDeltaRefs(line: string): string {
-    return line.replace(/\b(delta|Delta)\s+([A-Za-z]\w*)/g, (match, letter: UncertaintyLetter, name: string) => {
+    return line.replace(DELTA_REF, (match, letter: UncertaintyWord, name: string) => {
       if (!this.scope.has(name) || typeof this.scope.get(name) === 'function') return match
       const value = this.scope.get(name)
       const unc = this.totalUncertainty(name) ?? math.multiply(value as MathType, 0)
@@ -1469,7 +1548,7 @@ export class Calculator {
    * partial derivatives, and the values substituted in. Skipped when inputs
    * share an uncertainty source, since the simple formula assumes independence.
    */
-  private deltaWorking(name: string, letter: UncertaintyLetter): string[] {
+  private deltaWorking(name: string, letter: UncertaintyWord): string[] {
     const def = this.defs.get(name)
     if (!def) return []
     const inputs = this.uncertainInputs(def).filter((n) => !isUncertaintyName(n))
@@ -1705,7 +1784,7 @@ export class Calculator {
    * variable, and is then available as `@rho` anywhere in the sheet.
    */
   /** Use `digits` sig figs for every `@name` in the sheet that doesn't give its own. */
-  declareConstantPrecision(name: string, digits: number | 'exact'): void {
+  declareConstantPrecision(name: string, digits: Precision): void {
     this.constantPrecision.set(name, digits)
   }
 
@@ -1715,7 +1794,7 @@ export class Calculator {
   }
 
   defineConstant(input: string): CalcResult {
-    const name = /^([A-Za-z]\w*)(?::[^:=\s]+)*\s*=(?!=)/.exec(input)?.[1]
+    const name = ASSIGNMENT.exec(input)?.[1]
     if (!name) return { tex: '', error: 'Inside @constants, each line is "name = value".' }
     this.pushScope()
     try {
@@ -1754,8 +1833,8 @@ export class Calculator {
         return match
       }
       // Precedence: this use's own :n, then the sheet's declaration, then the default.
-      const digits: number | 'exact' = spec === 'exact'
-        ? 'exact'
+      const digits: Precision = spec === EXACT_SETTING
+        ? EXACT_SETTING
         : spec !== undefined
           ? Number(spec)
           : this.constantPrecision.get(name) ?? (custom ? custom.sf : DEFAULT_CONSTANT_SIG_FIGS)
@@ -1775,8 +1854,8 @@ export class Calculator {
           full = (full as Unit).to(unit)
         } catch { /* reported on the declaration line */ }
       }
-      const exact = digits === 'exact' || !Number.isFinite(digits)
-      const hidden = constantRefName(name, exact ? 'exact' : digits)
+      const exact = digits === EXACT_SETTING || !Number.isFinite(digits)
+      const hidden = constantRefName(name, exact ? EXACT_SETTING : digits)
       this.scope.set(hidden, exact ? full : this.roundTo(full, digits))
       // `:exact` shows every digit of the value; that many sig figs is more than any
       // measurement has, so it never limits a result.
@@ -1797,7 +1876,7 @@ export class Calculator {
   private roundTo(value: unknown, digits: number): unknown {
     if (typeof value === 'number') return Number(value.toPrecision(digits))
     if (!math.isUnit(value)) return value
-    const m = /^(\S+)\s+(.+)$/.exec(math.format(value as Unit, { precision: 15 }))
+    const m = /^(\S+)\s+(.+)$/.exec(math.format(value as Unit, { precision: MAX_DIGITS }))
     return m ? math.unit(Number(Number(m[1]).toPrecision(digits)), m[2]).to(m[2]) : value
   }
 
@@ -1829,17 +1908,17 @@ export class Calculator {
     const casts = parsed.map((p) => p?.unit)
     const ret = returnSpec ? parseDeclaration(`${name}${returnSpec} = 0`) : null
     const returnSettings = ret && !('error' in ret) ? ret : null
-    const shownUnit = returnSettings?.unit && returnSettings.unit !== 'percent' ? returnSettings.unit : undefined
+    const shownUnit = returnSettings?.unit && returnSettings.unit !== PERCENT ? returnSettings.unit : undefined
     const signature = `${symbolTex(name)}\\left(${parsed.map((p, i) => (p
       ? `${symbolTex(p.name)}${p.unit ? `\\,[${unitTex(p.unit)}]` : ''}`
       : paramSpecs[i])).join(', ')}\\right)${shownUnit ? `\\to[${unitTex(shownUnit)}]` : ''}`
     const body: FunctionResult['body'] = []
     if (ret && 'error' in ret) return { signature, body, error: ret.error }
-    if (returnSettings?.unit === 'percent') {
+    if (returnSettings?.unit === PERCENT) {
       return { signature, body, error: `${name}:percent isn't available on a function; show a result as a percentage where it's used.` }
     }
     const returnUnit = shownUnit
-    const returnSf = returnSettings?.sf === 'exact' ? EXACT : returnSettings?.sf
+    const returnSf = returnSettings?.sf === EXACT_SETTING ? EXACT : returnSettings?.sf
     const returnNotation = returnSettings?.notation
     const bad = paramSpecs.find((_, i) => !parsed[i])
     if (bad !== undefined) return { signature, body, error: `"${bad}" isn't a valid parameter: write a name, or "name to unit".` }
@@ -1859,7 +1938,7 @@ export class Calculator {
     for (const { line, text, note, command, multiline: lineMultiline } of lines) {
       const ret = /^return\s+(.+)$/.exec(text)
       // `x = …`, or with display settings: `x:3 = …`, `theta:deg = …`.
-      const assign = /^([A-Za-z]\w*)(?::[^:=\s]+)*\s*=(?!=)\s*(.+)$/.exec(text)
+      const assign = ASSIGNMENT_WITH_VALUE.exec(text)
       // `tuple(a, b) = …` unpacks a tuple (checked first: it also looks like an assignment).
       const unpack = UNPACK.exec(text)
       const unpackNames = unpack?.[1].split(',').map((n) => n.trim())
@@ -1873,7 +1952,7 @@ export class Calculator {
       if (badTarget && 'error' in badTarget) return { signature, body, error: `Line ${line}: ${badTarget.error}` }
       const targets = unpackTargets as TupleName[] | undefined
       const literals = new Map<number, string>()
-      for (const m of source.matchAll(NUMBER)) addLiteral(literals, m[0])
+      for (const m of source.matchAll(NUMBER_LITERAL)) addLiteral(literals, m[0])
       try {
         // Constants resolve where the function is defined, so calls can see them.
         const expanded = this.expandConstants(source)
@@ -1891,7 +1970,7 @@ export class Calculator {
           body.push({ tex: `${signature} = ${this.toTex(node, literals)}`, note, line })
         } else {
           const declared = parseDeclaration(text)
-          const unit = declared && !('error' in declared) && declared.unit !== 'percent' ? declared.unit : undefined
+          const unit = declared && !('error' in declared) && declared.unit !== PERCENT ? declared.unit : undefined
           statements.push({ kind: 'assign', name: assign![1], code, unit })
           // Keep the line as written, so a declared `x:3 =` applies when its working is shown.
           sources.push({ kind: 'assign', text, note, command, multiline: lineMultiline })
@@ -2072,7 +2151,7 @@ export class Calculator {
         if (!hidden) lines.push({ tex: r.tex, note: s.note })
         if (r.error) break
         // A parameter reassigned in the body is now its own value, not the argument.
-        const assigned = /^([A-Za-z]\w*)/.exec(s.text)?.[1]
+        const assigned = LEADING_NAME.exec(s.text)?.[0]
         if (assigned) aliases.delete(assigned)
       }
       return { lines, ret: undefined, retNote: undefined, retCommand: undefined, retSf: undefined }
@@ -2104,7 +2183,7 @@ export class Calculator {
     literals: Map<number, string>,
     mode: DisplayMode,
     explicit: boolean,
-    declaredSf?: number | 'exact',
+    declaredSf?: Precision,
     displayUnit?: string,
     notation?: Notation,
   ): LineResult {
@@ -2120,7 +2199,7 @@ export class Calculator {
     const args = splitArgs(line.slice(open + 1, close))
     if (args.length < 2 || args.length > 3) return fail('Write solve(equation, unknown), or solve(equation, unknown, guess).')
     const [equation, x, guessText] = args
-    if (!/^[A-Za-z]\w*$/.test(x)) return fail(`The second part of solve is the unknown to solve for, like d (got "${x}").`)
+    if (!IS_NAME.test(x)) return fail(`The second part of solve is the unknown to solve for, like d (got "${x}").`)
     const sides = splitEquation(equation)
     if (!sides) return fail('The first part of solve is an equation with one =, like v^2 = 2*a*d.')
 
@@ -2248,12 +2327,12 @@ export class Calculator {
     }
 
     let s0 = magnitudeOf(guess)
-    let s1 = s0 === 0 ? 1e-3 : s0 * 1.01
+    let s1 = s0 === 0 ? SOLVER.secondPointFromZero : s0 * SOLVER.secondPoint
     let found = false
     try {
       let f0 = residual(s0)
       let f1 = residual(s1)
-      for (let i = 0; i < 100 && Number.isFinite(f1); i++) {
+      for (let i = 0; i < SOLVER.maxIterations && Number.isFinite(f1); i++) {
         if (f1 === 0) {
           found = true
           break
@@ -2264,7 +2343,7 @@ export class Calculator {
         f0 = f1
         s1 = s2
         f1 = residual(s1)
-        if (Math.abs(s1 - s0) <= 1e-12 * Math.max(1, Math.abs(s1))) {
+        if (Math.abs(s1 - s0) <= SOLVER.tolerance * Math.max(1, Math.abs(s1))) {
           found = Number.isFinite(f1)
           break
         }
@@ -2286,7 +2365,7 @@ export class Calculator {
       this.scope.set(x, value)
       this.sigs.set(x, EXACT)
       this.uncs.set(x, new Map())
-      const h = Math.abs(s1) * 1e-6 || 1e-9
+      const h = Math.abs(s1) * SOLVER.slopeStep || SOLVER.slopeStepAtZero
       const slope = (residual(s1 + h) - residual(s1 - h)) / (2 * h)
       if (slope !== 0 && Number.isFinite(slope)) {
         for (const [source, c] of this.propagate(F)) {
@@ -2390,7 +2469,7 @@ export class Calculator {
     }
     const shown = targets.map((t) => (t.sf === undefined
       ? { sf, forced: false, notation: t.notation }
-      : { sf: t.sf === 'exact' ? EXACT : t.sf, forced: true, notation: t.notation }))
+      : { sf: t.sf === EXACT_SETTING ? EXACT : t.sf, forced: true, notation: t.notation }))
     targets.forEach(({ name }, i) => {
       this.scope.set(name, converted[i])
       this.sigs.set(name, shown[i].sf)
@@ -2430,32 +2509,32 @@ export class Calculator {
     const declaration = parseDeclaration(input.trim())
     if (declaration && 'error' in declaration) return { tex: '', error: declaration.error }
     const declaredSf = declaration?.sf
-    const displayUnit = declaration?.unit === 'percent' ? undefined : declaration?.unit
+    const displayUnit = declaration?.unit === PERCENT ? undefined : declaration?.unit
     if (declaration) input = `${declaration.name} =${input.trim().slice(declaration.length)}`
 
     // `delta F =` asks for F's uncertainty; a trailing = is just a prompt.
     const constants = this.expandConstants(input.replace(/=\s*$/, '').trim())
     if (constants.error) return { tex: '', error: constants.error }
     const cleaned = constants.text
-    const target = /^([A-Za-z]\w*)\s*=(?!=)/.exec(cleaned)?.[1]
+    const target = ASSIGNMENT.exec(cleaned)?.[1]
     const aggregateError = this.defineAggregates(cleaned, target)
     if (aggregateError) return { tex: '', error: aggregateError }
     // `… to percent` isn't a mathjs unit: take it off and show the result as a percentage.
-    const asPercent = TO_PERCENT.test(cleaned) || declaration?.unit === 'percent'
+    const asPercent = TO_PERCENT.test(cleaned) || declaration?.unit === PERCENT
     const line = expandParenPm(this.expandDeltaRefs(cleaned.replace(TO_PERCENT, '')))
 
     // Number literals as typed, so `2.0 kg` keeps its trailing zero.
     const literals = new Map<number, string>()
-    for (const m of line.matchAll(NUMBER)) addLiteral(literals, m[0])
+    for (const m of line.matchAll(NUMBER_LITERAL)) addLiteral(literals, m[0])
 
     // `x = solve(lhs = rhs, x)`: the equation needs special parsing (its `=`).
-    const solveCall = /^(?:([A-Za-z]\w*)\s*=\s*)?solve\s*\(/.exec(line)
+    const solveCall = SOLVE_CALL.exec(line)
     if (solveCall && !this.isUserFunction('solve')) {
       return this.evaluateSolve(line, solveCall, literals, requestedMode, explicit, declaredSf, displayUnit, declaration?.notation)
     }
 
     // Separate `value pm uncertainty` on the right-hand side.
-    const lhs = /^[A-Za-z]\w*\s*=(?!=)/.exec(line)?.[0] ?? ''
+    const lhs = ASSIGNMENT.exec(line)?.[0] ?? ''
     const pm = splitPm(line.slice(lhs.length))
     const percent = !!pm?.[1].endsWith('%')
 
@@ -2676,7 +2755,7 @@ export class Calculator {
         const ignored = `:${ctx.declaredSf} is ignored because ${assigned} has an uncertainty, which sets its precision.`
         warning = warning ? `${warning} ${ignored}` : ignored
       } else {
-        declaredSf = ctx.declaredSf === 'exact' ? EXACT : ctx.declaredSf
+        declaredSf = ctx.declaredSf === EXACT_SETTING ? EXACT : ctx.declaredSf
         shownSf = declaredSf
         // A typed value shows at the declared precision: m:4 = 2 kg → 2.000 kg.
         if (isLiteral(expr) && Number.isFinite(declaredSf) && !ctx.notation) {
@@ -2719,8 +2798,8 @@ export class Calculator {
     let result: string | undefined
     if (ctx.asPercent && value !== undefined) {
       // Stored as the fraction (so later lines calculate with it); shown ×100 with a %.
-      const pct = math.multiply(value as MathType, 100)
-      const pctUnc = unc === undefined ? undefined : math.multiply(unc as MathType, 100)
+      const pct = math.multiply(value as MathType, PERCENT_SCALE)
+      const pctUnc = unc === undefined ? undefined : math.multiply(unc as MathType, PERCENT_SCALE)
       const tex = this.valueTex(pct, declaredSf ?? sf, pctUnc, undefined, declaredSf !== undefined)
       result = pctUnc === undefined ? `${tex}\\,\\%` : `\\left(${tex}\\right)\\,\\%`
     } else if (!isLiteral(expr) && value !== undefined) {
@@ -2736,7 +2815,7 @@ export class Calculator {
     // every input is exact (1/3 ≈ 0.333). A value with ± already states its precision.
     let approx = false
     if (result !== undefined && unc === undefined && !deltaOf && (this.options.approxRounded || !Number.isFinite(sf))) {
-      const shownValue = ctx.asPercent ? math.multiply(value as MathType, 100) : value
+      const shownValue = ctx.asPercent ? math.multiply(value as MathType, PERCENT_SCALE) : value
       approx = this.isRounded(shownValue, declaredSf ?? sf, declaredSf !== undefined)
     }
     return { result, approx }
@@ -2762,7 +2841,7 @@ export class Calculator {
     let u = uncNode.compile().evaluate(this.scope) as unknown
     if (percent) {
       if (typeof u !== 'number') throw new Error('A percentage uncertainty must be a plain number, like pm 5%.')
-      return math.multiply(math.abs(value as MathType) as MathType, u / 100)
+      return math.multiply(math.abs(value as MathType) as MathType, u / PERCENT_SCALE)
     }
     // `2.0 kg pm 0.1`: the uncertainty takes the value's unit.
     if (math.isUnit(value) && typeof u === 'number') u = math.multiply(u, math.unit((value as Unit).formatUnits()))

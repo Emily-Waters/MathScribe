@@ -1,4 +1,6 @@
 import { useSyncExternalStore } from 'react'
+import { STORAGE_KEYS } from './config.ts'
+import { readStored, writeStored } from './lib/storage.ts'
 
 /**
  * App colour themes. The chosen theme is applied as data-theme on <html> (its
@@ -7,8 +9,10 @@ import { useSyncExternalStore } from 'react'
  *
  * index.html applies the saved theme before the page first draws (so there's no
  * flash of the wrong colours); keep its small script in step with applyAppTheme.
+ * (A test checks it uses the same storage key and theme names.)
  */
 
+/** Every app theme, with what the Theme menu shows for it (swatch: background, surface, accent). */
 export const APP_THEMES = [
   { id: 'system', name: 'System', description: 'Light or Dark, following your computer’s setting', swatch: null },
   { id: 'light', name: 'Light', description: 'Light grey and white', swatch: ['#f6f7f9', '#ffffff', '#3a5bd9'] },
@@ -19,25 +23,20 @@ export const APP_THEMES = [
 
 export type AppThemeId = (typeof APP_THEMES)[number]['id']
 
-const KEY = 'mathscribe:app-theme'
+/** The themes with light text on a dark background. */
 const DARK = new Set<AppThemeId>(['dark', 'charcoal', 'black'])
+/** Whether the operating system is set to dark mode. */
 const systemDark = () => window.matchMedia('(prefers-color-scheme: dark)').matches
 
+/** The theme chosen last time in this browser ("system" if none). */
 export function loadAppTheme(): AppThemeId {
-  try {
-    const saved = localStorage.getItem(KEY)
-    return APP_THEMES.some((t) => t.id === saved) ? saved as AppThemeId : 'system'
-  } catch {
-    return 'system'
-  }
+  const saved = readStored(STORAGE_KEYS.appTheme)
+  return APP_THEMES.some((t) => t.id === saved) ? saved as AppThemeId : 'system'
 }
 
+/** Remember the theme (if storage is blocked, the choice lasts until reload). */
 export function saveAppTheme(id: AppThemeId): void {
-  try {
-    localStorage.setItem(KEY, id)
-  } catch {
-    /* storage blocked: the choice lasts until reload */
-  }
+  writeStored(STORAGE_KEYS.appTheme, id)
 }
 
 /** Set the theme on <html>; "system" resolves to Light or Dark now. */

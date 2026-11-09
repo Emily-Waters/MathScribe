@@ -7,11 +7,14 @@ import { ReferencePane } from './ReferencePane.tsx'
 import { OptionsMenu } from './OptionsMenu.tsx'
 import { LatexOptionsMenu } from './LatexOptionsMenu.tsx'
 import { LibraryPane } from './LibraryPane.tsx'
-import { downloadFile } from '../lib/files.ts'
+import { downloadFile, splitExtension } from '../lib/files.ts'
+import { copyText, useFlash } from '../useFlash.ts'
 
+/** LaTeX as KaTeX HTML; a mistake shows in red rather than failing. */
 const render = (latex: string, displayMode: boolean) =>
   katex.renderToString(latex, { displayMode, throwOnError: false, strict: 'ignore' })
 
+/** LaTeX typeset inline, or as a display (its own centred line). */
 export function Tex({ latex, display = false }: { latex: string; display?: boolean }) {
   const html = useMemo(() => render(latex, display), [latex, display])
   return display
@@ -57,6 +60,7 @@ function useLineLink() {
   })
 }
 
+/** One block of the sheet as it appears in the Rendered tab. */
 export function RenderedBlock({ block }: { block: Block }) {
   const link = useLineLink()
   switch (block.kind) {
@@ -213,9 +217,11 @@ export function RenderedBlock({ block }: { block: Block }) {
   }
 }
 
+/** A variable's sig figs, in words, for its tooltip. */
 const sigFigLabel = (sf: number) =>
   Number.isFinite(sf) ? `${sf} significant figure${sf === 1 ? '' : 's'}` : 'exact'
 
+/** The Output pane’s tabs. */
 type Tab = 'rendered' | 'latex' | 'library' | 'reference'
 
 interface PreviewPaneProps {
@@ -232,18 +238,19 @@ interface PreviewPaneProps {
   onInsert: (text: string) => void
 }
 
+/** The Output pane: the rendered sheet, its LaTeX (and Word) export, the equation library and the reference. */
 export function PreviewPane({
   sheet, options, onOptionsChange, activeLine, onJump, fileName, onInsert,
 }: PreviewPaneProps) {
   const [tab, setTab] = useState<Tab>('rendered')
-  const [copied, setCopied] = useState(false)
+  const [flash, showFlash] = useFlash<'latex'>()
   const [latexOptions, setLatexOptions] = useState<LatexOptions>(loadLatexOptions)
   const changeLatexOptions = (o: LatexOptions) => {
     setLatexOptions(o)
     saveLatexOptions(o)
   }
   const latexSource = useMemo(() => toLatexDocument(sheet.blocks, latexOptions), [sheet.blocks, latexOptions])
-  const baseName = fileName.replace(/\.[^.]*$/, '')
+  const { stem: baseName } = splitExtension(fileName)
   const downloadTex = () => downloadFile(`${baseName}.tex`, latexSource)
   // The Word writer loads only when it's first used.
   const downloadDocx = async () => {
@@ -259,13 +266,7 @@ export function PreviewPane({
   }, [activeLine, tab])
 
   const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(latexSource)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1500)
-    } catch {
-      /* clipboard blocked */
-    }
+    if (await copyText(latexSource)) showFlash('latex', 'Copied')
   }
 
   return (
@@ -314,7 +315,7 @@ export function PreviewPane({
               title="Download a Word document with editable equations (opens in Google Docs too)">
               Download .docx
             </button>
-            <button className="source__button" onClick={copy}>{copied ? 'Copied' : 'Copy'}</button>
+            <button className="source__button" onClick={copy}>{flash?.message ?? 'Copy'}</button>
           </div>
           <pre>{latexSource}</pre>
         </div>

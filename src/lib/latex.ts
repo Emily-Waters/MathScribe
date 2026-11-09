@@ -4,8 +4,11 @@
  * spacing, function working indented under its line, blocks as cards), with
  * options for the page and the look.
  */
+import { STORAGE_KEYS } from '../config.ts'
 import { isOmitted, listItems, splitInlineMath, titleSegments, type Block } from './document.ts'
+import { readStoredJson, writeStoredJson } from './storage.ts'
 
+/** The Document options: how an exported document (LaTeX or Word) looks. */
 export interface LatexOptions {
   /** Equations flush left (like the Rendered tab), or centered (LaTeX's usual). */
   align: 'left' | 'center'
@@ -25,6 +28,7 @@ export interface LatexOptions {
   date: boolean
 }
 
+/** The Document options until they’re changed. */
 export const DEFAULT_LATEX_OPTIONS: LatexOptions = {
   align: 'left',
   fontSize: '11pt',
@@ -38,30 +42,24 @@ export const DEFAULT_LATEX_OPTIONS: LatexOptions = {
   date: true,
 }
 
-const MARGINS: Record<LatexOptions['margins'], string> = { narrow: '1.5cm', normal: '2.5cm', wide: '3.5cm' }
+/** Page margins, in cm (the Word export uses them too). */
+export const MARGIN_CM: Record<LatexOptions['margins'], number> = { narrow: 1.5, normal: 2.5, wide: 3.5 }
 
-const KEY = 'mathscribe:latex-options'
-
+/** The Document options set last time in this browser (any missing ones at their defaults). */
 export function loadLatexOptions(): LatexOptions {
-  try {
-    return { ...DEFAULT_LATEX_OPTIONS, ...JSON.parse(localStorage.getItem(KEY) ?? '{}') as Partial<LatexOptions> }
-  } catch {
-    return DEFAULT_LATEX_OPTIONS
-  }
+  return { ...DEFAULT_LATEX_OPTIONS, ...readStoredJson<Partial<LatexOptions>>(STORAGE_KEYS.latexOptions) }
 }
 
+/** Remember the Document options (if storage is blocked, they last until reload). */
 export function saveLatexOptions(options: LatexOptions): void {
-  try {
-    localStorage.setItem(KEY, JSON.stringify(options))
-  } catch {
-    /* storage blocked: the options last until reload */
-  }
+  writeStoredJson(STORAGE_KEYS.latexOptions, options)
 }
 
 // ---------------------------------------------------------------------------
 // Text and equations
 // ---------------------------------------------------------------------------
 
+/** Text, with the characters LaTeX treats specially escaped. */
 const escapeTex = (s: string) =>
   s.replace(/[\\{}#%&_^~$]/g, (c) =>
     c === '\\' ? '\\textbackslash{}' : c === '^' ? '\\^{}' : c === '~' ? '\\~{}' : `\\${c}`)
@@ -136,8 +134,10 @@ function joinBlocks(blocks: Block[], o: LatexOptions): string {
   return out.join('\n\n')
 }
 
+/** A line with an error, as a LaTeX comment (so it doesn’t stop the document compiling). */
 const errorComment = (line: number, what: string, error: string) => `% Line ${line}: ${what}\n% Error: ${error}`
 
+/** One block as LaTeX. */
 function blockToLatex(b: Block, o: LatexOptions): string {
   switch (b.kind) {
     case 'heading': {
@@ -213,11 +213,12 @@ function itemLatex(b: Block, o: LatexOptions): string {
 // The document
 // ---------------------------------------------------------------------------
 
+/** The document's preamble: its class, packages and settings, from the Document options. */
 function preamble(o: LatexOptions): string[] {
   const left = o.align === 'left'
   return [
     `\\documentclass[${[o.fontSize, o.paper, ...(left ? ['fleqn'] : [])].join(',')}]{article}`,
-    `\\usepackage[margin=${MARGINS[o.margins]}]{geometry}`,
+    `\\usepackage[margin=${MARGIN_CM[o.margins]}cm]{geometry}`,
     '\\usepackage{amsmath, amssymb}',
     '% Long runs of equations may break across pages.',
     '\\allowdisplaybreaks',

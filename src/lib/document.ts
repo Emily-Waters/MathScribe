@@ -3,14 +3,14 @@ import {
   type CalcOptions,
   type FunctionLine,
   type FunctionResult,
-  type LineCommand,
   type TraceLine,
   type Variable,
   symbolTex,
 } from './engine.ts'
-
-/** Indentation width, counting a tab as 4 spaces. */
-const indentOf = (line: string) => /^[ \t]*/.exec(line)![0].replace(/\t/g, '    ').length
+import {
+  ASSIGNMENT, CONSTANT_DECLARATION, EXACT_SETTING, DEF, DEF_HEAD, FUNCTION_HEAD, LAYOUT_STYLES, LEADING_NAME, LINE_COMMANDS,
+  MULTILINE, NAME_WITH_SETTINGS, UNPACK_HEAD, commandPattern, indentOf, type LayoutStyle, type LineCommand,
+} from './syntax.ts'
 
 /**
  * Line-based document model. Each non-empty line becomes one block:
@@ -79,6 +79,7 @@ export interface FunctionBlock extends FunctionResult {
   hidden?: boolean
 }
 
+/** A calculation line, evaluated: its LaTeX, and anything to say about it. */
 export interface CalcBlock {
   kind: 'calc'
   line: number
@@ -95,6 +96,7 @@ export interface CalcBlock {
   hidden?: boolean
 }
 
+/** A `Title { … }` block: the variables assigned inside it are local to it. */
 export interface GroupBlock {
   kind: 'group'
   line: number
@@ -112,8 +114,7 @@ export interface GroupBlock {
   multiline?: boolean
 }
 
-/** How a layout block arranges its lines. */
-export type LayoutStyle = 'center' | 'list' | 'numbered' | 'text'
+export type { LayoutStyle }
 
 /**
  * `Title:  #numbered` with indented lines under it: a block that only arranges
@@ -142,29 +143,28 @@ export interface LayoutBlock {
   itemIndent?: number
 }
 
+/** A whole sheet, evaluated: its blocks, and the variables it ends with. */
 export interface Sheet {
   blocks: Block[]
   variables: Variable[]
 }
 
+/** A display command on a line or block (#sym, #val, #full, #hide). */
 export type Command = LineCommand
 
-const COMMAND = /(^|\s)#(sym|val|full|hide)(?=\s|$)/gi
+/** `#sym`, `#val`, `#full`, `#hide` in a line. */
+const COMMAND = commandPattern(LINE_COMMANDS, 'gi')
 /** `#multiline`: a layout, so it combines with the commands above. */
-const MULTILINE = /(^|\s)#multiline(?=\s|$)/gi
-/** `#center`, `#list`, `#numbered`: how a layout block (or one line) is arranged. */
-const LAYOUT = /(^|\s)#(center|list|numbered|text)(?=\s|$)/gi
+const MULTILINE_COMMAND = commandPattern([MULTILINE], 'gi')
+/** `#center`, `#list`, `#numbered`, `#text`: how a layout block (or one line) is arranged. */
+const LAYOUT = commandPattern(LAYOUT_STYLES, 'gi')
 
-/**
- * A line that is only `@name:n`, `@name:exact`, `@name to unit` or `@name:n to unit`:
- * sets that constant's precision and/or display unit sheet-wide.
- */
-const DECLARATION = /^@([A-Za-z]\w*)(?::(\d+|exact))?(?:\s+to\s+(\S.*?))?\s*$/
-
+/** A line that sets a constant's precision and/or display unit sheet-wide: `@c:4`, `@a_0:3 to angstrom`. */
 interface Declaration { name: string; precision?: string; unit?: string }
 
+/** A constant declaration's parts, or null if the line isn't one (`@c` alone isn't). */
 function parseDeclaration(body: string): Declaration | null {
-  const m = DECLARATION.exec(body)
+  const m = CONSTANT_DECLARATION.exec(body)
   if (!m || (m[2] === undefined && m[3] === undefined)) return null
   return { name: m[1], precision: m[2], unit: m[3] }
 }
@@ -189,7 +189,7 @@ function splitNote(text: string): {
       command = cmd.toLowerCase() as Command
       return space
     })
-    .replace(MULTILINE, (_m, space: string) => {
+    .replace(MULTILINE_COMMAND, (_m, space: string) => {
       multiline = true
       return space
     })
@@ -198,6 +198,7 @@ function splitNote(text: string): {
   return { body: rest.slice(0, hash).trim(), note: rest.slice(hash + 1).trim() || undefined, command, multiline, layout }
 }
 
+/** Read and evaluate a whole sheet, line by line, into blocks. */
 export function evaluateSheet(source: string, options: CalcOptions): Sheet {
   const calc = new Calculator(options)
   const root: Block[] = []
@@ -234,7 +235,7 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
     }
     declaredAt.set(d.name, i + 1)
     if (d.precision !== undefined) {
-      calc.declareConstantPrecision(d.name, d.precision === 'exact' ? 'exact' : Number(d.precision))
+      calc.declareConstantPrecision(d.name, d.precision === EXACT_SETTING ? EXACT_SETTING : Number(d.precision))
     }
     if (d.unit !== undefined) calc.declareConstantUnit(d.name, d.unit)
   })
@@ -243,7 +244,7 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
     const d = parseDeclaration(body)
     if (!d || declaredAt.get(d.name) !== line) return undefined
     const parts = [
-      d.precision === undefined ? '' : d.precision === 'exact' ? 'at full precision' : `to ${d.precision} sig figs`,
+      d.precision === undefined ? '' : d.precision === EXACT_SETTING ? 'at full precision' : `to ${d.precision} sig figs`,
       d.unit === undefined ? '' : `in ${d.unit}`,
     ].filter(Boolean).join(', ')
     const unless = d.precision === undefined ? '' : ', unless written with its own :n'
@@ -369,7 +370,7 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
 
     // `def f(a, b)`: the function body is every following line indented further.
     // (`def f(x):3:deg`: settings for the result after the parameters; a lone trailing `:` is fine too.)
-    const def = /^def\s+([A-Za-z]\w*)\s*\(([^)]*)\)((?::[^:\s]+)*)\s*:?$/.exec(body)
+    const def = DEF.exec(body)
     if (def) {
       const defIndent = indentOf(raw)
       const bodyLines: FunctionLine[] = []
@@ -557,7 +558,7 @@ export function collectDefinitions(blocks: Block[]): Map<string, number[]> {
   const visit = (b: Block) => {
     if (b.kind === 'function') put(b.name, b.line)
     else if (b.kind === 'calc') {
-      const m = /^([A-Za-z]\w*)\s*\([^()]*\)(?::[^:=\s]+)*\s*=(?!=)/.exec(b.source)
+      const m = FUNCTION_HEAD.exec(b.source)
       if (m) put(m[1], b.line)
     } else if (b.kind === 'group' || b.kind === 'layout') b.children.forEach(visit)
   }
@@ -581,9 +582,6 @@ export interface SheetSymbol {
   params?: string
 }
 
-const ASSIGNMENT = /^([A-Za-z]\w*)(?::[^:=\s]+)*\s*=(?!=)/
-const ONE_LINE_DEF = /^([A-Za-z]\w*)\s*\(([^()]*)\)(?::[^:=\s]+)*\s*=(?!=)/
-
 /**
  * Everything defined in the sheet, for completions and hover information:
  * variables (with their value), function parameters, functions (with their
@@ -601,16 +599,16 @@ export function collectSymbols(sheet: Sheet, source: string): SheetSymbol[] {
       switch (b.kind) {
         case 'calc': {
           // `tuple(a, b) = …`: each name is a variable.
-          const unpack = /^tuple\s*\(([^()]*)\)\s*=(?!=)/.exec(b.source)
+          const unpack = UNPACK_HEAD.exec(b.source)
           if (unpack) {
             for (const entry of unpack[1].split(',').map((n) => n.trim())) {
               // The name without its display settings (`theta:deg` → theta).
-              const name = /^([A-Za-z]\w*)(?::[^:=\s]+)*$/.exec(entry)?.[1]
+              const name = NAME_WITH_SETTINGS.exec(entry)?.[1]
               if (name) out.push({ name, kind: 'variable', line: b.line, from: b.line + 1, to, tex: texOf(name, scope) })
             }
             break
           }
-          const def = ONE_LINE_DEF.exec(b.source)
+          const def = FUNCTION_HEAD.exec(b.source)
           if (def) {
             out.push({
               name: def[1], kind: 'function', line: b.line, from: b.line, to,
@@ -623,11 +621,11 @@ export function collectSymbols(sheet: Sheet, source: string): SheetSymbol[] {
           break
         }
         case 'function': {
-          const params = /^\s*def\s+[A-Za-z]\w*\s*\(([^)]*)\)/.exec(lines[b.line - 1] ?? '')?.[1].trim() ?? ''
+          const params = DEF_HEAD.exec(lines[b.line - 1] ?? '')?.[2].trim() ?? ''
           out.push({ name: b.name, kind: 'function', line: b.line, from: b.line, to, tex: b.signature, params })
           // Inside the body, its parameters are names too.
           for (const p of params.split(',')) {
-            const name = /^\s*([A-Za-z]\w*)/.exec(p)?.[1]
+            const name = LEADING_NAME.exec(p.trim())?.[0]
             if (name) out.push({ name, kind: 'parameter', line: b.line, from: b.line + 1, to: b.endLine })
           }
           break
@@ -652,6 +650,7 @@ export function collectSymbols(sheet: Sheet, source: string): SheetSymbol[] {
   return out
 }
 
+/** An error or warning on a line, for the editor’s gutter. */
 export interface Diagnostic {
   kind: 'error' | 'warning'
   message: string

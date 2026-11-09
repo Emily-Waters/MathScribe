@@ -5,8 +5,10 @@
  */
 import { evaluateSheet, type Block, type Sheet } from '../lib/document.ts'
 import type { CalcOptions } from '../lib/engine.ts'
+import { EXAMPLE_CALC_OPTIONS } from '../config.ts'
 
-export const OPTIONS: CalcOptions = { precision: 'auto', showSubstitution: true }
+/** The settings tests evaluate with. */
+export const OPTIONS: CalcOptions = EXAMPLE_CALC_OPTIONS
 
 /** One shown line of a sheet: a calculation, or a `@constants` entry. */
 export interface Line {
@@ -20,6 +22,7 @@ export interface Line {
   trace?: { tex: string }[]
 }
 
+/** A sheet, evaluated. */
 export function sheet(source: string, options: Partial<CalcOptions> = {}): Sheet {
   return evaluateSheet(source, { ...OPTIONS, ...options })
 }

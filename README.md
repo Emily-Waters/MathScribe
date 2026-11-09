@@ -841,6 +841,14 @@ Roughly in priority order.
 
 ## Structure
 
+- `src/config.ts`: app-wide settings in one place: browser storage keys, default
+  and example calculation options, sheet file type, timings, the pane divider's
+  limits
+- `src/lib/syntax.ts`: the sheet language's words and patterns (names, settings,
+  assignments, functions, constants, display commands, series names, indentation),
+  shared by the engine, the sheet structure and the editor
+- `src/lib/storage.ts`: reading and writing the browser's storage safely;
+  `src/useFlash.ts`: copying to the clipboard, and the brief "Copied" messages
 - `src/lib/engine.ts`: evaluation with scoped variables, unit-literal handling,
   sig-fig tracking, uncertainty propagation, functions, LaTeX generation
 - `src/lib/document.ts`: line types and blocks (`{ }`, layout, `def`,

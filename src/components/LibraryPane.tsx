@@ -1,11 +1,11 @@
 import { useMemo, useRef, useState } from 'react'
+import { EXAMPLE_CALC_OPTIONS } from '../config.ts'
 import { evaluateSheet } from '../lib/document.ts'
 import { symbolTex } from '../lib/engine.ts'
 import { LIBRARY, searchLibrary, type LibraryEntry } from '../lib/library.ts'
+import { copyText, useFlash } from '../useFlash.ts'
 import { RenderedBlock, Tex } from './PreviewPane.tsx'
-
-/** Fixed settings, so the library looks the same whatever the toolbar says. */
-const OPTIONS = { precision: 'auto', showSubstitution: true } as const
+import { SectionLinks } from './ReferencePane.tsx'
 
 interface LibraryPaneProps {
   /** Put an entry's function into the sheet, at the editor's cursor. */
@@ -19,23 +19,12 @@ interface LibraryPaneProps {
 export function LibraryPane({ onInsert }: LibraryPaneProps) {
   const [query, setQuery] = useState('')
   const topics = useMemo(() => searchLibrary(query), [query])
-  const [done, setDone] = useState<{ id: string; what: 'Inserted' | 'Copied' } | null>(null)
+  const [flash, showFlash] = useFlash<string>()
   const scroller = useRef<HTMLDivElement>(null)
 
-  const flash = (id: string, what: 'Inserted' | 'Copied') => {
-    setDone({ id, what })
-    setTimeout(() => setDone((d) => (d?.id === id ? null : d)), 1500)
-  }
   const copy = async (e: LibraryEntry) => {
-    try {
-      await navigator.clipboard.writeText(e.source)
-      flash(e.id, 'Copied')
-    } catch {
-      /* clipboard blocked */
-    }
+    if (await copyText(e.source)) showFlash(e.id, 'Copied')
   }
-  const jump = (id: string) =>
-    scroller.current?.querySelector(`#lib-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 
   return (
     <div className="ref" ref={scroller}>
@@ -48,7 +37,7 @@ export function LibraryPane({ onInsert }: LibraryPaneProps) {
           aria-label="Search the equation library"
           onChange={(e) => setQuery(e.target.value)}
         />
-        {!query && LIBRARY.map((t) => <button key={t.id} onClick={() => jump(t.id)}>{t.title}</button>)}
+        {!query && <SectionLinks scroller={scroller} prefix="lib" sections={LIBRARY} />}
       </div>
       <p className="ref__explain lib__intro">
         Insert puts the function on the line with the cursor (or just below it), ready to call: rename it or
@@ -65,10 +54,10 @@ export function LibraryPane({ onInsert }: LibraryPaneProps) {
             <Entry
               key={e.id}
               entry={e}
-              done={done?.id === e.id ? done.what : null}
+              message={flash?.key === e.id ? flash.message : null}
               onInsert={() => {
                 onInsert(e.source)
-                flash(e.id, 'Inserted')
+                showFlash(e.id, 'Inserted')
               }}
               onCopy={() => void copy(e)}
             />
@@ -79,20 +68,22 @@ export function LibraryPane({ onInsert }: LibraryPaneProps) {
   )
 }
 
-function Entry({ entry: e, done, onInsert, onCopy }: {
+/** One equation: its title, when it applies, its source and symbols, and its example's output. */
+function Entry({ entry: e, message, onInsert, onCopy }: {
   entry: LibraryEntry
-  done: 'Inserted' | 'Copied' | null
+  /** "Copied" or "Inserted", just after either. */
+  message: string | null
   onInsert: () => void
   onCopy: () => void
 }) {
   // The function and its example, evaluated together as one small sheet.
-  const blocks = useMemo(() => evaluateSheet(`${e.source}\n${e.example}`, OPTIONS).blocks, [e])
+  const blocks = useMemo(() => evaluateSheet(`${e.source}\n${e.example}`, EXAMPLE_CALC_OPTIONS).blocks, [e])
   return (
     <div className="ref__example lib__entry">
       <div className="lib__head">
         <strong>{e.title}</strong>
         <span className="lib__actions">
-          {done && <span className="lib__done">{done}</span>}
+          {message && <span className="lib__done">{message}</span>}
           <button className="source__button" onClick={onCopy} title="Copy the function to the clipboard">Copy</button>
           <button className="source__button lib__insert" onClick={onInsert} title="Insert the function at the cursor">
             Insert
@@ -112,6 +103,7 @@ function Entry({ entry: e, done, onInsert, onCopy }: {
           </ul>
         </div>
         <div className="ref__output">
+          {/* The first block is the function; the rest is its example. */}
           {blocks.slice(0, 1).map((b) => <RenderedBlock key={`${b.line}-${b.kind}`} block={b} />)}
           <div className="lib__example-label">Example</div>
           {blocks.slice(1).map((b) => <RenderedBlock key={`${b.line}-${b.kind}`} block={b} />)}

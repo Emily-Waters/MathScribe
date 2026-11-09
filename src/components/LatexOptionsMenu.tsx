@@ -1,4 +1,4 @@
-import { DEFAULT_LATEX_OPTIONS, type LatexOptions } from '../lib/latex.ts'
+import { DEFAULT_LATEX_OPTIONS, MARGIN_CM, type LatexOptions } from '../lib/latex.ts'
 import { Dropdown } from './Dropdown.tsx'
 
 interface LatexOptionsMenuProps {
@@ -54,9 +54,9 @@ export function LatexOptionsMenu({ options, onChange }: LatexOptionsMenuProps) {
         <label className="options__row">
           <span>Margins</span>
           <select value={options.margins} onChange={(e) => set('margins', e.target.value as LatexOptions['margins'])}>
-            <option value="narrow">Narrow (1.5 cm)</option>
-            <option value="normal">Normal (2.5 cm)</option>
-            <option value="wide">Wide (3.5 cm)</option>
+            <option value="narrow">Narrow ({MARGIN_CM.narrow} cm)</option>
+            <option value="normal">Normal ({MARGIN_CM.normal} cm)</option>
+            <option value="wide">Wide ({MARGIN_CM.wide} cm)</option>
           </select>
         </label>
       </div>

@@ -10,30 +10,94 @@
  */
 import { strToU8, zipSync } from 'fflate'
 import { listItems, isOmitted, splitInlineMath, titleSegments, type Block } from './document.ts'
-import type { LatexOptions } from './latex.ts'
-import { texToMath, texToOmml, xmlEscape } from './omml.ts'
+import { MARGIN_CM, type LatexOptions } from './latex.ts'
+import { EM_SPACE, texToMath, texToOmml, xmlEscape } from './omml.ts'
 
-// Measurements are in twentieths of a point (twips; 1 cm = 567), font sizes in half-points.
-const CM = 567
+// ---------------------------------------------------------------------------
+// The document's look
+//
+// Word measures lengths in twentieths of a point ("twips"; 1 cm = 567), font
+// sizes in half-points, and borders in eighths of a point. Colours are hex RGB.
+// ---------------------------------------------------------------------------
+
+const TWIPS_PER_CM = 567
+
+/** An em, in twips, at a font size in half-points (half-points × 10 = twips). */
+const TWIPS_PER_EM_PER_HALF_POINT = 10
+
 const PAPER: Record<LatexOptions['paper'], { w: number; h: number }> = {
   a4paper: { w: 11906, h: 16838 },
   letterpaper: { w: 12240, h: 15840 },
 }
-const MARGIN: Record<LatexOptions['margins'], number> = {
-  narrow: Math.round(1.5 * CM), normal: Math.round(2.5 * CM), wide: Math.round(3.5 * CM),
-}
-const FONT_SIZE: Record<LatexOptions['fontSize'], number> = { '10pt': 20, '11pt': 22, '12pt': 24 }
 
-/** Cards: the bar on the left, and the space between it and the text. */
-const CARD_BAR = 16 // eighths of a point: 2 pt
-const CARD_PAD = 170
+/** The body text's size in half-points, from the Document option ("11pt" → 22). */
+const fontSizeOf = (o: LatexOptions) => parseInt(o.fontSize, 10) * 2
+
+const FONTS = { text: 'Calibri', math: 'Cambria Math' }
+
+/** The document's language (spelling, and how the date is written). */
+const LANGUAGE = 'en-GB'
+
+const COLORS = {
+  /** Notes beside equations. */
+  note: '6B6B6B',
+  /** A card's bar on the left, its title bar, and the line under the title. */
+  cardBar: 'BFBFBF',
+  cardShade: 'F2F2F2',
+  cardRule: 'D9D9D9',
+}
+
+const CARD = {
+  /** The bar on the left, in eighths of a point (2 pt). */
+  bar: 16,
+  /** The line under the title, in eighths of a point. */
+  rule: 4,
+  /** Space between the bar and the text. */
+  padding: 170,
+}
+
 /** Indent for the working inside a function call, and for an untitled block's body. */
 const INDENT = 425
+
+/** The working inside a function call is set this much smaller (in half-points). */
+const WORKING_SIZE_STEP = 2
+
+/** Space above and below paragraphs, in twips. */
+const SPACING = {
+  equation: 30,
+  title: { before: 120, after: 40 },
+  cardTitle: 60,
+  author: 40,
+  /** Below the date, before the document starts. */
+  date: 240,
+  heading: { after: 80, before: [360, 280, 200] },
+  /** Between paragraphs, and the line height (240 = single spacing). */
+  paragraph: { after: 100, line: 264 },
+  pageHeader: 709,
+}
+
+/** Heading sizes, in half-points above the body text's (sections, subsections, the rest), and the title's. */
+const HEADING_SIZE_STEP = [10, 4, 0]
+const TITLE_SIZE_STEP = 18
+
+/** A list level's indent, in twips: the marker's hanging width, and the gap before it. */
+const LIST_INDENT = { hanging: 360, gap: 60 }
+
+/** Wrapped display equations continue indented this far (an inch). */
+const MATH_WRAP_INDENT = 1440
+
+/** The column notes go in, as a share of the text width: limits, and its share when centering. */
+const NOTE_COLUMN = { min: 0.2, max: 0.4, centered: 0.3, ceiling: 0.45 }
+
+/** A note's estimated width per character, in ems (italic text is about half an em), plus some room. */
+const NOTE_CHAR_EMS = 0.5
+const NOTE_PADDING = 200
 
 // ---------------------------------------------------------------------------
 // Paragraphs
 // ---------------------------------------------------------------------------
 
+/** A paragraph's properties (Word's pPr). */
 interface ParaProps {
   style?: string
   keepNext?: boolean
@@ -49,6 +113,7 @@ interface ParaProps {
 /** A paragraph (whose properties can still change, e.g. to make it a list item) or finished XML (a table). */
 type Item = { props: ParaProps; content: string } | { xml: string }
 
+/** A paragraph as XML, its properties in the order Word expects. */
 function paraXml({ props: p, content }: { props: ParaProps; content: string }): string {
   const pPr = [
     p.style && `<w:pStyle w:val="${p.style}"/>`,
@@ -63,8 +128,10 @@ function paraXml({ props: p, content }: { props: ParaProps; content: string }): 
   return `<w:p>${pPr ? `<w:pPr>${pPr}</w:pPr>` : ''}${content}</w:p>`
 }
 
+/** A paragraph or table, as XML. */
 const itemXml = (it: Item) => ('xml' in it ? it.xml : paraXml(it))
 
+/** How a run of text looks. */
 interface RunFormat {
   bold?: boolean
   italic?: boolean
@@ -73,6 +140,7 @@ interface RunFormat {
   sub?: boolean
 }
 
+/** A run of text, as XML. */
 function run(text: string, f: RunFormat = {}): string {
   const rPr = [
     f.bold && '<w:b/>',
@@ -84,6 +152,7 @@ function run(text: string, f: RunFormat = {}): string {
   return `<w:r>${rPr ? `<w:rPr>${rPr}</w:rPr>` : ''}<w:t xml:space="preserve">${xmlEscape(text)}</w:t></w:r>`
 }
 
+/** A tab, as a run. */
 const tab = '<w:r><w:tab/></w:r>'
 
 /** Text with `$…$` inline maths. */
@@ -100,6 +169,7 @@ const titleRuns = (text: string, f: RunFormat = {}) =>
 // The sheet
 // ---------------------------------------------------------------------------
 
+/** Where a block is being written: the room there, and the document so far. */
 interface Ctx {
   o: LatexOptions
   /** Width available for text here, for the note's tab stop. */
@@ -117,7 +187,7 @@ interface Ctx {
   nums: { abstract: 0 | 1 }[]
 }
 
-const NOTE: RunFormat = { italic: true, color: '6B6B6B' }
+const NOTE: RunFormat = { italic: true, color: COLORS.note }
 
 /**
  * One equation on its own line, with its note at the right margin.
@@ -131,7 +201,7 @@ const NOTE: RunFormat = { italic: true, color: '6B6B6B' }
 function equation(ctx: Ctx, tex: string, note?: string, small = false): Item {
   const size = small ? ctx.small : undefined
   const indent = ctx.indent + (small ? INDENT : 0)
-  const spacing = { before: 30, after: 30 }
+  const spacing = { before: SPACING.equation, after: SPACING.equation }
   const jc = ctx.center || ctx.o.align === 'center' ? 'center' : 'left'
   const { xml: math, ems } = texToMath(tex, size)
   const display = `<m:oMathPara><m:oMathParaPr><m:jc m:val="${jc}"/></m:oMathParaPr>${math}</m:oMathPara>`
@@ -145,14 +215,14 @@ function equation(ctx: Ctx, tex: string, note?: string, small = false): Item {
   // Centered: an empty column on the left as wide as the note's, so the
   // equation is centered on the page like the ones without notes.
   const centered = jc === 'center'
-  const noteWidth = Math.min(ctx.noteWidth, Math.round(width * (centered ? 0.3 : 0.45)))
+  const noteWidth = Math.min(ctx.noteWidth, Math.round(width * (centered ? NOTE_COLUMN.centered : NOTE_COLUMN.ceiling)))
   const mathWidth = width - noteWidth * (centered ? 2 : 1)
   // Too wide to sit beside its note (an em is the font size in half-points × 10 twips):
   // the equation gets the whole width, wrapping at its = signs, and the note goes under it.
-  if (ems * (size ?? FONT_SIZE[ctx.o.fontSize]) * 10 > mathWidth) {
+  if (ems * (size ?? fontSizeOf(ctx.o)) * TWIPS_PER_EM_PER_HALF_POINT > mathWidth) {
     return {
-      xml: paraXml({ props: { before: 30, after: 0, indent: indent || undefined, keepNext: true }, content: display })
-        + paraXml({ props: { before: 0, after: 30, jc: 'right' }, content: noteRuns }),
+      xml: paraXml({ props: { before: SPACING.equation, after: 0, indent: indent || undefined, keepNext: true }, content: display })
+        + paraXml({ props: { before: 0, after: SPACING.equation, jc: 'right' }, content: noteRuns }),
     }
   }
   const cell = (w: number, content: string) =>
@@ -183,34 +253,31 @@ function notesOf(list: Block[]): string[] {
   })
 }
 
-/** Shading of a card's title bar, as in the Rendered tab. */
-const CARD_SHADE = 'F2F2F2'
-
 /** A block with a title: a card (with cards on), else a bold title over an indented body. */
 function titled(ctx: Ctx, title: string, body: (inner: Ctx) => Item[]): Item[] {
   if (!ctx.o.cards) {
     const inner = { ...ctx, indent: ctx.indent + INDENT }
     return [
-      ...(title ? [{ props: { keepNext: true, before: 120, after: 40, indent: ctx.indent || undefined }, content: title }] : []),
+      ...(title ? [{ props: { keepNext: true, ...SPACING.title, indent: ctx.indent || undefined }, content: title }] : []),
       ...body(inner),
     ]
   }
   const width = ctx.width - ctx.indent
-  const cellWidth = width - CARD_PAD
+  const cellWidth = width - CARD.padding
   const inner: Ctx = { ...ctx, width: cellWidth, indent: 0 }
   const items = body(inner)
   // A cell has to end with a paragraph.
   if (!items.length || 'xml' in items[items.length - 1]) items.push({ props: { after: 0 }, content: '' })
   const cell = (content: string, header: boolean) =>
     `<w:tc><w:tcPr><w:tcW w:w="${cellWidth}" w:type="dxa"/>`
-    + (header ? `<w:tcBorders><w:bottom w:val="single" w:sz="4" w:space="0" w:color="D9D9D9"/></w:tcBorders><w:shd w:val="clear" w:color="auto" w:fill="${CARD_SHADE}"/>` : '')
+    + (header ? `<w:tcBorders><w:bottom w:val="single" w:sz="${CARD.rule}" w:space="0" w:color="${COLORS.cardRule}"/></w:tcBorders><w:shd w:val="clear" w:color="auto" w:fill="${COLORS.cardShade}"/>` : '')
     + `</w:tcPr>${content}</w:tc>`
   const header = title
-    ? `<w:tr>${cell(paraXml({ props: { keepNext: true, before: 60, after: 60 }, content: title }), true)}</w:tr>`
+    ? `<w:tr>${cell(paraXml({ props: { keepNext: true, before: SPACING.cardTitle, after: SPACING.cardTitle }, content: title }), true)}</w:tr>`
     : ''
   const table = `<w:tbl><w:tblPr><w:tblW w:w="${width}" w:type="dxa"/>${ctx.indent ? `<w:tblInd w:w="${ctx.indent}" w:type="dxa"/>` : ''}`
-    + `<w:tblBorders><w:left w:val="single" w:sz="${CARD_BAR}" w:space="0" w:color="BFBFBF"/></w:tblBorders>`
-    + `<w:tblLayout w:type="fixed"/><w:tblCellMar><w:left w:w="${CARD_PAD}" w:type="dxa"/><w:right w:w="0" w:type="dxa"/></w:tblCellMar>`
+    + `<w:tblBorders><w:left w:val="single" w:sz="${CARD.bar}" w:space="0" w:color="${COLORS.cardBar}"/></w:tblBorders>`
+    + `<w:tblLayout w:type="fixed"/><w:tblCellMar><w:left w:w="${CARD.padding}" w:type="dxa"/><w:right w:w="0" w:type="dxa"/></w:tblCellMar>`
     + '<w:tblLook w:val="0000"/></w:tblPr>'
     + `<w:tblGrid><w:gridCol w:w="${width}"/></w:tblGrid>`
     + `${header}<w:tr>${cell(items.map(itemXml).join(''), false)}</w:tr></w:tbl>`
@@ -222,6 +289,7 @@ function titled(ctx: Ctx, title: string, body: (inner: Ctx) => Item[]): Item[] {
 const heading = (title: string, note?: string) =>
   [title && titleRuns(title, { bold: true }), note && run(` — ${note}`, { bold: true })].filter(Boolean).join('')
 
+/** Blocks as paragraphs and tables, leaving out hidden ones. */
 function blocks(list: Block[], ctx: Ctx): Item[] {
   return list.flatMap((b) => (b.kind !== 'spacer' && isOmitted(b) ? [] : block(b, ctx)))
 }
@@ -230,7 +298,7 @@ function block(b: Block, ctx: Ctx): Item[] {
   const base: ParaProps = { indent: ctx.indent || undefined, jc: ctx.center ? 'center' : undefined }
   switch (b.kind) {
     case 'heading': {
-      const number = ctx.o.numberSections && b.level < 3 && b.number ? run(`${b.number} `) : ''
+      const number = ctx.o.numberSections && b.level < 3 && b.number ? run(`${b.number}${EM_SPACE}`) : ''
       return [{ props: { style: `Heading${b.level}` }, content: number + titleRuns(b.text) }]
     }
     case 'spacer':
@@ -263,7 +331,7 @@ function block(b: Block, ctx: Ctx): Item[] {
     case 'layout': {
       if (b.command === 'hide' || (b.error && !b.children.length)) return []
       const title: Item[] = b.title || b.note
-        ? [{ props: { ...base, keepNext: true, before: 120, after: 40 }, content: heading(b.title, b.note) }]
+        ? [{ props: { ...base, keepNext: true, ...SPACING.title }, content: heading(b.title, b.note) }]
         : []
       if (b.style === 'center') return [...title, ...blocks(b.children, { ...ctx, center: true })]
       if (b.style === 'text') return [...title, ...blocks(b.children, ctx)]
@@ -296,34 +364,37 @@ function list(b: Block & { kind: 'layout' }, ctx: Ctx, level: number): Item[] {
 // The package
 // ---------------------------------------------------------------------------
 
+/** XML namespaces: WordprocessingML, and Office Math. */
 const W = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
 const M = 'xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math"'
 const HEAD = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
 
+/** The document's styles: body text, headings and the title. */
 function stylesXml(o: LatexOptions): string {
-  const size = FONT_SIZE[o.fontSize]
+  const size = fontSizeOf(o)
   const heading = (level: number, sz: number, before: number) =>
     `<w:style w:type="paragraph" w:styleId="Heading${level}"><w:name w:val="heading ${level}"/><w:basedOn w:val="Normal"/>`
-    + `<w:next w:val="Normal"/><w:qFormat/><w:pPr><w:keepNext/><w:spacing w:before="${before}" w:after="80"/>`
+    + `<w:next w:val="Normal"/><w:qFormat/><w:pPr><w:keepNext/><w:spacing w:before="${before}" w:after="${SPACING.heading.after}"/>`
     + `<w:outlineLvl w:val="${level - 1}"/></w:pPr><w:rPr><w:b/><w:sz w:val="${sz}"/><w:szCs w:val="${sz}"/></w:rPr></w:style>`
   return `${HEAD}<w:styles ${W}>`
-    + '<w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:eastAsia="Calibri" w:cs="Calibri"/>'
-    + `<w:sz w:val="${size}"/><w:szCs w:val="${size}"/><w:lang w:val="en-GB"/></w:rPr></w:rPrDefault>`
-    + '<w:pPrDefault><w:pPr><w:spacing w:after="100" w:line="264" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults>'
+    + '<w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="${FONTS.text}" w:hAnsi="${FONTS.text}" w:eastAsia="${FONTS.text}" w:cs="${FONTS.text}"/>'
+    + `<w:sz w:val="${size}"/><w:szCs w:val="${size}"/><w:lang w:val="${LANGUAGE}"/></w:rPr></w:rPrDefault>`
+    + `<w:pPrDefault><w:pPr><w:spacing w:after="${SPACING.paragraph.after}" w:line="${SPACING.paragraph.line}" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults>`
     + '<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style>'
-    + heading(1, size + 10, 360) + heading(2, size + 4, 280) + heading(3, size, 200)
+    + [1, 2, 3].map((level, i) => heading(level, size + HEADING_SIZE_STEP[i], SPACING.heading.before[i])).join('')
     + '<w:style w:type="paragraph" w:styleId="Title"><w:name w:val="Title"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:qFormat/>'
-    + `<w:pPr><w:jc w:val="center"/><w:spacing w:after="120"/></w:pPr><w:rPr><w:sz w:val="${size + 18}"/><w:szCs w:val="${size + 18}"/></w:rPr></w:style>`
+    + `<w:pPr><w:jc w:val="center"/><w:spacing w:after="${SPACING.title.before}"/></w:pPr><w:rPr><w:sz w:val="${size + TITLE_SIZE_STEP}"/><w:szCs w:val="${size + TITLE_SIZE_STEP}"/></w:rPr></w:style>`
     + '<w:style w:type="paragraph" w:styleId="ListParagraph"><w:name w:val="List Paragraph"/><w:basedOn w:val="Normal"/></w:style>'
     + '</w:styles>'
 }
 
+/** Bullets and numbering: one bulleted and one numbered style, and an instance for each list. */
 function numberingXml(nums: Ctx['nums']): string {
   const BULLETS = ['•', '◦', '▪']
   const lvl = (i: number, numbered: boolean) =>
     `<w:lvl w:ilvl="${i}"><w:start w:val="1"/><w:numFmt w:val="${numbered ? (i === 1 ? 'lowerLetter' : i === 2 ? 'lowerRoman' : 'decimal') : 'bullet'}"/>`
     + `<w:lvlText w:val="${numbered ? `%${i + 1}${i === 0 ? '.' : ')'}` : BULLETS[i]}"/><w:lvlJc w:val="left"/>`
-    + `<w:pPr><w:ind w:left="${360 * (i + 1) + 60}" w:hanging="360"/></w:pPr></w:lvl>`
+    + `<w:pPr><w:ind w:left="${LIST_INDENT.hanging * (i + 1) + LIST_INDENT.gap}" w:hanging="${LIST_INDENT.hanging}"/></w:pPr></w:lvl>`
   const abstract = (id: number, numbered: boolean) =>
     `<w:abstractNum w:abstractNumId="${id}"><w:multiLevelType w:val="hybridMultilevel"/>${[0, 1, 2].map((i) => lvl(i, numbered)).join('')}</w:abstractNum>`
   // Every list is its own instance, restarting at 1.
@@ -334,12 +405,14 @@ function numberingXml(nums: Ctx['nums']): string {
   return `${HEAD}<w:numbering ${W}>${abstract(0, false)}${abstract(1, true)}${instances}</w:numbering>`
 }
 
+/** How Word sets equations: the font, alignment (from the Document options), and line breaking. */
 const settingsXml = (o: LatexOptions) =>
-  `${HEAD}<w:settings ${W} ${M}><m:mathPr><m:mathFont m:val="Cambria Math"/><m:brkBin m:val="before"/>`
+  `${HEAD}<w:settings ${W} ${M}><m:mathPr><m:mathFont m:val="${FONTS.math}"/><m:brkBin m:val="before"/>`
   + `<m:brkBinSub m:val="--"/><m:smallFrac m:val="0"/><m:dispDef/><m:lMargin m:val="0"/><m:rMargin m:val="0"/>`
-  + `<m:defJc m:val="${o.align === 'center' ? 'centerGroup' : 'left'}"/><m:wrapIndent m:val="1440"/>`
+  + `<m:defJc m:val="${o.align === 'center' ? 'centerGroup' : 'left'}"/><m:wrapIndent m:val="${MATH_WRAP_INDENT}"/>`
   + '<m:intLim m:val="subSup"/><m:naryLim m:val="undOvr"/></m:mathPr></w:settings>'
 
+/** The document's properties: title, author and when it was made. */
 function coreXml(o: LatexOptions): string {
   const now = new Date().toISOString().replace(/\.\d+Z$/, 'Z')
   return `${HEAD}<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" `
@@ -349,6 +422,7 @@ function coreXml(o: LatexOptions): string {
     + `<dcterms:created xsi:type="dcterms:W3CDTF">${now}</dcterms:created></cp:coreProperties>`
 }
 
+/** What each part of the package is. */
 const CONTENT_TYPES = `${HEAD}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">`
   + '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
   + '<Default Extension="xml" ContentType="application/xml"/>'
@@ -359,11 +433,13 @@ const CONTENT_TYPES = `${HEAD}<Types xmlns="http://schemas.openxmlformats.org/pa
   + '<Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>'
   + '</Types>'
 
+/** The package's relationships: the document, and its properties. */
 const ROOT_RELS = `${HEAD}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">`
   + '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>'
   + '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>'
   + '</Relationships>'
 
+/** The document's relationships: its styles, numbering and settings. */
 const DOC_RELS = `${HEAD}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">`
   + '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'
   + '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering" Target="numbering.xml"/>'
@@ -373,25 +449,26 @@ const DOC_RELS = `${HEAD}<Relationships xmlns="http://schemas.openxmlformats.org
 /** The document's parts, as XML text by path in the zip. (Exported for tests.) */
 export function docxParts(sheetBlocks: Block[], o: LatexOptions, today = new Date()): Record<string, string> {
   const page = PAPER[o.paper]
-  const margin = MARGIN[o.margins]
+  const margin = Math.round(MARGIN_CM[o.margins] * TWIPS_PER_CM)
   const width = page.w - 2 * margin
   // About half an em per character of italic text (an em is the size in half-points × 10 twips).
   const longest = Math.max(0, ...notesOf(sheetBlocks).map((n) => n.length))
-  const noteWidth = Math.round(Math.min(width * 0.4, Math.max(width * 0.2, longest * FONT_SIZE[o.fontSize] * 5 + 200)))
+  const noteWidth = Math.round(Math.min(width * NOTE_COLUMN.max, Math.max(width * NOTE_COLUMN.min,
+    longest * NOTE_CHAR_EMS * fontSizeOf(o) * TWIPS_PER_EM_PER_HALF_POINT + NOTE_PADDING)))
   const ctx: Ctx = {
-    o, width, indent: 0, center: false, nums: [], small: FONT_SIZE[o.fontSize] - 2, noteWidth,
+    o, width, indent: 0, center: false, nums: [], small: fontSizeOf(o) - WORKING_SIZE_STEP, noteWidth,
   }
   const title: Item[] = o.title.trim() ? [
     { props: { style: 'Title' }, content: run(o.title.trim()) },
-    ...(o.author.trim() ? [{ props: { jc: 'center' as const, after: 40 }, content: run(o.author.trim()) }] : []),
+    ...(o.author.trim() ? [{ props: { jc: 'center' as const, after: SPACING.author }, content: run(o.author.trim()) }] : []),
     ...(o.date ? [{
-      props: { jc: 'center' as const, after: 240 },
-      content: run(today.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })),
+      props: { jc: 'center' as const, after: SPACING.date },
+      content: run(today.toLocaleDateString(LANGUAGE, { day: 'numeric', month: 'long', year: 'numeric' })),
     }] : []),
   ] : []
   const body = [...title, ...blocks(sheetBlocks, ctx)].map(itemXml).join('')
   const sect = `<w:sectPr><w:pgSz w:w="${page.w}" w:h="${page.h}"/>`
-    + `<w:pgMar w:top="${margin}" w:right="${margin}" w:bottom="${margin}" w:left="${margin}" w:header="709" w:footer="709" w:gutter="0"/></w:sectPr>`
+    + `<w:pgMar w:top="${margin}" w:right="${margin}" w:bottom="${margin}" w:left="${margin}" w:header="${SPACING.pageHeader}" w:footer="${SPACING.pageHeader}" w:gutter="0"/></w:sectPr>`
   const document = `${HEAD}<w:document ${W} ${M} xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">`
     + `<w:body>${body}${sect}</w:body></w:document>`
   return {
@@ -406,6 +483,7 @@ export function docxParts(sheetBlocks: Block[], o: LatexOptions, today = new Dat
   }
 }
 
+/** The file type of a .docx, for downloading it. */
 export const DOCX_TYPE = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 
 /** The sheet as a .docx file. */

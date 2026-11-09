@@ -1,3 +1,5 @@
+import type { Notation } from './syntax.ts'
+
 /**
  * Significant-figure helpers, following the usual textbook rules:
  *   - leading zeros never count; zeros between digits always count
@@ -7,6 +9,25 @@
 
 /** Sig figs of an exact number (a counting number or formula coefficient). */
 export const EXACT = Infinity
+
+/** The most significant digits a number (a 64-bit float) holds. */
+export const MAX_DIGITS = 15
+
+/** The most decimal places toFixed can write. */
+const MAX_DECIMALS = 100
+
+/** From here up, toFixed writes scientific notation itself, so plain digits can't be had. */
+const MAX_PLAIN = 1e21
+
+/** Its power of ten, for comparing with a value's magnitude. */
+const MAX_PLAIN_EXPONENT = 20
+
+/**
+ * A value with an uncertainty shares a power of ten when its own is at least
+ * this, or at most the negative one (as a value without one switches to
+ * scientific notation outside 10⁻³ … 10⁶; see FIXED_FORMAT in engine.ts).
+ */
+const SHARED_EXPONENT_FROM = { above: 5, below: -4 }
 
 /** Count the significant figures in a number as typed, e.g. "0.0250" → 3. */
 export function countSigFigs(literal: string): number {
@@ -52,7 +73,7 @@ export function sigFigsFromPlace(x: number, place: number): number {
  * (19620 at 3 s.f.), scientific notation does: "1.96e+4".
  */
 export function formatSigFigs(x: number, sf: number, notation?: Notation): string {
-  const digits = Math.min(Math.max(Math.round(sf), 1), 15)
+  const digits = Math.min(Math.max(Math.round(sf), 1), MAX_DIGITS)
   // A zero's "sig figs" are its decimal places (see countSigFigs): 0.00 → 2 → "0.00".
   if (x === 0) return digits === 1 ? '0' : (0).toFixed(digits)
   if (!Number.isFinite(x)) return String(x)
@@ -76,7 +97,7 @@ export function formatSigFigs(x: number, sf: number, notation?: Notation): strin
  * picks: plain digits, with scientific notation for very large or small values
  * and where plain digits can't show the precision.
  */
-export type Notation = 'sci' | 'dec'
+export type { Notation }
 
 /**
  * `x` to `digits` sig figs as plain decimal digits, however large or small:
@@ -87,7 +108,7 @@ export type Notation = 'sci' | 'dec'
 function decimal(x: number, digits: number): string {
   const rounded = Number(x.toPrecision(digits))
   const place = Math.floor(Math.log10(Math.abs(rounded))) - digits + 1
-  if (Math.abs(rounded) >= 1e21 || -place > 100) return x.toExponential(digits - 1)
+  if (Math.abs(rounded) >= MAX_PLAIN || -place > MAX_DECIMALS) return x.toExponential(digits - 1)
   const s = rounded.toFixed(Math.max(0, -place))
   if (!s.includes('.') && countSigFigs(s) !== digits && countSigFigs(`${s}.`) === digits) return `${s}.`
   return s
@@ -143,8 +164,8 @@ export function formatWithUncertainty(
   // A shared power of ten: for very large or small values, or always (except
   // 10⁰) in scientific notation; never in decimal notation.
   const shareExp = notation === 'sci' ? mag !== 0
-    : notation === 'dec' ? -place > 100 || mag > 20
-      : mag >= 5 || mag <= -4
+    : notation === 'dec' ? -place > MAX_DECIMALS || mag > MAX_PLAIN_EXPONENT
+      : mag >= SHARED_EXPONENT_FROM.above || mag <= SHARED_EXPONENT_FROM.below
   if (shareExp) {
     const decimals = Math.max(0, mag - place)
     return { num: (xr / 10 ** mag).toFixed(decimals), unc: (dr / 10 ** mag).toFixed(decimals), exp: mag, sf }

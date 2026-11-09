@@ -14,8 +14,10 @@ import {
 import { SyntaxOptions } from './components/SyntaxOptions.tsx'
 import { applyAppTheme, loadAppTheme, saveAppTheme, useAppearance, watchSystemTheme, type AppThemeId } from './appTheme.ts'
 import { ThemeMenu } from './components/ThemeMenu.tsx'
+import { DEFAULT_CALC_OPTIONS } from './config.ts'
 import './App.css'
 
+/** How the save state reads in the top bar. */
 const SAVE_LABELS: Record<SaveState, string> = {
   saved: 'saved',
   unsaved: 'unsaved changes',
@@ -24,7 +26,7 @@ const SAVE_LABELS: Record<SaveState, string> = {
 }
 
 export default function App() {
-  const [options, setOptions] = useState<CalcOptions>({ precision: 'auto', showSubstitution: true, approxRounded: false })
+  const [options, setOptions] = useState<CalcOptions>(DEFAULT_CALC_OPTIONS)
   // The open sheets (tabs); everything below works on the active one.
   const file = useSheets()
   const source = file.active.text

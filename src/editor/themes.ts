@@ -9,7 +9,10 @@
  */
 import { HighlightStyle } from '@codemirror/language'
 import { tags } from '@lezer/highlight'
+import { STORAGE_KEYS } from '../config.ts'
+import { readStored, readStoredJson, writeStored, writeStoredJson } from '../lib/storage.ts'
 
+/** The built-in syntax colour themes. */
 export const PRESET_THEMES = [
   { id: 'default', name: 'Default', description: 'Muted colours that match the app' },
   { id: 'vivid', name: 'Vivid', description: 'Stronger colours; units and variables stand out' },
@@ -18,6 +21,7 @@ export const PRESET_THEMES = [
   { id: 'minimal', name: 'Minimal', description: 'Only notes, commands and headings are coloured' },
 ] as const
 
+/** Every choice in the syntax theme menu: the presets, then Custom. */
 export const SYNTAX_THEMES = [
   ...PRESET_THEMES,
   { id: 'custom', name: 'Custom', description: 'Your own colour for each kind of text' },
@@ -26,11 +30,14 @@ export const SYNTAX_THEMES = [
 export type PresetThemeId = (typeof PRESET_THEMES)[number]['id']
 export type SyntaxThemeId = (typeof SYNTAX_THEMES)[number]['id']
 
+/** The syntax theme until another is chosen. */
 export const DEFAULT_SYNTAX_THEME: PresetThemeId = 'default'
 
+/** Whether a stored value is a syntax theme this version knows. */
 export const isSyntaxTheme = (id: unknown): id is SyntaxThemeId =>
   SYNTAX_THEMES.some((t) => t.id === id)
 
+/** Whether a stored value is one of the preset themes. */
 const isPreset = (id: unknown): id is PresetThemeId =>
   PRESET_THEMES.some((t) => t.id === id)
 
@@ -55,8 +62,10 @@ export type SyntaxToken = (typeof SYNTAX_TOKENS)[number]['id']
 export type Palette = Record<SyntaxToken, string>
 export type ColorMode = 'light' | 'dark'
 
+/** A syntax colour, as the CSS variable a theme sets. */
 const v = (name: string) => `var(--syn-${name})`
 
+/** Which colour each kind of token gets. */
 export const mathscribeHighlight = HighlightStyle.define([
   { tag: tags.number, color: v('number') },
   { tag: tags.unit, color: v('unit') },
@@ -81,24 +90,15 @@ export const mathscribeHighlight = HighlightStyle.define([
 // The chosen theme
 // ---------------------------------------------------------------------------
 
-const THEME_KEY = 'mathscribe:syntax-theme'
-
 /** The theme chosen last time in this browser. */
 export function loadSyntaxTheme(): SyntaxThemeId {
-  try {
-    const saved = localStorage.getItem(THEME_KEY)
-    return isSyntaxTheme(saved) ? saved : DEFAULT_SYNTAX_THEME
-  } catch {
-    return DEFAULT_SYNTAX_THEME
-  }
+  const saved = readStored(STORAGE_KEYS.syntaxTheme)
+  return isSyntaxTheme(saved) ? saved : DEFAULT_SYNTAX_THEME
 }
 
+/** Remember the theme (if storage is blocked, the choice lasts until reload). */
 export function saveSyntaxTheme(id: SyntaxThemeId): void {
-  try {
-    localStorage.setItem(THEME_KEY, id)
-  } catch {
-    /* storage blocked: the choice lasts until reload */
-  }
+  writeStored(STORAGE_KEYS.syntaxTheme, id)
 }
 
 // ---------------------------------------------------------------------------
@@ -116,23 +116,15 @@ export interface CustomSyntax {
   dark?: Partial<Palette>
 }
 
-const CUSTOM_KEY = 'mathscribe:syntax-custom'
-
+/** The Custom theme's colours, as set last time in this browser. */
 export function loadCustomSyntax(): CustomSyntax | null {
-  try {
-    const saved = JSON.parse(localStorage.getItem(CUSTOM_KEY) ?? 'null') as CustomSyntax | null
-    return saved && isPreset(saved.base) ? saved : null
-  } catch {
-    return null
-  }
+  const saved = readStoredJson<CustomSyntax>(STORAGE_KEYS.syntaxCustom)
+  return saved && isPreset(saved.base) ? saved : null
 }
 
+/** Remember the Custom theme's colours (if storage is blocked, they last until reload). */
 export function saveCustomSyntax(custom: CustomSyntax): void {
-  try {
-    localStorage.setItem(CUSTOM_KEY, JSON.stringify(custom))
-  } catch {
-    /* storage blocked: the colours last until reload */
-  }
+  writeStoredJson(STORAGE_KEYS.syntaxCustom, custom)
 }
 
 /** `rgb(…)`, `#abc` or a colour name as #rrggbb, for the colour picker. */

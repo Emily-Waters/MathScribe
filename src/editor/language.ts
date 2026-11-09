@@ -10,9 +10,14 @@
 import { StreamLanguage, foldService, indentService, type StringStream } from '@codemirror/language'
 import { tags } from '@lezer/highlight'
 import { isUnitName } from '../lib/engine.ts'
+import {
+  COMMAND_NAMES, CONSTANT_TOKEN, FUNCTION_HEAD, INDENT_WIDTH, NAME, NUMBER, SETTINGS, commandPattern, indentOf,
+} from '../lib/syntax.ts'
 
+/** What a line is, from how it starts and ends (as document.ts reads it). */
 type LineKind = 'calc' | 'heading' | 'text' | 'latex' | 'opener' | 'def'
 
+/** The tokenizer's state, carried from one token (and line) to the next. */
 interface State {
   kind: LineKind
   /** The previous token was a number, so a unit name now is a unit. */
@@ -27,9 +32,23 @@ interface State {
   textIndent: number | null
 }
 
-const COMMANDS = /#(?:sym|val|full|hide|multiline|center|list|numbered|text)(?=\s|$)/
-const NUMBER = /(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?/
+/** A display command at the current position: `#sym`, `#numbered`, … */
+const COMMAND = new RegExp(String.raw`#(?:${COMMAND_NAMES.join('|')})(?=\s|$)`)
+/** `#text` on an opener: the lines indented under it are prose. */
+const TEXT_COMMAND = commandPattern(['text'])
+/** A number at the current position. */
+const NUMBER_TOKEN = new RegExp(NUMBER)
+/** Words coloured as keywords. */
 const KEYWORDS = new Set(['def', 'return', 'to', 'pm'])
+
+// What's been typed so far on a line, when the next word is a display setting
+// (a unit after `:`, as in `phi:3:deg`):
+/** …on the name being assigned: `phi:3:`. */
+const NAME_SETTINGS_SO_FAR = new RegExp(String.raw`^\s*${NAME}${SETTINGS}$`)
+/** …on a name being unpacked: `tuple(r:3, theta:`. */
+const UNPACK_SO_FAR = /^\s*tuple\s*\([^()=]*$/
+/** …on a function's result: `f(x):3:`, `def polar(x, y):`. */
+const FUNCTION_SETTINGS_SO_FAR = new RegExp(String.raw`^\s*(?:def\s+)?${NAME}\s*\([^()]*\)${SETTINGS}$`)
 
 /** The line without its note and commands, to see how it ends. */
 function bodyOf(line: string): string {
@@ -48,6 +67,7 @@ function lineKind(line: string): LineKind {
   return 'calc'
 }
 
+/** The next token on the line, and its kind (a key of tokenTable below). */
 function token(stream: StringStream, state: State): string | null {
   if (stream.sol()) {
     const indent = indentOf(stream.string)
@@ -58,7 +78,7 @@ function token(stream: StringStream, state: State): string | null {
     } else {
       state.kind = lineKind(stream.string)
       // `Title:  #text`: the lines indented under it are prose.
-      if (state.kind === 'opener' && /(?:^|\s)#text(?=\s|$)/.test(stream.string)) state.textIndent = indent
+      if (state.kind === 'opener' && TEXT_COMMAND.test(stream.string)) state.textIndent = indent
     }
     state.afterNumber = state.inUnit = state.afterTo = false
     state.inTitle = state.kind === 'opener'
@@ -82,7 +102,7 @@ function token(stream: StringStream, state: State): string | null {
 
   // Commands and notes, on any other line.
   if (stream.peek() === '#') {
-    if (stream.match(COMMANDS)) return 'command'
+    if (stream.match(COMMAND)) return 'command'
     stream.skipToEnd()
     return 'note'
   }
@@ -100,12 +120,12 @@ function token(stream: StringStream, state: State): string | null {
   const wasAfterNumber = state.afterNumber
   state.afterNumber = false
 
-  if (stream.match(NUMBER)) {
+  if (stream.match(NUMBER_TOKEN)) {
     state.afterNumber = true
     state.inUnit = false
     return 'number'
   }
-  if (stream.match(/@[A-Za-z]\w*(?::(?:\d+|exact))?/)) return 'constant'
+  if (stream.match(CONSTANT_TOKEN)) return 'constant'
 
   // A unit continues with /unit, *unit or ^n right after it.
   if (state.inUnit) {
@@ -126,9 +146,9 @@ function token(stream: StringStream, state: State): string | null {
     // (Also a name being unpacked: the deg in `tuple(r:3, theta:deg) = …`.)
     const lhsSoFar = stream.string.slice(0, stream.pos)
     const displayUnit = stream.string[stream.start - 1] === ':'
-      && (/^\s*[A-Za-z]\w*(?::[^:=\s]+)*$/.test(lhsSoFar) || /^\s*tuple\s*\([^()=]*$/.test(lhsSoFar)
+      && (NAME_SETTINGS_SO_FAR.test(lhsSoFar) || UNPACK_SO_FAR.test(lhsSoFar)
         // …or a function's result: `f(x):3:deg = …`, `def polar(x, y):deg`
-        || /^\s*(?:def\s+)?[A-Za-z]\w*\s*\([^()]*\)(?::[^:=\s]+)*$/.test(lhsSoFar))
+        || FUNCTION_SETTINGS_SO_FAR.test(lhsSoFar))
     if ((wasAfterNumber || state.afterTo || displayUnit) && !call && isUnitName(id)) {
       state.inUnit = true
       state.afterTo = false
@@ -140,7 +160,7 @@ function token(stream: StringStream, state: State): string | null {
       // `def f(…)`, or `f(…) = …` at the start of a line: a definition.
       // (Not `tuple(a, b) = …`, which unpacks a tuple rather than defining a function.)
       const oneLiner = stream.start === /^\s*/.exec(stream.string)![0].length && id !== 'tuple'
-        && /^\s*[A-Za-z]\w*\s*\([^()]*\)(?::[^:=\s]+)*\s*=(?!=)/.test(stream.string)
+        && FUNCTION_HEAD.test(stream.string.trimStart())
       return state.kind === 'def' || oneLiner ? 'definition' : 'function'
     }
     return 'variable'
@@ -165,6 +185,7 @@ function proseToken(stream: StringStream): string {
   return 'text'
 }
 
+/** The MathScribe language: its tokens, and which highlighting tag each gets. */
 export const mathscribeLanguage = StreamLanguage.define<State>({
   name: 'mathscribe',
   startState: () => ({ kind: 'calc', afterNumber: false, inUnit: false, afterTo: false, inTitle: false, textIndent: null }),
@@ -197,8 +218,6 @@ export const mathscribeLanguage = StreamLanguage.define<State>({
   },
 })
 
-const INDENT = 4
-export const indentOf = (text: string) => /^[ \t]*/.exec(text)![0].replace(/\t/g, '    ').length
 /** Whether a line opens an indented block: `Title:`, `name {`, or a `def`. */
 const opensBlock = (text: string) => {
   const t = text.trim()
@@ -214,8 +233,8 @@ export const mathscribeIndent = indentService.of((cx, pos) => {
   for (let n = cx.state.doc.lineAt(line.from).number - 1; n >= 1; n--) {
     const above = cx.state.doc.line(n).text
     if (!above.trim()) continue
-    let indent = indentOf(above) + (opensBlock(above) ? INDENT : 0)
-    if (/^\s*\}/.test(line.text)) indent -= INDENT
+    let indent = indentOf(above) + (opensBlock(above) ? INDENT_WIDTH : 0)
+    if (/^\s*\}/.test(line.text)) indent -= INDENT_WIDTH
     return Math.max(0, indent)
   }
   return 0
@@ -267,7 +286,7 @@ export function inTextBlock(doc: { line(n: number): { text: string } }, n: numbe
   for (let i = n - 1; i >= 1; i--) {
     const text = doc.line(i).text
     if (!text.trim() || indentOf(text) >= indent) continue
-    return /(?:^|\s)#text(?=\s|$)/.test(text) && bodyOf(text).endsWith(':')
+    return TEXT_COMMAND.test(text) && bodyOf(text).endsWith(':')
   }
   return false
 }

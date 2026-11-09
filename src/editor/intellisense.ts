@@ -23,15 +23,18 @@ import katex from 'katex'
 import { BUILTIN_CONSTANTS } from '../lib/constants.ts'
 import type { SheetSymbol } from '../lib/document.ts'
 import { describeUnit, isUnitName, numberTex, unitNames, unitTex } from '../lib/engine.ts'
-import { BUILTIN_FUNCTIONS, COMMANDS, KEYWORDS, MATH_CONSTANTS, SERIES_SUFFIXES } from './vocabulary.ts'
+import { COMMAND_NAMES, NAME, PERCENT, SETTINGS } from '../lib/syntax.ts'
+import { BUILTIN_FUNCTIONS, COMMANDS, KEYWORDS, MATH_CONSTANTS, SERIES_SUFFIXES, SETTING_WORDS } from './vocabulary.ts'
 import { inTextBlock } from './language.ts'
 
 // ---------------------------------------------------------------------------
 // What the sheet defines
 // ---------------------------------------------------------------------------
 
+/** Replaces what the sheet defines (after each evaluation of the sheet). */
 export const setSymbols = StateEffect.define<SheetSymbol[]>()
 
+/** What the sheet defines, for suggestions and hover information. */
 const symbolsField = StateField.define<SheetSymbol[]>({
   create: () => [],
   update: (value, tr) => {
@@ -52,6 +55,7 @@ function visibleAt(state: EditorState, n: number): Map<string, SheetSymbol> {
 // Showing information: typeset maths plus a line of text
 // ---------------------------------------------------------------------------
 
+/** The panel beside a suggestion or under a hover: typeset maths, then lines of text. */
 function infoNode(tex: string | undefined, ...lines: (string | undefined)[]): HTMLElement {
   const el = document.createElement('div')
   el.className = 'cm-ms-info'
@@ -71,13 +75,16 @@ function infoNode(tex: string | undefined, ...lines: (string | undefined)[]): HT
   return el
 }
 
+/** A built-in constant's value, as LaTeX: c = 299792458 m/s. */
 const constantTex = (name: string) => {
   const c = BUILTIN_CONSTANTS[name]
   return `${c.tex} = ${numberTex(String(c.value).replace('e+', 'e'))}${c.unit ? `\\,${unitTex(c.unit)}` : ''}`
 }
 
+/** Where a name is defined, for its information panel. */
 const where = (s: SheetSymbol) => `Defined on line ${s.line}`
 
+/** The information panel for a name the sheet defines. */
 function symbolInfo(s: SheetSymbol): HTMLElement {
   switch (s.kind) {
     case 'variable':
@@ -97,16 +104,34 @@ function symbolInfo(s: SheetSymbol): HTMLElement {
 
 /** Text kinds where nothing is suggested: headings, prose, raw LaTeX. */
 const isProseLine = (before: string) => /^\s*[#>$]/.test(before)
-/** A `#` note has started earlier on the line (not one of the commands). */
-const inNote = (before: string) =>
-  /(?:^|\s)#/.test(before.replace(/(?:^|\s)#(?:sym|val|full|hide|multiline|center|list|numbered)(?=\s)/g, ' '))
+/** A finished display command (followed by a space), anywhere in a line. */
+const TYPED_COMMAND = new RegExp(String.raw`(?:^|\s)#(?:${COMMAND_NAMES.join('|')})(?=\s)`, 'g')
 
+/** A `#` note has started earlier on the line (not one of the commands). */
+const inNote = (before: string) => /(?:^|\s)#/.test(before.replace(TYPED_COMMAND, ' '))
+
+// A display setting being typed after a `:` (`phi:3:de`), 1: what's typed of it so far:
+/** …on the name being assigned. */
+const SETTING_ON_NAME = new RegExp(String.raw`^\s*${NAME}${SETTINGS}:([A-Za-z]*)$`)
+/** …on a name being unpacked: `tuple(r:3, theta:de`. */
+const SETTING_ON_UNPACKED = new RegExp(String.raw`^\s*tuple\s*\((?:[^()=]*,)?\s*${NAME}(?::[^:=\s,()]+)*:([A-Za-z]*)$`)
+/** …on a function's result: `f(x):3:de`, `def polar(x, y):de`. */
+const SETTING_ON_RESULT = new RegExp(String.raw`^\s*(?:def\s+)?${NAME}\s*\([^()]*\)${SETTINGS}:([A-Za-z]*)$`)
+
+/**
+ * `t_1`, `t2`: a numbered member of a series (1: the series' name). The name
+ * matches lazily (`${NAME}?` ends in `\w*?`), so the digits all go to the number.
+ */
+const SERIES_MEMBER = new RegExp(String.raw`^(${NAME}?)_?(\d+)$`)
+
+/** Every unit, as a suggestion with what it is (1 N = 1 kg m/s^2). */
 const unitOptions: Completion[] = unitNames().map((name) => ({
   label: name,
   type: 'unit',
   detail: describeUnit(name)?.replace(`1 ${name} = `, '= ') ?? undefined,
 }))
 
+/** Suggestions for what’s being typed, from where the cursor is on the line. */
 export function complete(ctx: CompletionContext): CompletionResult | null {
   const line = ctx.state.doc.lineAt(ctx.pos)
   const before = line.text.slice(0, ctx.pos - line.from)
@@ -140,19 +165,13 @@ export function complete(ctx: CompletionContext): CompletionResult | null {
   }
 
   // After a `:` on the name being assigned (`phi:3:de`): a display unit, `exact`, `sci` or `dec`.
-  const spec = /^\s*[A-Za-z]\w*(?::[^:=\s]+)*:([A-Za-z]*)$/.exec(before)
-    // …or on a name being unpacked: `tuple(r:3, theta:de`
-    ?? /^\s*tuple\s*\((?:[^()=]*,)?\s*[A-Za-z]\w*(?::[^:=\s,()]+)*:([A-Za-z]*)$/.exec(before)
-    // …or a function's result: `f(x):3:de`, `def polar(x, y):de`
-    ?? /^\s*(?:def\s+)?[A-Za-z]\w*\s*\([^()]*\)(?::[^:=\s]+)*:([A-Za-z]*)$/.exec(before)
+  // (…on a name being unpacked, or on a function's result.)
+  const spec = SETTING_ON_NAME.exec(before) ?? SETTING_ON_UNPACKED.exec(before) ?? SETTING_ON_RESULT.exec(before)
   if (spec && (spec[1] || ctx.explicit)) {
     return {
       from: ctx.pos - spec[1].length,
       options: [
-        { label: 'exact', type: 'keyword', detail: 'full precision; never limits a result' },
-        { label: 'sci', type: 'keyword', detail: 'always scientific notation' },
-        { label: 'dec', type: 'keyword', detail: 'always decimal notation, no powers of ten' },
-        { label: 'percent', type: 'unit', detail: 'a unitless result ×100, with %' },
+        ...SETTING_WORDS.map((s): Completion => ({ label: s.name, type: s.name === PERCENT ? 'unit' : 'keyword', detail: s.description })),
         ...unitOptions,
       ],
       validFor: /^[A-Za-z]*$/,
@@ -166,7 +185,7 @@ export function complete(ctx: CompletionContext): CompletionResult | null {
     return {
       from: ctx.pos - unit[1].length,
       options: afterTo
-        ? [{ label: 'percent', type: 'unit', detail: 'a unitless result ×100, with %' }, ...unitOptions]
+        ? [{ label: PERCENT, type: 'unit', detail: SETTING_WORDS.find((s) => s.name === PERCENT)!.description }, ...unitOptions]
         : unitOptions,
       validFor: /^[A-Za-z]*$/,
     }
@@ -189,7 +208,7 @@ export function complete(ctx: CompletionContext): CompletionResult | null {
   // Series: t_1, t_2, … make t, t_avg, t_count, ….
   const series = new Map<string, number>()
   for (const s of visible) {
-    const m = /^([A-Za-z]\w*?)_?(\d+)$/.exec(s.name)
+    const m = SERIES_MEMBER.exec(s.name)
     if (s.kind === 'variable' && m) series.set(m[1], (series.get(m[1]) ?? 0) + 1)
   }
   for (const [base, count] of series) {
@@ -220,6 +239,7 @@ export const acceptOnTab: Command = acceptCompletion
 // Hover information
 // ---------------------------------------------------------------------------
 
+/** Hover information: what a name, unit, constant, command or keyword is. */
 const hoverInfo = hoverTooltip((view, pos) => {
   const { state } = view
   const line = state.doc.lineAt(pos)
@@ -263,6 +283,7 @@ const hoverInfo = hoverTooltip((view, pos) => {
 
 // ---------------------------------------------------------------------------
 
+/** Suggestions as you type, and hover information. */
 export const intellisense: Extension = [
   symbolsField,
   autocompletion({ override: [complete], icons: true }),

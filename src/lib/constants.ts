@@ -12,6 +12,7 @@ export interface BuiltinConstant {
   description: string
 }
 
+/** The built-in constants, used as `@name` (CODATA 2018 values). */
 export const BUILTIN_CONSTANTS: Record<string, BuiltinConstant> = {
   c: { value: 299792458, unit: 'm/s', tex: 'c', description: 'speed of light in vacuum (exact)' },
   h: { value: 6.62607015e-34, unit: 'J s', tex: 'h', description: 'Planck constant (exact)' },
@@ -39,9 +40,7 @@ export const BUILTIN_CONSTANTS: Record<string, BuiltinConstant> = {
 /** Sig figs used for a built-in constant written without `:n`. */
 export const DEFAULT_CONSTANT_SIG_FIGS = 3
 
-/** `@name`, `@name:4` or `@name:exact` in a line. */
-export const CONSTANT_REF = /@([A-Za-z]\w*)(?::(\d+|exact)\b)?/g
-
+/** How many single-letter edits turn `a` into `b` (Levenshtein distance), for suggesting a constant. */
 function editDistance(a: string, b: string): number {
   const row = Array.from({ length: b.length + 1 }, (_, i) => i)
   for (let i = 1; i <= a.length; i++) {
@@ -56,6 +55,9 @@ function editDistance(a: string, b: string): number {
   return row[b.length]
 }
 
+/** How many edits apart a mistyped constant can be and still be suggested. */
+const MAX_SUGGESTION_DISTANCE = 2
+
 /** The known constant name closest to a mistyped one, if any is close: `kb` → `k_B`. */
 export function suggestConstant(name: string, known: Iterable<string>): string | undefined {
   const norm = (s: string) => s.toLowerCase().replace(/_/g, '')
@@ -68,5 +70,5 @@ export function suggestConstant(name: string, known: Iterable<string>): string |
       bestScore = score
     }
   }
-  return bestScore <= 2 ? best : undefined
+  return bestScore <= MAX_SUGGESTION_DISTANCE ? best : undefined
 }

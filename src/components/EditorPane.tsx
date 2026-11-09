@@ -9,13 +9,13 @@ import {
   bracketMatching, codeFolding, foldGutter, foldKeymap, indentOnInput, indentUnit, syntaxHighlighting,
 } from '@codemirror/language'
 import { highlightSelectionMatches, search, searchKeymap } from '@codemirror/search'
-import type { Diagnostic } from '../lib/document.ts'
+import type { Diagnostic, SheetSymbol } from '../lib/document.ts'
+import { INDENT } from '../lib/syntax.ts'
 import { mathscribeFolding, mathscribeIndent, mathscribeLanguage } from '../editor/language.ts'
 import { SYNTAX_TOKENS, mathscribeHighlight, type Palette, type SyntaxThemeId } from '../editor/themes.ts'
 import { Dropdown } from './Dropdown.tsx'
 import { gotoDefinition, setDefinitions } from '../editor/gotoDefinition.ts'
 import { acceptOnTab, intellisense, setSymbols } from '../editor/intellisense.ts'
-import type { SheetSymbol } from '../lib/document.ts'
 
 interface EditorPaneProps {
   value: string
@@ -44,14 +44,14 @@ interface EditorPaneProps {
   options: ReactNode
 }
 
-const INDENT = '    '
-
 // ---------------------------------------------------------------------------
 // Error and warning markers in the gutter
 // ---------------------------------------------------------------------------
 
+/** Replaces the sheet's errors and warnings, by line. */
 const setDiagnostics = StateEffect.define<Map<number, Diagnostic>>()
 
+/** The errors and warnings the gutter shows. */
 const diagnosticsField = StateField.define<Map<number, Diagnostic>>({
   create: () => new Map(),
   update: (value, tr) => {
@@ -60,6 +60,7 @@ const diagnosticsField = StateField.define<Map<number, Diagnostic>>({
   },
 })
 
+/** A gutter mark for one line's error or warning, with its message as a tooltip. */
 class DiagnosticMarker extends GutterMarker {
   readonly line: number
   readonly d: Diagnostic
@@ -79,6 +80,7 @@ class DiagnosticMarker extends GutterMarker {
   }
 }
 
+/** The gutter of error and warning marks, beside the line numbers. */
 const diagnosticsGutter = gutter({
   class: 'cm-diagnostic-gutter',
   lineMarker: (view, line) => {
@@ -148,6 +150,7 @@ const baseTheme = EditorView.theme({
 /** Light or dark, for CodeMirror's built-in styles; changed when the app theme changes. */
 const darkness = new Compartment()
 
+/** Everything a sheet's editor is set up with; `on` reports edits and cursor moves to the app. */
 function extensions(handlers: { change: (v: string) => void; cursor: (line: number) => void }, dark: boolean): Extension[] {
   return [
     lineNumbers(),

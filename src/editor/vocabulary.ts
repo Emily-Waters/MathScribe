@@ -1,20 +1,43 @@
 /**
  * Fixed words of the sheet language, with one-line descriptions, for
- * completions and hover information in the editor.
+ * completions and hover information in the editor. (The words themselves
+ * come from lib/syntax.ts, which the engine uses too.)
  */
+import {
+  COMMAND_NAMES, EXACT_SETTING, NOTATIONS, PERCENT, type CommandName, type Notation, type SeriesSuffix,
+} from '../lib/syntax.ts'
 
-export const COMMANDS: { name: string; description: string }[] = [
-  { name: '#full', description: 'Show everything (the default; overrides a block’s command)' },
-  { name: '#sym', description: 'Show the equation only' },
-  { name: '#val', description: 'Show the result only' },
-  { name: '#hide', description: 'Calculate, but don’t show the line or block' },
-  { name: '#multiline', description: 'Each = on its own row, lined up' },
-  { name: '#center', description: 'Center the line, or a : block’s lines' },
-  { name: '#list', description: 'A : block’s lines as a bulleted list' },
-  { name: '#numbered', description: 'A : block’s lines as a numbered list' },
-  { name: '#text', description: 'A : block of prose: lines join into paragraphs, nothing is calculated' },
+/** What each display command does. */
+const COMMAND_DESCRIPTIONS: Record<CommandName, string> = {
+  full: 'Show everything (the default; overrides a block’s command)',
+  sym: 'Show the equation only',
+  val: 'Show the result only',
+  hide: 'Calculate, but don’t show the line or block',
+  multiline: 'Each = on its own row, lined up',
+  center: 'Center the line, or a : block’s lines',
+  list: 'A : block’s lines as a bulleted list',
+  numbered: 'A : block’s lines as a numbered list',
+  text: 'A : block of prose: lines join into paragraphs, nothing is calculated',
+}
+
+/** Every display command, `#` and all, in the order they're suggested. */
+export const COMMANDS: { name: string; description: string }[] =
+  COMMAND_NAMES.map((name) => ({ name: `#${name}`, description: COMMAND_DESCRIPTIONS[name] }))
+
+/** What each notation setting does. */
+const NOTATION_DESCRIPTIONS: Record<Notation, string> = {
+  sci: 'always scientific notation',
+  dec: 'always decimal notation, no powers of ten',
+}
+
+/** Words that can follow a `:` on a name (besides sig figs and units). */
+export const SETTING_WORDS: { name: string; description: string }[] = [
+  { name: EXACT_SETTING, description: 'full precision; never limits a result' },
+  ...NOTATIONS.map((n) => ({ name: n, description: NOTATION_DESCRIPTIONS[n] })),
+  { name: PERCENT, description: 'a unitless result ×100, with %' },
 ]
 
+/** Words of the sheet language, with what they do. */
 export const KEYWORDS: { name: string; description: string }[] = [
   { name: 'def', description: 'Define a function with an indented body' },
   { name: 'return', description: 'The value a def function gives back' },
@@ -64,11 +87,16 @@ export const MATH_CONSTANTS: { name: string; description: string }[] = [
   { name: 'phi', description: 'The golden ratio ≈ 1.61803' },
 ]
 
-/** What a series name means: t_avg, t_count, … */
+/** What each series name means. (`_mean` works too, but only `_avg` is suggested.) */
+const SERIES_DESCRIPTIONS: Record<Exclude<SeriesSuffix, 'mean'>, string> = {
+  avg: 'Mean, ± the standard error',
+  count: 'Number of values',
+  std: 'Sample standard deviation',
+  sem: 'Standard error of the mean',
+}
+
+/** The names a series makes (t, t_avg, t_count, …), as suffixes of its name. */
 export const SERIES_SUFFIXES: { suffix: string; description: string }[] = [
   { suffix: '', description: 'Sum of the series' },
-  { suffix: '_avg', description: 'Mean, ± the standard error' },
-  { suffix: '_count', description: 'Number of values' },
-  { suffix: '_std', description: 'Sample standard deviation' },
-  { suffix: '_sem', description: 'Standard error of the mean' },
+  ...Object.entries(SERIES_DESCRIPTIONS).map(([s, description]) => ({ suffix: `_${s}`, description })),
 ]

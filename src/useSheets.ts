@@ -3,14 +3,10 @@ import {
   canLinkFiles, chooseSaveFile, downloadFile, loadDrafts, openFiles, saveDrafts, uniqueName, writeFile,
   type FileHandle,
 } from './lib/files.ts'
+import { SHEET_FILE, TIMING } from './config.ts'
 import { SAMPLE } from './lib/sample.ts'
 
-const DEFAULT_NAME = 'sheet.txt'
-/** How long after the last edit to write a linked file. */
-const AUTOSAVE_DELAY = 1000
-/** How long after the last edit to update the browser's copy. */
-const DRAFT_DELAY = 300
-
+/** Whether a sheet's latest text has been saved (to its file, or the browser). */
 export type SaveState = 'saved' | 'unsaved' | 'saving' | 'error'
 
 /** One open sheet: a tab. */
@@ -26,9 +22,11 @@ export interface Sheet {
   error: string | null
 }
 
+/** A new, unique id for a sheet (the time, and a count for sheets made in the same millisecond). */
 let nextId = 1
 const newId = () => `sheet-${Date.now().toString(36)}-${nextId++}`
 
+/** A new sheet, with no file. */
 const blank = (name: string, text = ''): Sheet =>
   ({ id: newId(), name, text, handle: null, savedText: null, saving: false, error: null })
 
@@ -36,7 +34,7 @@ const blank = (name: string, text = ''): Sheet =>
 function initialSheets(): { sheets: Sheet[]; active: string } {
   const drafts = loadDrafts()
   if (!drafts) {
-    const first = blank(DEFAULT_NAME, SAMPLE)
+    const first = blank(SHEET_FILE.defaultName, SAMPLE)
     return { sheets: [first], active: first.id }
   }
   const sheets = drafts.sheets.map((d) => ({ ...blank(d.name, d.text), id: d.id }))
@@ -44,6 +42,7 @@ function initialSheets(): { sheets: Sheet[]; active: string } {
   return { sheets, active }
 }
 
+/** Whether a sheet's latest text is saved: to its linked file if it has one, else in the browser. */
 export function saveStateOf(sheet: Sheet): SaveState {
   if (sheet.error) return 'error'
   if (sheet.saving) return 'saving'
@@ -81,7 +80,7 @@ export function useSheets() {
     const t = setTimeout(() => setDraftKept(saveDrafts({
       sheets: sheets.map(({ id, name, text }) => ({ id, name, text })),
       active: active.id,
-    })), DRAFT_DELAY)
+    })), TIMING.draftSaveMs)
     return () => clearTimeout(t)
   }, [sheets, active.id])
 
@@ -111,7 +110,7 @@ export function useSheets() {
   useEffect(() => {
     const pending = sheets.filter((s) => s.handle && s.text !== s.savedText && !s.error && !s.saving)
     if (!pending.length) return
-    const t = setTimeout(() => pending.forEach((s) => void write(s.id)), AUTOSAVE_DELAY)
+    const t = setTimeout(() => pending.forEach((s) => void write(s.id)), TIMING.autosaveMs)
     return () => clearTimeout(t)
   }, [sheets, write])
 
@@ -183,7 +182,7 @@ export function useSheets() {
 
   /** A new, empty sheet in its own tab. */
   const newSheet = useCallback(() => {
-    const sheet = blank(uniqueName(DEFAULT_NAME, latest.current.map((s) => s.name)))
+    const sheet = blank(uniqueName(SHEET_FILE.defaultName, latest.current.map((s) => s.name)))
     setSheets((all) => [...all, sheet])
     setActiveId(sheet.id)
   }, [])
@@ -199,7 +198,7 @@ export function useSheets() {
     const rest = all.filter((s) => s.id !== id)
     if (!rest.length) {
       // Always keep one tab open.
-      const fresh = blank(DEFAULT_NAME)
+      const fresh = blank(SHEET_FILE.defaultName)
       setSheets([fresh])
       setActiveId(fresh.id)
       return

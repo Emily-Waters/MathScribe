@@ -17,6 +17,7 @@ export interface ReferenceSection {
   examples: ReferenceExample[]
 }
 
+/** The Reference tab’s examples, by section. */
 export const REFERENCE: ReferenceSection[] = [
   {
     id: 'basics',

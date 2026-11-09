@@ -1,0 +1,182 @@
+/**
+ * The sheet language's shared vocabulary: the words and patterns that the
+ * engine, the sheet's structure (document.ts) and the editor (highlighting,
+ * completions) all have to agree on.
+ *
+ * Every pattern is built from the same few pieces, so a change to what a name
+ * or a setting looks like is made once, here, and can't drift between them.
+ */
+
+// ---------------------------------------------------------------------------
+// Pieces (regular-expression source text, for building the patterns below)
+// ---------------------------------------------------------------------------
+
+/** A name: a letter, then letters, digits or underscores (`m`, `v_0`, `E_k`). */
+export const NAME = String.raw`[A-Za-z]\w*`
+
+/** One display setting after a name, with its colon: `:3`, `:deg`, `:sci`. */
+export const SETTING = String.raw`:[^:=\s]+`
+
+/** Any number of settings: `:3:deg`, or none. */
+export const SETTINGS = `(?:${SETTING})*`
+
+/** An `=` that assigns (not `==`), with any space before it. */
+const ASSIGNS = String.raw`\s*=(?!=)`
+
+/** A bracketed parameter or argument list, without nested brackets (capturing what's inside). */
+const PARAMETERS = String.raw`\(([^()]*)\)`
+
+/** A number as typed: `2`, `2.`, `.5`, `2.50`, `6.02e23`. */
+export const NUMBER = String.raw`(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?`
+
+// ---------------------------------------------------------------------------
+// Names and assignments
+// ---------------------------------------------------------------------------
+
+/** Exactly a name. */
+export const IS_NAME = new RegExp(`^${NAME}$`)
+
+/** The name at the start of some text. */
+export const LEADING_NAME = new RegExp(`^${NAME}`)
+
+/** A name with any settings, and nothing else: `theta:3:deg` (1: the name). */
+export const NAME_WITH_SETTINGS = new RegExp(`^(${NAME})${SETTINGS}$`)
+
+/** The start of an assignment: `x =`, `x:3:deg =` (1: the name). */
+export const ASSIGNMENT = new RegExp(`^(${NAME})${SETTINGS}${ASSIGNS}`)
+
+/** A whole assignment (1: the name, 2: the right-hand side). */
+export const ASSIGNMENT_WITH_VALUE = new RegExp(`${ASSIGNMENT.source}\\s*(.+)$`)
+
+/** An assignment whose name has at least one setting (1: the name, 2: the settings, colons included). */
+export const DECLARED = new RegExp(`^(${NAME})((?:${SETTING})+)${ASSIGNS}`)
+
+// ---------------------------------------------------------------------------
+// Functions
+// ---------------------------------------------------------------------------
+
+/** The start of a one-line function: `f(x, y):3 =` (1: name, 2: parameters, 3: settings). */
+export const FUNCTION_HEAD = new RegExp(`^(${NAME})\\s*${PARAMETERS}(${SETTINGS})${ASSIGNS}`)
+
+/** A whole one-line function: `f(x) = x^2` (1–3 as FUNCTION_HEAD, 4: the body). */
+export const ONE_LINE_FUNCTION = new RegExp(`${FUNCTION_HEAD.source}\\s*(.+)$`)
+
+/**
+ * A `def` line: `def f(a, b)`, `def f(a, b):3:deg`, optionally with a trailing
+ * `:` (1: name, 2: parameters, 3: settings for the result).
+ */
+export const DEF = new RegExp(String.raw`^def\s+(${NAME})\s*\(([^)]*)\)((?::[^:\s]+)*)\s*:?$`)
+
+/** The parameters of a `def` line as written in the sheet, indentation and all (1: name, 2: parameters). */
+export const DEF_HEAD = new RegExp(String.raw`^\s*def\s+(${NAME})\s*\(([^)]*)\)`)
+
+/** Unpacking a tuple: `tuple(a, b:3) = …` (1: the names, 2: the right-hand side). */
+export const UNPACK = new RegExp(String.raw`^tuple\s*${PARAMETERS}${ASSIGNS}\s*(.+)$`)
+
+/** The start of an unpacking, up to the `=` (1: the names). */
+export const UNPACK_HEAD = new RegExp(String.raw`^tuple\s*${PARAMETERS}${ASSIGNS}`)
+
+// ---------------------------------------------------------------------------
+// Words used as settings after a `:` (besides sig figs and units)
+// ---------------------------------------------------------------------------
+
+/** Full precision: `x:exact = …`, `@c:exact`. */
+export const EXACT_SETTING = 'exact'
+
+/** Precision written as a setting: a number of sig figs, or full precision. */
+export type Precision = number | typeof EXACT_SETTING
+
+/** Always scientific (`x:sci`) or always decimal (`x:dec`) notation. */
+export const NOTATIONS = ['sci', 'dec'] as const
+export type Notation = typeof NOTATIONS[number]
+
+/** Show a unitless result ×100 with a % sign: `f:percent = …`, `… to percent`. */
+export const PERCENT = 'percent'
+
+// ---------------------------------------------------------------------------
+// Uncertainties and series
+// ---------------------------------------------------------------------------
+
+/** `delta F` / `Delta F`: F's uncertainty, shown δF / ΔF as typed. */
+export const UNCERTAINTY_WORDS = ['delta', 'Delta'] as const
+export type UncertaintyWord = typeof UNCERTAINTY_WORDS[number]
+
+/**
+ * Names made from a numbered series (`t_1`, `t_2`, …): `t_avg`, `t_std`, … and
+ * what each works out. (`t` on its own is the sum.)
+ */
+export const SERIES_SUFFIXES = {
+  avg: 'mean',
+  mean: 'mean',
+  std: 'std',
+  sem: 'sem',
+  count: 'count',
+} as const
+export type SeriesSuffix = keyof typeof SERIES_SUFFIXES
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+/** The precision written after a constant: `:4` or `:exact`. */
+const CONSTANT_PRECISION = String.raw`(?::(\d+|${EXACT_SETTING})\b)?`
+
+/** Every constant in a line: `@c`, `@c:4`, `@c:exact` (1: the name, 2: the precision). */
+export const CONSTANT_REF = new RegExp(`@(${NAME})${CONSTANT_PRECISION}`, 'g')
+
+/** One constant at the current position (for the editor's tokenizer). */
+export const CONSTANT_TOKEN = new RegExp(`@${NAME}${CONSTANT_PRECISION}`)
+
+/**
+ * A line that only sets a constant sheet-wide: `@c:4`, `@a_0 to angstrom`,
+ * `@a_0:3 to angstrom` (1: the name, 2: the precision, 3: the unit).
+ */
+export const CONSTANT_DECLARATION = new RegExp(String.raw`^@(${NAME})(?::(\d+|${EXACT_SETTING}))?(?:\s+to\s+(\S.*?))?\s*$`)
+
+// ---------------------------------------------------------------------------
+// Display commands: `#sym`, `#val`, … after a line or a block's opener
+// ---------------------------------------------------------------------------
+
+/**
+ * How much of a calculation to show:
+ *   full  F = m·a = 2.0 kg · 9.81 m/s² = 19.6 N
+ *   sym   F = m·a                       (the equation only)
+ *   val   F = 19.6 N                    (the result only)
+ */
+export const DISPLAY_MODES = ['full', 'sym', 'val'] as const
+export type DisplayMode = typeof DISPLAY_MODES[number]
+
+/** The commands on a line: how much to show of it, or hide it. */
+export const LINE_COMMANDS = [...DISPLAY_MODES, 'hide'] as const
+export type LineCommand = typeof LINE_COMMANDS[number]
+
+/** `#multiline`: one `=` per row; a layout, so it combines with the commands above. */
+export const MULTILINE = 'multiline'
+
+/** How a layout block (`Title:` with lines indented under it), or one line, is arranged. */
+export const LAYOUT_STYLES = ['center', 'list', 'numbered', 'text'] as const
+export type LayoutStyle = typeof LAYOUT_STYLES[number]
+
+/** Every display command, in the order the editor lists them. */
+export const COMMAND_NAMES = [...LINE_COMMANDS, MULTILINE, ...LAYOUT_STYLES] as const
+export type CommandName = typeof COMMAND_NAMES[number]
+
+/**
+ * One of `names` written as a command: `#name` on its own, not inside a word
+ * (1: the space or start before it, 2: the name).
+ */
+export const commandPattern = (names: readonly string[], flags = '') =>
+  new RegExp(String.raw`(^|\s)#(${names.join('|')})(?=\s|$)`, flags)
+
+// ---------------------------------------------------------------------------
+// Layout
+// ---------------------------------------------------------------------------
+
+/** Spaces per indentation level, in the editor and the sheets it writes. */
+export const INDENT_WIDTH = 4
+
+/** One indentation level, as typed by Tab. */
+export const INDENT = ' '.repeat(INDENT_WIDTH)
+
+/** How far a line is indented, counting a tab as one level. */
+export const indentOf = (line: string) => /^[ \t]*/.exec(line)![0].replace(/\t/g, INDENT).length

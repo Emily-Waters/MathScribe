@@ -21,8 +21,10 @@ export interface XmlNode {
   text?: string
 }
 
+/** The named entities XML has. */
 const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" }
 
+/** XML text with its entities replaced by the characters they stand for. */
 function decode(s: string): string {
   return s.replace(/&(#x[0-9a-f]+|#\d+|\w+);/gi, (m, e: string) => {
     if (e[0] === '#') return String.fromCodePoint(e[1] === 'x' || e[1] === 'X' ? parseInt(e.slice(2), 16) : Number(e.slice(1)))
@@ -72,24 +74,48 @@ type RunStyle = 'i' | 'p' | 'b' | 'text'
 /** Output so far: runs (merged with their neighbours when styled alike) and finished XML. */
 type Piece = { run: string; style: RunStyle } | { xml: string }
 
+/** How the maths being converted is set. */
 interface Ctx {
   /** Font size for every run, in half-points (the working is set smaller). */
   size?: number
 }
 
+/** Characters that can't be seen in the source, by name. */
+const char = String.fromCodePoint
+/** The invisible operator MathML puts between a function's name and its argument (sin x). */
+const FUNCTION_APPLICATION = char(0x2061)
+const THIN_SPACE = char(0x2009)
+export const EM_SPACE = char(0x2003)
+/** Combining characters: Word draws an accent as one of these over its letter. */
+const COMBINING = {
+  grave: char(0x300), acute: char(0x301), circumflex: char(0x302), tilde: char(0x303), overline: char(0x305),
+  dot: char(0x307), diaeresis: char(0x308), caron: char(0x30c), rightArrow: char(0x20d7),
+}
+
 /** Accents on a letter (`\hat x`): KaTeX's character → the combining character Word uses. */
 const ACCENTS: Record<string, string> = {
-  '^': '̂', 'ˆ': '̂', '~': '̃', '˜': '̃', '˙': '̇', '¨': '̈',
-  '→': '⃗', '⃗': '⃗', 'ˇ': '̌', '´': '́', '`': '̀',
+  '^': COMBINING.circumflex, 'ˆ': COMBINING.circumflex, '~': COMBINING.tilde, '˜': COMBINING.tilde,
+  '˙': COMBINING.dot, '¨': COMBINING.diaeresis, 'ˇ': COMBINING.caron, '´': COMBINING.acute, '`': COMBINING.grave,
+  '→': COMBINING.rightArrow, [COMBINING.rightArrow]: COMBINING.rightArrow,
 }
-const BARS = new Set(['ˉ', '¯', '‾', '_', '̅'])
+/** Marks KaTeX uses for a bar over a letter (`\bar t`), which Word draws as a bar, not an accent. */
+const BARS = new Set(['ˉ', '¯', '‾', '_', COMBINING.overline])
+
+/** An `mspace` at least this wide (in ems) becomes an em space; narrower ones a thin space. */
+const WIDE_SPACE_EMS = 0.9
+
+/** Every function-application operator in some text, to remove. */
+const ALL_FUNCTION_APPLICATIONS = new RegExp(FUNCTION_APPLICATION, 'g')
 
 /** Big operators that take limits and a body: ∑ᵢ tᵢ. */
 const NARY = new Set(['∑', '∏', '∐', '∫', '∬', '∭', '∮', '⋃', '⋂', '⋁', '⋀'])
 
+/** All the text inside a node. */
 const textOf = (n: XmlNode): string => (n.tag === '#text' ? n.text ?? '' : n.children.map(textOf).join(''))
+/** A node's child elements (not its text). */
 const elements = (n: XmlNode) => n.children.filter((c) => c.tag !== '#text')
 
+/** A run of maths as OMML. */
 function runXml(text: string, style: RunStyle, ctx: Ctx): string {
   const mrPr = style === 'text' ? '<m:rPr><m:nor/></m:rPr>'
     : style === 'p' ? '<m:rPr><m:sty m:val="p"/></m:rPr>'
@@ -176,6 +202,7 @@ function sequence(nodes: XmlNode[], ctx: Ctx): Piece[] {
   return out
 }
 
+/** A MathML node as OMML pieces. */
 function convert(n: XmlNode, ctx: Ctx): Piece[] {
   const kids = elements(n)
   const a = (i: number) => arg(kids[i], ctx)
@@ -190,15 +217,15 @@ function convert(n: XmlNode, ctx: Ctx): Piece[] {
     case 'mn':
       return [{ run: textOf(n), style: 'p' }]
     case 'mo': {
-      // Function application (sin⁡x) is invisible.
-      const t = textOf(n).replace(/⁡/g, '')
+      // Function application (sin x) is invisible.
+      const t = textOf(n).replace(ALL_FUNCTION_APPLICATIONS, '')
       return t ? [{ run: t, style: 'p' }] : []
     }
     case 'mtext':
       return [{ run: textOf(n), style: 'text' }]
     case 'mspace': {
       const em = parseFloat(n.attrs.width ?? '0')
-      return em > 0 ? [{ run: em >= 0.9 ? ' ' : ' ', style: 'text' }] : []
+      return em > 0 ? [{ run: em >= WIDE_SPACE_EMS ? EM_SPACE : THIN_SPACE, style: 'text' }] : []
     }
     case 'mfrac': {
       const noBar = n.attrs.linethickness !== undefined && parseFloat(n.attrs.linethickness) === 0
@@ -271,7 +298,28 @@ function table(n: XmlNode, ctx: Ctx): string {
 // Width, roughly
 // ---------------------------------------------------------------------------
 
+/** Operators set with space on both sides (= + ±), so wider than one character. */
 const WIDE_OPERATORS = new Set(['=', '+', '−', '-', '±', '≈', '→', '<', '>', '≤', '≥'])
+
+/** Rough widths in Cambria Math, in ems, for estimating an equation's width. */
+const WIDTH_EMS = {
+  /** A letter or digit. */
+  character: 0.55,
+  /** An operator with its spaces (=, +), or another operator's character. */
+  wideOperator: 1.2,
+  operatorCharacter: 0.6,
+  /** In upright text: a space, and anything else. */
+  textSpace: 0.2,
+  textCharacter: 0.5,
+  /** What a fraction bar, a root sign, an indexed root sign, and a pair of brackets add. */
+  fraction: 0.3,
+  root: 1,
+  indexedRoot: 1.3,
+  bracket: 0.4,
+}
+
+/** Superscripts, subscripts and limits are set this much smaller. */
+const SCRIPT_SCALE = 0.7
 
 /**
  * Roughly how wide a node is when displayed, in ems: enough to tell whether an
@@ -283,31 +331,31 @@ function width(n: XmlNode): number {
   switch (n.tag) {
     case 'mi':
     case 'mn':
-      return [...textOf(n)].length * 0.55
+      return [...textOf(n)].length * WIDTH_EMS.character
     case 'mo': {
-      const t = textOf(n).replace(/⁡/g, '')
-      return WIDE_OPERATORS.has(t) ? 1.2 : [...t].length * 0.6
+      const t = textOf(n).replace(ALL_FUNCTION_APPLICATIONS, '')
+      return WIDE_OPERATORS.has(t) ? WIDTH_EMS.wideOperator : [...t].length * WIDTH_EMS.operatorCharacter
     }
     case 'mtext':
-      return [...textOf(n)].reduce((w, c) => w + (/\s/.test(c) ? 0.2 : 0.5), 0)
+      return [...textOf(n)].reduce((w, c) => w + (/\s/.test(c) ? WIDTH_EMS.textSpace : WIDTH_EMS.textCharacter), 0)
     case 'mspace':
       return parseFloat(n.attrs.width ?? '0') || 0
     case 'mfrac':
-      return Math.max(width(kids[0]), width(kids[1])) + 0.3
+      return Math.max(width(kids[0]), width(kids[1])) + WIDTH_EMS.fraction
     case 'msqrt':
-      return sum(kids) + 1
+      return sum(kids) + WIDTH_EMS.root
     case 'mroot':
-      return width(kids[0]) + 1.3
+      return width(kids[0]) + WIDTH_EMS.indexedRoot
     case 'msup':
     case 'msub':
-      return width(kids[0]) + 0.7 * width(kids[1])
+      return width(kids[0]) + SCRIPT_SCALE * width(kids[1])
     case 'msubsup':
-      return width(kids[0]) + 0.7 * Math.max(width(kids[1]), width(kids[2]))
+      return width(kids[0]) + SCRIPT_SCALE * Math.max(width(kids[1]), width(kids[2]))
     case 'mover':
     case 'munder':
-      return Math.max(width(kids[0]), 0.7 * width(kids[1]))
+      return Math.max(width(kids[0]), SCRIPT_SCALE * width(kids[1]))
     case 'munderover':
-      return Math.max(width(kids[0]), 0.7 * width(kids[1]), 0.7 * width(kids[2]))
+      return Math.max(width(kids[0]), SCRIPT_SCALE * width(kids[1]), SCRIPT_SCALE * width(kids[2]))
     case 'mtable':
       return Math.max(0, ...kids.map((row) => sum(elements(row))))
     case 'annotation':
@@ -316,7 +364,7 @@ function width(n: XmlNode): number {
     default: {
       // \left( … \right) brackets
       const fenced = kids.filter((k) => k.tag === 'mo' && k.attrs.fence === 'true').length
-      return sum(kids.filter((k) => !(k.tag === 'mo' && k.attrs.fence === 'true'))) + fenced * 0.4
+      return sum(kids.filter((k) => !(k.tag === 'mo' && k.attrs.fence === 'true'))) + fenced * WIDTH_EMS.bracket
     }
   }
 }
@@ -347,7 +395,7 @@ function mathOf(tex: string): XmlNode | null {
 export function texToMath(tex: string, size?: number): { xml: string; ems: number } {
   const ctx: Ctx = { size }
   const math = mathOf(tex)
-  if (!math) return { xml: `<m:oMath>${runXml(tex, 'text', ctx)}</m:oMath>`, ems: tex.length * 0.5 }
+  if (!math) return { xml: `<m:oMath>${runXml(tex, 'text', ctx)}</m:oMath>`, ems: tex.length * WIDTH_EMS.textCharacter }
   return { xml: `<m:oMath>${render(convert(math, ctx), ctx)}</m:oMath>`, ems: width(math) }
 }
 

@@ -961,6 +961,97 @@ body {
   color: var(--muted);
 }
 
+/* ---------- Library tab ---------- */
+
+.lib__bar {
+  align-items: center;
+}
+
+.lib__search {
+  flex: 1 1 100%;
+  font: inherit;
+  font-size: 13px;
+  padding: 6px 8px;
+  margin-bottom: 4px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.lib__search:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.lib__intro {
+  margin: 10px 0 0;
+}
+
+.lib__subject {
+  font-size: 11px;
+  font-weight: normal;
+  color: var(--muted);
+  margin-left: 6px;
+}
+
+.lib__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+  font-size: 14px;
+}
+
+.lib__actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lib__insert {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.lib__done {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.lib__source {
+  margin: 0 0 6px;
+  padding: 6px 8px;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--surface-2);
+  border-radius: 6px;
+}
+
+.lib__symbols {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.lib__unit {
+  color: var(--muted);
+}
+
+.lib__example-label {
+  margin: 6px 0 0;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
 /* ---------- Options dropdown ---------- */
 
 .options {

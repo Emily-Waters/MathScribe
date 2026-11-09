@@ -26,6 +26,8 @@ interface EditorPaneProps {
   openIds: string[]
   /** A request to put the cursor on a line (from clicking the output); `n` makes repeats distinct. */
   jump: { line: number; n: number } | null
+  /** Text to put in at the cursor (from the Library tab); `n` makes repeats distinct. */
+  insert: { text: string; n: number } | null
   onCursorLine: (line: number) => void
   /** Errors and warnings by line, marked in the gutter. */
   diagnostics: Map<number, Diagnostic>
@@ -196,7 +198,7 @@ function extensions(handlers: { change: (v: string) => void; cursor: (line: numb
  * definition, and blocks fold from the gutter.
  */
 export function EditorPane({
-  value, onChange, docId, openIds, jump, onCursorLine, diagnostics, definitions, symbols, theme, dark, customPalette,
+  value, onChange, docId, openIds, jump, insert, onCursorLine, diagnostics, definitions, symbols, theme, dark, customPalette,
   options,
 }: EditorPaneProps) {
   const host = useRef<HTMLDivElement>(null)
@@ -291,6 +293,26 @@ export function EditorPane({
     v.dispatch({ selection: { anchor: at }, effects: EditorView.scrollIntoView(at, { y: 'nearest' }) })
     v.focus()
   }, [jump])
+
+  // Inserted text goes on the cursor's line if it's empty, else on a new line
+  // just below it (never splitting what's there), at the line's indentation;
+  // the cursor ends up after it.
+  useEffect(() => {
+    const v = view.current
+    if (!insert || !v) return
+    const line = v.state.doc.lineAt(v.state.selection.main.head)
+    const indent = /^\s*/.exec(line.text)![0]
+    const blank = !line.text.trim()
+    const text = (blank ? '' : '\n') + indent + insert.text
+    const from = blank ? line.from : line.to
+    v.dispatch({
+      changes: { from, to: line.to, insert: text },
+      selection: { anchor: from + text.length },
+      scrollIntoView: true,
+      userEvent: 'input.paste',
+    })
+    v.focus()
+  }, [insert])
 
   return (
     <section className="pane">

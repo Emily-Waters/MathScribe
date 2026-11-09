@@ -88,6 +88,9 @@ export default function App() {
   // moves the cursor to that line.
   const [activeLine, setActiveLine] = useState<number | null>(null)
   const [jump, setJump] = useState<{ line: number; n: number } | null>(null)
+  // Text from the Library tab, put in at the editor's cursor; `n` makes repeats distinct.
+  const [insert, setInsert] = useState<{ text: string; n: number } | null>(null)
+  const insertText = useCallback((text: string) => setInsert((i) => ({ text, n: (i?.n ?? 0) + 1 })), [])
   const jumpTo = useCallback((line: number) => {
     setActiveLine(line)
     setJump((j) => ({ line, n: (j?.n ?? 0) + 1 }))
@@ -143,6 +146,7 @@ export default function App() {
               docId={file.active.id}
               openIds={file.sheets.map((s) => s.id)}
               jump={jump}
+              insert={insert}
               onCursorLine={setActiveLine}
               diagnostics={diagnostics}
               definitions={definitions}
@@ -170,6 +174,7 @@ export default function App() {
               activeLine={activeLine}
               onJump={jumpTo}
               fileName={file.active.name}
+              onInsert={insertText}
             />
           }
         />

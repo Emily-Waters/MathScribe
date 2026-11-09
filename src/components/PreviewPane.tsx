@@ -6,6 +6,7 @@ import type { CalcOptions } from '../lib/engine.ts'
 import { ReferencePane } from './ReferencePane.tsx'
 import { OptionsMenu } from './OptionsMenu.tsx'
 import { LatexOptionsMenu } from './LatexOptionsMenu.tsx'
+import { LibraryPane } from './LibraryPane.tsx'
 import { downloadFile } from '../lib/files.ts'
 
 const render = (latex: string, displayMode: boolean) =>
@@ -215,7 +216,7 @@ export function RenderedBlock({ block }: { block: Block }) {
 const sigFigLabel = (sf: number) =>
   Number.isFinite(sf) ? `${sf} significant figure${sf === 1 ? '' : 's'}` : 'exact'
 
-type Tab = 'rendered' | 'latex' | 'reference'
+type Tab = 'rendered' | 'latex' | 'library' | 'reference'
 
 interface PreviewPaneProps {
   sheet: Sheet
@@ -227,10 +228,12 @@ interface PreviewPaneProps {
   onJump: (line: number) => void
   /** The sheet's file name, for the downloaded .tex file. */
   fileName: string
+  /** Put text into the sheet at the editor's cursor (from the Library tab). */
+  onInsert: (text: string) => void
 }
 
 export function PreviewPane({
-  sheet, options, onOptionsChange, activeLine, onJump, fileName,
+  sheet, options, onOptionsChange, activeLine, onJump, fileName, onInsert,
 }: PreviewPaneProps) {
   const [tab, setTab] = useState<Tab>('rendered')
   const [copied, setCopied] = useState(false)
@@ -271,13 +274,16 @@ export function PreviewPane({
         <h2>Output</h2>
         <div className="toolbar">
           {/* The Reference tab uses fixed settings, so the options don't apply there. */}
-          <OptionsMenu options={options} onChange={onOptionsChange} hidden={tab === 'reference'} />
+          <OptionsMenu options={options} onChange={onOptionsChange} hidden={tab === 'reference' || tab === 'library'} />
           <div className="tabs" role="tablist">
             <button role="tab" aria-selected={tab === 'rendered'} onClick={() => setTab('rendered')}>
               Rendered
             </button>
             <button role="tab" aria-selected={tab === 'latex'} onClick={() => setTab('latex')}>
               LaTeX
+            </button>
+            <button role="tab" aria-selected={tab === 'library'} onClick={() => setTab('library')}>
+              Library
             </button>
             <button role="tab" aria-selected={tab === 'reference'} onClick={() => setTab('reference')}>
               Reference
@@ -287,6 +293,8 @@ export function PreviewPane({
       </header>
       {tab === 'reference' ? (
         <ReferencePane />
+      ) : tab === 'library' ? (
+        <LibraryPane onInsert={onInsert} />
       ) : tab === 'rendered' ? (
         <div className="doc" ref={docRef}>
           <LineLink.Provider value={link}>

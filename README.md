@@ -58,6 +58,14 @@ the browser.
     styles, so they appear in the navigation pane. For Google Docs, upload the
     file to Drive and open it with Google Docs; its equations become Google Docs
     equations.
+  - **Library**: common equations from first-year physics (kinematics, forces,
+    energy and momentum, oscillation, waves and optics, electricity, heat, modern
+    physics) and general chemistry (moles and solutions, gases, thermochemistry,
+    kinetics), searchable. Each is a one-line function with a worked example;
+    **Insert** puts it in the sheet at the cursor (on the cursor's line if it's
+    empty, otherwise just below it), where it's ordinary text you can rename or
+    change. Temperatures are converted to kelvin on the way in (`T to K`), so
+    25.0 degC works.
   - **Reference**: every feature as an example you can copy, shown with its real
     output (each example is evaluated live, so the reference always matches what
     MathScribe actually does), plus the list of built-in constants.
@@ -820,6 +828,8 @@ Roughly in priority order.
 
 ### Done
 
+- [x] **Equation library**: first-year physics and general chemistry, inserted at
+      the cursor as one-line functions.
 - [x] **Word export**: a `.docx` with editable equations, which also opens in
       Google Docs.
 - [x] **Hosting**: published to GitHub Pages on every push.
@@ -844,6 +854,8 @@ Roughly in priority order.
 - `src/lib/sigfigs.ts`: counting, propagating and formatting significant figures
 - `src/lib/solve.ts`: `solve(…)`: rearranging, linear, quadratic and numeric solving
 - `src/lib/constants.ts`: the built-in `@` constants
+- `src/lib/library.ts`: the equations in the Library tab (each tested with its
+  example); `src/components/LibraryPane.tsx`: the tab
 - `src/lib/reference.ts`: the examples shown in the Reference tab;
   `src/lib/sample.ts`: the example sheet shown the first time
 - `*.test.ts` beside the code they test; `src/test/helpers.ts`: shared test

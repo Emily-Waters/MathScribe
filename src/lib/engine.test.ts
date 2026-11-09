@@ -167,6 +167,12 @@ describe('functions', () => {
     expect(value('def KE(mass, speed)\n    E = 1/2 * mass * speed^2\n    return E\nE_k = KE(2.00 kg, 3.00 m/s)')).toBe('9.00 J')
   })
 
+  it('give a call inside a bigger expression the sig figs of its measured numbers', () => {
+    const src = 'hyd(n) = -13.6 eV / n^2\ndE = hyd(3) - hyd(2)'
+    expect(value(src)).toBe('1.89 eV')
+    expect(value(`${src}   #val`)).toBe('1.89 eV')
+  })
+
   describe('settings for the result', () => {
     it('give every call’s result those sig figs and unit, on an inline function', () => {
       const src = 'ang(y, x):3:deg = atan(y/x)\nphi = ang(1.0, 2.0)\nphi\ns = sin(ang(1.00, 2.00))'
@@ -188,6 +194,10 @@ describe('functions', () => {
 
     it('carry the uncertainty', () => {
       expect(value('x = 2.00 m pm 0.05 m\ny = 1.00 m pm 0.05 m\nang(y, x):deg = atan(y/x)\nphi = ang(y, x)')).toBe('(26.6 ± 1.3)°')
+    })
+
+    it('keep a compound unit, not SI', () => {
+      expect(value('conc(n, V):mol/L = n / V\nc = conc(0.150 mol, 250. mL)')).toBe('0.600 mol/L')
     })
 
     it('still allow a plain trailing colon on a def', () => {

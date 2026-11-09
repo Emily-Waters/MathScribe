@@ -725,6 +725,8 @@ interface UserFunction {
   returnSf?: number
   /** Notation declared for the result (`f(x):sci = …`). */
   returnNotation?: Notation
+  /** Unit declared for the result (`f(x):mol/L = …`), which every call's result is shown in. */
+  returnUnit?: string
 }
 
 /** A constant defined in an `@constants { }` block. */
@@ -990,6 +992,8 @@ export class Calculator {
   private notations = new Scope<Notation | undefined>()
   /** Notation numbers are being formatted in right now (see inNotation). */
   private notation: Notation | undefined
+  /** Sig figs of each call to a user function's result, from its return line. */
+  private readonly callSigFigs = new WeakMap<MathNode, number>()
   /**
    * How to show a variable in substitution steps when its value is made only of
    * numbers and built-in constants (`theta = pi/4` shows as π/4, not 0.785).
@@ -1317,6 +1321,9 @@ export class Calculator {
       const f = this.scope.get(node.fn.name)
       const declared = typeof f === 'function' ? this.userFunctions.get(f)?.returnSf : undefined
       if (declared !== undefined) return declared
+      // Otherwise its return line's, as worked out when its working was traced.
+      const traced = this.callSigFigs.get(node)
+      if (traced !== undefined) return traced
     }
     if (isOperatorNode(node)) {
       if (node.fn === 'multiply' && isUnitCall(node.args[1])) return this.sigFigsOf(node.args[0], literals, true)
@@ -1923,7 +1930,7 @@ export class Calculator {
       return undefined
     }
     this.userFunctions.set(fn, {
-      params, casts, statements: sources, definedIn: this.currentScopes(), multiline, returns, returnSf, returnNotation,
+      params, casts, statements: sources, definedIn: this.currentScopes(), multiline, returns, returnSf, returnNotation, returnUnit,
     })
     this.scope.set(name, fn)
     this.uncs.set(name, new Map())
@@ -2543,10 +2550,13 @@ export class Calculator {
     let returnNote: string | undefined
     /** For a line that's just a function call: the sig figs of what it returns. */
     let returnSf: number | undefined
-    if (mode !== 'val') {
-      for (const call of this.userCalls(shown)) {
-        const t = this.traceCall(call, literals, mode, explicit)
-        if (!t) continue
+    // (Worked out with #val too: each call's result has the sig figs of its return
+    // line, which sigFigsOf needs when the call is part of a bigger expression.)
+    for (const call of this.userCalls(shown)) {
+      const t = this.traceCall(call, literals, mode, explicit)
+      if (!t) continue
+      if (t.retSf !== undefined) this.callSigFigs.set(call, t.retSf)
+      if (mode !== 'val') {
         trace.push(...t.lines)
         if (call === bare && t.ret) {
           exprTex = t.ret.expr
@@ -2615,7 +2625,10 @@ export class Calculator {
     let contributions: Contributions
     try {
       // Evaluate the right-hand side and assign ourselves, so the stored value is normalised.
-      value = normalise(expr.compile().evaluate(this.scope), isConversion(expr) || isLiteral(expr))
+      // A call to a function that declares its result's unit (`conc(n, V):mol/L`) keeps that unit, as a conversion does.
+      const called = isFunctionNode(bare) ? this.scope.get(bare.fn.name) : undefined
+      const declaresUnit = typeof called === 'function' && !!this.userFunctions.get(called)?.returnUnit
+      value = normalise(expr.compile().evaluate(this.scope), isConversion(expr) || isLiteral(expr) || declaresUnit)
       // A value typed with a unit keeps that unit wherever it's shown (L = 1.00e-10 m
       // stays in m, not 100 pm), as a conversion's result does.
       if (isLiteral(expr) && math.isUnit(value)) (value as Unit).fixPrefix = true

@@ -1030,19 +1030,49 @@ function otherSpelling(name: string): string | undefined {
   return sub ? `${sub[1]}${sub[2]}` : undefined
 }
 
-/** All the parallel scopes for one level: values plus per-variable metadata. */
-interface ScopeSet {
-  scope: Scope
-  sigs: Scope<number>
-  uncs: Scope<Contributions>
-  uncSfs: Scope<number | undefined>
-  declared: Scope<boolean | undefined>
-  notations: Scope<Notation | undefined>
-  vectors: Scope<VectorStyle | undefined>
-  shown: Scope<string | undefined>
-  defs: Scope<MathNode | undefined>
-  aggs: Scope<Aggregate | undefined>
+/**
+ * The sheet's variables, each with everything kept about it (StoredVariable),
+ * by name: one scope per `{ }` block or function call, looking outward.
+ */
+type Variables = Scope<StoredVariable>
+
+/**
+ * Variables as mathjs evaluates with them: just their values. Setting one
+ * (a function's parameter, a nudged input while propagating uncertainty) makes
+ * a plain, exact variable in the scope it views.
+ */
+class Values {
+  readonly vars: Variables
+
+  constructor(vars: Variables) {
+    this.vars = vars
+  }
+
+  get(key: string): unknown {
+    return this.vars.get(key)?.value
+  }
+
+  has(key: string): boolean {
+    return this.vars.has(key)
+  }
+
+  set(key: string, value: unknown): this {
+    this.vars.set(key, { value, sf: EXACT })
+    return this
+  }
+
+  delete(key: string): boolean {
+    return this.vars.delete(key)
+  }
+
+  /** This scope's own names (not the scopes around it). */
+  keys(): IterableIterator<string> {
+    return this.vars.keys()
+  }
 }
+
+/** A new scope inside `vars`, as mathjs sees it: what's set in it stays there. */
+const innerValues = (vars: Variables) => new Values(new Scope(vars))
 
 /** What's needed to replay a multi-line function's body to show its working. */
 interface UserFunction {
@@ -1051,7 +1081,7 @@ interface UserFunction {
   casts: (string | undefined)[]
   /** Body lines as source text: `x = a + b`, and the return expression `x`. */
   statements: { kind: 'assign' | 'return'; text: string; note?: string; command?: LineCommand; multiline?: boolean }[]
-  definedIn: ScopeSet
+  definedIn: Variables
   /** Defined with #multiline: every line that calls it is laid out one = per row. */
   multiline: boolean
   /** Has a `return` line. Without one it gives no value, and can only be called on its own. */
@@ -1556,18 +1586,23 @@ const sameValue = (a: unknown, b: unknown) => {
 /** Everything kept about a variable: its value, and how it's shown and worked with. */
 interface StoredVariable {
   value: unknown
+  /** Its significant figures (EXACT: not limited). */
   sf: number
-  /** Uncertainty contributions (none: no uncertainty). */
+  /** Its uncertainty, by source (none, or empty: no uncertainty). */
   contributions?: Contributions
+  /** The uncertainty's sig figs as typed (`pm 0.10` → 2), kept for display. */
   uncSf?: number
-  /** Its sig figs were declared, so they beat the global setting. */
+  /** Its sig figs were declared (`m:3 = …`), so they beat the global setting. */
   declared?: boolean
+  /** Its declared notation (`x:sci = …`), wherever its value is shown. */
   notation?: Notation
+  /** How it's shown if it holds a vector (⟨…⟩, or with unit vectors). */
   vector?: VectorStyle
-  /** How to show it in substitutions, if not as its value. */
+  /** How to show it in substitutions, if not as its value (`theta = pi/4` as π/4). */
   shown?: string
   /** Its defining expression, for ΔX working. */
   def?: MathNode
+  /** The series statistic it stands for, if it's one (t_avg). */
   agg?: Aggregate
 }
 
@@ -1664,24 +1699,14 @@ function columnValues(c: CsvColumn) {
 export class Calculator {
   /** Selections' and named plots' series, as lookups (before the scopes, which share them). */
   private readonly views = new Views()
-  private readonly root = new Scope(undefined, this.views)
-  private scope = this.root
-  /** Significant figures of each variable, scoped alongside the values. */
-  private readonly sigsRoot = new Scope<number>(undefined, this.views)
-  private sigs = this.sigsRoot
-  /** Uncertainty contributions of each variable (empty map: no uncertainty). */
-  private readonly uncsRoot = new Scope<Contributions>(undefined, this.views)
-  private uncs = this.uncsRoot
-  /** Sig figs of uncertainties as typed in a declaration (`pm 0.1` → 1), kept for display. */
-  private uncSfs = new Scope<number | undefined>(undefined, this.views)
-  /** Whether a variable's sig figs were declared (`m:3 = …`); then they beat the global setting. */
-  private declared = new Scope<boolean | undefined>(undefined, this.views)
-  /** A variable's declared notation (`x:sci = …`), used wherever its value is shown. */
-  private notations = new Scope<Notation | undefined>(undefined, this.views)
+  /** The sheet's variables, each with everything kept about it (see StoredVariable). */
+  private readonly rootVars: Variables = new Scope(undefined, this.views)
+  /** The variables in scope here: the sheet's, or a `{ }` block's or function call's inside them. */
+  private vars = this.rootVars
+  /** Their values, as mathjs evaluates with them. */
+  private scope = new Values(this.rootVars)
   /** Notation numbers are being formatted in right now (see inNotation). */
   private notation: Notation | undefined
-  /** How a variable holding a vector is shown (⟨…⟩, or with unit vectors), wherever its value appears. */
-  private vectors = new Scope<VectorStyle | undefined>(undefined, this.views)
   /** How tuples are being shown right now (undefined: as a plain tuple, (…)); see inVectorStyle. */
   private vectorStyle: VectorStyle | undefined
   /**
@@ -1692,15 +1717,6 @@ export class Calculator {
   private readonly typedSfs = new WeakMap<object, number[]>()
   /** Sig figs of each call to a user function's result, from its return line. */
   private readonly callSigFigs = new WeakMap<MathNode, number>()
-  /**
-   * How to show a variable in substitution steps when its value is made only of
-   * numbers and built-in constants (`theta = pi/4` shows as π/4, not 0.785).
-   */
-  private shown = new Scope<string | undefined>(undefined, this.views)
-  /** Defining expression of each computed variable, for showing ΔX working. */
-  private defs = new Scope<MathNode | undefined>(undefined, this.views)
-  /** Names currently standing for a series aggregate (undefined once assigned explicitly). */
-  private aggs = new Scope<Aggregate | undefined>(undefined, this.views)
   /** Uncertainty source for each series mean, so repeated uses stay correlated. */
   private readonly aggregateSources = new Map<string, number>()
   /** Multi-line functions, keyed by the callable stored in the scope. */
@@ -1774,24 +1790,14 @@ export class Calculator {
 
   /** Set a variable, with everything kept about it (in the current scope). */
   private store(name: string, v: StoredVariable): void {
-    // What's unset is only written where it has to hide a value from before (in
-    // this scope or an outer one): imported data can make thousands of variables.
-    // Every variable has a value, so if there's none by this name (in either
-    // spelling), no other table has one to hide: asked once, not once per table.
-    const hides = this.scope.has(name)
-    this.scope.set(name, v.value)
-    this.sigs.set(name, v.sf)
-    const put = <T>(s: Scope<T>, value: T | undefined) => {
-      if (value !== undefined || hides) s.set(name, value as T)
-    }
-    put(this.uncs, v.contributions?.size ? v.contributions : undefined)
-    put(this.uncSfs, v.uncSf)
-    put(this.declared, v.declared || undefined)
-    put(this.notations, v.notation)
-    put(this.vectors, v.vector)
-    put(this.shown, v.shown)
-    put(this.defs, v.def)
-    put(this.aggs, v.agg)
+    // One record: it replaces whatever was kept about the name before, all of it.
+    this.vars.set(name, v)
+  }
+
+  /** Make `vars` the variables in scope (entering or leaving a block or function call). */
+  private enter(vars: Variables): void {
+    this.vars = vars
+    this.scope = new Values(vars)
   }
 
   /**
@@ -1802,7 +1808,7 @@ export class Calculator {
    */
   private vectorStyleOf(node: MathNode): VectorStyle | undefined {
     const styles = node.filter((n) => isSymbolNode(n) || isFunctionNode(n)).map((n) => {
-      if (isSymbolNode(n)) return this.vectors.get(n.name)
+      if (isSymbolNode(n)) return this.vars.get(n.name)?.vector
       const name = (n as FunctionNode).fn.name
       if (name === VECTOR_FUNCTION) return 'angle'
       const f = this.scope.get(name)
@@ -1983,10 +1989,10 @@ export class Calculator {
 
   /** A variable's value for the substitution step, at its own sig figs. */
   private variableNode(name: string): MathNode {
-    const shown = this.shown.get(name)
+    const shown = this.vars.get(name)?.shown
     if (shown) return rawNode(shown)
-    return this.inNotation(this.notations.get(name), () => this.inVectorStyle(this.vectors.get(name),
-      () => this.valueNode(this.scope.get(name), this.sigs.get(name) ?? EXACT, this.declared.get(name) === true)))
+    return this.inNotation(this.vars.get(name)?.notation, () => this.inVectorStyle(this.vars.get(name)?.vector,
+      () => this.valueNode(this.scope.get(name), this.vars.get(name)?.sf ?? EXACT, this.vars.get(name)?.declared === true)))
   }
 
   /**
@@ -2130,7 +2136,7 @@ export class Calculator {
     if (isUnitCall(node)) return EXACT
     // Written with extra precision (2.00, 1.2e3): always a measured value.
     if (isLitCall(node)) return countSigFigs(unitCallText(node))
-    if (isSymbolNode(node)) return this.sigs.get(node.name) ?? EXACT
+    if (isSymbolNode(node)) return this.vars.get(node.name)?.sf ?? EXACT
     // A call to a function that declares its result's sig figs (`f(x):3 = …`).
     if (isFunctionNode(node)) {
       const f = this.scope.get(node.fn.name)
@@ -2207,12 +2213,12 @@ export class Calculator {
   }
 
   private totalUncertainty(name: string): unknown {
-    return this.total(this.uncs.get(name), this.scope.get(name))
+    return this.total(this.vars.get(name)?.contributions, this.scope.get(name))
   }
 
   private uncertainInputs(expr: MathNode): string[] {
     const names = expr.filter((n, path) => this.isValueSymbol(n, path)).map((n) => (n as SymbolNode).name)
-    return [...new Set(names)].filter((n) => this.uncs.get(n)?.size)
+    return [...new Set(names)].filter((n) => this.vars.get(n)?.contributions?.size)
   }
 
   /**
@@ -2229,12 +2235,14 @@ export class Calculator {
     const usesUncertainty = expr.filter((n) => isSymbolNode(n) && isUncertaintyName(n.name)).length > 0
     if (!inputs.length || usesUncertainty) return out
     const code = expr.compile()
-    const sources = new Set(inputs.flatMap((n) => [...this.uncs.get(n)!.keys()]))
+    // (Each input has contributions: uncertainInputs keeps only those.)
+    const contributionsOf = (n: string) => this.vars.get(n)!.contributions!
+    const sources = new Set(inputs.flatMap((n) => [...contributionsOf(n).keys()]))
     for (const source of sources) {
-      const plus = new Scope(this.scope)
-      const minus = new Scope(this.scope)
+      const plus = innerValues(this.vars)
+      const minus = innerValues(this.vars)
       for (const n of inputs) {
-        const d = this.uncs.get(n)!.get(source)
+        const d = contributionsOf(n).get(source)
         if (d === undefined) continue
         const v = this.scope.get(n) as MathType
         const step = math.multiply(d as MathType, STEP) as MathType
@@ -2257,11 +2265,7 @@ export class Calculator {
       const value = this.scope.get(name)
       const unc = this.totalUncertainty(name) ?? math.multiply(value as MathType, 0)
       const hidden = uncertaintyName(letter, name)
-      this.scope.set(hidden, unc)
-      this.uncs.set(hidden, new Map())
-      this.uncSfs.set(hidden, undefined)
-      this.defs.set(hidden, undefined)
-      this.sigs.set(hidden, uncertaintySigFigs(this.split(unc, EXACT)?.x ?? 0))
+      this.store(hidden, { value: unc, sf: uncertaintySigFigs(this.split(unc, EXACT)?.x ?? 0) })
       return hidden
     })
   }
@@ -2285,11 +2289,11 @@ export class Calculator {
    * share an uncertainty source, since the simple formula assumes independence.
    */
   private deltaWorking(name: string, letter: UncertaintyWord): string[] {
-    const def = this.defs.get(name)
+    const def = this.vars.get(name)?.def
     if (!def) return []
     const inputs = this.uncertainInputs(def).filter((n) => !isUncertaintyName(n))
     if (!inputs.length) return []
-    const sources = inputs.map((n) => new Set(this.uncs.get(n)!.keys()))
+    const sources = inputs.map((n) => new Set(this.vars.get(n)?.contributions!.keys()))
     if (sources.some((a, i) => sources.slice(i + 1).some((b) => [...a].some((s) => b.has(s))))) return []
 
     const target = symbolTex(name)
@@ -2312,7 +2316,7 @@ export class Calculator {
             : m))
           return term(
             wrap(derivs[i], this.toTex(sub, new Map())),
-            this.uncertaintyTex(this.totalUncertainty(n), this.scope.get(n), this.uncSfs.get(n)),
+            this.uncertaintyTex(this.totalUncertainty(n), this.scope.get(n), this.vars.get(n)?.uncSf),
           )
         })))
       }
@@ -2333,9 +2337,9 @@ export class Calculator {
     if (view) return view.flatMap((name, i) => (name ? [seriesMemberName(base, i + 1)] : []))
     const found = new Map<string, number>()
     // Each level's members, from its series index (an inner level's hide an outer's of the same name).
-    for (let s: Scope | undefined = this.scope; s; s = s.parent) {
+    for (let s: Variables | undefined = this.vars; s; s = s.parent) {
       for (const name of s.membersHere(base) ?? []) {
-        if (found.has(name) || isUncertaintyName(name) || this.aggs.get(name)) continue
+        if (found.has(name) || isUncertaintyName(name) || this.vars.get(name)?.agg) continue
         if (typeof this.scope.get(name) === 'function') continue
         found.set(name, parseNumberedName(name)!.n)
       }
@@ -2351,7 +2355,7 @@ export class Calculator {
   private defineAggregates(line: string, skip?: string): string | undefined {
     for (const m of line.matchAll(NAME_IN_LINE)) {
       const name = m[1]
-      if (name === skip || (this.scope.has(name) && !this.aggs.get(name))) continue
+      if (name === skip || (this.scope.has(name) && !this.vars.get(name)?.agg)) continue
       // e1, e2, … don't turn `e` into a sum: Euler's number (and pi, tau, …) win.
       if (BUILTIN_CONSTANT_NAMES.has(name)) continue
       const { base, kind } = parseAggregateName(name)
@@ -2419,7 +2423,7 @@ export class Calculator {
   private mergedContributions(members: string[]): Contributions {
     const out: Contributions = new Map()
     for (const m of members) {
-      for (const [source, c] of this.uncs.get(m) ?? []) {
+      for (const [source, c] of this.vars.get(m)?.contributions ?? []) {
         out.set(source, out.has(source) ? math.add(out.get(source) as MathType, c as MathType) : c)
       }
     }
@@ -2429,7 +2433,7 @@ export class Calculator {
   /** Sig figs of a series total by the addition rule (least precise decimal place). */
   private seriesSigFigs(members: string[], total: unknown): number {
     const place = Math.max(...members.map((m) =>
-      lastPlace(magnitudeOf(this.scope.get(m)), this.sigs.get(m) ?? EXACT)))
+      lastPlace(magnitudeOf(this.scope.get(m)), this.vars.get(m)?.sf ?? EXACT)))
     const sf = sigFigsFromPlace(magnitudeOf(total), place)
     return Number.isFinite(sf) ? Math.max(1, sf) : EXACT
   }
@@ -2569,10 +2573,10 @@ export class Calculator {
       if (!result.error && this.scope.has(name)) {
         this.customConstants.set(name, {
           value: this.scope.get(name),
-          sf: this.sigs.get(name) ?? EXACT,
-          contributions: this.uncs.get(name) ?? new Map(),
-          uncSf: this.uncSfs.get(name),
-          declared: this.declared.get(name) === true,
+          sf: this.vars.get(name)?.sf ?? EXACT,
+          contributions: this.vars.get(name)?.contributions ?? new Map(),
+          uncSf: this.vars.get(name)?.uncSf,
+          declared: this.vars.get(name)?.declared === true,
         })
       }
       return result
@@ -2623,17 +2627,17 @@ export class Calculator {
       }
       const exact = digits === EXACT_SETTING || !Number.isFinite(digits)
       const hidden = constantRefName(name, exact ? EXACT_SETTING : digits)
-      this.scope.set(hidden, exact ? full : this.roundTo(full, digits))
       // `:exact` shows every digit of the value; that many sig figs is more than any
       // measurement has, so it never limits a result.
       const allDigits = custom ? custom.sf : countSigFigs(String(builtin.value))
-      this.sigs.set(hidden, exact ? allDigits : digits)
-      this.uncs.set(hidden, custom ? custom.contributions : new Map())
-      this.uncSfs.set(hidden, custom?.uncSf)
-      // An explicit precision (`@c:4`, a sheet-wide `@c:4` line, `rho:2 = …`) beats the global setting.
-      this.declared.set(hidden, spec !== undefined || this.constantPrecision.has(name) || custom?.declared || undefined)
-      this.defs.set(hidden, undefined)
-      this.aggs.set(hidden, undefined)
+      this.store(hidden, {
+        value: exact ? full : this.roundTo(full, digits),
+        sf: exact ? allDigits : digits,
+        contributions: custom?.contributions,
+        uncSf: custom?.uncSf,
+        // An explicit precision (`@c:4`, a sheet-wide `@c:4` line, `rho:2 = …`) beats the global setting.
+        declared: spec !== undefined || this.constantPrecision.has(name) || custom?.declared || undefined,
+      })
       return hidden
     })
     return { text, error }
@@ -2756,13 +2760,13 @@ export class Calculator {
     // its own, it just shows its working; used in a calculation, it's an error.
     const returns = statements.some((s) => s.kind === 'return')
 
-    const definedIn = this.scope
+    const definedIn = this.vars
     const fn = (...args: unknown[]) => {
       if (args.length !== params.length) {
         throw new Error(`${name} takes ${params.length} argument${params.length === 1 ? '' : 's'}, `
           + `but was given ${args.length}.`)
       }
-      const local = new Scope(definedIn)
+      const local = innerValues(definedIn)
       params.forEach((p, i) => local.set(p, castArgument(p, casts[i], args[i])))
       for (const s of statements) {
         const v = s.code.evaluate(local)
@@ -2783,33 +2787,10 @@ export class Calculator {
       return undefined
     }
     this.userFunctions.set(fn, {
-      params, casts, statements: sources, definedIn: this.currentScopes(), multiline, returns, returnSf, returnNotation, returnVector, returnUnit,
+      params, casts, statements: sources, definedIn, multiline, returns, returnSf, returnNotation, returnVector, returnUnit,
     })
-    this.scope.set(name, fn)
-    this.uncs.set(name, new Map())
-    this.defs.set(name, undefined)
-    this.aggs.set(name, undefined)
+    this.store(name, { value: fn, sf: EXACT })
     return { signature, body: body.map((b) => ({ ...b, tex: nestBrackets(b.tex) })) }
-  }
-
-  private currentScopes(): ScopeSet {
-    return {
-      scope: this.scope, sigs: this.sigs, uncs: this.uncs, uncSfs: this.uncSfs,
-      declared: this.declared, notations: this.notations, vectors: this.vectors, shown: this.shown, defs: this.defs, aggs: this.aggs,
-    }
-  }
-
-  private restoreScopes(s: ScopeSet): void {
-    this.scope = s.scope
-    this.sigs = s.sigs
-    this.uncs = s.uncs
-    this.uncSfs = s.uncSfs
-    this.declared = s.declared
-    this.notations = s.notations
-    this.vectors = s.vectors
-    this.shown = s.shown
-    this.defs = s.defs
-    this.aggs = s.aggs
   }
 
   /** Calls to multi-line functions in `node`, innermost first (arguments before the call). */
@@ -2870,7 +2851,7 @@ export class Calculator {
         // f(pi) shows π inside the function's working, not 3.14159, and a variable
         // that stays symbolic (defined with #sym) stays symbolic as an argument.
         shown: isSymbolNode(unwrap(a))
-          ? this.shown.get((unwrap(a) as SymbolNode).name) ?? this.constantForm(a, literals)
+          ? this.vars.get((unwrap(a) as SymbolNode).name)?.shown ?? this.constantForm(a, literals)
           : this.constantForm(a, literals),
       }))
     } catch {
@@ -2887,13 +2868,9 @@ export class Calculator {
 
     // A vector passed in is shown inside the function as it is outside.
     const argStyles = call.args.map((a) => this.vectorStyleOf(a))
-    const caller = this.currentScopes()
-    const d = def.definedIn
-    this.restoreScopes({
-      scope: new Scope(d.scope), sigs: new Scope(d.sigs), uncs: new Scope(d.uncs),
-      uncSfs: new Scope(d.uncSfs), declared: new Scope(d.declared), notations: new Scope(d.notations), vectors: new Scope(d.vectors), shown: new Scope(d.shown),
-      defs: new Scope(d.defs), aggs: new Scope(d.aggs),
-    })
+    // The body runs in a scope of its own, inside the one the function was defined in.
+    const caller = this.vars
+    this.enter(new Scope(def.definedIn))
     this.traceDepth++
     this.paramAliases = aliases
     try {
@@ -2930,7 +2907,7 @@ export class Calculator {
     } finally {
       this.paramAliases = callerAliases
       this.traceDepth--
-      this.restoreScopes(caller)
+      this.enter(caller)
     }
   }
 
@@ -3093,7 +3070,7 @@ export class Calculator {
     const F = new math.OperatorNode(OP_SYMBOL.subtract, OP.subtract, [lhs, new math.ParenthesisNode(rhs)])
     const code = F.compile()
     const residual = (s: number) => {
-      const scope = new Scope(this.scope)
+      const scope = innerValues(this.vars)
       scope.set(x, withMagnitude(guess, s))
       return magnitudeOf(code.evaluate(scope))
     }
@@ -3129,14 +3106,13 @@ export class Calculator {
     const value = withMagnitude(guess, s1)
 
     // Uncertainty and sig figs, with x held at the solution.
-    const caller = this.currentScopes()
-    this.restoreScopes({ ...caller, scope: new Scope(caller.scope), sigs: new Scope(caller.sigs), uncs: new Scope(caller.uncs) })
+    // (In a scope of its own, so x isn't left set in the sheet.)
+    const caller = this.vars
+    this.enter(new Scope(caller))
     let contributions: Contributions = new Map()
     let sf: number
     try {
-      this.scope.set(x, value)
-      this.sigs.set(x, EXACT)
-      this.uncs.set(x, new Map())
+      this.store(x, { value, sf: EXACT })
       const h = Math.abs(s1) * SOLVER.slopeStep || SOLVER.slopeStepAtZero
       const slope = (residual(s1 + h) - residual(s1 - h)) / (2 * h)
       if (slope !== 0 && Number.isFinite(slope)) {
@@ -3146,17 +3122,12 @@ export class Calculator {
       }
       sf = this.sigFigsOf(F, literals, false)
     } finally {
-      this.restoreScopes(caller)
+      this.enter(caller)
     }
 
     // Hold the answer in a hidden variable, shown as x itself.
     const hidden = solvedName(x)
-    this.scope.set(hidden, value)
-    this.sigs.set(hidden, sf)
-    this.uncs.set(hidden, contributions)
-    this.uncSfs.set(hidden, undefined)
-    this.defs.set(hidden, undefined)
-    this.aggs.set(hidden, undefined)
+    this.store(hidden, { value, sf, contributions })
     return finish(new math.SymbolNode(hidden), value)
   }
 
@@ -3229,7 +3200,7 @@ export class Calculator {
       this.unpackDeclaredSf = undefined
     }
     const value = this.scope.get(hidden)
-    const sf = this.sigs.get(hidden) ?? EXACT
+    const sf = this.vars.get(hidden)?.sf ?? EXACT
     this.forget(hidden)
     if (result.error) return result
     if (!isTuple(value)) {
@@ -3373,7 +3344,7 @@ export class Calculator {
     }
     const numbers = (name: string, unit: string | undefined): { v: number; d?: number } => {
       const value = this.scope.get(name)
-      const contributions = this.uncs.get(name)
+      const contributions = this.vars.get(name)?.contributions
       let sumSq = 0
       if (contributions) for (const c of contributions.values()) sumSq += magnitudeOf(c) ** 2
       if (!math.isUnit(value)) {
@@ -3636,7 +3607,7 @@ export class Calculator {
       const used = new Map<string, Map<number, string>>()
       for (const m of expr.matchAll(NAME_IN_LINE)) {
         const id = m[1]
-        if (used.has(id) || (this.scope.has(id) && !this.aggs.get(id))) continue
+        if (used.has(id) || (this.scope.has(id) && !this.vars.get(id)?.agg)) continue
         const rows = this.seriesRows(id)
         if (rows.size) used.set(id, rows)
       }
@@ -3667,15 +3638,15 @@ export class Calculator {
   /** A table cell: a variable's value as a number (± its uncertainty), and its unit, in its own notation. */
   private cellParts(name: string): { num: string; unit?: string } {
     const value = this.scope.get(name)
-    const sf = this.sigs.get(name) ?? EXACT
-    const unc = this.total(this.uncs.get(name), value)
-    return this.inNotation(this.notations.get(name), () => {
-      const u = unc !== undefined ? this.uncertainParts(value, unc, this.uncSfs.get(name)) : null
+    const sf = this.vars.get(name)?.sf ?? EXACT
+    const unc = this.total(this.vars.get(name)?.contributions, value)
+    return this.inNotation(this.vars.get(name)?.notation, () => {
+      const u = unc !== undefined ? this.uncertainParts(value, unc, this.vars.get(name)?.uncSf) : null
       if (u) {
         const core = `${numberTex(u.num)} \\pm ${numberTex(u.unc)}`
         return { num: u.exp !== undefined ? `\\left(${core}\\right) \\times 10^{${u.exp}}` : core, unit: u.unit }
       }
-      const p = this.split(value, sf, this.declared.get(name) === true)
+      const p = this.split(value, sf, this.vars.get(name)?.declared === true)
       return p ? { num: numberTex(p.num), unit: p.unit } : { num: this.valueTex(value, sf) }
     })
   }
@@ -3693,9 +3664,7 @@ export class Calculator {
 
   /** Remove a variable, and everything kept about it. */
   private forget(name: string): void {
-    for (const m of [this.scope, this.sigs, this.uncs, this.uncSfs, this.declared, this.notations, this.vectors, this.shown, this.defs, this.aggs]) {
-      m.delete(name)
-    }
+    this.vars.delete(name)
   }
 
   private evaluateLine(input: string, requestedMode: DisplayMode, explicit = false): LineResult {
@@ -3805,10 +3774,10 @@ export class Calculator {
     } catch (e) {
       return { ...result, error: (e as Error).message }
     }
-    const sf = this.sigs.get(name) ?? EXACT
-    const declared = this.declared.get(name) === true
+    const sf = this.vars.get(name)?.sf ?? EXACT
+    const declared = this.vars.get(name)?.declared === true
     // Kept as the vector's notation; shown as its line is (with #sci or #dec too).
-    const notation = this.notations.get(name)
+    const notation = this.vars.get(name)?.notation
     // Each at the vector's sig figs, or for a typed vector, as typed.
     const typed = declared ? undefined : this.typedSfs.get(this.scope.get(name) as object)
     const sfs = components.map((_, i) => typed?.[i] ?? sf)
@@ -3903,13 +3872,13 @@ export class Calculator {
     const deltaOf = uncRef?.of
     if (uncRef) {
       // The uncertainty of a series mean is its standard error.
-      const meanOf = this.aggs.get(uncRef.of)
+      const meanOf = this.vars.get(uncRef.of)?.agg
       steps.push(...(meanOf?.kind === 'mean'
         ? this.standardErrorWorking(meanOf)
         : this.deltaWorking(uncRef.of, uncRef.letter)))
     }
     // `a`, `a_avg`, …: show how the series is combined.
-    const agg = isSymbolNode(bare) ? this.aggs.get(bare.name) : undefined
+    const agg = isSymbolNode(bare) ? this.vars.get(bare.name)?.agg : undefined
     if (agg) steps.push(...this.aggregateWorking(agg))
 
     // Substitution and sig figs use the values from before this line runs.
@@ -4028,8 +3997,8 @@ export class Calculator {
     // `delta x`) keeps its own, and a call keeps its function's (`f(x):sci = …`).
     const callee = isFunctionNode(bare) ? this.scope.get(bare.fn.name) : undefined
     const kept = ctx.notation
-      ?? (deltaOf ? this.notations.get(deltaOf) : undefined)
-      ?? (isSymbolNode(bare) ? this.notations.get(bare.name) : undefined)
+      ?? (deltaOf ? this.vars.get(deltaOf)?.notation : undefined)
+      ?? (isSymbolNode(bare) ? this.vars.get(bare.name)?.notation : undefined)
       ?? (typeof callee === 'function' ? this.userFunctions.get(callee)?.returnNotation : undefined)
     // `#sci` / `#dec` only change how this line is shown: the line's own command
     // beats a variable's notation, and a block's doesn't (see LineNotation).
@@ -4079,12 +4048,12 @@ export class Calculator {
       result = pctUnc === undefined ? `${tex}\\,\\%` : `\\left(${tex}\\right)\\,\\%`
     } else if (!isLiteral(expr) && value !== undefined) {
       result = deltaOf
-        ? this.uncertaintyTex(value, this.scope.get(deltaOf), this.uncSfs.get(deltaOf))
+        ? this.uncertaintyTex(value, this.scope.get(deltaOf), this.vars.get(deltaOf)?.uncSf)
         // A bare variable keeps its declared uncertainty precision: `m` → (2.0 ± 0.1) kg.
         : declaredSf !== undefined
           ? this.valueTex(value, declaredSf, undefined, undefined, true)
-          : this.valueTex(value, sf, unc, isSymbolNode(bare) ? this.uncSfs.get(bare.name) : undefined,
-            isSymbolNode(bare) && this.declared.get(bare.name) === true)
+          : this.valueTex(value, sf, unc, isSymbolNode(bare) ? this.vars.get(bare.name)?.uncSf : undefined,
+            isSymbolNode(bare) && this.vars.get(bare.name)?.declared === true)
     }
     // ≈ before a rounded result: always with the setting on, otherwise only when
     // every input is exact (1/3 ≈ 0.333). A value with ± already states its precision.
@@ -4140,65 +4109,37 @@ export class Calculator {
   /** Enter a nested block. */
   pushScope(): void {
     this.views.push()
-    this.scope = new Scope(this.scope)
-    this.sigs = new Scope(this.sigs)
-    this.uncs = new Scope(this.uncs)
-    this.uncSfs = new Scope(this.uncSfs)
-    this.declared = new Scope(this.declared)
-    this.notations = new Scope(this.notations)
-    this.vectors = new Scope(this.vectors)
-    this.shown = new Scope(this.shown)
-    this.defs = new Scope(this.defs)
-    this.aggs = new Scope(this.aggs)
+    this.enter(new Scope(this.vars))
   }
 
   /** Leave the current block, returning the variables it defined. */
   popScope(): Variable[] {
-    const locals = this.describe(this.scope, this.sigs, this.uncs, this.uncSfs, this.aggs, this.declared)
+    const locals = this.describe(this.vars)
     this.views.pop()
-    this.scope = this.scope.parent ?? this.root
-    this.sigs = this.sigs.parent ?? this.sigsRoot
-    this.uncs = this.uncs.parent ?? this.uncsRoot
-    this.uncSfs = this.uncSfs.parent ?? this.uncSfs
-    this.declared = this.declared.parent ?? this.declared
-    this.notations = this.notations.parent ?? this.notations
-    this.vectors = this.vectors.parent ?? this.vectors
-    this.shown = this.shown.parent ?? this.shown
-    this.defs = this.defs.parent ?? this.defs
-    this.aggs = this.aggs.parent ?? this.aggs
+    this.enter(this.vars.parent ?? this.rootVars)
     return locals
   }
 
   /** Top-level variables (call after every block has been closed). */
   variables(): Variable[] {
-    return this.describe(this.root, this.sigsRoot, this.uncsRoot, this.uncSfs, this.aggs, this.declared)
+    return this.describe(this.rootVars)
   }
 
-  /** Variables defined directly in `scope`, not inherited ones. */
-  private describe(
-    scope: Scope,
-    sigs: Scope<number>,
-    uncs: Scope<Contributions>,
-    uncSfs: Scope<number | undefined>,
-    aggs: Scope<Aggregate | undefined>,
-    declared: Scope<boolean | undefined>,
-  ): Variable[] {
+  /** Variables defined directly in `vars`, not inherited ones. */
+  private describe(vars: Variables): Variable[] {
     // Map.prototype.entries only sees this scope's own entries. Uncertainty
     // references and series aggregates are derived on demand, so not listed.
     // Each one's TeX is worked out when it's first asked for (a hover, say): a
     // sheet with thousands of imported values would otherwise typeset them all
     // on every edit.
-    const typeset = (name: string, v: unknown, sf: number) => {
-      const unc = this.total(uncs.get(name), v)
-      return `${symbolTex(name)} = ${this.valueTex(v, sf, unc, uncSfs.get(name), declared.get(name) === true)}`
-    }
-    return [...scope.entries()]
-      .filter(([name, v]) => typeof v !== 'function' && !isHiddenName(name) && !aggs.get(name))
+    const typeset = (name: string, v: StoredVariable) =>
+      `${symbolTex(name)} = ${this.valueTex(v.value, v.sf, this.total(v.contributions, v.value), v.uncSf, v.declared === true)}`
+    return [...vars.entries()]
+      .filter(([name, v]) => typeof v.value !== 'function' && !isHiddenName(name) && !v.agg)
       .map(([name, v]) => {
-        const sf = sigs.get(name) ?? EXACT
         let tex: string | undefined
         // (Not enumerable, so code that walks the list's properties doesn't typeset them all.)
-        return Object.defineProperty({ name, sf }, 'tex', { get: () => (tex ??= typeset(name, v, sf)), enumerable: false }) as Variable
+        return Object.defineProperty({ name, sf: v.sf }, 'tex', { get: () => (tex ??= typeset(name, v)), enumerable: false }) as Variable
       })
   }
 }

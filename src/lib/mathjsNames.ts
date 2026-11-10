@@ -43,6 +43,9 @@ export const FN = {
   tuple: 'tuple',
 } as const
 
+/** mathjs's other word for a conversion, besides `to`: `2 m in cm`. */
+export const MATHJS_IN = 'in'
+
 /** Units the engine works with by name. */
 export const UNIT = {
   /** Angles are worked out in radians. */

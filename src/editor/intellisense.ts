@@ -29,8 +29,8 @@ import type { SheetSymbol } from '../lib/document.ts'
 import { describeUnit, isUnitName, numberTex, symbolTex, unitNames, unitTex } from '../lib/engine.ts'
 import { STORAGE_KEYS } from '../config.ts'
 import { readStored, writeStored } from '../lib/storage.ts'
-import { GREEK_CHARS, NAME, NAME_CHAR, PERCENT, SETTINGS } from '../lib/syntax.ts'
-import { memberName, parseMemberName } from '../lib/names.ts'
+import { CALL, GREEK_CHARS, KEYWORD, NAME, NAME_CHAR, PERCENT, SETTINGS } from '../lib/syntax.ts'
+import { memberName, parseMemberName, parseNumberedName, seriesMemberName } from '../lib/names.ts'
 import { BUILTIN_FUNCTIONS, COMMANDS, KEYWORDS, MATH_CONSTANTS, SERIES_SUFFIXES, SETTING_WORDS } from './vocabulary.ts'
 import { inDataBlock, inNote, inTextBlock, isProseLine } from './language.ts'
 import { greekCompletions, greekOnSpace } from './greek.ts'
@@ -114,9 +114,16 @@ function symbolInfo(s: SheetSymbol): HTMLElement {
 /** …on the name being assigned. */
 const SETTING_ON_NAME = new RegExp(String.raw`^\s*${NAME}${SETTINGS}:([A-Za-z]*)$`)
 /** …on a name being unpacked: `tuple(r:3, theta:de`. */
-const SETTING_ON_UNPACKED = new RegExp(String.raw`^\s*tuple\s*\((?:[^()=]*,)?\s*${NAME}(?::[^:=\s,()]+)*:([A-Za-z]*)$`)
+const SETTING_ON_UNPACKED = new RegExp(String.raw`^\s*${CALL.tuple}\s*\((?:[^()=]*,)?\s*${NAME}(?::[^:=\s,()]+)*:([A-Za-z]*)$`)
 /** …on a function's result: `f(x):3:de`, `def polar(x, y):de`. */
-const SETTING_ON_RESULT = new RegExp(String.raw`^\s*(?:def\s+)?${NAME}\s*\([^()]*\)${SETTINGS}:([A-Za-z]*)$`)
+const SETTING_ON_RESULT = new RegExp(String.raw`^\s*(?:${KEYWORD.def}\s+)?${NAME}\s*\([^()]*\)${SETTINGS}:([A-Za-z]*)$`)
+
+/** A unit being typed: after a number or `to` (1: what's typed of it so far). */
+const UNIT_SO_FAR = new RegExp(String.raw`(?:\d\.?|\b${KEYWORD.to})\s+([A-Za-z]*)$`)
+/** …after `to`, where `percent` can go too. */
+const AFTER_TO = new RegExp(String.raw`\b${KEYWORD.to}\s+[A-Za-z]*$`)
+/** Where a unit goes, for hovering one: after a number or `to`, or inside a compound unit (m/s^2). */
+const UNIT_PLACE = new RegExp(String.raw`(?:\d\.?|\b${KEYWORD.to})\s+$|[A-Za-z][/*]$`)
 
 /**
  * `t_1`, `t2`: a numbered member of a series (1: the series' name). The name
@@ -262,9 +269,9 @@ export function complete(ctx: CompletionContext): CompletionResult | null {
   }
 
   // After a number or `to`: a unit.
-  const unit = /(?:\d\.?|\bto)\s+([A-Za-z]*)$/.exec(before)
+  const unit = UNIT_SO_FAR.exec(before)
   if (unit && (unit[1] || ctx.explicit)) {
-    const afterTo = /\bto\s+[A-Za-z]*$/.test(before)
+    const afterTo = AFTER_TO.test(before)
     return {
       from: ctx.pos - unit[1].length,
       options: afterTo
@@ -360,6 +367,23 @@ export const reconfigureAcceptKeys = (keys: AcceptKeys) => suggestionKeys.reconf
 // Hover information
 // ---------------------------------------------------------------------------
 
+/**
+ * Information on one of a series' members that isn't listed itself (only a
+ * series' first and last are: an imported column can have thousands), from the
+ * series' listed member: x_57 (or x57), run1.x_57, a.x_3.
+ */
+function seriesMemberInfo(visible: Map<string, SheetSymbol>, name: string): HTMLElement | null {
+  const numbered = parseNumberedName(name)
+  if (!numbered) return null
+  const spellings = [seriesMemberName(numbered.base, numbered.n), `${numbered.base}${numbered.n}`]
+  for (const s of visible.values()) {
+    if (s.kind !== 'variable' || !s.texOf || parseNumberedName(s.name)?.base !== numbered.base) continue
+    const tex = spellings.map((n) => s.texOf!(n)).find(Boolean)
+    if (tex) return infoNode(tex, `${where(s)}; value at the end of its scope`)
+  }
+  return null
+}
+
 /** Hover information: what a name, unit, constant, command or keyword is. */
 const hoverInfo = hoverTooltip((view, pos) => {
   const { state } = view
@@ -386,19 +410,25 @@ const hoverInfo = hoverTooltip((view, pos) => {
     return own ? show(word.from - 1, symbolInfo(own)) : null
   }
   // A unit: after a number or `to`, or inside a compound unit (m/s^2).
-  const unitPlace = /(?:\d\.?|\bto)\s+$|[A-Za-z][/*]$/.test(before)
+  const unitPlace = UNIT_PLACE.test(before)
   if (unitPlace && isUnitName(name)) {
     return show(word.from, infoNode(unitTex(name), describeUnit(name) ?? `${name} (an SI unit)`))
   }
 
   // A namespace's member, `a.x_1`.
+  const visible = visibleAt(state, line.number)
   const ns = new RegExp(String.raw`(?<![\w.${GREEK_CHARS}])(${NAME})\.$`).exec(before)
   if (ns) {
-    const member = visibleAt(state, line.number).get(memberName(ns[1], name))
-    return member ? show(word.from - ns[0].length, symbolInfo(member)) : null
+    const full = memberName(ns[1], name)
+    const member = visible.get(full)
+    if (member) return show(word.from - ns[0].length, symbolInfo(member))
+    const inSeries = seriesMemberInfo(visible, full)
+    return inSeries ? show(word.from - ns[0].length, inSeries) : null
   }
-  const symbol = visibleAt(state, line.number).get(name)
+  const symbol = visible.get(name)
   if (symbol) return show(word.from, symbolInfo(symbol))
+  const inSeries = seriesMemberInfo(visible, name)
+  if (inSeries) return show(word.from, inSeries)
   const builtin = BUILTIN_FUNCTIONS.find((f) => f.name === name)
   if (builtin) return show(word.from, infoNode(undefined, builtin.signature, builtin.description))
   const constant = MATH_CONSTANTS.find((c) => c.name === name)

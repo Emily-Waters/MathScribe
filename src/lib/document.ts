@@ -693,6 +693,11 @@ export interface SheetSymbol {
    * between them stand for all of its values.
    */
   members?: number
+  /**
+   * TeX for any variable defined where this one is, by name: for a series'
+   * members between its first and last, which aren't listed one by one.
+   */
+  texOf?: (name: string) => string | undefined
 }
 
 /**
@@ -712,8 +717,9 @@ export function collectSymbols(sheet: Sheet, source: string): SheetSymbol[] {
   }
   /** A variable's symbol, with its value's TeX worked out only when it's shown. */
   const variable = (name: string, line: number, from: number, to: number, scope: () => Variable[], members?: number): SheetSymbol =>
-    Object.defineProperty({ name, kind: 'variable', line, from, to, members }, 'tex', {
-      get: () => lookup(scope).get(name)?.tex, enumerable: false,
+    Object.defineProperties({ name, kind: 'variable', line, from, to, members }, {
+      tex: { get: () => lookup(scope).get(name)?.tex, enumerable: false },
+      texOf: { value: (other: string) => lookup(scope).get(other)?.tex, enumerable: false },
     }) as SheetSymbol
 
   /** `to`: the last line of the innermost `{ }` block (or the sheet), where its names stop being visible;

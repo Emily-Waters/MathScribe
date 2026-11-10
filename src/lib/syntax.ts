@@ -84,6 +84,38 @@ export const ASSIGNMENT_WITH_VALUE = new RegExp(`${ASSIGNMENT.source}\\s*(.+)$`)
 export const DECLARED = new RegExp(`^(${NAME})((?:${SETTING})+)${ASSIGNS}`)
 
 // ---------------------------------------------------------------------------
+// The sheet's own words
+// ---------------------------------------------------------------------------
+
+/** Words with a meaning of their own in a line. */
+export const KEYWORD = {
+  /** Starts a multi-line function: `def f(a, b)`. */
+  def: 'def',
+  /** A function's result: `return E`. */
+  return: 'return',
+  /** A conversion: `2.0 m to cm`. */
+  to: 'to',
+  /** An uncertainty: `2.0 kg pm 0.1 kg`. */
+  pm: 'pm',
+} as const
+
+/** Calls with a meaning of their own, besides mathjs's functions. */
+export const CALL = {
+  table: 'table',
+  plot: 'plot',
+  select: 'select',
+  import: 'import',
+  solve: 'solve',
+  tuple: 'tuple',
+} as const
+
+/** A call by name, up to its opening bracket: `plot (` (for building patterns). */
+const opening = (call: string) => String.raw`${call}\s*\(`
+
+/** `name = ` before a call that can be named: `p = plot(…)` (1: the name). */
+const NAMED = String.raw`(?:(${NAME})\s*=\s*)`
+
+// ---------------------------------------------------------------------------
 // Functions
 // ---------------------------------------------------------------------------
 
@@ -97,28 +129,47 @@ export const ONE_LINE_FUNCTION = new RegExp(`${FUNCTION_HEAD.source}\\s*(.+)$`)
  * A `def` line: `def f(a, b)`, `def f(a, b):3:deg`, optionally with a trailing
  * `:` (1: name, 2: parameters, 3: settings for the result).
  */
-export const DEF = new RegExp(String.raw`^def\s+(${NAME})\s*\(([^)]*)\)((?::[^:\s]+)*)\s*:?$`)
+export const DEF = new RegExp(String.raw`^${KEYWORD.def}\s+(${NAME})\s*\(([^)]*)\)((?::[^:\s]+)*)\s*:?$`)
 
 /** The parameters of a `def` line as written in the sheet, indentation and all (1: name, 2: parameters). */
-export const DEF_HEAD = new RegExp(String.raw`^\s*def\s+(${NAME})\s*\(([^)]*)\)`)
+export const DEF_HEAD = new RegExp(String.raw`^\s*${KEYWORD.def}\s+(${NAME})\s*\(([^)]*)\)`)
+
+/** A `def` line, as it starts (for telling the kind of a line). */
+export const DEF_START = new RegExp(String.raw`^${KEYWORD.def}\s`)
+
+/** A function's `return` line (1: what it returns). */
+export const RETURN_LINE = new RegExp(String.raw`^${KEYWORD.return}\s+(.+)$`)
 
 /** Unpacking a tuple: `tuple(a, b:3) = …` (1: the names, 2: the right-hand side). */
-export const UNPACK = new RegExp(String.raw`^tuple\s*${PARAMETERS}${ASSIGNS}\s*(.+)$`)
+export const UNPACK = new RegExp(String.raw`^${CALL.tuple}\s*${PARAMETERS}${ASSIGNS}\s*(.+)$`)
 
 /** The start of an unpacking, up to the `=` (1: the names). */
-export const UNPACK_HEAD = new RegExp(String.raw`^tuple\s*${PARAMETERS}${ASSIGNS}`)
+export const UNPACK_HEAD = new RegExp(String.raw`^${CALL.tuple}\s*${PARAMETERS}${ASSIGNS}`)
+
+/** An unpacking being typed, before its `=`: `tuple(a, b` (for the editor). */
+export const UNPACK_SO_FAR = new RegExp(String.raw`^\s*${opening(CALL.tuple)}[^()=]*$`)
 
 /** A table of series: `table(t, x, v = x / t)` (1: what's between the brackets). */
-export const TABLE_CALL = /^table\s*\((.*)\)$/
+export const TABLE_CALL = new RegExp(String.raw`^${opening(CALL.table)}(.*)\)$`)
 
 /**
  * A plot of series: `plot(t, x, y)`, or a named one, `p = plot(t, x; fit linear)`,
  * whose fit is p.slope, p.intercept (1: the name, if any; 2: what's between the brackets).
  */
-export const PLOT_CALL = new RegExp(String.raw`^(?:(${NAME})\s*=\s*)?plot\s*\((.*)\)$`)
+export const PLOT_CALL = new RegExp(String.raw`^${NAMED}?${opening(CALL.plot)}(.*)\)$`)
 
 /** A slice of series: `a = select(t, x; t from 0.2 to 0.8)` (1: its name, 2: what's between the brackets). */
-export const SELECT_CALL = new RegExp(String.raw`^(${NAME})\s*=\s*select\s*\((.*)\)$`)
+export const SELECT_CALL = new RegExp(String.raw`^${NAMED}${opening(CALL.select)}(.*)\)$`)
+
+/** `x = solve(…`, or a bare `solve(…` (1: the name assigned, if any). */
+export const SOLVE_CALL = new RegExp(String.raw`^${NAMED}?${opening(CALL.solve)}`)
+
+/** The calls with settings after a semicolon, and their ⚙ in the editor. */
+export const CALLS_WITH_SETTINGS = [CALL.table, CALL.plot] as const
+export type CallWithSettings = (typeof CALLS_WITH_SETTINGS)[number]
+
+/** A line that opens a call with settings (1: what's before it, a plot's name too; 2: which call). */
+export const SETTINGS_CALL_OPENING = new RegExp(String.raw`^(\s*(?:${NAME}\s*=\s*)?)(${CALLS_WITH_SETTINGS.join('|')})\s*\(`)
 
 /**
  * A name with a dot: a selection's, named import's or named plot's member,
@@ -138,7 +189,7 @@ export const SUBSCRIPT = '_'
  * with the file's rows indented under it; or a named one, `run1 = import(…)`,
  * whose columns are run1.t, run1.x (1: the name, if any; 2: the file's name).
  */
-export const IMPORT = new RegExp(String.raw`^(?:(${NAME})\s*=\s*)?import\s*\(\s*(?:"([^"]*)")?\s*\)$`)
+export const IMPORT = new RegExp(String.raw`^${NAMED}?${opening(CALL.import)}\s*(?:"([^"]*)")?\s*\)$`)
 
 // ---------------------------------------------------------------------------
 // Words used as settings after a `:` (besides sig figs and units)
@@ -214,7 +265,7 @@ export const CONSTANT_TOKEN = new RegExp(`@${NAME}${CONSTANT_PRECISION}`)
  * A line that only sets a constant sheet-wide: `@c:4`, `@a_0 to angstrom`,
  * `@a_0:3 to angstrom` (1: the name, 2: the precision, 3: the unit).
  */
-export const CONSTANT_DECLARATION = new RegExp(String.raw`^@(${NAME})(?::(\d+|${EXACT_SETTING}))?(?:\s+to\s+(\S.*?))?\s*$`)
+export const CONSTANT_DECLARATION = new RegExp(String.raw`^@(${NAME})(?::(\d+|${EXACT_SETTING}))?(?:\s+${KEYWORD.to}\s+(\S.*?))?\s*$`)
 
 // ---------------------------------------------------------------------------
 // Display commands: `#sym`, `#val`, … after a line or a block's opener

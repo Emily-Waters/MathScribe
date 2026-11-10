@@ -36,7 +36,7 @@ import { BUILTIN_CONSTANTS, DEFAULT_CONSTANT_SIG_FIGS, suggestConstant } from '.
 import {
   ASSIGNMENT, ASSIGNMENT_WITH_VALUE, AXES, COMPONENTS_SETTING, CONSTANT_REF, DECLARED, EXACT_SETTING, IS_NAME,
   GREEK_BY_CHAR, GREEK_BY_NAME, GREEK_CHARS, LEADING_NAME, NAME, NAME_CHAR, NAME_WITH_SETTINGS, NOTATIONS, NUMBER, ONE_LINE_FUNCTION, PERCENT, SERIES_SUFFIXES,
-  PLOT_CALL, SELECT_CALL, SUBSCRIPT, TABLE_CALL, UNCERTAINTY_WORDS, UNIT_VECTOR_SETTING, UNPACK, VECTOR_FUNCTION,
+  KEYWORD, PLOT_CALL, RETURN_LINE, SELECT_CALL, SOLVE_CALL, SUBSCRIPT, TABLE_CALL, UNCERTAINTY_WORDS, UNIT_VECTOR_SETTING, UNPACK, VECTOR_FUNCTION,
   type DisplayMode, type LineCommand, type Notation, type Precision, type SeriesSuffix, type UncertaintyWord,
   type VectorStyle,
 } from './syntax.ts'
@@ -45,7 +45,7 @@ import {
   parseConstantRefName, parseMemberName, parseNumberedName, parseSeriesStatName, parseSolvedName, parseUncertaintyName, readableMembers,
   seriesMemberName, solvedName, uncertaintyName, unpackedColumnName, unpackedName,
 } from './names.ts'
-import { FN, OP, OP_SYMBOL, UNIT, UNIT_LOOKS, isOp } from './mathjsNames.ts'
+import { FN, MATHJS_IN, OP, OP_SYMBOL, UNIT, UNIT_LOOKS, isOp } from './mathjsNames.ts'
 import { Solver, contains, countOccurrences, matchingParen, splitArgs, splitEquation } from './solve.ts'
 import { nestBrackets } from './brackets.ts'
 import type { CsvColumn } from './csv.ts'
@@ -511,13 +511,15 @@ const NUMBER_LITERAL = new RegExp(String.raw`(?<!${NAME_CHAR}|\.)${NUMBER}`, 'g'
 /** Every name in a line that isn't a call: not part of a longer name, or after `.` or `\`. */
 const NAME_IN_LINE = new RegExp(String.raw`(?<!${NAME_CHAR}|[\\.])(${NAME})(?!${NAME_CHAR}|\()`, 'g')
 /** After a unit, another term (a name or a bracket), not `to` or `in`: `1/2 m v^2`. */
-const MORE_TERMS = new RegExp(String.raw`^[ \t]+(?!(?:to|in)(?!${NAME_CHAR}))(?:${NAME_CHAR}|\()`)
+const MORE_TERMS = new RegExp(String.raw`^[ \t]+(?!(?:${KEYWORD.to}|${MATHJS_IN})(?!${NAME_CHAR}))(?:${NAME_CHAR}|\()`)
 /** `pm` as a word (not the start of a name like `pmax`). */
-const PM_WORD = new RegExp(`^pm(?!${NAME_CHAR})`)
+const PM_WORD = new RegExp(`^${KEYWORD.pm}(?!${NAME_CHAR})`)
 /** A character that can be part of a name. */
 const NAME_CHAR_RE = new RegExp(NAME_CHAR)
 /** `to` before a unit. */
-const CONVERSION = /\bto\s+/g
+const CONVERSION = new RegExp(String.raw`\b${KEYWORD.to}\s+`, 'g')
+/** A conversion that's all that's left of a line: `to cm` (1: the unit). */
+const CONVERSION_TAIL = new RegExp(String.raw`^${KEYWORD.to}\s+(.+)$`)
 
 /**
  * Rewrite unit literals into explicit mathjs unit() calls. Also reports the
@@ -578,8 +580,6 @@ export function preprocess(src: string, isVariable: (id: string) => boolean): { 
 /** `delta F` (or `Delta F`): F's uncertainty (1: the letter, 2: the name). */
 const DELTA_REF = new RegExp(String.raw`\b(${UNCERTAINTY_WORDS.join('|')})\s+(${NAME})`, 'g')
 
-/** `x = solve(…`, or a bare `solve(…` (1: the name assigned, if any). */
-const SOLVE_CALL = new RegExp(String.raw`^(?:(${NAME})\s*=\s*)?solve\s*\(`)
 
 /** A select condition on a series' values: `t from 0.2 to 0.8`, `t from 0.2`, `t to 0.8` (1: the series, 2: from, 3: to). */
 const SELECT_RANGE = new RegExp(String.raw`^(${NAME})\s+(?:${SETTING.from}\s+(.+?))?\s*(?:\b${SETTING.to}\s+(.+))?$`)
@@ -616,7 +616,7 @@ function parseAggregateName(name: string): { base: string; kind: AggregateKind }
 const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 /** `(2.0 pm 0.1)`: a bracketed value with its uncertainty (1: value, 2: uncertainty, 3: `%` if relative). */
-const PAREN_PM = /\(\s*([-+]?[\d.]+(?:[eE][+-]?\d+)?)\s*(?:pm\b|±|\+-)\s*([\d.]+(?:[eE][+-]?\d+)?)(%?)\s*\)/g
+const PAREN_PM = new RegExp(String.raw`\(\s*([-+]?[\d.]+(?:[eE][+-]?\d+)?)\s*(?:${KEYWORD.pm}\b|±|\+-)\s*([\d.]+(?:[eE][+-]?\d+)?)(%?)\s*\)`, 'g')
 
 /** `(2.0 pm 0.1) kg` → `2.0 kg pm 0.1 kg` */
 function expandParenPm(src: string): string {
@@ -987,6 +987,13 @@ class Views {
     this.levels.at(-1)!.set(base, names)
   }
 
+  /** Each member of the series set at this level, and the variable it is: a__x_1 → x_2, …. */
+  *membersHere(): Generator<[member: string, variable: string]> {
+    for (const [base, names] of this.levels.at(-1)!) {
+      for (const [i, name] of names.entries()) if (name) yield [seriesMemberName(base, i + 1), name]
+    }
+  }
+
   /** Forget the series under namespace `ns` set at this level (a selection being redone). */
   clear(ns: string): void {
     const level = this.levels.at(-1)!
@@ -1321,7 +1328,7 @@ interface ParsedLine {
 }
 
 /** `… to percent` at the end of a line. */
-const TO_PERCENT = /\s+to\s+percent\s*$/
+const TO_PERCENT = new RegExp(String.raw`\s+${KEYWORD.to}\s+${PERCENT}\s*$`)
 
 /** Marks a SymbolNode whose name is pre-rendered TeX (used for substituted values). */
 const RAW = '\u0001'
@@ -1391,9 +1398,12 @@ function addLiteral(literals: Map<number, string>, text: string): void {
   if (String(value) === text || !literals.has(value)) literals.set(value, text)
 }
 
-/** A function parameter: `m`, or `m to kg` (cast to kg on the way in). */
+/** A function parameter: `m`, or `m to kg` (cast to kg on the way in) (1: the name, 2: the unit). */
+const PARAMETER = new RegExp(String.raw`^(${NAME})(?:\s+${KEYWORD.to}\s+(\S+))?$`)
+
+/** A function parameter's name and unit (null if it isn't one). */
 function parseParam(spec: string): { name: string; unit?: string } | null {
-  const m = new RegExp(String.raw`^(${NAME})(?:\s+to\s+(\S+))?$`).exec(spec.trim())
+  const m = PARAMETER.exec(spec.trim())
   return m ? { name: m[1], unit: m[2] } : null
 }
 
@@ -2711,7 +2721,7 @@ export class Calculator {
     if (duplicate) return { signature, body, error: `The parameter "${duplicate}" is listed twice.` }
 
     for (const { line, text, note, command, multiline: lineMultiline } of lines) {
-      const ret = /^return\s+(.+)$/.exec(text)
+      const ret = RETURN_LINE.exec(text)
       // `x = …`, or with display settings: `x:3 = …`, `theta:deg = …`.
       const assign = ASSIGNMENT_WITH_VALUE.exec(text)
       // `tuple(a, b) = …` unpacks a tuple (checked first: it also looks like an assignment).
@@ -2942,7 +2952,7 @@ export class Calculator {
     const close = matchingParen(line, open)
     if (close < 0) return fail('solve( is missing its closing bracket.')
     const tail = line.slice(close + 1).trim()
-    const conversion = /^to\s+(.+)$/.exec(tail)?.[1]
+    const conversion = CONVERSION_TAIL.exec(tail)?.[1]
     if (tail && !conversion) return fail('solve(…) has to be the whole right-hand side, optionally followed by "to unit".')
 
     const args = splitArgs(line.slice(open + 1, close))
@@ -3688,7 +3698,7 @@ export class Calculator {
     // (Bad parameters, like `g(x y)`, get defineFunction's error rather than mathjs's.)
     if (oneLiner) {
       // `f(x):3:deg = …`: settings for what the function gives back.
-      const result = this.defineFunction(oneLiner[1], params!, [{ line: 0, text: `return ${oneLiner[4]}` }], this.multiline, oneLiner[3])
+      const result = this.defineFunction(oneLiner[1], params!, [{ line: 0, text: `${KEYWORD.return} ${oneLiner[4]}` }], this.multiline, oneLiner[3])
       return {
         tex: result.body[0]?.tex ?? result.signature,
         error: result.error?.replace(/^Line 0: /, ''),
@@ -4125,7 +4135,11 @@ export class Calculator {
     return this.describe(this.rootVars)
   }
 
-  /** Variables defined directly in `vars`, not inherited ones. */
+  /**
+   * Variables defined directly in `vars`, not inherited ones, and the members
+   * of the selections and named plots made there (a.x_1: each the variable it
+   * looks up, under its own name).
+   */
   private describe(vars: Variables): Variable[] {
     // Map.prototype.entries only sees this scope's own entries. Uncertainty
     // references and series aggregates are derived on demand, so not listed.
@@ -4134,12 +4148,18 @@ export class Calculator {
     // on every edit.
     const typeset = (name: string, v: StoredVariable) =>
       `${symbolTex(name)} = ${this.valueTex(v.value, v.sf, this.total(v.contributions, v.value), v.uncSf, v.declared === true)}`
-    return [...vars.entries()]
+    const listed = (name: string, v: StoredVariable): Variable => {
+      let tex: string | undefined
+      // (Not enumerable, so code that walks the list's properties doesn't typeset them all.)
+      return Object.defineProperty({ name, sf: v.sf }, 'tex', { get: () => (tex ??= typeset(name, v)), enumerable: false }) as Variable
+    }
+    const own = [...vars.entries()]
       .filter(([name, v]) => typeof v.value !== 'function' && !isHiddenName(name) && !v.agg)
-      .map(([name, v]) => {
-        let tex: string | undefined
-        // (Not enumerable, so code that walks the list's properties doesn't typeset them all.)
-        return Object.defineProperty({ name, sf: v.sf }, 'tex', { get: () => (tex ??= typeset(name, v)), enumerable: false }) as Variable
-      })
+      .map(([name, v]) => listed(name, v))
+    const looked = [...this.views.membersHere()].flatMap(([member, name]) => {
+      const v = vars.get(name)
+      return v ? [listed(member, v)] : []
+    })
+    return [...own, ...looked]
   }
 }

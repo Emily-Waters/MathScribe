@@ -18,11 +18,7 @@ import {
   PLOT_FITS, PLOT_STYLES, formatPlotSettings, parsePlotSettings,
   type AxisSettings, type PlotFit, type PlotSettings, type PlotStyle,
 } from '../lib/plotSettings.ts'
-import { NAME } from '../lib/syntax.ts'
-
-/** The calls with settings, and where each line's opening is (1: what's before it, a plot's name too; 2: the call's name). */
-const CALL_OPENING = new RegExp(String.raw`^(\s*(?:${NAME}\s*=\s*)?)(table|plot)\s*\(`)
-type CallKind = 'table' | 'plot'
+import { CALL, SETTINGS_CALL_OPENING as CALL_OPENING, type CallWithSettings as CallKind } from '../lib/syntax.ts'
 
 /** How each choice reads in the panels. */
 const LINE_NAMES: Record<TableLines, string> = { header: 'Under the header', grid: 'Grid', none: 'None' }
@@ -189,8 +185,8 @@ function openSettings(view: EditorView, button: HTMLElement, n: number): void {
   const panel = document.createElement('div')
   panel.className = 'options__panel cm-ms-table-menu'
   panel.setAttribute('role', 'group')
-  panel.setAttribute('aria-label', call.kind === 'table' ? 'Table settings' : 'Plot settings')
-  panel.append(...(call.kind === 'table' ? tablePanel : plotPanel)(settingsText, save))
+  panel.setAttribute('aria-label', call.kind === CALL.table ? 'Table settings' : 'Plot settings')
+  panel.append(...(call.kind === CALL.table ? tablePanel : plotPanel)(settingsText, save))
 
   // Under the button, kept on screen.
   const at = button.getBoundingClientRect()
@@ -234,8 +230,8 @@ class SettingsButton extends WidgetType {
     const button = document.createElement('button')
     button.className = 'cm-ms-import-button cm-ms-table-settings'
     button.textContent = COG
-    button.title = this.kind === 'table' ? 'Table settings: rows, lines, row numbers' : 'Plot settings: rows, style, fit, axes, title'
-    button.setAttribute('aria-label', this.kind === 'table' ? 'Table settings' : 'Plot settings')
+    button.title = this.kind === CALL.table ? 'Table settings: rows, lines, row numbers' : 'Plot settings: rows, style, fit, axes, title'
+    button.setAttribute('aria-label', this.kind === CALL.table ? 'Table settings' : 'Plot settings')
     button.addEventListener('mousedown', (e) => e.preventDefault())
     button.addEventListener('click', (e) => {
       e.preventDefault()
@@ -254,8 +250,8 @@ class SettingsButton extends WidgetType {
 }
 
 const buttons: Record<CallKind, Decoration> = {
-  table: Decoration.widget({ widget: new SettingsButton('table'), side: 1 }),
-  plot: Decoration.widget({ widget: new SettingsButton('plot'), side: 1 }),
+  [CALL.table]: Decoration.widget({ widget: new SettingsButton(CALL.table), side: 1 }),
+  [CALL.plot]: Decoration.widget({ widget: new SettingsButton(CALL.plot), side: 1 }),
 }
 
 /** A ⚙ after each table's and plot's closing bracket. */

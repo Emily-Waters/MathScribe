@@ -68,6 +68,12 @@ describe('select()', () => {
     expect(last(`${data}delta = select(t)`).error).toMatch(/reserved/)
   })
 
+  it('lists its members among the sheet’s variables, each with the value it looks up (for hover)', () => {
+    const vars = sheet(`${data}a = select(t, x; t from 0.2)`).variables
+    expect(vars.find((v) => v.name === 'a__x_2')?.tex).toBe('x_{a,2} = \\left(0.152 \\pm 0.004\\right)\\,\\mathrm{m}')
+    expect(vars.filter((v) => v.name.startsWith('a__'))).toHaveLength(6)
+  })
+
   it('is local to a { } block, as a variable is', () => {
     const src = `${data}Run {\n  a = select(x; t from 0.3)\n  y = a.x_1\n}\nz = a.x_1`
     expect(lines(src).find((l) => l.source.startsWith('y'))!.error).toBeUndefined()

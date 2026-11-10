@@ -11,8 +11,8 @@ import { StreamLanguage, foldService, foldedRanges, indentService, type StringSt
 import { tags } from '@lezer/highlight'
 import { closesVector, isUnitName } from '../lib/engine.ts'
 import {
-  COMMAND_NAMES, CONSTANT_TOKEN, FUNCTION_HEAD, GREEK_CHARS, IMPORT, INDENT_WIDTH, NAME, NAME_CHAR, NUMBER, SETTINGS,
-  commandPattern, indentOf,
+  CALL, COMMAND_NAMES, CONSTANT_TOKEN, DEF_START, FUNCTION_HEAD, GREEK_CHARS, IMPORT, INDENT_WIDTH, KEYWORD, NAME, NAME_CHAR,
+  NUMBER, SETTINGS, UNPACK_SO_FAR, commandPattern, indentOf,
 } from '../lib/syntax.ts'
 
 /** What a line is, from how it starts and ends (as document.ts reads it). */
@@ -44,16 +44,15 @@ const WORD = new RegExp(`[A-Za-z_µ${GREEK_CHARS}]${NAME_CHAR}*`)
 /** A number at the current position. */
 const NUMBER_TOKEN = new RegExp(NUMBER)
 /** Words coloured as keywords. */
-const KEYWORDS = new Set(['def', 'return', 'to', 'pm'])
+const KEYWORDS: ReadonlySet<string> = new Set(Object.values(KEYWORD))
 
 // What's been typed so far on a line, when the next word is a display setting
 // (a unit after `:`, as in `phi:3:deg`):
 /** …on the name being assigned: `phi:3:`. */
 const NAME_SETTINGS_SO_FAR = new RegExp(String.raw`^\s*${NAME}${SETTINGS}$`)
-/** …on a name being unpacked: `tuple(r:3, theta:`. */
-const UNPACK_SO_FAR = /^\s*tuple\s*\([^()=]*$/
+// …on a name being unpacked, `tuple(r:3, theta:`: UNPACK_SO_FAR.
 /** …on a function's result: `f(x):3:`, `def polar(x, y):`. */
-const FUNCTION_SETTINGS_SO_FAR = new RegExp(String.raw`^\s*(?:def\s+)?${NAME}\s*\([^()]*\)${SETTINGS}$`)
+const FUNCTION_SETTINGS_SO_FAR = new RegExp(String.raw`^\s*(?:${KEYWORD.def}\s+)?${NAME}\s*\([^()]*\)${SETTINGS}$`)
 
 /** The line without its note and commands, to see how it ends. */
 function bodyOf(line: string): string {
@@ -66,7 +65,7 @@ function lineKind(line: string): LineKind {
   if (t.startsWith('#')) return 'heading'
   if (t.startsWith('>')) return 'text'
   if (t.startsWith('$')) return 'latex'
-  if (/^def\s/.test(t)) return 'def'
+  if (DEF_START.test(t)) return 'def'
   const body = bodyOf(t)
   if (body.endsWith(':') || (body.endsWith('{') && !body.startsWith('@constants'))) return 'opener'
   return 'calc'
@@ -171,12 +170,12 @@ function token(stream: StringStream, state: State): string | null {
       state.afterTo = false
       return 'unit'
     }
-    state.afterTo = id === 'to'
+    state.afterTo = id === KEYWORD.to
     if (KEYWORDS.has(id)) return 'keyword'
     if (call) {
       // `def f(…)`, or `f(…) = …` at the start of a line: a definition.
       // (Not `tuple(a, b) = …`, which unpacks a tuple rather than defining a function.)
-      const oneLiner = stream.start === /^\s*/.exec(stream.string)![0].length && id !== 'tuple'
+      const oneLiner = stream.start === /^\s*/.exec(stream.string)![0].length && id !== CALL.tuple
         && FUNCTION_HEAD.test(stream.string.trimStart())
       return state.kind === 'def' || oneLiner ? 'definition' : 'function'
     }

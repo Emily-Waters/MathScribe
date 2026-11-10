@@ -4,8 +4,8 @@
  * come from lib/syntax.ts, which the engine uses too.)
  */
 import {
-  COMMAND_NAMES, COMPONENTS_SETTING, EXACT_SETTING, NOTATIONS, PERCENT, UNIT_VECTOR_SETTING, VECTOR_FUNCTION,
-  type CommandName, type Notation, type SeriesSuffix,
+  CALL, COMMAND_NAMES, COMPONENTS_SETTING, EXACT_SETTING, KEYWORD, NOTATIONS, PERCENT, UNCERTAINTY_WORDS, UNIT_VECTOR_SETTING,
+  VECTOR_FUNCTION, type CommandName, type Notation, type SeriesSuffix,
 } from '../lib/syntax.ts'
 
 /** What each display command does. */
@@ -44,11 +44,11 @@ export const SETTING_WORDS: { name: string; description: string }[] = [
 
 /** Words of the sheet language, with what they do. */
 export const KEYWORDS: { name: string; description: string }[] = [
-  { name: 'def', description: 'Define a function with an indented body' },
-  { name: 'return', description: 'The value a def function gives back' },
-  { name: 'to', description: 'Convert to a unit: v to km/h, or to percent' },
-  { name: 'pm', description: 'An uncertainty: 2.0 kg pm 0.1 kg (also ± or +-)' },
-  { name: 'delta', description: 'The uncertainty of a variable: delta F' },
+  { name: KEYWORD.def, description: 'Define a function with an indented body' },
+  { name: KEYWORD.return, description: 'The value a def function gives back' },
+  { name: KEYWORD.to, description: 'Convert to a unit: v to km/h, or to percent' },
+  { name: KEYWORD.pm, description: 'An uncertainty: 2.0 kg pm 0.1 kg (also ± or +-)' },
+  { name: UNCERTAINTY_WORDS[0], description: 'The uncertainty of a variable: delta F' },
 ]
 
 /** Built-in functions people use in sheets (mathjs has many more; all of them work). */
@@ -77,16 +77,16 @@ export const BUILTIN_FUNCTIONS: { name: string; signature: string; description: 
   { name: 'min', signature: 'min(a, b, …)', description: 'Smallest value' },
   { name: 'max', signature: 'max(a, b, …)', description: 'Largest value' },
   { name: 'factorial', signature: 'factorial(n)', description: 'n!' },
-  { name: 'tuple', signature: 'tuple(x, y, …)', description: 'A tuple of values, such as coordinates; tuple(a, b) = … unpacks one' },
+  { name: CALL.tuple, signature: 'tuple(x, y, …)', description: 'A tuple of values, such as coordinates; tuple(a, b) = … unpacks one' },
   { name: VECTOR_FUNCTION, signature: 'vector(x, y, …)', description: 'A vector, the same as <x, y, …>' },
   { name: 'norm', signature: 'norm(r)', description: 'Length of a vector or tuple: norm(<3, 4>) = 5' },
   { name: 'dot', signature: 'dot(a, b)', description: 'Dot product of two vectors' },
   { name: 'cross', signature: 'cross(a, b)', description: 'Cross product of two 3D vectors' },
-  { name: 'import', signature: 'import()', description: 'Import a CSV file: each value becomes a variable, x_1, x_2, …' },
-  { name: 'table', signature: 'table(t, x, v = x / t)', description: 'Series side by side, one row per number; name = … works out a column row by row' },
-  { name: 'plot', signature: 'p = plot(t, x; fit linear)', description: 'Graph series against another, with error bars; fit linear adds a best-fit line (p.slope, p.intercept)' },
-  { name: 'select', signature: 'a = select(t, x; t from 0.2 to 0.8)', description: 'The rows where conditions hold, as new series a.t, a.x numbered from 1' },
-  { name: 'solve', signature: 'solve(equation, unknown, guess?)', description: 'Rearrange an equation for the unknown and evaluate it' },
+  { name: CALL.import, signature: 'import()', description: 'Import a CSV file: each value becomes a variable, x_1, x_2, …' },
+  { name: CALL.table, signature: 'table(t, x, v = x / t)', description: 'Series side by side, one row per number; name = … works out a column row by row' },
+  { name: CALL.plot, signature: 'p = plot(t, x; fit linear)', description: 'Graph series against another, with error bars; fit linear adds a best-fit line (p.slope, p.intercept)' },
+  { name: CALL.select, signature: 'a = select(t, x; t from 0.2 to 0.8)', description: 'The rows where conditions hold, as new series a.t, a.x numbered from 1' },
+  { name: CALL.solve, signature: 'solve(equation, unknown, guess?)', description: 'Rearrange an equation for the unknown and evaluate it' },
 ]
 
 /** Constants that are built into mathjs (no @), shown as symbols. */

@@ -452,6 +452,66 @@ describe('expandVectors', () => {
   })
 })
 
+describe('table()', () => {
+  const data = 't1 = 0.10 s\nt2 = 0.20 s\nt3 = 0.30 s\nx1 = 0.012 m\nx2 = 0.047 m\nx3 = 0.106 m\n'
+  /** A table's rows as readable text, header first. */
+  const rowsOf = (tex: string) => tex.replace(/\\begin\{array\}\{[^}]*\}|\\end\{array\}|\\hline/g, '')
+    .split('\\\\').map((row) => row.split('&').map((cell) => readable(cell)).join(' & '))
+
+  it('puts series side by side, one row per number, with a shared unit in the header', () => {
+    expect(rowsOf(last(`${data}table(t, x)`).tex)).toEqual([
+      'n & t [s] & x [m]', '1 & 0.10 & 0.012', '2 & 0.20 & 0.047', '3 & 0.30 & 0.106',
+    ])
+  })
+
+  it('works out a named column row by row, and makes it a series', () => {
+    expect(rowsOf(last(`${data}table(t, x, v = x / t)`).tex)[0]).toBe('n & t [s] & x [m] & v [m/s]')
+    expect(rowsOf(last(`${data}table(t, x, v = x / t)`).tex)[2]).toBe('2 & 0.20 & 0.047 & 0.23')
+    expect(value(`${data}table(t, x, v = x / t)\nv_count`)).toBe('3')
+    expect(value(`${data}table(t, x, v = x / t)\nw = v_3`)).toBe('0.35 m/s')
+  })
+
+  it('shows an unnamed column without making a series, and uses other values as they are', () => {
+    expect(rowsOf(last(`${data}table(x / t)`).tex)[0]).toBe('n & \\fracxt [m/s]')
+    expect(last(`${data}table(x / t)\ny = unpacked__table0_1`).error).toMatch(/Undefined symbol/)
+    expect(rowsOf(last(`${data}g = 9.81 m/s^2\ntable(h = 1/2 * g * t^2)`).tex)[1]).toBe('1 & 0.049')
+  })
+
+  it('shows uncertainties, and a gap where a series has no value', () => {
+    expect(rowsOf(last('d1 = 3.0 m pm 0.1 m\nd2 = 4.0 m pm 0.1 m\ntable(d)').tex)[1]).toBe('1 & 3.0 ± 0.1')
+    expect(rowsOf(last('a1 = 1.0\na2 = 2.0\nb1 = 5.0\ntable(a, b)').tex)[2]).toBe('2 & 2.0 & \\text—')
+  })
+
+  it('shortens a long table to its first and last rows', () => {
+    const many = Array.from({ length: 80 }, (_, i) => `y${i + 1} = ${i + 1}.0`).join('\n')
+    const line = last(`${many}\ntable(y)`)
+    expect(line.info).toBe('80 rows: the first 50 and the last 5 are shown (the ⚙ button can show them all).')
+    expect(line.tex).toContain('\\vdots')
+    expect(line.tex).not.toContain(' 51 & ')
+    // Unless the settings ask for all of them.
+    expect(last(`${many}\ntable(y; all rows)`).tex).toContain(' 51 & ')
+  })
+
+  it('takes settings after a semicolon: rows, lines and the n column', () => {
+    const rows = rowsOf(last(`${data}table(t, x; rows 2-3)`).tex)
+    expect(rows.slice(1).map((r) => r.split(' & ')[0])).toEqual(['2', '3'])
+    expect(rowsOf(last(`${data}table(t, x; rows 2)`).tex)).toHaveLength(2)
+    expect(rowsOf(last(`${data}table(t; numbers off)`).tex)[0]).toBe('t [s]')
+    expect(last(`${data}table(t; lines grid)`).tex).toMatch(/^\\begin\{array\}\{\|r\|r\|\} \\hline n/)
+    expect(last(`${data}table(t; lines none)`).tex).not.toContain('\\hline')
+    expect(last(`${data}table(t; rows 9-12)`).info).toBe('No rows in this range.')
+    expect(last(`${data}table(t; colour red)`).error).toMatch(/^"colour red" isn't a table setting/)
+  })
+
+  it('explains what doesn’t fit', () => {
+    expect(last('table()').error).toMatch(/^Name the series to show/)
+    expect(last('table(q)').error).toMatch(/^q isn't a series/)
+    expect(last(`${data}table(2 * t1)`).error).toMatch(/doesn't use any series/)
+    expect(last('a1 = 1.0\na2 = 0\ntable(r = 1 / a)').error).toBeUndefined()
+    expect(last('a1 = 1.0 m\na2 = 2.0 s\ntable(r = a + 1.0 m)').error).toMatch(/^Row 2: The units don't match/)
+  })
+})
+
 describe('vectors', () => {
   it('are written <…>, shown ⟨…⟩, with a unit after the > for every component', () => {
     expect(shown('F = <3.0, 4.0> N')).toBe('F = ⟨3.0, 4.0⟩ N')

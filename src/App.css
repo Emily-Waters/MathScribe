@@ -1138,6 +1138,28 @@ body {
   margin-bottom: 0;
 }
 
+/* A table's settings panel (its ⚙ in the editor), built on the options panel above */
+.cm-ms-table-menu .options__row {
+  margin-bottom: 8px;
+}
+
+.cm-ms-table-menu .options__row span.cm-ms-table-menu__rows {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cm-ms-table-menu__rows input {
+  width: 64px;
+  font: inherit;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 4px;
+}
+
 /* ---------- Layout blocks (Title:  #center / #list / #numbered) ---------- */
 
 .layout {

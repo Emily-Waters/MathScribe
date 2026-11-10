@@ -36,13 +36,14 @@ import { BUILTIN_CONSTANTS, DEFAULT_CONSTANT_SIG_FIGS, suggestConstant } from '.
 import {
   ASSIGNMENT, ASSIGNMENT_WITH_VALUE, AXES, COMPONENTS_SETTING, CONSTANT_REF, DECLARED, EXACT_SETTING, IS_NAME,
   GREEK_BY_CHAR, GREEK_BY_NAME, GREEK_CHARS, LEADING_NAME, NAME, NAME_CHAR, NAME_WITH_SETTINGS, NOTATIONS, NUMBER, ONE_LINE_FUNCTION, PERCENT, SERIES_SUFFIXES,
-  UNCERTAINTY_WORDS, UNIT_VECTOR_SETTING, UNPACK, VECTOR_FUNCTION,
+  TABLE_CALL, UNCERTAINTY_WORDS, UNIT_VECTOR_SETTING, UNPACK, VECTOR_FUNCTION,
   type DisplayMode, type LineCommand, type Notation, type Precision, type SeriesSuffix, type UncertaintyWord,
   type VectorStyle,
 } from './syntax.ts'
 import { Solver, contains, countOccurrences, matchingParen, splitArgs, splitEquation } from './solve.ts'
 import { nestBrackets } from './brackets.ts'
 import type { CsvColumn } from './csv.ts'
+import { parseTableSettings, splitTableArgs } from './tableSettings.ts'
 
 /** Our own mathjs instance, with the functions below added or replaced. */
 const math = create(all)
@@ -1019,6 +1020,28 @@ function toDisplayUnit(value: unknown, unit: string): unknown {
       + '(only an angle in radians, from atan or asin for example, can be given a unit this way).')
   }
   throw new Error(`This value can't be shown in ${unit}.`)
+}
+
+/** A column of a table worked out row by row, with a name: `v = x / t` (1: the name, 2: the expression). */
+const TABLE_COLUMN = new RegExp(String.raw`^(${NAME})\s*=(?!=)\s*(.+)$`)
+
+/** How many rows a table shows: all of them up to `max`; past that, the `first` and the `last`, with ⋮ between. */
+const TABLE_ROWS = { max: 60, first: 50, last: 5 }
+
+/** A series' name where it stands for a value: not part of a longer name, a call, or a unit after a number. */
+const SERIES_IN_EXPRESSION = new RegExp(String.raw`(?<!${NAME_CHAR}|[.@])(${NAME})(?!${NAME_CHAR}|\s*\()`, 'g')
+
+/**
+ * A table column's expression for row `n`: each series it uses, replaced by
+ * that row's value's name (`x / t` → `x_3 / t_3`).
+ */
+function withRowValues(expr: string, series: Map<string, Map<number, string>>, n: number): string {
+  return expr.replace(SERIES_IN_EXPRESSION, (match: string, name: string, offset: number) => {
+    const member = series.get(name)?.get(n)
+    // (A unit right after a number, `2.0 m`, stays a unit.)
+    if (!member || /\d\.?\s+$/.test(expr.slice(0, offset))) return match
+    return member
+  })
 }
 
 /** A tuple or vector's TeX, bracketed if it isn't already (a sum of unit vectors), to drop into a substitution. */
@@ -3024,9 +3047,7 @@ export class Calculator {
     }
     const value = this.scope.get(hidden)
     const sf = this.sigs.get(hidden) ?? EXACT
-    for (const m of [this.scope, this.sigs, this.uncs, this.uncSfs, this.declared, this.notations, this.vectors, this.shown, this.defs, this.aggs]) {
-      m.delete(hidden)
-    }
+    this.forget(hidden)
     if (result.error) return result
     if (!isTuple(value)) {
       return { ...result, error: `The right-hand side isn't a tuple, so it can't be unpacked into ${names.join(', ')}.` }
@@ -3057,7 +3078,158 @@ export class Calculator {
     return { ...result, parts, tex: layoutEquation(mode, parts, this.multiline) }
   }
 
+  /**
+   * `table(t, x, v = x / t)`: series side by side, one row per number (row 1 is
+   * t_1, x_1, v_1). A name is a series' values; `name = expression` is worked
+   * out row by row from the series it uses, and makes a series of its own (v_1,
+   * v_2, …, so v_avg works afterwards); an expression without a name is just
+   * shown. A long table shows its first and last rows.
+   */
+  private evaluateTable(argsText: string): LineResult {
+    // The settings come after a semicolon (see tableSettings.ts).
+    const parts = splitTableArgs(argsText)
+    const { settings, error: settingsError } = parseTableSettings(parts.settings)
+    if (settingsError) return { tex: '', error: settingsError }
+    const args = splitArgs(parts.columns).map((a) => a.trim()).filter(Boolean)
+    if (!args.length) {
+      return { tex: '', error: 'Name the series to show, table(t, x), and any columns worked out from them: table(t, x, v = x / t).' }
+    }
+    /** Each column: its header, and the variable holding each row's value. */
+    const columns: { header: string; rows: Map<number, string> }[] = []
+    const errors: string[] = []
+    /** Unnamed columns' values, held in hidden variables until the table is drawn. */
+    const hidden: string[] = []
+
+    for (const [i, arg] of args.entries()) {
+      // A series, by name.
+      if (IS_NAME.test(arg)) {
+        const rows = this.seriesRows(arg)
+        if (!rows.size) return { tex: '', error: `${arg} isn't a series: define ${arg}_1, ${arg}_2, … (or import them) to show it in a table.` }
+        columns.push({ header: symbolTex(arg), rows })
+        continue
+      }
+      // A column worked out row by row: `v = x / t`, or just `x / t`.
+      const named = TABLE_COLUMN.exec(arg)
+      const name = named?.[1]
+      const expr = named ? named[2] : arg
+      // The series it uses, and the rows where all of them have a value.
+      const used = new Map<string, Map<number, string>>()
+      for (const m of expr.matchAll(NAME_IN_LINE)) {
+        const id = m[1]
+        if (used.has(id) || (this.scope.has(id) && !this.aggs.get(id))) continue
+        const rows = this.seriesRows(id)
+        if (rows.size) used.set(id, rows)
+      }
+      if (!used.size) {
+        return { tex: '', error: `${expr} doesn't use any series, so it would be the same in every row.` }
+      }
+      const numbers = [...[...used.values()][0].keys()].filter((n) => [...used.values()].every((rows) => rows.has(n)))
+      const rows = new Map<number, string>()
+      for (const n of numbers) {
+        const target = name ? `${name}_${n}` : `${UNPACKED}table${i}_${n}`
+        const result = this.evaluateLine(`${target} = ${withRowValues(expr, used, n)}`, 'val', false)
+        if (result.error) {
+          errors.push(`Row ${n}: ${result.error}`)
+          continue
+        }
+        rows.set(n, target)
+        if (!name) hidden.push(target)
+      }
+      columns.push({ header: name ? symbolTex(name) : this.expressionTex(expr), rows })
+    }
+
+    // Every row that any column has, in order (within the settings' rows); a long
+    // table shows its first and last rows, unless the settings ask for all of them.
+    const all = [...new Set(columns.flatMap((c) => [...c.rows.keys()]))].sort((a, b) => a - b)
+      .filter((n) => (settings.from === undefined || n >= settings.from) && (settings.to === undefined || n <= settings.to))
+    const shortened = !settings.allRows && all.length > TABLE_ROWS.max
+    const shown = shortened ? [...all.slice(0, TABLE_ROWS.first), ...all.slice(-TABLE_ROWS.last)] : all
+
+    // Each cell, with the column's unit taken out to its header when every value shares it.
+    const body = columns.map((c) => {
+      const cells = shown.map((n) => (c.rows.has(n) ? this.cellParts(c.rows.get(n)!) : undefined))
+      const units = new Set(cells.filter((p) => p).map((p) => p!.unit))
+      const shared = units.size === 1 ? [...units][0] : undefined
+      return {
+        header: shared ? `${c.header}\\,\\left[${unitTex(shared)}\\right]` : c.header,
+        cells: cells.map((p) => (!p ? '\\text{—}' : shared || !p.unit ? p.num : attachUnit(p.num, unitTex(p.unit)))),
+      }
+    })
+    for (const name of hidden) this.forget(name)
+
+    // The n column (unless it's turned off), then the columns.
+    const cellsOf = (n: number, r: number) => [...(settings.numbers ? [String(n)] : []), ...body.map((c) => c.cells[r])]
+    const header = [...(settings.numbers ? ['n'] : []), ...body.map((c) => c.header)].join(' & ')
+    // A line after each row in a grid; otherwise just after the header (none for lines none).
+    const rowEnd = settings.lines === 'grid' ? ' \\\\ \\hline ' : ' \\\\ '
+    const rowsTex = shown.map((n, r) => {
+      const row = cellsOf(n, r).join(' & ')
+      // The gap in a shortened table, before its last rows.
+      return shortened && r === TABLE_ROWS.first ? `\\vdots${rowEnd}${row}` : row
+    })
+    const count = columns.length + (settings.numbers ? 1 : 0)
+    const columnSpec = settings.lines === 'grid'
+      ? `|${'r|'.repeat(count)}`
+      : settings.lines === 'none' || !settings.numbers ? 'r'.repeat(count) : `r|${'r'.repeat(count - 1)}`
+    const top = settings.lines === 'grid' ? '\\hline ' : ''
+    const afterHeader = settings.lines === 'none' ? ' \\\\ ' : ' \\\\ \\hline '
+    const end = settings.lines === 'grid' ? ' \\\\ \\hline' : ''
+    const tex = `\\begin{array}{${columnSpec}} ${top}${header}${afterHeader}${rowsTex.join(rowEnd)}${end} \\end{array}`
+    const range = settings.from !== undefined || settings.to !== undefined
+    return {
+      tex,
+      error: errors.length ? `${errors[0]}${errors.length > 1 ? ` (and ${errors.length - 1} more row${errors.length > 2 ? 's' : ''})` : ''}` : undefined,
+      info: shortened
+        ? `${all.length} rows${range ? ' in range' : ''}: the first ${TABLE_ROWS.first} and the last ${TABLE_ROWS.last} are shown (the ⚙ button can show them all).`
+        : !all.length && range ? 'No rows in this range.' : undefined,
+    }
+  }
+
+  /** A series' values by number: t_1, t_2, … (or t1, t2, …) as 1 → "t_1", 2 → "t_2", …. */
+  private seriesRows(base: string): Map<number, string> {
+    const number = new RegExp(`^${escapeRegExp(base)}_?(\\d+)$`)
+    return new Map(this.seriesMembers(base).map((m) => [Number(number.exec(m)![1]), m]))
+  }
+
+  /** A table cell: a variable's value as a number (± its uncertainty), and its unit, in its own notation. */
+  private cellParts(name: string): { num: string; unit?: string } {
+    const value = this.scope.get(name)
+    const sf = this.sigs.get(name) ?? EXACT
+    const unc = this.total(this.uncs.get(name), value)
+    return this.inNotation(this.notations.get(name), () => {
+      const u = unc !== undefined ? this.uncertainParts(value, unc, this.uncSfs.get(name)) : null
+      if (u) {
+        const core = `${numberTex(u.num)} \\pm ${numberTex(u.unc)}`
+        return { num: u.exp !== undefined ? `\\left(${core}\\right) \\times 10^{${u.exp}}` : core, unit: u.unit }
+      }
+      const p = this.split(value, sf, this.declared.get(name) === true)
+      return p ? { num: numberTex(p.num), unit: p.unit } : { num: this.valueTex(value, sf) }
+    })
+  }
+
+  /** An expression as typed, as TeX (an unnamed table column's header). */
+  private expressionTex(expr: string): string {
+    const literals = new Map<number, string>()
+    for (const m of expr.matchAll(NUMBER_LITERAL)) addLiteral(literals, m[0])
+    try {
+      return this.toTex(math.parse(preprocess(expr, this.isVariable).text), literals)
+    } catch {
+      return `\\text{${expr}}`
+    }
+  }
+
+  /** Remove a variable, and everything kept about it. */
+  private forget(name: string): void {
+    for (const m of [this.scope, this.sigs, this.uncs, this.uncSfs, this.declared, this.notations, this.vectors, this.shown, this.defs, this.aggs]) {
+      m.delete(name)
+    }
+  }
+
   private evaluateLine(input: string, requestedMode: DisplayMode, explicit = false): LineResult {
+    // `table(t, x, v = x / t)`: series in a table.
+    const table = TABLE_CALL.exec(input.trim())
+    if (table) return this.evaluateTable(table[1])
+
     // `tuple(a, b, c) = …` unpacks a tuple. (Before one-line functions: it looks like one.)
     const unpack = UNPACK.exec(input.trim())
     if (unpack) return this.evaluateUnpack(unpack[1], unpack[2], requestedMode, explicit)

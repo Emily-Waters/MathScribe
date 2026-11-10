@@ -18,7 +18,7 @@
  */
 import { EditorSelection, EditorState, Facet, type Extension, type StateEffect } from '@codemirror/state'
 import { Decoration, EditorView, WidgetType, keymap, type Command, type KeyBinding } from '@codemirror/view'
-import { foldEffect, foldable, foldedRanges } from '@codemirror/language'
+import { foldEffect, foldState, foldable, foldedRanges, unfoldEffect } from '@codemirror/language'
 import { dataBlocks, isImport } from './language.ts'
 
 /** A data block's lines: its import line, then its rows (1-based, inclusive). */
@@ -255,7 +255,7 @@ const IMPORT_CALL = /import\s*\(\s*(?:"([^"]*)")?\s*\)/
 /** The buttons on import lines: the file chooser between the brackets, and (with data) the ×. */
 function importButtons(state: EditorState) {
   const marks = []
-  const withData = new Set(blocksOf(state).map((b) => b.start))
+  const blocks = new Map(blocksOf(state).map((b) => [b.start, b]))
   for (let n = 1; n <= state.doc.lines; n++) {
     const line = state.doc.line(n)
     if (!isImport(line.text)) continue
@@ -267,12 +267,65 @@ function importButtons(state: EditorState) {
     marks.push(m[1] !== undefined
       ? Decoration.replace({ widget: new ChooseFile(m[1]) }).range(open, close)
       : Decoration.widget({ widget: new ChooseFile(undefined), side: 1 }).range(open))
-    if (withData.has(n)) marks.push(removeButton.range(line.to))
+    // With data: ▼/▲ to unfold or fold the rows, then the ×.
+    const block = blocks.get(n)
+    if (block) {
+      marks.push((isFolded(state, block) ? unfoldButton : foldButton).range(line.to))
+      marks.push(removeButton.range(line.to))
+    }
   }
   return Decoration.set(marks, true)
 }
 
-const importButtonDecorations = EditorView.decorations.compute(['doc'], importButtons)
+/** ▼ (the rows are folded away: show them) or ▲, highlighted (they're showing: fold them). */
+class FoldToggle extends WidgetType {
+  readonly folded: boolean
+  constructor(folded: boolean) {
+    super()
+    this.folded = folded
+  }
+  eq(other: FoldToggle) {
+    return other.folded === this.folded
+  }
+  toDOM(view: EditorView) {
+    const button = document.createElement('button')
+    button.className = `cm-ms-import-button cm-ms-fold-toggle${this.folded ? '' : ' cm-ms-fold-toggle--open'}`
+    button.textContent = this.folded ? '▼' : '▲'
+    button.title = this.folded ? 'Show the data' : 'Hide the data'
+    button.setAttribute('aria-label', button.title)
+    button.setAttribute('aria-expanded', String(!this.folded))
+    button.addEventListener('mousedown', (e) => e.preventDefault())
+    button.addEventListener('click', (e) => {
+      e.preventDefault()
+      const { state } = view
+      const n = state.doc.lineAt(view.posAtDOM(button)).number
+      const block = blocksOf(state).find((b) => b.start === n)
+      if (!block) return
+      const line = state.doc.line(block.start)
+      const effects: StateEffect<unknown>[] = []
+      if (isFolded(state, block)) {
+        foldedRanges(state).between(line.to, state.doc.line(block.end).to, (from, to) => {
+          effects.push(unfoldEffect.of({ from, to }))
+        })
+      } else {
+        const range = foldable(state, line.from, line.to)
+        if (range) effects.push(foldEffect.of(range))
+      }
+      if (effects.length) view.dispatch({ effects })
+    })
+    return button
+  }
+  ignoreEvent() {
+    return true
+  }
+}
+
+// (Before the ×, and before a folded block's placeholder, which starts at the end of the line.)
+const unfoldButton = Decoration.widget({ widget: new FoldToggle(true), side: -2 })
+const foldButton = Decoration.widget({ widget: new FoldToggle(false), side: -2 })
+
+// The buttons follow the folds too, so ▼ and ▲ change when the rows are shown or hidden.
+const importButtonDecorations = EditorView.decorations.compute(['doc', foldState], importButtons)
 
 /** Keeping imported data whole: the guard on edits, the file chooser and the × on import lines. */
 export const dataBlockGuard: Extension = [
@@ -292,6 +345,13 @@ export const dataBlockGuard: Extension = [
       marginLeft: '10px', minWidth: '24px', padding: '0 6px', fontSize: '16px', fontWeight: '600', lineHeight: '1.25',
     },
     '.cm-ms-remove-import:hover': { color: 'var(--error)', borderColor: 'var(--error)' },
+    // ▼/▲ before the ×, the same size; highlighted while the rows are showing.
+    '.cm-ms-fold-toggle': { marginLeft: '10px', minWidth: '24px', padding: '0 6px', fontSize: '11px', lineHeight: '1.8' },
+    '.cm-ms-fold-toggle + .cm-ms-remove-import, .cm-ms-fold-toggle + img + .cm-ms-remove-import': { marginLeft: '4px' },
+    '.cm-ms-fold-toggle--open': {
+      color: 'var(--accent)', borderColor: 'var(--accent)',
+      background: 'color-mix(in srgb, var(--accent) 14%, var(--surface-2))',
+    },
   }),
 ]
 

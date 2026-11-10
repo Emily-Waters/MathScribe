@@ -108,6 +108,9 @@ export const UNPACK = new RegExp(String.raw`^tuple\s*${PARAMETERS}${ASSIGNS}\s*(
 /** The start of an unpacking, up to the `=` (1: the names). */
 export const UNPACK_HEAD = new RegExp(String.raw`^tuple\s*${PARAMETERS}${ASSIGNS}`)
 
+/** A table of series: `table(t, x, v = x / t)` (1: what's between the brackets). */
+export const TABLE_CALL = /^table\s*\((.*)\)$/
+
 /**
  * An import line: `import()` (no file chosen yet) or `import("run1.csv")`,
  * with the file's rows indented under it (1: the file's name).

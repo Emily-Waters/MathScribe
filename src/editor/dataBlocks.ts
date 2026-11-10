@@ -17,7 +17,7 @@ import {
   Decoration, EditorView, GutterMarker, ViewPlugin, lineNumberMarkers, type DecorationSet, type ViewUpdate,
 } from '@codemirror/view'
 import { foldEffect, foldedRanges, foldable } from '@codemirror/language'
-import { dataBlocks } from './language.ts'
+import { dataBlocks, isImport } from './language.ts'
 
 /** A data row's number (or the header's dash), shown in place of its line number. */
 class RowNumber extends GutterMarker {
@@ -152,6 +152,24 @@ const tableLook = ViewPlugin.fromClass(class {
     return Decoration.set(marks, true)
   }
 }, { decorations: (p) => p.decorations })
+
+/**
+ * Folding's settings for the editor: a folded block shows "…" (click to
+ * unfold), except imported data, whose ▼ button after the import line does that.
+ */
+export const foldingSettings = {
+  preparePlaceholder: (state: EditorState, range: { from: number }) => isImport(state.doc.lineAt(range.from).text),
+  placeholderDOM: (view: EditorView, onclick: (event: Event) => void, isData: boolean) => {
+    const el = document.createElement('span')
+    if (isData) return el
+    el.className = 'cm-foldPlaceholder'
+    el.textContent = '…'
+    el.title = view.state.phrase('unfold')
+    el.setAttribute('aria-label', view.state.phrase('folded code'))
+    el.onclick = onclick
+    return el
+  },
+}
 
 /** Imported data in the editor: folded on arrival, with row numbers in the gutter and a table look. */
 export const dataBlocksExtension: Extension = [

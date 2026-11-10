@@ -19,7 +19,8 @@ import {
   acceptKeysSetting, acceptOnTab, intellisense, reconfigureAcceptKeys, setSymbols, type AcceptKeys,
 } from '../editor/intellisense.ts'
 import { typeGreek } from '../editor/greek.ts'
-import { dataBlocksExtension, sheetLineNumber } from '../editor/dataBlocks.ts'
+import { dataBlocksExtension, foldingSettings, sheetLineNumber } from '../editor/dataBlocks.ts'
+import { tableMenu } from '../editor/tableMenu.ts'
 import { dataBlockGuard, dataBlockLines, importActions } from '../editor/dataBlockLines.ts'
 
 interface EditorPaneProps {
@@ -170,7 +171,8 @@ function extensions(
     lineNumbers({ formatNumber: (n, state) => String(sheetLineNumber(state, n)) }),
     diagnosticsGutter,
     foldGutter(),
-    codeFolding(),
+    codeFolding(foldingSettings),
+    tableMenu,
     history(),
     drawSelection(),
     highlightActiveLine(),

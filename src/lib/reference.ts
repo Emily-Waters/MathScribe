@@ -111,6 +111,20 @@ export const REFERENCE: ReferenceSection[] = [
         explain: 'import() opens a file chooser for a CSV file. Its rows go into the sheet under the line, folded away, and each '
           + 'value becomes a variable named for its column and row: t_1, t_2, …. A unit in a header, t (s), goes with that column.',
       },
+      {
+        source: [
+          't1 = 1.21 s',
+          't2 = 1.17 s',
+          't3 = 1.24 s',
+          'd1 = 3.50 m',
+          'd2 = 3.48 m',
+          'd3 = 3.52 m',
+          'table(t, d, v = d / t)',
+          'v_avg',
+        ].join('\n'),
+        explain: 'table(…) shows series side by side, a row per number. name = … works out a column row by row, '
+          + 'and makes it a series of its own (v_1, v_2, …), so v_avg works afterwards.',
+      },
     ],
   },
   {

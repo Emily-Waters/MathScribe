@@ -844,6 +844,32 @@ available:
   defines `psi_200` and you write `psi`, it means that one-member series. Check the
   name if a value appears where you expected an "undefined" error.
 
+### Tables
+
+`table(…)` on a line of its own shows series side by side, one row per number:
+
+```
+table(t, x)              # n | t [s] | x [m]
+table(t, x, v = x / t)   # adds a column v, worked out row by row
+v_avg                    # v is a series now: v_1, v_2, …
+```
+
+- A name is a series' values. A unit every value shares goes in the header; a
+  value with an uncertainty shows as 3.0 ± 0.1; a row a series doesn't have shows —.
+- `name = expression` works out a column row by row: each series in it stands for
+  that row's value (`x / t` is x₃ / t₃ in row 3), and any other name is used as it
+  is (`h = 1/2 * g * t^2`). The column becomes a series of its own, with sig figs
+  and uncertainties worked out as on any line, so `v_avg`, `v_std` and `v_3` work
+  afterwards. An expression without a name (`table(x / t)`) is just shown.
+- A table with more than 60 rows shows its first 50 and last 5, with ⋮ between.
+- **Settings:** the ⚙ after a table in the editor opens its settings: which rows to
+  show (from and to), the lines (under the header, a grid, or none), the n column,
+  and showing every row of a long table. They're kept in the sheet after a
+  semicolon in the brackets, `table(t, x; rows 5-20, lines grid, numbers off,
+  all rows)`, so they can be typed too. Rows only limit what's shown: a computed
+  column is still worked out for every row.
+- Tables go into the LaTeX and Word exports as arrays.
+
 ### Importing data (CSV)
 
 Write `import()` on a line, then press the **Choose a CSV file…** button that appears
@@ -884,6 +910,8 @@ x_avg
   step over the block rather than into it. Deleting any of the import line removes
   the whole import; so does the × after it in the editor, or **Remove** in the
   output. Folded rows can't be edited by accident; unfold them to change the data.
+- The ▼ before the × shows the rows, and ▲ (highlighted while they're showing)
+  folds them away again.
 - The data is kept in the sheet, so it works anywhere the sheet is opened. It's
   left out of the LaTeX and Word exports.
 

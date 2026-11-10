@@ -83,6 +83,7 @@ export const BUILTIN_FUNCTIONS: { name: string; signature: string; description: 
   { name: 'dot', signature: 'dot(a, b)', description: 'Dot product of two vectors' },
   { name: 'cross', signature: 'cross(a, b)', description: 'Cross product of two 3D vectors' },
   { name: 'import', signature: 'import()', description: 'Import a CSV file: each value becomes a variable, x_1, x_2, …' },
+  { name: 'table', signature: 'table(t, x, v = x / t)', description: 'Series side by side, one row per number; name = … works out a column row by row' },
   { name: 'solve', signature: 'solve(equation, unknown, guess?)', description: 'Rearrange an equation for the unknown and evaluate it' },
 ]
 

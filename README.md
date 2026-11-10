@@ -103,6 +103,10 @@ amber one; hover the bar to read the message.
 On a Mac, use ⌘ for Ctrl. `def` bodies, `:` layout blocks and `{ }` blocks fold
 from the arrows in the gutter.
 
+The output follows as you type. A sheet that takes a while to work out (thousands
+of rows of imported data) is worked out once typing pauses instead, so typing never
+waits for it; the output catches up a moment after you stop.
+
 **Suggestions as you type** (Tab accepts, Esc closes, Ctrl+Space asks). Enter always
 starts a new line, so a unit suggested at the end of a line doesn't get in the way;
 to have Enter accept a suggestion too, choose *Tab or Enter* under Input → Options →
@@ -899,6 +903,9 @@ v = x_slope                # the fit's slope, with its uncertainty
   or both), fit, each axis's range and log scale, and a title. As with tables,
   they're kept after a semicolon: `plot(t, x; rows 2-, style both, fit linear,
   x from 0 to 1, log y, title "Run 1")`.
+- **What's on the axes is what's plotted:** a point outside an axis's range isn't
+  drawn, isn't fitted, and isn't in a named plot's series. So `x from 0.15 to 0.45`
+  fits just that stretch of the data, and `p.slope` is that stretch's slope.
 - In the LaTeX export a plot is a pgfplots graph (the package is added only when
   the sheet has one); in the Word export it's a picture.
 - A named plot, `p = plot(t, x; fit linear)`, keeps its fit under its name:
@@ -922,9 +929,11 @@ v = p.slope
   end can be left off), `x to 0.16`, `rows 5-20`. A bare number is in the series'
   unit; a bound can have its own, `t from 250 ms`. In a condition, a name means the
   selected series of that name first, so `select(run1.t, run1.x; t from 0.2)` works.
-- Each value keeps its sig figs and uncertainty, as the same source, so a selection
-  stays correlated with the data it came from (`x_2 - a.x_1` is exactly 0).
-- `a.x` is shown x_a, and `a.x_1` is x_{a,1}.
+- A selection doesn't copy its values: each member is the variable it picks
+  (`a.x_1` *is* `x_2`), so it keeps its sig figs and uncertainty, and a selection
+  stays correlated with the data it came from (`x_2 - a.x_1` is exactly 0). That
+  also keeps selections of thousands of rows quick.
+- `a.x` is shown x_a, and `a.x_1` is x_{a,1}. Hovering any member shows its value.
 
 Names with a dot work the same everywhere they're made:
 
@@ -1025,13 +1034,9 @@ Roughly in priority order.
 
 ### 4. Lab work
 
-- [ ] **Tables**: a table block whose columns become series (so `t_avg`, `t_std`,
-      `t_sem` work on them), with units from the column headers, plus `linfit` for a
-      slope and intercept with uncertainties.
-- [ ] **Graphs**: plot data and functions (e.g. `plot(h, t^2, fit)`), with error bars
-      from uncertainties and an optional fitted line, included in the LaTeX export.
-- [ ] **Importing from CSV**: load a CSV file as a table, with headers as column names
-      (and units, where given).
+- [ ] **Plot functions**, not just data: `plot(t, x, f(t))`, or a curve over a range.
+- [ ] **Non-linear fits**: quadratic, exponential and power-law fits, alongside the
+      linear one.
 - [ ] **Explore compiling the LaTeX to a PDF** in the LaTeX tab (a Source / PDF
       switch and Download PDF). Options considered: an online
       compile service such as texlive.net (simple, but sends the sheet off the
@@ -1052,13 +1057,20 @@ Roughly in priority order.
 
 ### 5. Housekeeping
 
-- [ ] **Speed on long sheets**: the whole sheet is evaluated on every keystroke;
-      wait for a pause in typing, or evaluate in a web worker.
+- [ ] **Evaluate in a web worker**, if very long sheets still lag once typing pauses.
 - [ ] **Narrow screens**: a stacked layout, or an Input / Output switch, for
       phones and small laptops.
 
 ### Done
 
+- [x] **Tables**: `table(…)`, with computed columns that become series, and settings.
+- [x] **Plots**: `plot(…)`, with error bars, a linear fit (weighted by the error bars
+      when there are some), settings, and both exports.
+- [x] **Importing from CSV**, with units from the headers and uncertainty columns.
+- [x] **Selections and names with a dot**: `select(…)`, named imports and named plots.
+- [x] **Speed on long sheets**: a slow sheet is worked out once typing pauses, and
+      the engine keeps each variable as one record, with a series index and
+      selections as lookups (a 3800-row import: from ~105 ms to ~34 ms an evaluation).
 - [x] **Vectors**: `<…>` notation, unit vectors with `:ijk`, and components as
       variables with `:xyz`.
 - [x] **Equation library**: first-year physics and general chemistry, inserted at
@@ -1075,15 +1087,37 @@ Roughly in priority order.
 ## Structure
 
 - `src/config.ts`: app-wide settings in one place: browser storage keys, default
-  and example calculation options, sheet file type, timings, the pane divider's
-  limits
-- `src/lib/syntax.ts`: the sheet language's words and patterns (names, settings,
-  assignments, functions, constants, display commands, series names, indentation),
-  shared by the engine, the sheet structure and the editor
+  and example calculation options, when a sheet is worked out while typing
+  (`EVALUATION`), sheet file type, timings, the pane divider's limits;
+  `src/useSettled.ts`: a value once it stops changing (for working out slow sheets
+  after a pause)
+- `src/lib/syntax.ts`: the sheet language's words and patterns (keywords and calls,
+  names, settings, assignments, functions, constants, display commands, series
+  names, indentation), shared by the engine, the sheet structure and the editor
+- `src/lib/names.ts`: the names the engine makes for itself (`delta__F`, `at__c__5`,
+  `a__x_1` for `a.x_1`, series members and statistics, a plot's fit), each built and
+  read in one place; `src/lib/mathjsNames.ts`: mathjs's operator and function names
+  and the units the engine uses by name
+- Shared values are named once: a word, marker or setting used in more than one
+  place is a constant in one of the modules above (or `tableSettings.ts` for the
+  words settings are written with), not repeated as text
 - `src/lib/storage.ts`: reading and writing the browser's storage safely;
   `src/useFlash.ts`: copying to the clipboard, and the brief "Copied" messages
 - `src/lib/engine.ts`: evaluation with scoped variables, unit-literal handling,
-  sig-fig tracking, uncertainty propagation, functions, LaTeX generation
+  sig-fig tracking, uncertainty propagation, functions, tables, plots and
+  selections, LaTeX generation. Each variable is one record (`StoredVariable`:
+  value, sig figs, uncertainty, how it's shown) in a scope per `{ }` block or
+  function call; each scope keeps a series index, and selections and named plots
+  are lookups into the variables they pick (`Views`). mathjs sees just the values,
+  through `Values`.
+- `src/lib/csv.ts`: reading imported data (columns, units, uncertainty columns);
+  `src/editor/dataBlocks.ts`, `dataBlockLines.ts`: an import's rows in the editor
+  (row numbers, folding, the table look, moving and deleting them as one)
+- `src/lib/tableSettings.ts`, `plotSettings.ts`: a table's and plot's settings
+  after the semicolon, read and written; `src/editor/tableMenu.ts`: their ⚙ menus
+- `src/lib/plot.ts`: the linear fit, axes, and drawing a plot as SVG;
+  `src/lib/plotImage.ts`: plots as pictures for the Word export
+- `src/lib/brackets.ts`: choosing ( ), [ ] and { } by nesting in the output
 - `src/lib/document.ts`: line types and blocks (`{ }`, layout, `def`,
   `@constants`), sheet evaluation, diagnostics, definitions and symbols for the
   editor

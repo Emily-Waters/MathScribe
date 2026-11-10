@@ -120,54 +120,18 @@ export const PLOT_CALL = new RegExp(String.raw`^(?:(${NAME})\s*=\s*)?plot\s*\((.
 /** A slice of series: `a = select(t, x; t from 0.2 to 0.8)` (1: its name, 2: what's between the brackets). */
 export const SELECT_CALL = new RegExp(String.raw`^(${NAME})\s*=\s*select\s*\((.*)\)$`)
 
-// ---------------------------------------------------------------------------
-// Namespaces: `a.x_1`
-//
-// A slice, a named import or a named plot holds its values under its name:
-// `a.x_1`, `a.x_avg`, `p.slope`. Each is an ordinary variable inside, named
-// `a__x_1`, so series, aggregates and uncertainties work as anywhere.
-// ---------------------------------------------------------------------------
-
-/** Between a namespace's name and a member's, inside. */
-export const NAMESPACE_JOIN = '__'
-
-/** A member as written, `a.x_1` (1: the namespace, 2: the member). Not after a digit, so 2.5 isn't one. */
+/**
+ * A name with a dot: a selection's, named import's or named plot's member,
+ * `a.x_1` (1: the namespace, 2: the member). Not after a digit, so 2.5 isn't
+ * one. (How it's held inside, a__x_1, is in names.ts.)
+ */
 export const DOT_ACCESS = new RegExp(String.raw`(?<![\w.${GREEK_CHARS}])(${NAME})\.(${NAME})`, 'g')
 
-/** A namespace member's inside name: `a.x_1` → `a__x_1`. */
-export const memberName = (namespace: string, member: string) => `${namespace}${NAMESPACE_JOIN}${member}`
+/** Between a namespace and its member, as typed: a.x_1. */
+export const MEMBER_DOT = '.'
 
-/** Words that start other inside names (delta__x, at__c__5, …), so they can't name a namespace. */
-export const RESERVED_NAMESPACES = new Set(['delta', 'Delta', 'at', 'solved', 'unpacked'])
-
-/** An inside name's namespace and member: `a__x_1` → a, x_1 (null if it isn't one). */
-export function parseMemberName(name: string): { namespace: string; member: string } | null {
-  const at = name.indexOf(NAMESPACE_JOIN)
-  if (at <= 0) return null
-  const namespace = name.slice(0, at)
-  const member = name.slice(at + NAMESPACE_JOIN.length)
-  if (RESERVED_NAMESPACES.has(namespace) || !IS_NAME.test(namespace) || !IS_NAME.test(member)) return null
-  return { namespace, member }
-}
-
-/**
- * Text with each `a.x_1` as its inside name, `a__x_1`, leaving quoted text
- * alone. A numbered member is kept as written (`a.x1` → `a__x1`): t1 and
- * t_1 are the same variable, inside a namespace too.
- */
-export function expandDots(text: string): string {
-  if (!text.includes('.')) return text
-  return text.split(/("[^"]*")/).map((part, i) => (i % 2 ? part : part.replace(DOT_ACCESS, (_, ns: string, member: string) =>
-    RESERVED_NAMESPACES.has(ns) ? `${ns}.${member}` : memberName(ns, member)))).join('')
-}
-
-/** Inside names in a message written back as typed: `a__x_1` → `a.x_1`. */
-export function readableMembers(text: string): string {
-  return text.replace(new RegExp(String.raw`\b${NAME}`, 'g'), (name) => {
-    const m = parseMemberName(name)
-    return m ? `${m.namespace}.${m.member}` : name
-  })
-}
+/** Between a series' name and a member's number: t_1. */
+export const SUBSCRIPT = '_'
 
 /**
  * An import line: `import()` (no file chosen yet) or `import("run1.csv")`,

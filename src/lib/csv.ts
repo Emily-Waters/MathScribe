@@ -37,10 +37,18 @@ export interface CsvUncertainty {
 
 /**
  * A column holding another's uncertainties: dx, δx, σx, delta_x, sigma_x,
- * x_unc or x_err for column x (1 or 2: the other column's name). It only
- * counts as one when there's a column x; otherwise it's a column of its own.
+ * x_unc or x_err for column x (1: the other column's name). It only counts
+ * as one when there's a column x; otherwise it's a column of its own.
  */
-const UNCERTAINTY_COLUMN = [/^(?:delta_|sigma_|d|δ|σ)(.+)$/, /^(.+)_(?:unc|err)$/]
+export const UNCERTAINTY_COLUMN_PREFIXES = ['delta_', 'sigma_', 'd', 'δ', 'σ'] as const
+export const UNCERTAINTY_COLUMN_SUFFIXES = ['_unc', '_err'] as const
+const UNCERTAINTY_COLUMN = [
+  new RegExp(`^(?:${UNCERTAINTY_COLUMN_PREFIXES.join('|')})(.+)$`),
+  new RegExp(`^(.+)(?:${UNCERTAINTY_COLUMN_SUFFIXES.join('|')})$`),
+]
+
+/** A unit that makes an uncertainty column a percentage of each value: dx (%). */
+export const PERCENT_UNIT = '%'
 
 /** The column `name` holds the uncertainties of, if any. */
 function uncertaintyOf(name: string, names: Set<string>): string | undefined {
@@ -63,8 +71,8 @@ function pairUncertainties(columns: CsvColumn[]): { columns: CsvColumn[]; error?
     if (target.unc) return { columns: [], error: `Columns ${target.unc.column} and ${c.name} are both uncertainties of ${base}: keep one.` }
     target.unc = {
       column: c.name,
-      unit: c.unit === '%' ? undefined : c.unit,
-      percent: c.unit === '%',
+      unit: c.unit === PERCENT_UNIT ? undefined : c.unit,
+      percent: c.unit === PERCENT_UNIT,
       values: new Map(c.values.map((v) => [v.row, v.text.replace(/^-/, '')])),
     }
   }

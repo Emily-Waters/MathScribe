@@ -6,7 +6,9 @@
  * fixed ones.
  */
 import type { PlotSettings } from './plotSettings.ts'
-import { GREEK_BY_NAME, parseMemberName } from './syntax.ts'
+import { GREEK_BY_NAME } from './syntax.ts'
+import { parseMemberName } from './names.ts'
+import { UNIT_LOOKS } from './mathjsNames.ts'
 
 /** One point: its row number, and its x and y (in the axes' units), with any uncertainties. */
 export interface PlotPoint {
@@ -210,8 +212,6 @@ export function nameSvg(p: PlotName): string {
   return sub ? `${baseSvg}<tspan baseline-shift="sub" font-size="75%">${escapeXml(sub)}</tspan>` : baseSvg
 }
 
-/** Words in units, written as they're shown elsewhere. */
-const UNIT_WORDS: Record<string, string> = { angstrom: 'Å', angstroms: 'Å', deg: '°', ohm: 'Ω' }
 
 /** A unit as plain text: `m/s^2` → m/s², `kg m^2` → kg·m², `um` → µm. */
 export function unitText(unit: string): string {
@@ -219,7 +219,7 @@ export function unitText(unit: string): string {
     .replace(/\s*\/\s*/g, '/')
     .replace(/\s*[*·]\s*|\s+/g, '·')
     .replace(/\^\(?(-?[\d.]+)\)?/g, (_m, p: string) => superscript(p))
-    .replace(/[A-Za-z]+/g, (w) => UNIT_WORDS[w] ?? (w.length > 1 && w.startsWith('u') && w !== 'u' ? `µ${w.slice(1)}` : w))
+    .replace(/[A-Za-z]+/g, (w) => UNIT_LOOKS[w]?.text ?? (w.length > 1 && w.startsWith('u') && w !== 'u' ? `µ${w.slice(1)}` : w))
 }
 
 /** An axis's label: its name and unit, `t [s]`, or just the unit for a shared y axis. */

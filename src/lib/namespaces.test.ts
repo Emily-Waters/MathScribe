@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { last, lines, sheet, value } from '../test/helpers.ts'
 import { symbolTex } from './engine.ts'
 import { collectSymbols, type ImportBlock } from './document.ts'
-import { expandDots, parseMemberName, readableMembers } from './syntax.ts'
+import { expandDots, parseMemberName, readableMembers } from './names.ts'
 
 const data = 't1 = 0.10 s\nt2 = 0.20 s\nt3 = 0.30 s\nt4 = 0.40 s\n'
   + 'x1 = 0.051 m pm 0.004 m\nx2 = 0.098 m pm 0.004 m\nx3 = 0.152 m pm 0.004 m\nx4 = 0.199 m pm 0.004 m\n'

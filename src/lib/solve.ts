@@ -20,6 +20,7 @@ import {
   type MathJsInstance,
   type MathNode,
 } from 'mathjs'
+import { OP, OP_SYMBOL, isOp } from './mathjsNames.ts'
 
 /** Whether `node` uses the variable `x` (not counting function names). */
 export function contains(node: MathNode, x: string): boolean {
@@ -35,7 +36,7 @@ export function countOccurrences(node: MathNode, x: string): number {
 function numericValue(n: MathNode): number | undefined {
   if (isParenthesisNode(n)) return numericValue(n.content)
   if (isConstantNode(n) && typeof n.value === 'number') return n.value
-  if (isOperatorNode(n) && n.fn === 'unaryMinus') {
+  if (isOp(n, OP.unaryMinus)) {
     const v = numericValue(n.args[0])
     return v === undefined ? undefined : -v
   }
@@ -53,12 +54,12 @@ export class Solver {
   private C = (v: number) => new this.math.ConstantNode(v)
   private P = (n: MathNode) => new this.math.ParenthesisNode(n)
   private fn = (name: string, args: MathNode[]) => new this.math.FunctionNode(new this.math.SymbolNode(name), args)
-  private add = (a: MathNode, b: MathNode) => new this.math.OperatorNode('+', 'add', [a, b])
-  private sub = (a: MathNode, b: MathNode) => new this.math.OperatorNode('-', 'subtract', [a, this.P(b)])
-  private mul = (a: MathNode, b: MathNode) => new this.math.OperatorNode('*', 'multiply', [this.P(a), this.P(b)])
-  private div = (a: MathNode, b: MathNode) => new this.math.OperatorNode('/', 'divide', [this.P(a), this.P(b)])
-  private pow = (a: MathNode, b: MathNode) => new this.math.OperatorNode('^', 'pow', [this.P(a), b])
-  private neg = (a: MathNode) => new this.math.OperatorNode('-', 'unaryMinus', [this.P(a)])
+  private add = (a: MathNode, b: MathNode) => new this.math.OperatorNode(OP_SYMBOL.add, OP.add, [a, b])
+  private sub = (a: MathNode, b: MathNode) => new this.math.OperatorNode(OP_SYMBOL.subtract, OP.subtract, [a, this.P(b)])
+  private mul = (a: MathNode, b: MathNode) => new this.math.OperatorNode(OP_SYMBOL.multiply, OP.multiply, [this.P(a), this.P(b)])
+  private div = (a: MathNode, b: MathNode) => new this.math.OperatorNode(OP_SYMBOL.divide, OP.divide, [this.P(a), this.P(b)])
+  private pow = (a: MathNode, b: MathNode) => new this.math.OperatorNode(OP_SYMBOL.pow, OP.pow, [this.P(a), b])
+  private neg = (a: MathNode) => new this.math.OperatorNode(OP_SYMBOL.unaryMinus, OP.unaryMinus, [this.P(a)])
 
   /**
    * Solve `side = other` for x, where x appears exactly once in `side` and not in

@@ -15,6 +15,9 @@
  *
  * The plot's ⚙ button in the editor writes them, so they don't need typing.
  */
+import {
+  SETTING, SETTINGS_SEPARATOR, formatRowRange, joinSettings, parseRowRange, tidySetting,
+} from './tableSettings.ts'
 
 export const PLOT_STYLES = ['points', 'lines', 'both'] as const
 export type PlotStyle = (typeof PLOT_STYLES)[number]
@@ -44,48 +47,57 @@ export const defaultPlotSettings = (): PlotSettings => ({
   style: 'points', fit: 'none', x: { log: false }, y: { log: false },
 })
 
+/** The axes, as written in settings: `x from 0 to 2`, `log y`. */
+export const PLOT_AXES = ['x', 'y'] as const
+export type PlotAxisName = (typeof PLOT_AXES)[number]
+
 /** A number as typed in a setting: -1.5, 2e-3. */
 const NUM = String.raw`[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?`
-const ROWS = /^rows\s+(\d*)\s*-\s*(\d*)$/
-const ROW = /^rows\s+(\d+)$/
 /** `x from 0 to 2`, `x from 0`, `x to 2` (1: axis, 2: from, 3: to). */
-const RANGE = new RegExp(String.raw`^([xy])(?:\s+from\s+(${NUM}))?(?:\s+to\s+(${NUM}))?$`)
-const TITLE = /^title\s+"([^"]*)"$/
+const RANGE = new RegExp(String.raw`^(${PLOT_AXES.join('|')})(?:\s+${SETTING.from}\s+(${NUM}))?(?:\s+${SETTING.to}\s+(${NUM}))?$`)
+const STYLE = new RegExp(`^${SETTING.style} (${PLOT_STYLES.join('|')})$`)
+const FIT_SETTING = new RegExp(`^${SETTING.fit} (${PLOT_FITS.join('|')})$`)
+const LOG = new RegExp(`^${SETTING.log} (${PLOT_AXES.join('|')})$`)
+/** A title is quoted, so it can hold commas. */
+const QUOTE = '"'
+const TITLE = new RegExp(`^${SETTING.title}\\s+${QUOTE}([^${QUOTE}]*)${QUOTE}$`)
 
-/** Settings text split at its commas, but not inside a quoted title. */
-function settingParts(text: string): string[] {
+/** Settings text split into its settings, but not at a comma inside the quoted title. */
+function plotSettingParts(text: string): string[] {
   const parts: string[] = []
   let current = ''
   let quoted = false
   for (const c of text) {
-    if (c === '"') quoted = !quoted
-    if (c === ',' && !quoted) {
+    if (c === QUOTE) quoted = !quoted
+    if (c === SETTINGS_SEPARATOR && !quoted) {
       parts.push(current)
       current = ''
     } else current += c
   }
   parts.push(current)
-  return parts.map((p) => p.trim().replace(/\s+/g, ' ')).filter(Boolean)
+  return parts.map(tidySetting).filter(Boolean)
 }
 
 /** A plot's settings from their text, or what's wrong with them. */
 export function parsePlotSettings(text: string | undefined): { settings: PlotSettings; error?: string } {
   const s = defaultPlotSettings()
-  for (const part of settingParts(text ?? '')) {
-    const rows = ROWS.exec(part) ?? (ROW.test(part) ? [part, part.slice(5), part.slice(5)] : null)
+  for (const part of plotSettingParts(text ?? '')) {
+    const rows = parseRowRange(part)
     const range = RANGE.exec(part)
+    const style = STYLE.exec(part)
+    const fit = FIT_SETTING.exec(part)
+    const log = LOG.exec(part)
     const title = TITLE.exec(part)
     if (rows) {
-      s.from = rows[1] ? Number(rows[1]) : undefined
-      s.to = rows[2] ? Number(rows[2]) : undefined
+      s.from = rows.from
+      s.to = rows.to
     } else if (range && (range[2] !== undefined || range[3] !== undefined)) {
-      const axis = s[range[1] as 'x' | 'y']
+      const axis = s[range[1] as PlotAxisName]
       axis.from = range[2] !== undefined ? Number(range[2]) : undefined
       axis.to = range[3] !== undefined ? Number(range[3]) : undefined
-    } else if (/^style (points|lines|both)$/.test(part)) s.style = part.slice(6) as PlotStyle
-    else if (/^fit (none|linear)$/.test(part)) s.fit = part.slice(4) as PlotFit
-    else if (part === 'log x') s.x.log = true
-    else if (part === 'log y') s.y.log = true
+    } else if (style) s.style = style[1] as PlotStyle
+    else if (fit) s.fit = fit[1] as PlotFit
+    else if (log) s[log[1] as PlotAxisName].log = true
     else if (title) s.title = title[1]
     else {
       return {
@@ -99,23 +111,23 @@ export function parsePlotSettings(text: string | undefined): { settings: PlotSet
 }
 
 /** An axis range as a setting: `x from 0 to 2` ('' if it's open at both ends). */
-const rangeText = (axis: 'x' | 'y', a: AxisSettings) => (a.from === undefined && a.to === undefined ? ''
-  : `${axis}${a.from !== undefined ? ` from ${a.from}` : ''}${a.to !== undefined ? ` to ${a.to}` : ''}`)
+const rangeText = (axis: PlotAxisName, a: AxisSettings) => (a.from === undefined && a.to === undefined ? ''
+  : `${axis}${a.from !== undefined ? ` ${SETTING.from} ${a.from}` : ''}${a.to !== undefined ? ` ${SETTING.to} ${a.to}` : ''}`)
 
 /** Settings as text, leaving out the defaults ('' if there's nothing to say). */
 export function formatPlotSettings(s: PlotSettings): string {
+  const defaults = defaultPlotSettings()
   const parts: string[] = []
-  if (s.from !== undefined || s.to !== undefined) {
-    parts.push(s.from !== undefined && s.from === s.to ? `rows ${s.from}` : `rows ${s.from ?? ''}-${s.to ?? ''}`)
-  }
-  if (s.style !== 'points') parts.push(`style ${s.style}`)
-  if (s.fit !== 'none') parts.push(`fit ${s.fit}`)
-  for (const axis of ['x', 'y'] as const) {
+  const rows = formatRowRange(s.from, s.to)
+  if (rows) parts.push(rows)
+  if (s.style !== defaults.style) parts.push(`${SETTING.style} ${s.style}`)
+  if (s.fit !== defaults.fit) parts.push(`${SETTING.fit} ${s.fit}`)
+  for (const axis of PLOT_AXES) {
     const range = rangeText(axis, s[axis])
     if (range) parts.push(range)
-    if (s[axis].log) parts.push(`log ${axis}`)
+    if (s[axis].log) parts.push(`${SETTING.log} ${axis}`)
   }
   // (A title can't hold a quote mark: it ends the title.)
-  if (s.title) parts.push(`title "${s.title.replace(/"/g, '')}"`)
-  return parts.join(', ')
+  if (s.title) parts.push(`${SETTING.title} ${QUOTE}${s.title.replaceAll(QUOTE, '')}${QUOTE}`)
+  return joinSettings(parts)
 }

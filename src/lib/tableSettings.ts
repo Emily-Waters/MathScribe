@@ -29,11 +29,63 @@ export interface TableSettings {
 
 export const DEFAULT_TABLE_SETTINGS: TableSettings = { lines: 'header', numbers: true, allRows: false }
 
-/** `rows 5-20`, `rows 5-`, `rows -20` (1: from, 2: to). */
-const ROWS = /^rows\s+(\d*)\s*-\s*(\d*)$/
-/** A single row: `rows 7`. */
-const ROW = /^rows\s+(\d+)$/
-const LINES = new RegExp(`^lines\\s+(${TABLE_LINES.join('|')})$`)
+// ---------------------------------------------------------------------------
+// The words settings are written with (shared by table, plot and select)
+// ---------------------------------------------------------------------------
+
+/** Each setting's word. */
+export const SETTING = {
+  rows: 'rows',
+  lines: 'lines',
+  numbers: 'numbers',
+  allRows: 'all rows',
+  on: 'on',
+  off: 'off',
+  style: 'style',
+  fit: 'fit',
+  log: 'log',
+  title: 'title',
+  from: 'from',
+  to: 'to',
+} as const
+
+/** Between the columns and the settings, in a call's brackets. */
+export const SETTINGS_START = ';'
+/** Between settings: `rows 5-20, lines grid`. */
+export const SETTINGS_SEPARATOR = ','
+/** Between a range's ends: `rows 5-20`. */
+const RANGE_DASH = '-'
+
+/** `rows 5-20`, `rows 5-`, `rows -20` (1: from, 2: to); or one row, `rows 7` (3). */
+const ROWS = new RegExp(String.raw`^${SETTING.rows}\s+(?:(\d*)\s*${RANGE_DASH}\s*(\d*)|(\d+))$`)
+
+/** A row range setting's rows (either end may be open), or null if `part` isn't one. */
+export function parseRowRange(part: string): { from?: number; to?: number } | null {
+  const m = ROWS.exec(part)
+  if (!m || (!m[1] && !m[2] && !m[3])) return null
+  if (m[3]) return { from: Number(m[3]), to: Number(m[3]) }
+  return { from: m[1] ? Number(m[1]) : undefined, to: m[2] ? Number(m[2]) : undefined }
+}
+
+/** A row range as a setting: `rows 5-20`, `rows 7` (undefined if it's open at both ends). */
+export function formatRowRange(from: number | undefined, to: number | undefined): string | undefined {
+  if (from === undefined && to === undefined) return undefined
+  return from !== undefined && from === to ? `${SETTING.rows} ${from}` : `${SETTING.rows} ${from ?? ''}${RANGE_DASH}${to ?? ''}`
+}
+
+/** A setting as typed, tidied: trimmed, with single spaces inside. */
+export const tidySetting = (part: string) => part.trim().replace(/\s+/g, ' ')
+
+/** Settings text split into its settings, tidied (and empty ones left out). */
+export const settingParts = (text: string | undefined): string[] =>
+  (text ?? '').split(SETTINGS_SEPARATOR).map(tidySetting).filter(Boolean)
+
+/** Settings joined into their text. */
+export const joinSettings = (parts: string[]) => parts.join(`${SETTINGS_SEPARATOR} `)
+
+const LINES = new RegExp(`^${SETTING.lines}\\s+(${TABLE_LINES.join('|')})$`)
+const NUMBERS_ON = `${SETTING.numbers} ${SETTING.on}`
+const NUMBERS_OFF = `${SETTING.numbers} ${SETTING.off}`
 
 /**
  * What's between a table's or plot's brackets, split at its first semicolon
@@ -48,7 +100,7 @@ export function splitCallArgs(inner: string): { columns: string; settings?: stri
     else if (quoted) continue
     else if (c === '(' || c === '[' || c === '{') depth++
     else if (c === ')' || c === ']' || c === '}') depth--
-    else if (c === ';' && depth === 0) return { columns: inner.slice(0, i), settings: inner.slice(i + 1) }
+    else if (c === SETTINGS_START && depth === 0) return { columns: inner.slice(0, i), settings: inner.slice(i + 1) }
   }
   return { columns: inner }
 }
@@ -60,22 +112,22 @@ export function splitCallArgs(inner: string): { columns: string; settings?: stri
  */
 export function withSettingsText(line: string, inner: { from: number; to: number }, text: string): string {
   const { columns } = splitCallArgs(line.slice(inner.from, inner.to))
-  return `${line.slice(0, inner.from)}${columns.trimEnd()}${text ? `; ${text}` : ''}${line.slice(inner.to)}`
+  return `${line.slice(0, inner.from)}${columns.trimEnd()}${text ? `${SETTINGS_START} ${text}` : ''}${line.slice(inner.to)}`
 }
 
 /** A table's settings from their text, or what's wrong with them. */
 export function parseTableSettings(text: string | undefined): { settings: TableSettings; error?: string } {
   const settings = { ...DEFAULT_TABLE_SETTINGS }
-  for (const part of (text ?? '').split(',').map((p) => p.trim().replace(/\s+/g, ' ')).filter(Boolean)) {
-    const rows = ROWS.exec(part) ?? (ROW.test(part) ? [part, part.slice(5), part.slice(5)] : null)
+  for (const part of settingParts(text)) {
+    const rows = parseRowRange(part)
     const lines = LINES.exec(part)
     if (rows) {
-      settings.from = rows[1] ? Number(rows[1]) : undefined
-      settings.to = rows[2] ? Number(rows[2]) : undefined
+      settings.from = rows.from
+      settings.to = rows.to
     } else if (lines) settings.lines = lines[1] as TableLines
-    else if (part === 'numbers off') settings.numbers = false
-    else if (part === 'numbers on') settings.numbers = true
-    else if (part === 'all rows') settings.allRows = true
+    else if (part === NUMBERS_OFF) settings.numbers = false
+    else if (part === NUMBERS_ON) settings.numbers = true
+    else if (part === SETTING.allRows) settings.allRows = true
     else {
       return {
         settings,
@@ -89,13 +141,12 @@ export function parseTableSettings(text: string | undefined): { settings: TableS
 /** Settings as text, leaving out the defaults ('' if there's nothing to say). */
 export function formatTableSettings(s: TableSettings): string {
   const parts: string[] = []
-  if (s.from !== undefined || s.to !== undefined) {
-    parts.push(s.from !== undefined && s.from === s.to ? `rows ${s.from}` : `rows ${s.from ?? ''}-${s.to ?? ''}`)
-  }
-  if (s.lines !== DEFAULT_TABLE_SETTINGS.lines) parts.push(`lines ${s.lines}`)
-  if (!s.numbers) parts.push('numbers off')
-  if (s.allRows) parts.push('all rows')
-  return parts.join(', ')
+  const rows = formatRowRange(s.from, s.to)
+  if (rows) parts.push(rows)
+  if (s.lines !== DEFAULT_TABLE_SETTINGS.lines) parts.push(`${SETTING.lines} ${s.lines}`)
+  if (!s.numbers) parts.push(NUMBERS_OFF)
+  if (s.allRows) parts.push(SETTING.allRows)
+  return joinSettings(parts)
 }
 
 /** A table line's text with new settings (written after a semicolon, or taken out if they're all defaults). */

@@ -36,15 +36,20 @@ import { BUILTIN_CONSTANTS, DEFAULT_CONSTANT_SIG_FIGS, suggestConstant } from '.
 import {
   ASSIGNMENT, ASSIGNMENT_WITH_VALUE, AXES, COMPONENTS_SETTING, CONSTANT_REF, DECLARED, EXACT_SETTING, IS_NAME,
   GREEK_BY_CHAR, GREEK_BY_NAME, GREEK_CHARS, LEADING_NAME, NAME, NAME_CHAR, NAME_WITH_SETTINGS, NOTATIONS, NUMBER, ONE_LINE_FUNCTION, PERCENT, SERIES_SUFFIXES,
-  PLOT_CALL, RESERVED_NAMESPACES, SELECT_CALL, TABLE_CALL, UNCERTAINTY_WORDS, UNIT_VECTOR_SETTING, UNPACK, VECTOR_FUNCTION,
-  expandDots, memberName, parseMemberName, readableMembers,
+  PLOT_CALL, SELECT_CALL, SUBSCRIPT, TABLE_CALL, UNCERTAINTY_WORDS, UNIT_VECTOR_SETTING, UNPACK, VECTOR_FUNCTION,
   type DisplayMode, type LineCommand, type Notation, type Precision, type SeriesSuffix, type UncertaintyWord,
   type VectorStyle,
 } from './syntax.ts'
+import {
+  FIT, JOIN, RESERVED_NAMESPACES, constantRefName, expandDots, isHiddenName, isUncertaintyName, memberName,
+  parseConstantRefName, parseMemberName, parseNumberedName, parseSeriesStatName, parseSolvedName, parseUncertaintyName, readableMembers,
+  seriesMemberName, solvedName, uncertaintyName, unpackedColumnName, unpackedName,
+} from './names.ts'
+import { FN, OP, OP_SYMBOL, UNIT, UNIT_LOOKS, isOp } from './mathjsNames.ts'
 import { Solver, contains, countOccurrences, matchingParen, splitArgs, splitEquation } from './solve.ts'
 import { nestBrackets } from './brackets.ts'
 import type { CsvColumn } from './csv.ts'
-import { parseTableSettings, splitCallArgs } from './tableSettings.ts'
+import { SETTING, parseRowRange, parseTableSettings, settingParts, splitCallArgs } from './tableSettings.ts'
 import { parsePlotSettings } from './plotSettings.ts'
 import { linearFit, type LinearFit, type PlotData, type PlotPoint, type PlotSeries } from './plot.ts'
 
@@ -57,7 +62,7 @@ const math = create(all)
  * it, so their trailing zeros and sig figs survive parsing, rearranging and
  * copying of expression trees, and can't be confused with a plain 2 elsewhere.
  */
-math.import({ lit: (text: string) => Number(text) })
+math.import({ [FN.literal]: (text: string) => Number(text) })
 
 /**
  * `tuple(x, y, z)`: a tuple of values, such as coordinates. It's a
@@ -65,7 +70,7 @@ math.import({ lit: (text: string) => Number(text) })
  * work, and it's shown as (1.0, 2.0, 3.0) m. `tuple(a, b, c) = …` unpacks one
  * into separate variables (see evaluateUnpack).
  */
-math.import({ tuple: (...values: MathType[]) => math.matrix(values as never) })
+math.import({ [FN.tuple]: (...values: MathType[]) => math.matrix(values as never) })
 
 /**
  * `<3.0, 4.0> N`: a vector. It's a tuple like any other (so everything that
@@ -116,7 +121,7 @@ export function expandVectors(src: string): string {
     const unit = readUnit(src, end + 1)
     out += src.slice(last, i)
     out += unit
-      ? `(${VECTOR_FUNCTION}(${inside}) * unit("${unit.text}"))`
+      ? `(${VECTOR_FUNCTION}(${inside}) * ${FN.unit}("${unit.text}"))`
       : `${VECTOR_FUNCTION}(${inside})`
     last = unit ? unit.end : end + 1
     i = last - 1
@@ -237,7 +242,7 @@ const BUILTIN_CONSTANT_NAMES = new Set([
 function markLiterals(src: string): string {
   return src
     .split(/("[^"]*")/)
-    .map((part, i) => (i % 2 ? part : part.replace(NUMBER_LITERAL, (m) => (String(Number(m)) === m ? m : `lit("${m}")`))))
+    .map((part, i) => (i % 2 ? part : part.replace(NUMBER_LITERAL, (m) => (String(Number(m)) === m ? m : `${FN.literal}("${m}")`))))
     .join('')
 }
 
@@ -360,17 +365,20 @@ export interface Definition {
 
 /** A missing p.slope (or intercept, r2, chi2) explained: a plot has one only with a fit. */
 function fitHint(message: string): string {
-  const m = /^Undefined symbol (\S+)\.(slope|intercept|r2|chi2)$/.exec(message)
+  const m = MISSING_FIT_MEMBER.exec(message)
   if (!m) return message
-  return m[2] === 'chi2'
+  return m[1] === FIT.chi2
     ? `${message}: a plot has a χ² only for a weighted fit (fit linear, with an uncertainty on every y value).`
     : `${message}: a plot has a slope, intercept and R² only with a fit. Add fit linear to it (or choose Fit in its ⚙).`
 }
 
+/** mathjs's message for a named plot's fit member that isn't there (1: which). */
+const MISSING_FIT_MEMBER = new RegExp(String.raw`^Undefined symbol \S+\.(${Object.values(FIT).join('|')})$`)
+
 /** A series' first and last members as Definitions (just the one, if that's all it has). */
 const seriesDefinitions = (base: string, count: number): Definition[] => (count > 1
-  ? [{ name: `${base}_1`, members: count - 1 }, { name: `${base}_${count}`, members: 1 }]
-  : count === 1 ? [{ name: `${base}_1` }] : [])
+  ? [{ name: seriesMemberName(base, 1), members: count - 1 }, { name: seriesMemberName(base, count), members: 1 }]
+  : count === 1 ? [{ name: seriesMemberName(base, 1) }] : [])
 
 /** What an imported column made: its variables (name_first … name_last) and the range of its values. */
 export interface DataColumn {
@@ -532,7 +540,7 @@ export function preprocess(src: string, isVariable: (id: string) => boolean): { 
     if (m.index < last) continue
     const unit = readUnit(src, m.index + m[0].length)
     if (!unit) continue
-    out += `${src.slice(last, m.index)}to unit("${unit.text}")`
+    out += `${src.slice(last, m.index)}to ${FN.unit}("${unit.text}")`
     last = unit.end
   }
   src = out + src.slice(last)
@@ -549,7 +557,7 @@ export function preprocess(src: string, isVariable: (id: string) => boolean): { 
       && MORE_TERMS.test(src.slice(unit.end))) {
       shadowed.add(unit.text)
     }
-    out += `${src.slice(last, m.index)}(${m[0]} * unit("${unit.text}"))`
+    out += `${src.slice(last, m.index)}(${m[0]} * ${FN.unit}("${unit.text}"))`
     last = unit.end
   }
   return { text: markLiterals(out + src.slice(last)), shadowed: [...shadowed] }
@@ -565,58 +573,16 @@ export function preprocess(src: string, isVariable: (id: string) => boolean): { 
 //   delta F / Delta F        the uncertainty of F, rendered δF / ΔF as typed
 // ---------------------------------------------------------------------------
 
-/**
- * Hidden variable holding a variable's uncertainty. The letter as typed is kept
- * in the name so it renders the same way: `delta F` → `delta__F` (δF),
- * `Delta F` → `Delta__F` (ΔF).
- */
-const uncertaintyName = (letter: UncertaintyWord, of: string) => `${letter}__${of}`
-
-/** A hidden uncertainty variable's name (1: the word, 2: whose uncertainty). */
-const HIDDEN_UNCERTAINTY = new RegExp(`^(${UNCERTAINTY_WORDS.join('|')})__(.+)$`)
-
-/** The parts of a hidden uncertainty variable's name, or null if it isn't one. */
-function parseUncertaintyName(name: string): { letter: UncertaintyWord; of: string } | null {
-  const m = HIDDEN_UNCERTAINTY.exec(name)
-  return m ? { letter: m[1] as UncertaintyWord, of: m[2] } : null
-}
-
-/** Whether a name is a hidden uncertainty variable's. */
-const isUncertaintyName = (name: string) => parseUncertaintyName(name) !== null
-
-// ---------------------------------------------------------------------------
-// Constants: `@c` (3 sig figs), `@c:5`, `@c:exact`
-//
-// Each reference becomes a hidden variable holding the rounded value, e.g.
-// `@c:5` → `at__c__5`, so it substitutes and counts sig figs like any variable.
-// ---------------------------------------------------------------------------
-
-/** The hidden variable for a constant at a precision: `@c:5` → `at__c__5`. */
-const constantRefName = (name: string, digits: Precision) => `at__${name}__${digits === EXACT_SETTING ? 'x' : digits}`
-
-/** The constant a hidden variable holds, or null if it isn't one. */
-function parseConstantRefName(name: string): string | null {
-  return /^at__(.+)__(?:\d+|x)$/.exec(name)?.[1] ?? null
-}
-
-/** Hidden variable holding a numerically solved unknown: `x` → `solved__x`. */
-const solvedName = (x: string) => `solved__${x}`
-/** The unknown a hidden variable holds the solution for, or null. */
-const parseSolvedName = (name: string) => /^solved__(.+)$/.exec(name)?.[1] ?? null
-
-/** Hidden helper variables that aren't listed as the sheet's own variables. */
-const isHiddenName = (name: string) =>
-  isUncertaintyName(name) || parseConstantRefName(name) !== null || parseSolvedName(name) !== null
-  || name.startsWith(UNPACKED)
-
-/** A hidden variable holding a tuple while `tuple(a, b) = …` unpacks it. */
-const UNPACKED = 'unpacked__'
+// (Each delta F, @c and solved unknown is held in a hidden variable: see names.ts.)
 
 /** `delta F` (or `Delta F`): F's uncertainty (1: the letter, 2: the name). */
 const DELTA_REF = new RegExp(String.raw`\b(${UNCERTAINTY_WORDS.join('|')})\s+(${NAME})`, 'g')
 
 /** `x = solve(…`, or a bare `solve(…` (1: the name assigned, if any). */
 const SOLVE_CALL = new RegExp(String.raw`^(?:(${NAME})\s*=\s*)?solve\s*\(`)
+
+/** A select condition on a series' values: `t from 0.2 to 0.8`, `t from 0.2`, `t to 0.8` (1: the series, 2: from, 3: to). */
+const SELECT_RANGE = new RegExp(String.raw`^(${NAME})\s+(?:${SETTING.from}\s+(.+?))?\s*(?:\b${SETTING.to}\s+(.+))?$`)
 
 // ---------------------------------------------------------------------------
 // Series aggregates
@@ -640,13 +606,10 @@ interface Aggregate {
   members: string[]
 }
 
-/** A series name with its suffix: `t_avg` (1: the series, 2: the suffix). */
-const SERIES_NAME = new RegExp(`^(.+?)_(${Object.keys(SERIES_SUFFIXES).join('|')})$`)
-
 /** What a name asks of a series: `t_avg` → t's mean; a name without a suffix, the sum. */
 function parseAggregateName(name: string): { base: string; kind: AggregateKind } {
-  const m = SERIES_NAME.exec(name)
-  return m ? { base: m[1], kind: SERIES_SUFFIXES[m[2] as SeriesSuffix] } : { base: name, kind: 'sum' }
+  const stat = parseSeriesStatName(name)
+  return stat ? { base: stat.base, kind: SERIES_SUFFIXES[stat.suffix] } : { base: name, kind: 'sum' }
 }
 
 /** Text, escaped to match literally in a regular expression. */
@@ -724,23 +687,27 @@ export function symbolTex(name: string): string {
   const solved = parseSolvedName(name)
   if (solved) return symbolTex(solved)
   // Statistics of a series: a_avg → ā, a_std → σ_a, a_sem → σ_ā, a_count → n_a
-  const stat = /^(.+?)_(avg|mean|std|sem|count)$/.exec(name)
+  const stat = parseSeriesStatName(name)
   if (stat) {
-    const base = symbolTex(stat[1])
-    if (stat[2] === 'std') return `\\sigma_{${base}}`
-    if (stat[2] === 'sem') return `\\sigma_{\\bar{${base}}}`
-    if (stat[2] === 'count') return `n_{${base}}`
-    // A namespace's series keeps its subscript outside the bar: a.x_avg → x̄_a.
-    const sub = parseMemberName(stat[1]) ? /^(.*?)(_\{.*\})$/.exec(base) : null
-    return sub ? `\\bar{${sub[1]}}${sub[2]}` : `\\bar{${base}}`
+    const base = symbolTex(stat.base)
+    switch (SERIES_SUFFIXES[stat.suffix]) {
+      case 'std': return `\\sigma_{${base}}`
+      case 'sem': return `\\sigma_{\\bar{${base}}}`
+      case 'count': return `n_{${base}}`
+      case 'mean': {
+        // A namespace's series keeps its subscript outside the bar: a.x_avg → x̄_a.
+        const sub = parseMemberName(stat.base) ? /^(.*?)(_\{.*\})$/.exec(base) : null
+        return sub ? `\\bar{${sub[1]}}${sub[2]}` : `\\bar{${base}}`
+      }
+    }
   }
   // A namespace's member, a.x_1: the namespace goes first in the subscript, x_{a,1}.
   const member = parseMemberName(name)
   if (member) {
     const ns = namePart(member.namespace)
     // A named plot's fit: p.r2 → R²_p, p.chi2 → χ²_ν,p.
-    if (member.member === 'r2') return `R^{2}_{${ns}}`
-    if (member.member === 'chi2') return `\\chi^{2}_{\\nu,${ns}}`
+    if (member.member === FIT.r2) return `R^{2}_{${ns}}`
+    if (member.member === FIT.chi2) return `\\chi^{2}_{\\nu,${ns}}`
     const tex = symbolTex(member.member)
     const sub = /^(.*?)_\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}$/.exec(tex)
     return sub ? `${sub[1]}_{${ns},${sub[2]}}` : `${tex}_{${ns}}`
@@ -787,9 +754,8 @@ export function unitTex(s: string): string {
   return norm.replace(/[A-Za-z]+|\^(-?[\d.]+)|\*/g, (tok, pow) => {
     if (tok === '*') return '\\cdot '
     if (pow !== undefined) return `^{${pow}}`
-    if (tok === 'deg') return '^{\\circ}'
-    if (tok === 'ohm') return '\\Omega'
-    if (tok === 'angstrom' || tok === 'angstroms') return '\\text{\\AA}'
+    const look = UNIT_LOOKS[tok]
+    if (look) return look.tex
     // The micro prefix, u in mathjs, as µ: um → µm.
     if (hasMicroPrefix(tok)) return `\\mu\\mathrm{${tok.slice(1)}}`
     return `\\mathrm{${tok}}`
@@ -809,14 +775,14 @@ function attachUnit(num: string, unit: string): string {
 
 /** A unit as mathjs reads it: unit("kg"). */
 const isUnitCall = (n: MathNode | undefined): n is FunctionNode =>
-  !!n && isFunctionNode(n) && n.fn.name === 'unit' && isConstantNode(n.args[0])
+  !!n && isFunctionNode(n) && n.fn.name === FN.unit && isConstantNode(n.args[0])
 
 /** The unit inside unit("kg"). */
 const unitCallText = (n: FunctionNode) => String((n.args[0] as math.ConstantNode).value)
 
 /** A number kept as typed: lit("2.00"). */
 const isLitCall = (n: MathNode | undefined): n is FunctionNode =>
-  !!n && isFunctionNode(n) && n.fn.name === 'lit' && isConstantNode(n.args[0])
+  !!n && isFunctionNode(n) && n.fn.name === FN.literal && isConstantNode(n.args[0])
 
 /** A node without any brackets around it. */
 function unwrap(n: MathNode): MathNode {
@@ -827,15 +793,15 @@ function unwrap(n: MathNode): MathNode {
 function isLiteral(n: MathNode): boolean {
   n = unwrap(n)
   if (isConstantNode(n) || isLitCall(n)) return true
-  if (isOperatorNode(n) && n.fn === 'unaryMinus') return isLiteral(n.args[0])
-  if (isOperatorNode(n) && n.fn === 'multiply' && isUnitCall(n.args[1])) return isLiteral(n.args[0])
+  if (isOp(n, OP.unaryMinus)) return isLiteral(n.args[0])
+  if (isOp(n, OP.multiply) && isUnitCall(n.args[1])) return isLiteral(n.args[0])
   return false
 }
 
 /** A vector of typed values: `<3.0, 4.0> N`, `<1.0 m, 2.0 m>`. */
 function isVectorLiteral(n: MathNode): boolean {
   n = unwrap(n)
-  if (isOperatorNode(n) && n.fn === 'multiply' && isUnitCall(n.args[1])) n = unwrap(n.args[0])
+  if (isOp(n, OP.multiply) && isUnitCall(n.args[1])) n = unwrap(n.args[0])
   return isFunctionNode(n) && n.fn.name === VECTOR_FUNCTION && n.args.every(isLiteral)
 }
 
@@ -849,7 +815,7 @@ function isPureNumber(n: MathNode): boolean {
 }
 
 /** `x to unit`. */
-const isConversion = (n: MathNode) => isOperatorNode(n) && n.fn === 'to'
+const isConversion = (n: MathNode) => isOp(n, OP.to)
 
 // ---------------------------------------------------------------------------
 // Unit normalisation
@@ -957,10 +923,46 @@ class Scope<T = unknown> extends Map<string, T> {
   private hasExactly(key: string): boolean {
     return super.has(key) || (this.parent?.hasExactly(key) ?? false)
   }
-}
 
-/** A selection's member by number, `a__x_3` or `a__x3` (1: the series, 2: the number). */
-const VIEW_MEMBER = /^(.+?)_?(\d+)$/
+  // -------------------------------------------------------------------------
+  // Series index: each series' members at this level (t → t_1, t2, …), so
+  // finding a series doesn't mean going through every name (imported data can
+  // make tens of thousands). Made when first asked for, then kept up to date.
+  // -------------------------------------------------------------------------
+
+  private series: Map<string, Set<string>> | undefined
+
+  /** Series `base`'s members defined at this level (not its parents'). */
+  membersHere(base: string): ReadonlySet<string> | undefined {
+    if (!this.series) {
+      this.series = new Map()
+      for (const name of super.keys()) this.indexName(name)
+    }
+    return this.series.get(base)
+  }
+
+  set(key: string, value: T): this {
+    if (this.series && !super.has(key)) this.indexName(key)
+    return super.set(key, value)
+  }
+
+  delete(key: string): boolean {
+    const had = super.delete(key)
+    if (had && this.series) {
+      const numbered = parseNumberedName(key)
+      if (numbered) this.series.get(numbered.base)?.delete(key)
+    }
+    return had
+  }
+
+  private indexName(name: string): void {
+    const numbered = parseNumberedName(name)
+    if (!numbered) return
+    let members = this.series!.get(numbered.base)
+    if (!members) this.series!.set(numbered.base, members = new Set())
+    members.add(name)
+  }
+}
 
 /**
  * The series of selections and named plots (`a = select(t, x; …)`), as lookups:
@@ -1002,9 +1004,9 @@ class Views {
 
   /** The variable a selection's member is: a__x_3 → x_7 (undefined if it isn't one). */
   resolve(key: string): string | undefined {
-    if (!key.includes('__') || this.levels.every((l) => !l.size)) return undefined
-    const m = VIEW_MEMBER.exec(key)
-    return m ? this.get(m[1])?.[Number(m[2]) - 1] : undefined
+    if (!key.includes(JOIN) || this.levels.every((l) => !l.size)) return undefined
+    const m = parseNumberedName(key)
+    return m ? this.get(m.base)?.[m.n - 1] : undefined
   }
 }
 
@@ -1015,14 +1017,15 @@ const NUMBERED_SUBSCRIPT = new RegExp(String.raw`^([A-Za-z${GREEK_CHARS}]+)_(\d+
 
 /** A numbered name's other spelling: t1 → t_1, t_1 → t1 (undefined for other names). */
 function otherSpelling(name: string): string | undefined {
-  // Inside a namespace too: a.t1 ↔ a.t_1.
-  const member = name.includes('__') ? parseMemberName(name) : null
-  if (member) {
-    const other = otherSpelling(member.member)
-    return other === undefined ? undefined : memberName(member.namespace, other)
+  // Inside a namespace too: a.t1 ↔ a.t_1. (Split at the join directly: this runs
+  // for every name looked up, so it skips parseMemberName's checks.)
+  const join = name.indexOf(JOIN)
+  if (join > 0) {
+    const other = otherSpelling(name.slice(join + JOIN.length))
+    return other === undefined ? undefined : name.slice(0, join + JOIN.length) + other
   }
   const plain = NUMBERED.exec(name)
-  if (plain) return `${plain[1]}_${plain[2]}`
+  if (plain) return `${plain[1]}${SUBSCRIPT}${plain[2]}`
   const sub = NUMBERED_SUBSCRIPT.exec(name)
   return sub ? `${sub[1]}${sub[2]}` : undefined
 }
@@ -1100,7 +1103,7 @@ interface Declaration {
 /** Whether a unit measures angles. */
 const isAngleUnit = (unit: string) => {
   try {
-    return math.unit(unit).equalBase(math.unit('rad'))
+    return math.unit(unit).equalBase(math.unit(UNIT.radian))
   } catch {
     return false
   }
@@ -1124,7 +1127,7 @@ function toDisplayUnit(value: unknown, unit: string): unknown {
     }
   }
   if (typeof value === 'number') {
-    if (isAngleUnit(unit)) return math.unit(value, 'rad').to(unit)
+    if (isAngleUnit(unit)) return math.unit(value, UNIT.radian).to(unit)
     throw new Error(`${formatted(value)} has no unit, so it can't be shown in ${unit} `
       + '(only an angle in radians, from atan or asin for example, can be given a unit this way).')
   }
@@ -1174,7 +1177,7 @@ function componentsOf(name: string, value: unknown): { name: string; value: unkn
   if (!values || values.length < 2 || values.length > AXES.length) {
     throw new Error(`${name}:${COMPONENTS_SETTING} needs a vector of 2 or 3 values, like <3.0, 4.0> N.`)
   }
-  return values.map((v, i) => ({ name: `${name}_${AXES[i]}`, value: v }))
+  return values.map((v, i) => ({ name: `${name}${SUBSCRIPT}${AXES[i]}`, value: v }))
 }
 
 /**
@@ -1390,7 +1393,7 @@ function castArgument(param: string, unit: string | undefined, value: unknown): 
 
 /** A number followed by its unit: `2.0 kg`. */
 const isNumberWithUnit = (n: MathNode): n is math.OperatorNode =>
-  isOperatorNode(n) && n.fn === 'multiply' && isUnitCall(n.args[1])
+  isOp(n, OP.multiply) && isUnitCall(n.args[1])
 
 // ---------------------------------------------------------------------------
 // Products without dots: ma, ½mv², 2πr
@@ -1429,9 +1432,9 @@ function edgeOf(node: MathNode, side: 'left' | 'right'): Edge {
     return symbolTex(n.name).startsWith('\\mathrm') ? 'wide' : 'name'
   }
   if (isOperatorNode(n)) {
-    if (n.fn === 'divide') return 'fraction'
-    if (n.fn === 'multiply') return edgeOf(side === 'left' ? n.args[0] : n.args[n.args.length - 1], side)
-    if (n.fn === 'pow') {
+    if (n.fn === OP.divide) return 'fraction'
+    if (n.fn === OP.multiply) return edgeOf(side === 'left' ? n.args[0] : n.args[n.args.length - 1], side)
+    if (n.fn === OP.pow) {
       // A power ends in its raised exponent. It starts with its base, which is
       // bracketed if it's a value with a unit: (0.400 Å)².
       if (side === 'right') return 'power'
@@ -1466,8 +1469,8 @@ function needsBrackets(node: MathNode, side: 'left' | 'right', valuesBracketed: 
   const n = unwrap(node)
   if (valuesBracketed && isNumberWithUnit(n)) return true
   if (!isOperatorNode(n)) return false
-  if (n.fn === 'unaryMinus') return side === 'right'
-  return !['multiply', 'divide', 'pow', 'unaryPlus'].includes(n.fn)
+  if (n.fn === OP.unaryMinus) return side === 'right'
+  return !isOp(n, OP.multiply, OP.divide, OP.pow, OP.unaryPlus)
 }
 
 /**
@@ -1639,7 +1642,7 @@ function columnValues(c: CsvColumn) {
       value = u
     }
     // A whole number without a unit is exact, as when it's typed in a sheet.
-    const v: DataValue = { name: `${c.name}_${row}`, value, sf: c.unit || isMeasuredLiteral(text) ? countSigFigs(text) : EXACT }
+    const v: DataValue = { name: seriesMemberName(c.name, row), value, sf: c.unit || isMeasuredLiteral(text) ? countSigFigs(text) : EXACT }
     // With an uncertainty, it sets the precision, as with `x = 0.012 m pm 0.001 m`.
     const uncText = c.unc?.values.get(row)
     if (uncText !== undefined && Number(uncText) > 0) {
@@ -1771,12 +1774,15 @@ export class Calculator {
 
   /** Set a variable, with everything kept about it (in the current scope). */
   private store(name: string, v: StoredVariable): void {
-    this.scope.set(name, v.value)
-    this.sigs.set(name, v.sf)
     // What's unset is only written where it has to hide a value from before (in
     // this scope or an outer one): imported data can make thousands of variables.
+    // Every variable has a value, so if there's none by this name (in either
+    // spelling), no other table has one to hide: asked once, not once per table.
+    const hides = this.scope.has(name)
+    this.scope.set(name, v.value)
+    this.sigs.set(name, v.sf)
     const put = <T>(s: Scope<T>, value: T | undefined) => {
-      if (value !== undefined || s.has(name)) s.set(name, value as T)
+      if (value !== undefined || hides) s.set(name, value as T)
     }
     put(this.uncs, v.contributions?.size ? v.contributions : undefined)
     put(this.uncSfs, v.uncSf)
@@ -1835,7 +1841,7 @@ export class Calculator {
       if (!alias) return n
       // Automatic brackets drop around a negative (2.0 m · −2.0); keep them, as the
       // substituted step does.
-      if (isOperatorNode(alias) && alias.fn === 'unaryMinus') {
+      if (isOp(alias, OP.unaryMinus)) {
         const saved = this.paramAliases
         this.paramAliases = new Map()
         try {
@@ -1996,7 +2002,7 @@ export class Calculator {
     if (symbols.some((c) => !BUILTIN_CONSTANT_NAMES.has(c.name) || this.scope.has(c.name))) return undefined
     if (n.filter((c) => isUnitCall(c)).length) return undefined
     const tex = this.toTex(n, literals)
-    const bare = isSymbolNode(n) || isFunctionNode(n) || (isOperatorNode(n) && n.fn === 'divide')
+    const bare = isSymbolNode(n) || isFunctionNode(n) || (isOp(n, OP.divide))
     return bare ? tex : `\\left(${tex}\\right)`
   }
 
@@ -2015,8 +2021,8 @@ export class Calculator {
       return rawNode(`\\left(${parts.unit ? attachUnit(numTex, unitTex(parts.unit)) : numTex}\\right)`)
     }
     if (!parts.unit) return rawNode(numTex)
-    const unit = new math.FunctionNode(new math.SymbolNode('unit'), [new math.ConstantNode(parts.unit)])
-    return new math.ParenthesisNode(new math.OperatorNode('*', 'multiply', [rawNode(numTex), unit]))
+    const unit = new math.FunctionNode(new math.SymbolNode(FN.unit), [new math.ConstantNode(parts.unit)])
+    return new math.ParenthesisNode(new math.OperatorNode(OP_SYMBOL.multiply, OP.multiply, [rawNode(numTex), unit]))
   }
 
   private toTex(node: MathNode, literals: Map<number, string>): string {
@@ -2027,20 +2033,20 @@ export class Calculator {
       }
       if (isUnitCall(n)) return ` ${unitTex(unitCallText(n))}`
       if (isLitCall(n)) return ` ${numberTex(unitCallText(n))}`
-      if (isOperatorNode(n) && n.fn === 'multiply' && isUnitCall(n.args[1])) {
+      if (isOp(n, OP.multiply) && isUnitCall(n.args[1])) {
         return attachUnit(n.args[0].toTex(options), unitTex(unitCallText(n.args[1])))
       }
       // -2.0 m, not -(2.0 m)
-      if (isOperatorNode(n) && n.fn === 'unaryMinus' && (isNumberWithUnit(unwrap(n.args[0])) || isLiteral(n.args[0]))) {
+      if (isOp(n, OP.unaryMinus) && (isNumberWithUnit(unwrap(n.args[0])) || isLiteral(n.args[0]))) {
         return ` -${unwrap(n.args[0]).toTex(options).trim()}`
       }
       // Products as in a textbook, ma, ½mv², 2.0 kg · 9.81 m/s² (or with every dot, if the option is on).
-      if (isOperatorNode(n) && n.fn === 'multiply') {
+      if (isOp(n, OP.multiply)) {
         const factor = (a: MathNode, side: 'left' | 'right') => {
           // A negative value with a unit keeps its value bracketed, like the other
           // values in the product: −(500 N) sin(30°), not −500 N sin(30°).
           const negated = unwrap(a)
-          if (!this.options.productDots && isOperatorNode(negated) && negated.fn === 'unaryMinus'
+          if (!this.options.productDots && isOp(negated, OP.unaryMinus)
             && isNumberWithUnit(unwrap(negated.args[0]))) {
             return `-\\left(${unwrap(negated.args[0]).toTex(options).trim()}\\right)`
           }
@@ -2052,7 +2058,7 @@ export class Calculator {
           factor(n.args[0], 'left'))}`
       }
       // A value in scientific notation raised to a power is bracketed: (7.07 × 10⁻²)², not 7.07 × 10⁻²².
-      if (isOperatorNode(n) && n.fn === 'pow') {
+      if (isOp(n, OP.pow)) {
         const base = unwrap(n.args[0])
         if (isSymbolNode(base) && inScientificNotation(base)) {
           return `\\left(${base.name.slice(1)}\\right)^{${n.args[1].toTex(options).trim()}}`
@@ -2062,7 +2068,7 @@ export class Calculator {
         if (n.name.startsWith(RAW)) return ` ${n.name.slice(1)}`
         return ` ${symbolTex(n.name)}`
       }
-      if (isFunctionNode(n) && n.fn.name === 'tuple') {
+      if (isFunctionNode(n) && n.fn.name === FN.tuple) {
         return `\\left(${n.args.map((a) => a.toTex(options).trim()).join(', ')}\\right)`
       }
       if (isFunctionNode(n) && n.fn.name === VECTOR_FUNCTION) {
@@ -2135,9 +2141,9 @@ export class Calculator {
       if (traced !== undefined) return traced
     }
     if (isOperatorNode(node)) {
-      if (node.fn === 'multiply' && isUnitCall(node.args[1])) return this.sigFigsOf(node.args[0], literals, true)
-      if (node.fn === 'unaryMinus' || node.fn === 'unaryPlus') return this.sigFigsOf(node.args[0], literals, measured)
-      if (node.fn === 'add' || node.fn === 'subtract') {
+      if (node.fn === OP.multiply && isUnitCall(node.args[1])) return this.sigFigsOf(node.args[0], literals, true)
+      if (node.fn === OP.unaryMinus || node.fn === OP.unaryPlus) return this.sigFigsOf(node.args[0], literals, measured)
+      if (node.fn === OP.add || node.fn === OP.subtract) {
         const terms = node.args.map((a) => ({ sf: this.sigFigsOf(a, literals, false), x: this.magnitude(a) }))
         const total = this.magnitude(node)
         if (Number.isNaN(total) || terms.some((t) => Number.isNaN(t.x))) return Math.min(...terms.map((t) => t.sf))
@@ -2147,7 +2153,7 @@ export class Calculator {
       }
       // An exponent written as plain numbers (^0.5, ^(3/2), ^(-0.5)) is part of the
       // formula, not a measurement, so only the base limits the sig figs.
-      if (node.fn === 'pow' && isPureNumber(node.args[1])) return this.sigFigsOf(node.args[0], literals, false)
+      if (node.fn === OP.pow && isPureNumber(node.args[1])) return this.sigFigsOf(node.args[0], literals, false)
     }
     let sf = EXACT
     node.forEach((child, path) => {
@@ -2169,9 +2175,9 @@ export class Calculator {
       if (isConstantNode(n)) {
         const text = literals.get(n.value as number) ?? String(n.value)
         if (measured && hasAmbiguousZeros(text)) found.add(text)
-      } else if (isOperatorNode(n) && n.fn === 'multiply' && isUnitCall(n.args[1])) {
+      } else if (isOp(n, OP.multiply) && isUnitCall(n.args[1])) {
         visit(n.args[0], true)
-      } else if (isOperatorNode(n) && n.fn === 'unaryMinus') {
+      } else if (isOp(n, OP.unaryMinus)) {
         visit(n.args[0], measured)
       } else {
         n.forEach((c) => visit(c, false))
@@ -2296,7 +2302,7 @@ export class Calculator {
     try {
       const derivs = inputs.map((n) => math.derivative(def, n))
       const wrap = (d: MathNode, tex: string) =>
-        (isOperatorNode(d) && ['add', 'subtract', 'unaryMinus'].includes(d.fn) ? `\\left(${tex}\\right)` : tex)
+        (isOp(d, OP.add, OP.subtract, OP.unaryMinus) ? `\\left(${tex}\\right)` : tex)
       steps.push(sqrt(inputs.map((n, i) =>
         term(wrap(derivs[i], this.toTex(derivs[i], new Map())), uncOf(n)))))
       if (this.options.showSubstitution) {
@@ -2324,18 +2330,14 @@ export class Calculator {
   private seriesMembers(base: string): string[] {
     // A selection's series: its members are its numbers (each a lookup; see Views).
     const view = this.views.get(base)
-    if (view) return view.flatMap((name, i) => (name ? [`${base}_${i + 1}`] : []))
-    const re = new RegExp(`^${escapeRegExp(base)}_?(\\d+)$`)
+    if (view) return view.flatMap((name, i) => (name ? [seriesMemberName(base, i + 1)] : []))
     const found = new Map<string, number>()
+    // Each level's members, from its series index (an inner level's hide an outer's of the same name).
     for (let s: Scope | undefined = this.scope; s; s = s.parent) {
-      // Map.prototype.keys only sees this level's own names. (startsWith first:
-      // it's much quicker than the pattern, and a sheet can have thousands.)
-      for (const name of s.keys()) {
-        if (!name.startsWith(base)) continue
-        const m = re.exec(name)
-        if (!m || found.has(name) || isUncertaintyName(name) || this.aggs.get(name)) continue
+      for (const name of s.membersHere(base) ?? []) {
+        if (found.has(name) || isUncertaintyName(name) || this.aggs.get(name)) continue
         if (typeof this.scope.get(name) === 'function') continue
-        found.set(name, Number(m[1]))
+        found.set(name, parseNumberedName(name)!.n)
       }
     }
     return [...found.entries()].sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0])).map(([n]) => n)
@@ -2997,7 +2999,7 @@ export class Calculator {
       candidates = contains(lhs, x) ? solver.isolate(lhs, rhs, x) : solver.isolate(rhs, lhs, x)
     }
     if (!candidates) {
-      const f = new math.OperatorNode('-', 'subtract', [lhs, new math.ParenthesisNode(rhs)])
+      const f = new math.OperatorNode(OP_SYMBOL.subtract, OP.subtract, [lhs, new math.ParenthesisNode(rhs)])
       const poly = solver.polynomial(f, x)
       if (poly) {
         candidates = poly.solutions
@@ -3012,13 +3014,13 @@ export class Calculator {
         const unitNode = (math.parse(preprocess(`1 to ${conversion}`, () => false).text) as math.OperatorNode).args[1]
         // Angles from asin/acos/atan come out as plain numbers in radians.
         const targetUnit = unitNode.compile().evaluate({})
-        if (typeof value === 'number' && math.isUnit(targetUnit) && (targetUnit as Unit).equalBase(math.unit('rad'))) {
-          shown = new math.OperatorNode('*', 'multiply', [
+        if (typeof value === 'number' && math.isUnit(targetUnit) && (targetUnit as Unit).equalBase(math.unit(UNIT.radian))) {
+          shown = new math.OperatorNode(OP_SYMBOL.multiply, OP.multiply, [
             new math.ParenthesisNode(shown),
-            new math.FunctionNode(new math.SymbolNode('unit'), [new math.ConstantNode('rad')]),
+            new math.FunctionNode(new math.SymbolNode(FN.unit), [new math.ConstantNode(UNIT.radian)]),
           ])
         }
-        shown = new math.OperatorNode('to', 'to', [shown, unitNode])
+        shown = new math.OperatorNode(OP_SYMBOL.to, OP.to, [shown, unitNode])
       }
       return shown
     }
@@ -3088,7 +3090,7 @@ export class Calculator {
     equationTex: string,
     finish: (expr: MathNode, value: unknown) => LineResult,
   ): LineResult {
-    const F = new math.OperatorNode('-', 'subtract', [lhs, new math.ParenthesisNode(rhs)])
+    const F = new math.OperatorNode(OP_SYMBOL.subtract, OP.subtract, [lhs, new math.ParenthesisNode(rhs)])
     const code = F.compile()
     const residual = (s: number) => {
       const scope = new Scope(this.scope)
@@ -3174,7 +3176,7 @@ export class Calculator {
     try {
       const { tex, error, warning, info, trace, returnNote, plot, defines } = this.evaluateLine(input, mode, explicit)
       // Messages name a namespace's members as typed, a.x_1 (not a__x_1).
-      const readable = (s: string | undefined) => (s?.includes('__') ? fitHint(readableMembers(s)) : s)
+      const readable = (s: string | undefined) => (s?.includes(JOIN) ? fitHint(readableMembers(s)) : s)
       // Brackets by nesting, ( ) inside [ ] inside { }, once each equation is finished.
       return {
         tex: nestBrackets(tex), error: readable(error), warning: readable(warning), info: readable(info), returnNote, plot, defines,
@@ -3216,7 +3218,7 @@ export class Calculator {
     const twice = names.find((n, i) => names.indexOf(n) !== i)
     if (twice) return { tex: lhs, error: `${twice} is listed twice.` }
 
-    const hidden = `${UNPACKED}${this.nextUnpack++}`
+    const hidden = unpackedName(this.nextUnpack++)
     this.lhsOverride = lhs
     this.unpackDeclaredSf = targets.map((t) => t.sf !== undefined)
     let result: LineResult
@@ -3417,7 +3419,7 @@ export class Calculator {
       named.forEach((c, i) => {
         // Two with the same name (run1.x, run2.x) keep their namespaces apart: p.run1_x, p.run2_x.
         const clash = shorts.filter((s) => s === shorts[i]).length > 1
-        const base = memberName(plotName, clash ? c.name!.replace('__', '_') : shorts[i])
+        const base = memberName(plotName, clash ? c.name!.replace(JOIN, SUBSCRIPT) : shorts[i])
         // A lookup into the variables drawn, not a copy (see Views).
         const picked = drawn.map((n) => c.rows.get(n))
         this.views.set(base, picked)
@@ -3439,15 +3441,15 @@ export class Calculator {
         // has several series); x_slope for an unnamed plot's named series.
         const own = parseMemberName(s.name ?? '')?.member ?? s.name ?? `y${i + 1}`
         const target = (suffix: string) => (plotName
-          ? memberName(plotName, series.length === 1 ? suffix : `${own}_${suffix}`)
-          : s.name ? `${s.name}_${suffix}` : undefined)
+          ? memberName(plotName, series.length === 1 ? suffix : `${own}${SUBSCRIPT}${suffix}`)
+          : s.name ? `${s.name}${SUBSCRIPT}${suffix}` : undefined)
         fits.push(this.fitTex(s, fit, xColumn.name, xUnit, yUnit, target))
-        for (const [suffix, v] of [['r2', fit.r2], ['chi2', fit.chi2]] as const) {
+        for (const [suffix, v] of [[FIT.r2, fit.r2], [FIT.chi2, fit.chi2]] as const) {
           const to = plotName && v !== undefined ? target(suffix) : undefined
           if (to) this.store(to, { value: v, sf: EXACT })
         }
         if (plotName) {
-          for (const suffix of ['slope', 'intercept', 'r2', ...(fit.chi2 !== undefined ? ['chi2'] : [])]) defines.push({ name: target(suffix)! })
+          for (const suffix of [FIT.slope, FIT.intercept, FIT.r2, ...(fit.chi2 !== undefined ? [FIT.chi2] : [])]) defines.push({ name: target(suffix)! })
         }
       }
     }
@@ -3489,8 +3491,8 @@ export class Calculator {
     }
     const slopeUnit = yUnit && xUnit ? `(${yUnit}) / (${xUnit})` : yUnit ?? (xUnit ? `(${xUnit})^-1` : undefined)
     const parts = [
-      { value: slopeQuantity(fit.slope, slopeUnit), unc: slopeQuantity(fit.slopeUnc, slopeUnit), suffix: 'slope' },
-      { value: interceptQuantity(fit.intercept), unc: interceptQuantity(fit.interceptUnc), suffix: 'intercept' },
+      { value: slopeQuantity(fit.slope, slopeUnit), unc: slopeQuantity(fit.slopeUnc, slopeUnit), suffix: FIT.slope },
+      { value: interceptQuantity(fit.intercept), unc: interceptQuantity(fit.interceptUnc), suffix: FIT.intercept },
     ].map((p) => {
       const sf = this.uncertainParts(p.value, p.unc)?.sf ?? EXACT
       // Each is a measured result: its uncertainty is a source of its own.
@@ -3542,16 +3544,15 @@ export class Calculator {
     // The conditions.
     const tests: ((n: number) => boolean)[] = []
     const shown: string[] = []
-    for (const part of (parts.settings ?? '').split(',').map((p) => p.trim()).filter(Boolean)) {
-      const rows = /^rows?\s+(\d+)?\s*(?:-\s*(\d+)?)?$/.exec(part)
-      if (rows && (rows[1] || rows[2])) {
-        const from = rows[1] ? Number(rows[1]) : undefined
-        const to = part.includes('-') ? (rows[2] ? Number(rows[2]) : undefined) : from
+    for (const part of settingParts(parts.settings)) {
+      const rows = parseRowRange(part)
+      if (rows) {
+        const { from, to } = rows
         tests.push((n) => (from === undefined || n >= from) && (to === undefined || n <= to))
-        shown.push(`\\text{rows } ${from ?? 1}\\text{–}${to ?? '\\text{end}'}`)
+        shown.push(`\\text{${SETTING.rows} } ${from ?? 1}\\text{–}${to ?? '\\text{end}'}`)
         continue
       }
-      const range = new RegExp(String.raw`^(${NAME})\s+(?:from\s+(.+?))?\s*(?:\bto\s+(.+))?$`).exec(part)
+      const range = SELECT_RANGE.exec(part)
       if (!range || (!range[2] && !range[3])) {
         return { tex: '', error: `"${readableMembers(part)}" isn't a condition: use t from 0.2 to 0.8 (either end can be left off), or rows 5-20.` }
       }
@@ -3643,7 +3644,7 @@ export class Calculator {
       const numbers = [...[...used.values()][0].keys()].filter((n) => [...used.values()].every((rows) => rows.has(n)))
       const rows = new Map<number, string>()
       for (const n of numbers) {
-        const target = name ? `${name}_${n}` : `${UNPACKED}column${i}_${n}`
+        const target = name ? seriesMemberName(name, n) : unpackedColumnName(i, n)
         const result = this.evaluateLine(`${target} = ${withRowValues(expr, used, n)}`, 'val', false)
         if (result.error) {
           errors.push(`Row ${n}: ${result.error}`)
@@ -3936,7 +3937,7 @@ export class Calculator {
       const rhs = unwrap(expr)
       const checked = !unpackDeclaredSf
         ? [expr]
-        : isFunctionNode(rhs) && rhs.fn.name === 'tuple'
+        : isFunctionNode(rhs) && rhs.fn.name === FN.tuple
           ? rhs.args.filter((_, i) => !unpackDeclaredSf[i])
           : unpackDeclaredSf.every(Boolean) ? [] : [expr]
       const ambiguous = checked.flatMap((n) => this.ambiguousLiterals(n, literals))
@@ -3992,7 +3993,7 @@ export class Calculator {
         const angle = !math.isUnit(value) && !math.isMatrix(value) && isAngleUnit(ctx.displayUnit)
         value = toDisplayUnit(value, ctx.displayUnit)
         if (angle) {
-          contributions = new Map([...contributions].map(([k, c]) => [k, math.unit(c as number, 'rad')]))
+          contributions = new Map([...contributions].map(([k, c]) => [k, math.unit(c as number, UNIT.radian)]))
         }
       } catch (e) {
         return { tex: layoutEquation('full', parts(), multiline), warning, trace, info: ctx.info, error: (e as Error).message }
@@ -4105,10 +4106,10 @@ export class Calculator {
   /** Sig figs of each component of a typed vector (`<0.50, -9.81> m/s^2` → 2, 3). */
   private componentSigFigs(node: MathNode, literals: Map<number, string>): number[] {
     let n = unwrap(node)
-    if (isOperatorNode(n) && n.fn === 'multiply') n = unwrap(n.args[0])
+    if (isOp(n, OP.multiply)) n = unwrap(n.args[0])
     return (n as FunctionNode).args.map((a) => {
       const c = unwrap(a)
-      return this.literalSigFigs(isOperatorNode(c) && c.fn === 'unaryMinus' ? c.args[0] : c, literals) ?? EXACT
+      return this.literalSigFigs(isOp(c, OP.unaryMinus) ? c.args[0] : c, literals) ?? EXACT
     })
   }
 

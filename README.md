@@ -439,7 +439,6 @@ a                   # still the outer value
 - Anything assigned inside a block is local to it and disappears at `}`. Assigning a
   name that already exists outside shadows it; the outer value is untouched.
 - Functions see the variables from where they were defined (lexical scope).
-- Each block lists its local variables underneath.
 - For arranging lines without scoping them, use a layout block (`Title:`) instead.
 
 ### Greek letters

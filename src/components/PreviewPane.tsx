@@ -204,22 +204,10 @@ export function RenderedBlock({ block }: { block: Block }) {
             {block.children.map((b) => <RenderedBlock key={`${b.line}-${b.kind}`} block={b} />)}
           </div>
           {block.error && <p className="calc__msg calc__msg--error">{block.error}</p>}
-          {block.locals.length > 0 && (
-            <footer className="group__locals" title="Defined in this block only">
-              <span className="vars__label">Local</span>
-              {block.locals.map((v) => (
-                <span key={v.name} className="vars__item" title={sigFigLabel(v.sf)}><Tex latex={v.tex} /></span>
-              ))}
-            </footer>
-          )}
         </section>
       )
   }
 }
-
-/** A variable's sig figs, in words, for its tooltip. */
-const sigFigLabel = (sf: number) =>
-  Number.isFinite(sf) ? `${sf} significant figure${sf === 1 ? '' : 's'}` : 'exact'
 
 /** The Output pane’s tabs. */
 type Tab = 'rendered' | 'latex' | 'library' | 'reference'

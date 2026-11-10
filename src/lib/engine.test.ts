@@ -9,12 +9,12 @@ import { bareTuple, expandVectors } from './engine.ts'
 
 describe('basic calculation', () => {
   it('substitutes values and tidies the unit', () => {
-    expect(shown('m = 2.00 kg\nF = m * 9.81 m/s^2')).toBe('F = m· 9.81 m/s^2 = 2.00 kg· 9.81 m/s^2 = 19.6 N')
+    expect(shown('m = 2.00 kg\nF = m * 9.81 m/s^2')).toBe('F = m (9.81 m/s^2) = (2.00 kg) (9.81 m/s^2) = 19.6 N')
   })
 
   it('brackets a negative value it substitutes, so its sign doesn’t read as an operator', () => {
     expect(shown('a = 3.5e3 J\nb = -1.9e3 J\nW = a + b')).toBe('W = a+ b = 3.5e3 J+ (-1.9e3 J) = 1.6 kJ')
-    expect(shown('g = -9.81 m/s^2\nF = g * 2.0 kg')).toBe('F = g· 2.0 kg = (-9.81 m/s^2)· 2.0 kg = -20. N')
+    expect(shown('g = -9.81 m/s^2\nF = g * 2.0 kg')).toBe('F = g (2.0 kg) = (-9.81 m/s^2) (2.0 kg) = -20. N')
     expect(shown('k = -2.0\nz = k * 3')).toBe('z = k· 3 = (-2.0)· 3 = -6.0')
   })
 
@@ -65,7 +65,7 @@ describe('products', () => {
 
   it('keep a dot where numbers would run together, or a number could read as a mixed fraction', () => {
     // Substituted values: 2.00 kg · (4.0 m/s)².
-    expect(shown(`${src}E = 1/2 * m * v^2`)).toBe('E = \\frac12 m v^2 = \\frac12· 2.00 kg· (4.0 m/s)^2 = 16 J')
+    expect(shown(`${src}E = 1/2 * m * v^2`)).toBe('E = \\frac12 m v^2 = \\frac12 (2.00 kg) (4.0 m/s)^2 = 16 J')
     expect(readable(last(`${src}x = m * 2`).tex).split(' = ')[1]).toBe('m· 2')
     expect(readable(last(`${src}x = 2 * (1/3)`).tex).split(/ = | ≈ /)[1]).toBe('2· \\frac13')
   })
@@ -76,7 +76,24 @@ describe('products', () => {
   })
 
   it('show a dot between every factor with the dots option on', () => {
-    expect(readable(last(`${src}E = 1/2 * m * v^2`, { productDots: true }).tex).split(' = ')[1]).toBe('\\frac12· m·v^2')
+    expect(readable(last(`${src}E = 1/2 * m * v^2`, { productDots: true }).tex).split(' = ')[1]).toBe('\\frac12· m· v^2')
+  })
+
+  it('bracket a value in scientific notation, and need no dot before a bracket', () => {
+    // 8 (9.11 × 10⁻³¹ kg) (1.0 × 10⁻⁹ m)², not 8 · 9.11 × 10⁻³¹ kg · …
+    expect(shown('m_e = 9.11e-31 kg\nL = 1.0e-9 m\nE = 8 * m_e * L^2').split(' = ')[2])
+      .toBe('8 (9.11e-31 kg) (1.0e-9 m)^2')
+    expect(shown('r = 0.400 angstrom\np = 0.688 angstrom^-1.5\nP = 4 * pi * r^2 * p^2').split(' = ')[2])
+      .toBe('4 \\pi (0.400 Å)^2 (0.688 Å^-1.5)^2')
+    // A value with a unit is bracketed too: (9.81 m/s²)(2.0 s)², 4π(250.0 Å).
+    expect(shown('a = 9.81 m/s^2\nt = 2.0 s\nd = a * t^2').split(' = ')[2]).toBe('(9.81 m/s^2) (2.0 s)^2')
+    expect(shown('n = 4\nx = 250.0 angstrom\ny = n * pi * x').split(' = ')[2]).toBe('4 \\pi (250.0 Å)')
+    // A dot before Euler's number, which would read as scientific notation after a number.
+    expect(shown('s = 5.67\ny = s * e^2').split(' = ')[2]).toBe('5.67· e^2')
+  })
+
+  it('bracket a squared negative value in scientific notation once', () => {
+    expect(last('p:sci = -0.0707 angstrom^-0.5\np^2').tex).toMatch(/= \{\\left\(-7\.07 \\times 10\^\{-2\}[^()]*\\right\)\}\^\{2\} =/)
   })
 })
 
@@ -101,7 +118,7 @@ describe('significant figures', () => {
   })
 
   it('keeps a plain 1 exact when 1.00 appears on the same line', () => {
-    expect(shown('y = 1 * 1.00 m')).toBe('y = 1· 1.00 m = 1.00 m')
+    expect(shown('y = 1 * 1.00 m')).toBe('y = 1 (1.00 m) = 1.00 m')
   })
 
   it('warns about ambiguous trailing zeros', () => {
@@ -165,7 +182,7 @@ describe('unit display', () => {
     expect(lines(src).map((l) => readable(l.tex))).toEqual([
       'm = 9.11e-31 kg',
       'm = 9.11e-31 kg', // not 0.911 rg
-      'x = 2 m = 2· 9.11e-31 kg = 1.82e-30 kg',
+      'x = 2 m = 2 (9.11e-31 kg) = 1.82e-30 kg',
       'L = 1.00e-10 m',
       'L = 1.00e-10 m', // not 100 pm
     ])
@@ -213,12 +230,12 @@ describe('constants', () => {
 
 describe('functions', () => {
   it('shows working in terms of what was passed in', () => {
-    expect(shown('area(r) = pi * r^2\nr_1 = 2.0 cm\nA = area(r_1)')).toBe('A = \\pi r_1^2 = \\pi· (2.0 cm)^2 = 13 cm^2')
+    expect(shown('area(r) = pi * r^2\nr_1 = 2.0 cm\nA = area(r_1)')).toBe('A = \\pi r_1^2 = \\pi (2.0 cm)^2 = 13 cm^2')
   })
 
   it('shows a number argument once, and a negative one in brackets', () => {
-    expect(shown('f(x) = 2.0 m * x\ny = f(3.0)')).toBe('y = 2.0 m· 3.0 = 6.0 m')
-    expect(shown('f(x) = 2.0 m * x\nz = f(-2.0)')).toBe('z = 2.0 m· (-2.0) = -4.0 m')
+    expect(shown('f(x) = 2.0 m * x\ny = f(3.0)')).toBe('y = (2.0 m)· 3.0 = 6.0 m')
+    expect(shown('f(x) = 2.0 m * x\nz = f(-2.0)')).toBe('z = (2.0 m) (-2.0) = -4.0 m')
   })
 
   it('runs def bodies', () => {
@@ -440,9 +457,9 @@ describe('vectors', () => {
 
   it('show with unit vectors with :ijk, and so does what’s worked out from them', () => {
     expect(shown('v:ijk = <2.0, -1.5, 4.0> m/s')).toBe('v = (2.0 î - 1.5 ĵ + 4.0 k̂) m/s')
-    expect(shown('v:ijk = <2.0, -1.5, 4.0> m/s\nw = 2 * v')).toBe('w = 2 v = 2· (2.0 î - 1.5 ĵ + 4.0 k̂) m/s = (4.0 î - 3.0 ĵ + 8.0 k̂) m/s')
+    expect(shown('v:ijk = <2.0, -1.5, 4.0> m/s\nw = 2 * v')).toBe('w = 2 v = 2 (2.0 î - 1.5 ĵ + 4.0 k̂) m/s = (4.0 î - 3.0 ĵ + 8.0 k̂) m/s')
     // Unitless, and a substitution brackets the sum.
-    expect(shown('u:ijk = <1, 2>\nw = 3 * u')).toBe('w = 3 u = 3· (1 î + 2 ĵ) = 3 î + 6 ĵ')
+    expect(shown('u:ijk = <1, 2>\nw = 3 * u')).toBe('w = 3 u = 3 (1 î + 2 ĵ) = 3 î + 6 ĵ')
     expect(last('z:ijk = 3').warning).toBe(':ijk is ignored because the result isn’t a vector.'.replace('’', '\''))
   })
 
@@ -584,7 +601,7 @@ describe('display commands', () => {
   it('shows the right parts', () => {
     expect(lineAt(src, 2).tex).toContain('\\begin{aligned}F &= ')
     expect(readable(lineAt(src, 3).tex)).toBe('G = 19.6 N')
-    expect(readable(lineAt(src, 4).tex)).toBe('H = m· 9.81 m/s^2')
+    expect(readable(lineAt(src, 4).tex)).toBe('H = m (9.81 m/s^2)')
   })
 })
 

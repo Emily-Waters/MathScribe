@@ -7,16 +7,16 @@
  * after a number is a unit (`9.81 m/s^2`), and `#` starts either a display
  * command (`#sym`, `#numbered`, …) or a note.
  */
-import { StreamLanguage, foldService, indentService, type StringStream } from '@codemirror/language'
+import { StreamLanguage, foldService, foldedRanges, indentService, type StringStream } from '@codemirror/language'
 import { tags } from '@lezer/highlight'
 import { closesVector, isUnitName } from '../lib/engine.ts'
 import {
-  COMMAND_NAMES, CONSTANT_TOKEN, FUNCTION_HEAD, GREEK_CHARS, INDENT_WIDTH, NAME, NAME_CHAR, NUMBER, SETTINGS,
+  COMMAND_NAMES, CONSTANT_TOKEN, FUNCTION_HEAD, GREEK_CHARS, IMPORT, INDENT_WIDTH, NAME, NAME_CHAR, NUMBER, SETTINGS,
   commandPattern, indentOf,
 } from '../lib/syntax.ts'
 
 /** What a line is, from how it starts and ends (as document.ts reads it). */
-type LineKind = 'calc' | 'heading' | 'text' | 'latex' | 'opener' | 'def'
+type LineKind = 'calc' | 'heading' | 'text' | 'latex' | 'opener' | 'def' | 'data'
 
 /** The tokenizer's state, carried from one token (and line) to the next. */
 interface State {
@@ -31,14 +31,16 @@ interface State {
   inTitle: boolean
   /** Inside a `Title:  #text` block: the opener's indentation (lines indented further are prose). */
   textIndent: number | null
+  /** Under an `import(…)` line: its indentation (lines indented further are the file's rows). */
+  dataIndent: number | null
 }
 
 /** A display command at the current position: `#sym`, `#numbered`, … */
 const COMMAND = new RegExp(String.raw`#(?:${COMMAND_NAMES.join('|')})(?=\s|$)`)
 /** `#text` on an opener: the lines indented under it are prose. */
 const TEXT_COMMAND = commandPattern(['text'])
-/** A word at the current position: a name (Greek letters included), keyword or unit. */
-const WORD = new RegExp(`[A-Za-z_${GREEK_CHARS}]${NAME_CHAR}*`)
+/** A word at the current position: a name (Greek letters included), keyword or unit (µm starts with the micro sign). */
+const WORD = new RegExp(`[A-Za-z_µ${GREEK_CHARS}]${NAME_CHAR}*`)
 /** A number at the current position. */
 const NUMBER_TOKEN = new RegExp(NUMBER)
 /** Words coloured as keywords. */
@@ -74,14 +76,20 @@ function lineKind(line: string): LineKind {
 function token(stream: StringStream, state: State): string | null {
   if (stream.sol()) {
     const indent = indentOf(stream.string)
-    // A text block ends at the first line indented no further than its opener.
+    // A text block, or imported data, ends at the first line indented no further than its opener.
+    // (Imported data also ends at a blank line; see blankLine below.)
     if (state.textIndent !== null && indent <= state.textIndent) state.textIndent = null
+    if (state.dataIndent !== null && (indent <= state.dataIndent || !stream.string.trim())) state.dataIndent = null
     if (state.textIndent !== null) {
       state.kind = 'text'
+    } else if (state.dataIndent !== null) {
+      state.kind = 'data'
     } else {
       state.kind = lineKind(stream.string)
       // `Title:  #text`: the lines indented under it are prose.
       if (state.kind === 'opener' && TEXT_COMMAND.test(stream.string)) state.textIndent = indent
+      // `import("run1.csv")`: the lines indented under it are the file's rows.
+      if (isImport(stream.string)) state.dataIndent = indent
     }
     state.afterNumber = state.inUnit = state.afterTo = false
     state.inTitle = state.kind === 'opener'
@@ -101,6 +109,12 @@ function token(stream: StringStream, state: State): string | null {
     case 'latex':
       stream.skipToEnd()
       return 'latex'
+    case 'data':
+      // A file's rows: numbers, and the column names (with units) in the first row.
+      if (stream.match(NUMBER_TOKEN)) return 'number'
+      if (stream.match(WORD)) return 'variable'
+      stream.next()
+      return null
   }
 
   // Commands and notes, on any other line.
@@ -197,8 +211,14 @@ function proseToken(stream: StringStream): string {
 /** The MathScribe language: its tokens, and which highlighting tag each gets. */
 export const mathscribeLanguage = StreamLanguage.define<State>({
   name: 'mathscribe',
-  startState: () => ({ kind: 'calc', afterNumber: false, inUnit: false, afterTo: false, inTitle: false, textIndent: null }),
+  startState: () => ({
+    kind: 'calc', afterNumber: false, inUnit: false, afterTo: false, inTitle: false, textIndent: null, dataIndent: null,
+  }),
   copyState: (s) => ({ ...s }),
+  // An empty line ends an import's rows.
+  blankLine: (s) => {
+    s.dataIndent = null
+  },
   token,
   tokenTable: {
     number: tags.number,
@@ -234,29 +254,92 @@ const opensBlock = (text: string) => {
 }
 
 /**
+ * Whether a line is an `import(…)`. Its file's rows are indented under it, but
+ * only by choosing the file, so a new line after it isn't indented.
+ */
+export const isImport = (text: string) => IMPORT.test(bodyOf(text))
+
+/** An `import(…)` line and the lines of its data: the header row, then the first and last data rows. */
+export interface DataBlock {
+  line: number
+  header: number
+  rows: { first: number; last: number } | null
+}
+
+/** Every `import(…)` line with data under it, and where its rows are (line numbers, 1-based). */
+export function dataBlocks(doc: { lines: number; line(n: number): { text: string } }): DataBlock[] {
+  const out: DataBlock[] = []
+  for (let n = 1; n <= doc.lines; n++) {
+    const text = doc.line(n).text
+    if (!isImport(text)) continue
+    const base = indentOf(text)
+    const filled: number[] = []
+    let m = n + 1
+    // The rows straight under it, indented further; a blank line ends them.
+    for (; m <= doc.lines; m++) {
+      const row = doc.line(m).text
+      if (!row.trim() || indentOf(row) <= base) break
+      filled.push(m)
+    }
+    if (filled.length) {
+      out.push({ line: n, header: filled[0], rows: filled.length > 1 ? { first: filled[1], last: filled.at(-1)! } : null })
+    }
+    n = Math.max(n, (filled.at(-1) ?? n))
+  }
+  return out
+}
+
+/** Whether line `n` is a row of imported data (where nothing is suggested). */
+export const inDataBlock = (doc: { lines: number; line(n: number): { text: string } }, n: number) =>
+  dataBlocks(doc).some((b) => n >= b.header && n <= (b.rows?.last ?? b.header))
+
+/**
  * Indentation for a new or re-indented line: the line above's, one level deeper
  * after a line that opens a block, and one level shallower for a closing `}`.
+ *
+ * A new line straight after a folded block (Enter at the end of a folded
+ * `import(…)`, whose data rows are hidden) takes the folded line's
+ * indentation, so it isn't added to the hidden rows. With the block open, Enter
+ * in its rows carries on with them.
  */
 export const mathscribeIndent = indentService.of((cx, pos) => {
-  const line = cx.lineAt(pos)
-  for (let n = cx.state.doc.lineAt(line.from).number - 1; n >= 1; n--) {
-    const above = cx.state.doc.line(n).text
+  let foldedFrom: number | null = null
+  foldedRanges(cx.state).between(pos, pos, (from, to) => {
+    if (to === pos) foldedFrom = from
+  })
+  if (foldedFrom !== null) return indentOf(cx.state.doc.lineAt(foldedFrom).text)
+  const { doc } = cx.state
+  const at = doc.lineAt(pos)
+  // When Enter is pressed, the line being indented is a new one that starts at
+  // `pos` (a "simulated break"): the line above it is pos's own line, up to pos.
+  // Otherwise (re-indenting an existing line) it's the line before pos's.
+  const breaking = cx.simulatedBreak === pos
+  const lineNumber = breaking ? at.number + 1 : at.number
+  const lineText = breaking ? at.text.slice(pos - at.from) : at.text
+  const textOf = (n: number) => (breaking && n === at.number ? at.text.slice(0, pos - at.from) : doc.line(n).text)
+  for (let n = lineNumber - 1; n >= 1; n--) {
+    const above = textOf(n)
     if (!above.trim()) continue
+    // Below a blank line, an import's rows have ended: go on at the import's level.
+    if (n < lineNumber - 1) {
+      const block = dataBlocks(doc).find((b) => n >= b.header && n <= (b.rows?.last ?? b.header))
+      if (block) return indentOf(doc.line(block.line).text)
+    }
     let indent = indentOf(above) + (opensBlock(above) ? INDENT_WIDTH : 0)
-    if (/^\s*\}/.test(line.text)) indent -= INDENT_WIDTH
+    if (/^\s*\}/.test(lineText)) indent -= INDENT_WIDTH
     return Math.max(0, indent)
   }
   return 0
 })
 
 /**
- * Folding: a `def` or `Title:` folds its indented lines; a `{` block folds to
+ * Folding: a `def`, `Title:` or `import(…)` folds its indented lines; a `{` block folds to
  * its matching `}`.
  */
 export const mathscribeFolding = foldService.of((state, lineStart, lineEnd) => {
   const doc = state.doc
   const first = doc.lineAt(lineStart)
-  if (!opensBlock(first.text)) return null
+  if (!opensBlock(first.text) && !isImport(first.text)) return null
   let last = first.number
   if (bodyOf(first.text).endsWith('{') && !/^def\s/.test(first.text.trim())) {
     let depth = 0
@@ -274,9 +357,14 @@ export const mathscribeFolding = foldService.of((state, lineStart, lineEnd) => {
     return end > lineEnd ? { from: lineEnd, to: end } : null
   }
   const base = indentOf(first.text)
+  // (An import's rows end at a blank line; other blocks can have blank lines inside.)
+  const data = isImport(first.text)
   for (let n = first.number + 1; n <= doc.lines; n++) {
     const text = doc.line(n).text
-    if (!text.trim()) continue
+    if (!text.trim()) {
+      if (data) break
+      continue
+    }
     if (indentOf(text) <= base) break
     last = n
   }

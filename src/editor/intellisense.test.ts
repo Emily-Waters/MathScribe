@@ -82,8 +82,16 @@ describe('suggestions', () => {
     expect(suggestions(14)).toEqual(['#multiline'])
   })
 
-  it('offer series names once there are two members', () => {
-    expect(suggestions(17)).toEqual(['t_1', 't_2', 't_avg', 't_count', 't_std', 't_sem'])
+  it('offer series names once there are two members, and tₙ for its values rather than each one', () => {
+    expect(suggestions(17)).toEqual(['t_avg', 't_count', 't_std', 't_sem'])
+    const doc = 't_1 = 1.2 s\nt_2 = 1.3 s\nt_3 = 1.1 s\nq = t'
+    let state = EditorState.create({ doc, extensions: [intellisense] })
+    state = state.update({ effects: setSymbols.of(collectSymbols(sheet(doc), doc)) }).state
+    const options = complete(new CompletionContext(state, doc.length, false))!.options
+    const labels = options.map((o) => o.label)
+    expect(labels).toEqual(expect.arrayContaining(['t', 'tₙ', 't_avg']))
+    expect(labels).not.toContain('t_1')
+    expect(options.find((o) => o.label === 'tₙ')?.detail).toBe('series (3)')
   })
 
   it('stay quiet in headings, prose, numbers and notes', () => {

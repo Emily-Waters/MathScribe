@@ -1,8 +1,8 @@
 import katex from 'katex'
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
-import { listItems, splitInlineMath, titleSegments, type Block, type Sheet } from '../lib/document.ts'
+import { lineNumbering, listItems, splitInlineMath, titleSegments, type Block, type ImportBlock, type Sheet } from '../lib/document.ts'
 import { loadLatexOptions, saveLatexOptions, toLatexDocument, type LatexOptions } from '../lib/latex.ts'
-import type { CalcOptions } from '../lib/engine.ts'
+import { symbolTex, unitTex, type CalcOptions } from '../lib/engine.ts'
 import { ReferencePane } from './ReferencePane.tsx'
 import { OptionsMenu } from './OptionsMenu.tsx'
 import { LatexOptionsMenu } from './LatexOptionsMenu.tsx'
@@ -35,7 +35,7 @@ function Title({ text }: { text: string }) {
 
 /** Whether a block or anything inside it has an error (so a hidden block still shows it). */
 const hasError = (b: Block): boolean =>
-  ((b.kind === 'calc' || b.kind === 'function') && !!b.error)
+  ((b.kind === 'calc' || b.kind === 'function' || b.kind === 'import') && !!b.error)
   || (b.kind === 'constants' && (!!b.error || b.entries.some((e) => e.error)))
   || ((b.kind === 'group' || b.kind === 'layout') && (!!b.error || b.children.some(hasError)))
 
@@ -44,6 +44,70 @@ const LineLink = createContext<{ activeLine: number | null; onJump: (line: numbe
   activeLine: null,
   onJump: () => {},
 })
+
+/** Line numbers as the editor shows them, for messages (an import's data rows count as part of its line). */
+const LineNumbers = createContext<(line: number) => number>((line) => line)
+
+/**
+ * A message about a line, "Line 12: …", numbered as the editor shows it. A
+ * message that names a line itself (a function body's) gives that line.
+ */
+function LineMessage({ kind, line, text }: { kind: 'error' | 'warn'; line: number; text: string }) {
+  const shown = useContext(LineNumbers)
+  const own = /^Line (\d+): ([\s\S]*)$/.exec(text)
+  return <p className={`calc__msg calc__msg--${kind}`}>Line {shown(own ? Number(own[1]) : line)}: {own ? own[2] : text}</p>
+}
+
+/** Removing an import and its data (the Remove button on its summary). */
+const ImportFile = createContext<((line: number) => void) | undefined>(undefined)
+
+/**
+ * An import's summary, in place of its rows: the file, and for each column the
+ * variables it made and the range of its values. A button chooses the file
+ * (or another one).
+ */
+function ImportSummary({ block }: { block: ImportBlock }) {
+  const link = useLineLink()
+  const removeImport = useContext(ImportFile)
+  const remove = (e: MouseEvent) => {
+    e.stopPropagation()
+    removeImport?.(block.line)
+  }
+  const loaded = block.columns.length > 0
+  return (
+    <section className={`group group--import${block.error ? ' group--error' : ''}`}>
+      <header className="group__header" {...link(block.line)}>
+        <span className="group__title">
+          <span className="group__kind">Data</span>
+          {block.file ?? 'no file chosen yet: choose one in the import line'}
+          {loaded && <span className="import__rows"> · {block.rows} row{block.rows === 1 ? '' : 's'}</span>}
+        </span>
+        {block.note && <span className="calc__note">{block.note}</span>}
+        {removeImport && (
+          <span className="import__actions">
+            <button className="import__choose" onClick={remove} title="Remove this import and its data from the sheet">Remove</button>
+          </span>
+        )}
+      </header>
+      {loaded && (
+        <table className="import__columns" {...link(block.line)}>
+          <tbody>
+            {block.columns.map((c) => (
+              <tr key={c.name}>
+                <td><Tex latex={symbolTex(c.name)} />{c.unit && <> <Tex latex={`\\left[${unitTex(c.unit)}\\right]`} /></>}</td>
+                <td>{c.count
+                  ? <Tex latex={c.count === 1 ? symbolTex(`${c.name}_${c.first}`) : `${symbolTex(`${c.name}_${c.first}`)} \\ldots ${symbolTex(`${c.name}_${c.last}`)}`} />
+                  : 'no values'}</td>
+                <td>{c.min !== undefined && <Tex latex={c.min === c.max ? c.min : `${c.min} \\text{ to } ${c.max}`} />}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      {block.error && <LineMessage kind="error" line={block.line} text={block.error} />}
+    </section>
+  )
+}
 
 /** Props that tie an element to a source line: highlight when active, jump to it on click. */
 function useLineLink() {
@@ -98,8 +162,8 @@ export function RenderedBlock({ block }: { block: Block }) {
                   {e.tex ? <Tex latex={e.tex} display /> : <code className="calc__source">{e.source}</code>}
                   {e.note && <span className="calc__note">{e.note}</span>}
                 </div>
-                {e.error && <p className="calc__msg calc__msg--error">Line {e.line}: {e.error}</p>}
-                {e.warning && <p className="calc__msg calc__msg--warn">Line {e.line}: {e.warning}</p>}
+                {e.error && <LineMessage kind="error" line={e.line} text={e.error} />}
+                {e.warning && <LineMessage kind="warn" line={e.line} text={e.warning} />}
                 {e.info && <p className="calc__msg calc__msg--info">{e.info}</p>}
               </div>
             ))}
@@ -107,6 +171,9 @@ export function RenderedBlock({ block }: { block: Block }) {
           {block.error && <p className="calc__msg calc__msg--error">{block.error}</p>}
         </section>
       )
+    case 'import':
+      if (block.hidden && !block.error) return null
+      return <ImportSummary block={block} />
     case 'calc':
       // `#hide` lines stay hidden unless something went wrong.
       if (block.hidden && !block.error) return null
@@ -128,8 +195,8 @@ export function RenderedBlock({ block }: { block: Block }) {
               : <code className="calc__source">{block.source}</code>}
             {block.note && <span className="calc__note">{block.note}</span>}
           </div>
-          {block.error && <p className="calc__msg calc__msg--error">Line {block.line}: {block.error}</p>}
-          {block.warning && <p className="calc__msg calc__msg--warn">Line {block.line}: {block.warning}</p>}
+          {block.error && <LineMessage kind="error" line={block.line} text={block.error} />}
+          {block.warning && <LineMessage kind="warn" line={block.line} text={block.warning} />}
           {block.info && (
             <p className="calc__msg calc__msg--info">
               {splitInlineMath(block.info).map((seg, i) =>
@@ -158,7 +225,7 @@ export function RenderedBlock({ block }: { block: Block }) {
               </div>
             ))}
           </div>
-          {block.error && <p className="calc__msg calc__msg--error">Line {block.line}: {block.error}</p>}
+          {block.error && <LineMessage kind="error" line={block.line} text={block.error} />}
         </section>
       )
     case 'layout': {
@@ -169,7 +236,7 @@ export function RenderedBlock({ block }: { block: Block }) {
           {block.note && <span className="calc__note">{block.note}</span>}
         </p>
       )
-      const error = block.error && <p className="calc__msg calc__msg--error">Line {block.line}: {block.error}</p>
+      const error = block.error && <LineMessage kind="error" line={block.line} text={block.error} />
       if (block.style === 'list' || block.style === 'numbered') {
         const List = block.style === 'numbered' ? 'ol' : 'ul'
         const items = listItems(block.children).map(({ item, subs }) => (
@@ -226,11 +293,13 @@ interface PreviewPaneProps {
   fileName: string
   /** Put text into the sheet at the editor's cursor (from the Library tab). */
   onInsert: (text: string) => void
+  /** Remove the `import(…)` on a line, and its data. */
+  onRemoveImport: (line: number) => void
 }
 
 /** The Output pane: the rendered sheet, its LaTeX (and Word) export, the equation library and the reference. */
 export function PreviewPane({
-  sheet, options, onOptionsChange, activeLine, centerRequest, onJump, fileName, onInsert,
+  sheet, options, onOptionsChange, activeLine, centerRequest, onJump, fileName, onInsert, onRemoveImport,
 }: PreviewPaneProps) {
   const [tab, setTab] = useState<Tab>('rendered')
   const [flash, showFlash] = useFlash<'latex'>()
@@ -249,6 +318,7 @@ export function PreviewPane({
   }
   const docRef = useRef<HTMLDivElement>(null)
   const link = useMemo(() => ({ activeLine, onJump }), [activeLine, onJump])
+  const numbering = useMemo(() => lineNumbering(sheet.blocks), [sheet.blocks])
 
   // Keep the output for the cursor's line in view: centred after a click in the
   // editor; while typing or moving with the keys, scrolled only as far as needed.
@@ -293,9 +363,13 @@ export function PreviewPane({
       ) : tab === 'rendered' ? (
         <div className="doc" ref={docRef}>
           <LineLink.Provider value={link}>
+          <LineNumbers.Provider value={numbering}>
+          <ImportFile.Provider value={onRemoveImport}>
             {sheet.blocks.length === 0
               ? <p className="doc__empty">Start typing on the left.</p>
               : sheet.blocks.map((b) => <RenderedBlock key={`${b.line}-${b.kind}`} block={b} />)}
+          </ImportFile.Provider>
+          </LineNumbers.Provider>
           </LineLink.Provider>
         </div>
       ) : (

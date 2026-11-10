@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { canLinkFiles } from './lib/files.ts'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { canLinkFiles, chooseDataFile } from './lib/files.ts'
+import { withImportedData, withoutImport } from './lib/csv.ts'
 import { useSheets, type SaveState } from './useSheets.ts'
 import { SheetTabs } from './components/SheetTabs.tsx'
 import { EditorPane } from './components/EditorPane.tsx'
@@ -107,6 +108,18 @@ export default function App() {
     setActiveLine(line)
     if (clicked) setCenterOutput((n) => n + 1)
   }, [])
+  // `import()`: choose a CSV file and put its rows into the sheet under that line.
+  const latestSource = useRef(source)
+  useEffect(() => {
+    latestSource.current = source
+  }, [source])
+  const setText = file.setText
+  const importFile = useCallback(async (line: number) => {
+    const chosen = await chooseDataFile()
+    if (chosen) setText(withImportedData(latestSource.current, line, chosen.name, chosen.text))
+  }, [setText])
+  const chooseImportFile = useCallback((line: number) => void importFile(line), [importFile])
+  const removeImport = useCallback((line: number) => setText(withoutImport(latestSource.current, line)), [setText])
   const jumpTo = useCallback((line: number) => {
     setActiveLine(line)
     setJump((j) => ({ line, n: (j?.n ?? 0) + 1 }))
@@ -171,6 +184,7 @@ export default function App() {
               dark={appearance.mode === 'dark'}
               customPalette={syntaxPalette}
               acceptKeys={acceptKeys}
+              onChooseImport={chooseImportFile}
               options={
                 <>
                   <SyntaxOptions
@@ -196,6 +210,7 @@ export default function App() {
               onJump={jumpTo}
               fileName={file.active.name}
               onInsert={insertText}
+              onRemoveImport={removeImport}
             />
           }
         />

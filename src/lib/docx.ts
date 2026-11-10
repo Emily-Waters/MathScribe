@@ -303,6 +303,9 @@ function block(b: Block, ctx: Ctx): Item[] {
     }
     case 'spacer':
       return [{ props: { after: 0 }, content: '' }]
+    case 'import':
+      // Imported data only defines variables; it isn't part of the document.
+      return []
     case 'text':
       return [{ props: base, content: richText(b.text) }]
     case 'latex':

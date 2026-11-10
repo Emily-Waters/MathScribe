@@ -96,6 +96,10 @@ describe('products', () => {
     expect(last('p:sci = -0.0707 angstrom^-0.5\np^2').tex).toMatch(/= \{\\left\(-7\.07 \\times 10\^\{-2\}[^()]*\\right\)\}\^\{2\} =/)
   })
 
+  it('bracket a negated value with a unit like the other values', () => {
+    expect(shown('F = 500. N\ntheta = 30. deg\ny = -F * sin(theta)').split(' = ')[2]).toBe('-(500. N) \\sin(30.°)')
+  })
+
   it('nest brackets as ( ) inside [ ] inside { }, but keep a call’s round', () => {
     const src = 'a = 1.0\nb = 2.0\nc = 3.0\n'
     expect(shown(`${src}y = ((a + b) * c)^2`).split(' = ')[1]).toBe('[(a+ b) c]^2')
@@ -184,6 +188,20 @@ describe('to percent', () => {
 })
 
 describe('unit display', () => {
+  it('explains units that don’t match in plain words', () => {
+    expect(last('m = 40. T\na = 9.81 m/s^2\nE = m * a * 2.0 m to J').error)
+      .toMatch(/^This is in .*, which can't be converted to J\. Check the units/)
+    expect(last('x = 2.0 m + 3.0 s').error).toMatch(/^The units don't match: values in different units/)
+  })
+
+  it('writes the micro prefix as µ, typed as u, µ or μ', () => {
+    for (const typed of ['5.0 um', '5.0 µm', '5.0 μm']) expect(last(`a = ${typed}`).tex).toBe('a = 5.0\\,\\mu\\mathrm{m}')
+    expect(last('g = 1.0 m/μs').tex).toBe('g = 1.0\\,\\mathrm{m}/\\mu\\mathrm{s}')
+    expect(value('f = 250. nm to µm')).toBe('0.250 \\mum')
+    // μ on its own is still a name (a friction coefficient, say).
+    expect(value('μ = 0.40\nh = 2 * μ')).toBe('0.80')
+  })
+
   it('keeps a typed value in its own unit, never an obscure prefix', () => {
     const src = 'm = 9.11e-31 kg\nm\nx = 2 * m\nL = 1.00e-10 m\nL'
     expect(lines(src).map((l) => readable(l.tex))).toEqual([
@@ -452,6 +470,10 @@ describe('vectors', () => {
     expect(resultOfLine(src, 2)).toBe('⟨7.0, 7.0⟩ N')
     expect(resultOfLine(src, 3)).toBe('5.0 N')
     expect(resultOfLine(src, 4)).toBe('25 N^2')
+    // dot and cross are written as operators, bracketing only what needs it.
+    expect(readable(lineAt(src, 4).tex)).toBe('d = F · F = ⟨3.0, 4.0⟩ N · ⟨3.0, 4.0⟩ N = 25 N^2')
+    expect(readable(lineAt(src, 5).tex)).toBe('c = ⟨1, 0, 0⟩ \\times ⟨0, 1, 0⟩ = ⟨0, 0, 1⟩')
+    expect(readable(last(`${src}\ne = dot(F + F, F)`).tex).split(' = ')[1]).toBe('(F+ F) · F')
     expect(resultOfLine(src, 5)).toBe('⟨0, 0, 1⟩')
     // A plain tuple stays a tuple.
     expect(value('p = 2 * tuple(1.0, 2.0)')).toBe('(2.0, 4.0)')
@@ -598,7 +620,7 @@ describe('atan2', () => {
   it('takes coordinates with matching units', () => {
     expect(value('g = atan2(1.0 m, 2.0 m)')).toBe('0.46')
     expect(value('g = atan2(1.0 m, 100. cm)')).toBe('0.79') // different units, read in x's; 2 sig figs
-    expect(last('h = atan2(1.0 m, 2.0 s)').error).toMatch(/Units do not match/)
+    expect(last('h = atan2(1.0 m, 2.0 s)').error).toMatch(/can't be converted to s/)
   })
 })
 

@@ -108,6 +108,12 @@ export const UNPACK = new RegExp(String.raw`^tuple\s*${PARAMETERS}${ASSIGNS}\s*(
 /** The start of an unpacking, up to the `=` (1: the names). */
 export const UNPACK_HEAD = new RegExp(String.raw`^tuple\s*${PARAMETERS}${ASSIGNS}`)
 
+/**
+ * An import line: `import()` (no file chosen yet) or `import("run1.csv")`,
+ * with the file's rows indented under it (1: the file's name).
+ */
+export const IMPORT = /^import\s*\(\s*(?:"([^"]*)")?\s*\)$/
+
 // ---------------------------------------------------------------------------
 // Words used as settings after a `:` (besides sig figs and units)
 // ---------------------------------------------------------------------------

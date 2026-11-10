@@ -26,12 +26,12 @@ import { EditorView, hoverTooltip, keymap, type Command } from '@codemirror/view
 import katex from 'katex'
 import { BUILTIN_CONSTANTS } from '../lib/constants.ts'
 import type { SheetSymbol } from '../lib/document.ts'
-import { describeUnit, isUnitName, numberTex, unitNames, unitTex } from '../lib/engine.ts'
+import { describeUnit, isUnitName, numberTex, symbolTex, unitNames, unitTex } from '../lib/engine.ts'
 import { STORAGE_KEYS } from '../config.ts'
 import { readStored, writeStored } from '../lib/storage.ts'
 import { GREEK_CHARS, NAME, NAME_CHAR, PERCENT, SETTINGS } from '../lib/syntax.ts'
 import { BUILTIN_FUNCTIONS, COMMANDS, KEYWORDS, MATH_CONSTANTS, SERIES_SUFFIXES, SETTING_WORDS } from './vocabulary.ts'
-import { inNote, inTextBlock, isProseLine } from './language.ts'
+import { inDataBlock, inNote, inTextBlock, isProseLine } from './language.ts'
 import { greekCompletions, greekOnSpace } from './greek.ts'
 
 // ---------------------------------------------------------------------------
@@ -123,6 +123,9 @@ const SETTING_ON_RESULT = new RegExp(String.raw`^\s*(?:def\s+)?${NAME}\s*\([^()]
  */
 const SERIES_MEMBER = new RegExp(String.raw`^(${NAME}?)_?(\d+)$`)
 
+/** A subscript n, for a series' members in the suggestion list: tₙ. */
+const SUBSCRIPT_N = String.fromCodePoint(0x2099)
+
 /** Every unit, as a suggestion with what it is (1 N = 1 kg m/s^2). */
 const unitOptions: Completion[] = unitNames().map((name) => ({
   label: name,
@@ -134,7 +137,7 @@ const unitOptions: Completion[] = unitNames().map((name) => ({
 export function complete(ctx: CompletionContext): CompletionResult | null {
   const line = ctx.state.doc.lineAt(ctx.pos)
   const before = line.text.slice(0, ctx.pos - line.from)
-  if (isProseLine(before) || inTextBlock(ctx.state.doc, line.number)) return null
+  if (isProseLine(before) || inTextBlock(ctx.state.doc, line.number) || inDataBlock(ctx.state.doc, line.number)) return null
 
   // `#…` after the line's text: display commands.
   const command = /(?:^|\s)(#\w*)$/.exec(before)
@@ -202,24 +205,44 @@ export function complete(ctx: CompletionContext): CompletionResult | null {
 
   const visible = [...visibleAt(ctx.state, line.number).values()].filter((s) => s.kind !== 'constant')
   const names = new Set(visible.map((s) => s.name))
-  const options: Completion[] = visible.map((s) => (s.kind === 'function'
-    ? snippetCompletion(`${s.name}(\${})`, {
-      label: s.name, type: 'function', detail: `(${s.params ?? ''})`, info: () => symbolInfo(s), boost: 2,
-    })
-    : { label: s.name, type: 'variable', detail: s.kind === 'parameter' ? 'parameter' : undefined, info: () => symbolInfo(s), boost: 3 }))
 
-  // Series: t_1, t_2, … make t, t_avg, t_count, ….
-  const series = new Map<string, number>()
+  // Series: t_1, t_2, … (or t1, t2, …) make t, t_avg, t_count, …: how many each
+  // has, and its first and last numbers.
+  const series = new Map<string, { count: number; first: number; last: number }>()
   for (const s of visible) {
     const m = SERIES_MEMBER.exec(s.name)
-    if (s.kind === 'variable' && m) series.set(m[1], (series.get(m[1]) ?? 0) + 1)
+    if (s.kind !== 'variable' || !m) continue
+    const n = Number(m[2])
+    const known = series.get(m[1])
+    series.set(m[1], known
+      ? { count: known.count + (s.members ?? 1), first: Math.min(known.first, n), last: Math.max(known.last, n) }
+      : { count: s.members ?? 1, first: n, last: n })
   }
-  for (const [base, count] of series) {
-    // One numbered name isn't really a series (psi_200 alone shouldn't suggest psi_avg).
-    if (count < 2) continue
+  // One numbered name isn't really a series (psi_200 alone shouldn't suggest psi_avg).
+  const isSeries = (base: string) => (series.get(base)?.count ?? 0) >= 2
+
+  // A series' members aren't listed one by one (an imported column can have
+  // thousands); the series offers tₙ for them instead, below.
+  const options: Completion[] = visible
+    .filter((s) => { const m = SERIES_MEMBER.exec(s.name); return !(s.kind === 'variable' && m && isSeries(m[1])) })
+    .map((s) => (s.kind === 'function'
+      ? snippetCompletion(`${s.name}(\${})`, {
+        label: s.name, type: 'function', detail: `(${s.params ?? ''})`, info: () => symbolInfo(s), boost: 2,
+      })
+      : { label: s.name, type: 'variable', detail: s.kind === 'parameter' ? 'parameter' : undefined, info: () => symbolInfo(s), boost: 3 }))
+
+  for (const [base, { count, first, last }] of series) {
+    if (!isSeries(base)) continue
+    const detail = `series (${count})`
+    // tₙ: one of its values; accepting it types the name, ready for the number.
+    options.push(snippetCompletion(`${base}\${n}`, {
+      label: `${base}${SUBSCRIPT_N}`, type: 'variable', detail, boost: 2,
+      info: () => infoNode(`${symbolTex(`${base}_${first}`)} \\ldots ${symbolTex(`${base}_${last}`)}`,
+        `One of the series' ${count} values: type its number after the name, ${base}${first} (or ${base}_${first}).`),
+    }))
     for (const { suffix, description } of SERIES_SUFFIXES) {
       if (names.has(base + suffix)) continue
-      options.push({ label: base + suffix, type: 'variable', detail: `series (${count})`, info: description, boost: 1 })
+      options.push({ label: base + suffix, type: 'variable', detail, info: description, boost: 1 })
     }
   }
 
@@ -285,7 +308,7 @@ export const reconfigureAcceptKeys = (keys: AcceptKeys) => suggestionKeys.reconf
 const hoverInfo = hoverTooltip((view, pos) => {
   const { state } = view
   const line = state.doc.lineAt(pos)
-  if (isProseLine(line.text) || inTextBlock(state.doc, line.number)) return null
+  if (isProseLine(line.text) || inTextBlock(state.doc, line.number) || inDataBlock(state.doc, line.number)) return null
   const word = state.wordAt(pos)
   if (!word) return null
   const before = line.text.slice(0, word.from - line.from)

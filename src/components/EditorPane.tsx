@@ -19,6 +19,8 @@ import {
   acceptKeysSetting, acceptOnTab, intellisense, reconfigureAcceptKeys, setSymbols, type AcceptKeys,
 } from '../editor/intellisense.ts'
 import { typeGreek } from '../editor/greek.ts'
+import { dataBlocksExtension, sheetLineNumber } from '../editor/dataBlocks.ts'
+import { dataBlockGuard, dataBlockLines, importActions } from '../editor/dataBlockLines.ts'
 
 interface EditorPaneProps {
   value: string
@@ -46,6 +48,8 @@ interface EditorPaneProps {
   customPalette: Palette | null
   /** Which keys accept a suggestion. */
   acceptKeys: AcceptKeys
+  /** Choose the file for the `import(…)` on a line (its button between the brackets). */
+  onChooseImport: (line: number) => void
   /** The contents of the editor's Options menu. */
   options: ReactNode
 }
@@ -158,12 +162,12 @@ const darkness = new Compartment()
 
 /** Everything a sheet's editor is set up with; `on` reports edits and cursor moves to the app. */
 function extensions(
-  handlers: { change: (v: string) => void; cursor: (line: number, clicked: boolean) => void },
+  handlers: { change: (v: string) => void; cursor: (line: number, clicked: boolean) => void; chooseImport: (line: number) => void },
   dark: boolean,
   acceptKeys: AcceptKeys,
 ): Extension[] {
   return [
-    lineNumbers(),
+    lineNumbers({ formatNumber: (n, state) => String(sheetLineNumber(state, n)) }),
     diagnosticsGutter,
     foldGutter(),
     codeFolding(),
@@ -180,6 +184,7 @@ function extensions(
     mathscribeLanguage,
     mathscribeIndent,
     mathscribeFolding,
+    dataBlocksExtension,
     syntaxHighlighting(mathscribeHighlight),
     diagnosticsField,
     gotoDefinition,
@@ -189,6 +194,10 @@ function extensions(
     darkness.of(EditorView.darkTheme.of(dark)),
     placeholder('m = 2.0 kg'),
     EditorView.contentAttributes.of({ 'aria-label': 'Math input', spellcheck: 'false' }),
+    // (Before the usual keys: moving, deleting and copying lines keep imported data whole.)
+    dataBlockLines,
+    dataBlockGuard,
+    importActions.of({ choose: (line) => handlers.chooseImport(line) }),
     keymap.of([
       // Tab accepts a suggestion if the list is open, turns \Delta into Δ, or else indents.
       { key: 'Tab', run: (v) => acceptOnTab(v) || typeGreek(v) || tabToStop(v), shift: indentLess },
@@ -216,17 +225,17 @@ function extensions(
  */
 export function EditorPane({
   value, onChange, docId, openIds, jump, insert, onCursorLine, diagnostics, definitions, symbols, theme, dark, customPalette,
-  acceptKeys, options,
+  acceptKeys, onChooseImport, options,
 }: EditorPaneProps) {
   const host = useRef<HTMLDivElement>(null)
   const view = useRef<EditorView | null>(null)
   /** The text the editor starts with; later changes arrive through the effect below. */
   const initialValue = useRef(value)
   // The editor is created once; these keep its callbacks current.
-  const handlers = useRef({ change: onChange, cursor: onCursorLine })
+  const handlers = useRef({ change: onChange, cursor: onCursorLine, chooseImport: onChooseImport })
   useEffect(() => {
-    handlers.current = { change: onChange, cursor: onCursorLine }
-  }, [onChange, onCursorLine])
+    handlers.current = { change: onChange, cursor: onCursorLine, chooseImport: onChooseImport }
+  }, [onChange, onCursorLine, onChooseImport])
 
   const darkNow = useRef(dark)
   const acceptKeysNow = useRef(acceptKeys)
@@ -236,6 +245,7 @@ export function EditorPane({
     extensions: extensions({
       change: (s) => handlers.current.change(s),
       cursor: (l, clicked) => handlers.current.cursor(l, clicked),
+      chooseImport: (l) => handlers.current.chooseImport(l),
     }, darkNow.current, acceptKeysNow.current),
   }))
 

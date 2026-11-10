@@ -1,6 +1,7 @@
 import {
   Calculator,
   type CalcOptions,
+  type DataColumn,
   type FunctionLine,
   type FunctionResult,
   type TraceLine,
@@ -8,10 +9,29 @@ import {
   symbolTex,
 } from './engine.ts'
 import {
-  ASSIGNMENT, CONSTANT_DECLARATION, EXACT_SETTING, DEF, DEF_HEAD, FUNCTION_HEAD, LAYOUT_STYLES, LEADING_NAME, LINE_COMMANDS,
+  ASSIGNMENT, CONSTANT_DECLARATION, EXACT_SETTING, DEF, DEF_HEAD, FUNCTION_HEAD, IMPORT, LAYOUT_STYLES, LEADING_NAME, LINE_COMMANDS,
   MULTILINE, NAME_WITH_SETTINGS, NOTATIONS, UNPACK_HEAD, commandPattern, indentOf, type LayoutStyle, type LineCommand,
   type Notation,
 } from './syntax.ts'
+import { parseCsv, type CsvData } from './csv.ts'
+
+/**
+ * Imported data as read, kept between evaluations of the sheet (one per edit)
+ * while its rows don't change, so it isn't read again, and its values (made
+ * once per column read; see the engine) are reused. Only the latest few are kept.
+ */
+const readData = new Map<string, CsvData>()
+const KEPT_IMPORTS = 8
+function readCsv(rows: string[]): CsvData {
+  const key = rows.join('\n')
+  let data = readData.get(key)
+  if (!data) {
+    data = parseCsv(rows)
+    readData.set(key, data)
+    if (readData.size > KEPT_IMPORTS) readData.delete(readData.keys().next().value!)
+  }
+  return data
+}
 
 /**
  * Line-based document model. Each non-empty line becomes one block:
@@ -57,6 +77,26 @@ export type Block =
   | LayoutBlock
   | FunctionBlock
   | ConstantsBlock
+  | ImportBlock
+
+/**
+ * `import("run1.csv")` with the file's rows indented under it: data whose
+ * values become variables (t_1, t_2, …). Only a summary is shown, not the rows.
+ */
+export interface ImportBlock {
+  kind: 'import'
+  line: number
+  /** Last line of the data. */
+  endLine: number
+  /** The file's name, or undefined for `import()` before a file is chosen. */
+  file?: string
+  /** What each column made. */
+  columns: DataColumn[]
+  rows: number
+  note?: string
+  error?: string
+  hidden?: boolean
+}
 
 /** `@constants { … }`: constants usable anywhere in the sheet as `@name`. */
 export interface ConstantsBlock {
@@ -238,6 +278,8 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
   const declaredAt = new Map<string, number>()
   const duplicateDeclarations = new Map<number, string>()
   lines.forEach((text, i) => {
+    // (Only a line starting with @ can be one; most lines, such as imported data, can be passed over quickly.)
+    if (!text.trimStart().startsWith('@')) return
     const d = parseDeclaration(splitNote(text.trim()).body)
     if (!d || d.precision === '0') return
     const first = declaredAt.get(d.name)
@@ -381,6 +423,34 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
     const multiline = ownMultiline || open.some((g) => g.multiline)
     const blockNotation = [...open].reverse().find((g) => g.notation)?.notation
 
+    // `import("run1.csv")`: the file's rows are every following line indented further.
+    const imported = IMPORT.exec(body)
+    if (imported) {
+      const importIndent = indentOf(raw)
+      const rows: string[] = []
+      let endLine = line
+      // The rows are the lines straight under it, indented further; a blank line ends them.
+      while (idx + 1 < lines.length && lines[idx + 1].trim() && indentOf(lines[idx + 1]) > importIndent) {
+        idx++
+        blankRun = 0
+        rows.push(lines[idx].trim())
+        endLine = idx + 1
+      }
+      const block: ImportBlock = {
+        kind: 'import', line, endLine, file: imported[1], columns: [], rows: 0, note,
+        hidden: (command ?? inherited) === 'hide',
+      }
+      if (rows.length) {
+        const csv = readCsv(rows)
+        const defined = csv.error ? { columns: [], error: csv.error } : calc.defineData(csv.columns)
+        Object.assign(block, { columns: defined.columns, rows: csv.rows, error: defined.error })
+      } else if (imported[1] !== undefined) {
+        block.error = `The data from ${imported[1]} is missing: choose the file again.`
+      }
+      add(block)
+      continue
+    }
+
     // `def f(a, b)`: the function body is every following line indented further.
     // (`def f(x):3:deg`: settings for the result after the parameters; a lone trailing `:` is fine too.)
     const def = DEF.exec(body)
@@ -500,7 +570,13 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
     group.error = `Block opened on line ${group.line} is missing its closing }.`
   }
 
-  return { blocks: root, variables: calc.variables() }
+  // The variables are listed when first asked for (for hover information): with
+  // imported data there can be thousands, and most edits never need them. (Not
+  // enumerable, so code that walks the sheet's properties doesn't list them all.)
+  let variables: Variable[] | undefined
+  return Object.defineProperty({ blocks: root }, 'variables', {
+    get: () => (variables ??= calc.variables()), enumerable: false,
+  }) as Sheet
 }
 
 /** Split prose into plain-text and inline-math segments on $...$. */
@@ -546,7 +622,8 @@ export function titleSegments(text: string): TitleSegment[] {
 
 /** Whether a block is left out of the output (and so isn't a list item). */
 export function isOmitted(b: Block): boolean {
-  if (b.kind === 'spacer') return true
+  // Spacers, and imported data, which only defines variables.
+  if (b.kind === 'spacer' || b.kind === 'import') return true
   if (b.kind === 'calc' || b.kind === 'function' || b.kind === 'constants') return !!b.hidden && !b.error
   if (b.kind === 'group' || b.kind === 'layout') return b.command === 'hide' && !b.error
   return false
@@ -595,6 +672,12 @@ export interface SheetSymbol {
   tex?: string
   /** Plain-text parameters of a function, e.g. "n, m to kg, L to m". */
   params?: string
+  /**
+   * How many numbered members of a series this name stands for (1 if not
+   * given). An imported column lists only its first and last values, which
+   * between them stand for all of its values.
+   */
+  members?: number
 }
 
 /**
@@ -605,11 +688,22 @@ export interface SheetSymbol {
 export function collectSymbols(sheet: Sheet, source: string): SheetSymbol[] {
   const lines = source.split(/\r?\n/)
   const out: SheetSymbol[] = []
-  const texOf = (name: string, scope: Variable[]) => scope.find((v) => v.name === name)?.tex
+  // Each scope's variables by name (a sheet can have thousands, from imported data).
+  const byName = new WeakMap<() => Variable[], Map<string, Variable>>()
+  const lookup = (scope: () => Variable[]) => {
+    let map = byName.get(scope)
+    if (!map) byName.set(scope, map = new Map(scope().map((v) => [v.name, v])))
+    return map
+  }
+  /** A variable's symbol, with its value's TeX worked out only when it's shown. */
+  const variable = (name: string, line: number, from: number, to: number, scope: () => Variable[], members?: number): SheetSymbol =>
+    Object.defineProperty({ name, kind: 'variable', line, from, to, members }, 'tex', {
+      get: () => lookup(scope).get(name)?.tex, enumerable: false,
+    }) as SheetSymbol
 
   /** `to`: the last line of the innermost `{ }` block (or the sheet), where its names stop being visible;
-   * `scope`: that block's variables, for their values. */
-  const visit = (blocks: Block[], to: number, scope: Variable[]) => {
+   * `scope`: that block's variables (worked out when first needed), for their values. */
+  const visit = (blocks: Block[], to: number, scope: () => Variable[]) => {
     for (const b of blocks) {
       switch (b.kind) {
         case 'calc': {
@@ -619,7 +713,7 @@ export function collectSymbols(sheet: Sheet, source: string): SheetSymbol[] {
             for (const entry of unpack[1].split(',').map((n) => n.trim())) {
               // The name without its display settings (`theta:deg` → theta).
               const name = NAME_WITH_SETTINGS.exec(entry)?.[1]
-              if (name) out.push({ name, kind: 'variable', line: b.line, from: b.line + 1, to, tex: texOf(name, scope) })
+              if (name) out.push(variable(name, b.line, b.line + 1, to, scope))
             }
             break
           }
@@ -632,7 +726,7 @@ export function collectSymbols(sheet: Sheet, source: string): SheetSymbol[] {
             break
           }
           const assign = ASSIGNMENT.exec(b.source)
-          if (assign) out.push({ name: assign[1], kind: 'variable', line: b.line, from: b.line + 1, to, tex: texOf(assign[1], scope) })
+          if (assign) out.push(variable(assign[1], b.line, b.line + 1, to, scope))
           break
         }
         case 'function': {
@@ -651,8 +745,17 @@ export function collectSymbols(sheet: Sheet, source: string): SheetSymbol[] {
             if (name) out.push({ name: `@${name}`, kind: 'constant', line: e.line, from: 1, to: lines.length, tex: e.tex })
           }
           break
+        case 'import':
+          // Each value is a variable, t_1, t_2, …: listed by the first and last (a
+          // column can have thousands), which stand for all of them in a series.
+          for (const c of b.columns) {
+            if (!c.count) continue
+            out.push(variable(`${c.name}_${c.first}`, b.line, b.endLine + 1, to, scope, c.count > 1 ? c.count - 1 : 1))
+            if (c.count > 1) out.push(variable(`${c.name}_${c.last}`, b.line, b.endLine + 1, to, scope, 1))
+          }
+          break
         case 'group':
-          visit(b.children, b.endLine ?? lines.length, b.locals)
+          visit(b.children, b.endLine ?? lines.length, () => b.locals)
           break
         case 'layout':
           // Layout blocks don't scope their variables.
@@ -661,8 +764,24 @@ export function collectSymbols(sheet: Sheet, source: string): SheetSymbol[] {
       }
     }
   }
-  visit(sheet.blocks, lines.length, sheet.variables)
+  visit(sheet.blocks, lines.length, () => sheet.variables)
   return out
+}
+
+/**
+ * Line numbers as the sheet shows them: an import's data rows count as part of
+ * its line (they're folded under it), so the line after a 27-row import on
+ * line 1 is line 2. Takes a line of the file (1-based) and gives its number.
+ * (The editor numbers its gutter the same way; see dataBlocks.ts.)
+ */
+export function lineNumbering(blocks: Block[]): (line: number) => number {
+  const hidden: { after: number; count: number }[] = []
+  const visit = (b: Block) => {
+    if (b.kind === 'import' && b.endLine > b.line) hidden.push({ after: b.endLine, count: b.endLine - b.line })
+    else if (b.kind === 'group' || b.kind === 'layout') b.children.forEach(visit)
+  }
+  blocks.forEach(visit)
+  return (line) => line - hidden.reduce((sum, h) => sum + (h.after < line ? h.count : 0), 0)
 }
 
 /** An error or warning on a line, for the editor’s gutter. */
@@ -691,6 +810,9 @@ export function collectDiagnostics(blocks: Block[]): Map<number, Diagnostic> {
         put(at ? Number(at[1]) : b.line, 'error', at ? at[2] : b.error)
         break
       }
+      case 'import':
+        put(b.line, 'error', b.error)
+        break
       case 'constants':
         put(b.line, 'error', b.error)
         for (const e of b.entries) {

@@ -653,6 +653,45 @@ body {
   color: var(--warn);
 }
 
+/* Imported data: the file, and a row per column (its variables and their range) */
+.group--import {
+  border-left-color: var(--accent);
+}
+
+.group--import .group__kind {
+  color: var(--accent);
+}
+
+.import__rows {
+  color: var(--muted);
+}
+
+.import__actions {
+  margin-left: auto;
+  display: flex;
+  gap: 6px;
+}
+
+.import__choose {
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.import__columns {
+  border-collapse: collapse;
+  margin: 4px 12px 8px;
+  font-size: 14px;
+}
+
+.import__columns td {
+  padding: 3px 16px 3px 0;
+  vertical-align: baseline;
+}
+
+.import__columns td:last-child {
+  color: var(--muted);
+}
+
 .group--error {
   border-left-color: var(--error);
 }

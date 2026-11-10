@@ -4,7 +4,8 @@
  */
 import { describe, expect, it } from 'vitest'
 import { EditorState } from '@codemirror/state'
-import { ensureSyntaxTree, foldable, getIndentation } from '@codemirror/language'
+import { codeFolding, ensureSyntaxTree, foldEffect, foldable, getIndentation } from '@codemirror/language'
+import { insertNewlineAndIndent } from '@codemirror/commands'
 import { highlightTree, tagHighlighter, tags as t } from '@lezer/highlight'
 import { inTextBlock, mathscribeFolding, mathscribeIndent, mathscribeLanguage } from './language.ts'
 
@@ -54,6 +55,11 @@ describe('highlighting', () => {
 
   it('reads Greek letters as part of a name', () => {
     expect(tokens('ΔE = 2 * ω_0')).toEqual(['ΔE:var', '2:num', 'ω_0:var'])
+  })
+
+  it('reads µ or μ before a unit as the micro prefix', () => {
+    expect(tokens('d = 3.0 µm')).toEqual(['d:var', '3.0:num', 'µm:unit'])
+    expect(tokens('d = 3.0 μm')).toEqual(['d:var', '3.0:num', 'μm:unit'])
   })
 
   it('colours #sci and #dec as commands', () => {
@@ -123,6 +129,46 @@ describe('indentation', () => {
     expect(indentAfter('def f(x)')).toBe(4)
     expect(indentAfter('    x = 1')).toBe(4)
     expect(indentAfter('x = 1')).toBe(0)
+  })
+
+  it('goes on at an import’s level below a blank line after its rows', () => {
+    expect(indentAfter('import("run.csv")\n    t (s)\n    0.10\n')).toBe(0)
+    // Straight after a row (the block open), the rows carry on.
+    expect(indentAfter('import("run.csv")\n    t (s)\n    0.10')).toBe(4)
+  })
+
+  /** What pressing Enter at the end of `doc` adds, as the editor does it. */
+  const enter = (doc: string) => {
+    let state = EditorState.create({ doc, selection: { anchor: doc.length }, extensions: [mathscribeLanguage, mathscribeIndent] })
+    insertNewlineAndIndent({ state, dispatch: (tr) => { state = tr.state } })
+    return state.doc.toString().slice(doc.length)
+  }
+
+  it('indents when Enter is pressed after a block opener, and not after a line or an import’s rows', () => {
+    expect(enter('x = 1\ndef f(x)')).toBe('\n    ')
+    expect(enter('Steps:   #numbered')).toBe('\n    ')
+    expect(enter('a = 1\nBlock {')).toBe('\n    ')
+    expect(enter('Block {\n    x = 1')).toBe('\n    ')
+    expect(enter('x = 1')).toBe('\n')
+    expect(enter('import("a.csv")\n    t\n    1')).toBe('\n    ')
+    expect(enter('import("a.csv")\n    t\n    1\n')).toBe('\n')
+  })
+
+  it('starts a new line after a folded import at its level, not in its hidden rows', () => {
+    const doc = 'import("run.csv")\n    t (s)\n    0.10\n    0.20'
+    let state = EditorState.create({
+      doc, selection: { anchor: doc.length }, extensions: [mathscribeLanguage, mathscribeIndent, mathscribeFolding, codeFolding()],
+    })
+    const enter = () => insertNewlineAndIndent({ state, dispatch: (tr) => { state = tr.state } })
+    // Open, Enter in the rows carries on with them.
+    enter()
+    expect(state.doc.toString().endsWith('\n    ')).toBe(true)
+    // Folded, the cursor at the end of the import line (after the hidden rows) starts a line of its own.
+    state = EditorState.create({ doc, selection: { anchor: doc.length }, extensions: [mathscribeLanguage, mathscribeIndent, mathscribeFolding, codeFolding()] })
+    const range = foldable(state, 0, state.doc.line(1).to)!
+    state = state.update({ effects: foldEffect.of(range) }).state
+    enter()
+    expect(state.doc.toString().endsWith('0.20\n')).toBe(true)
   })
 
   it('dedents a closing brace', () => {

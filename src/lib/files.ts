@@ -6,7 +6,7 @@
  * saves (and auto-saves) write straight back to the same file. Elsewhere,
  * Open uses a file input and Save downloads the file.
  */
-import { SHEET_FILE, STORAGE_KEYS, TIMING } from '../config.ts'
+import { DATA_FILE, SHEET_FILE, STORAGE_KEYS, TIMING } from '../config.ts'
 import { readStoredJson, writeStoredJson } from './storage.ts'
 
 /** The parts of a file handle used here (the API isn't in TypeScript's DOM types). */
@@ -43,6 +43,24 @@ export interface OpenedFile {
   text: string
   name: string
   handle?: FileHandle
+}
+
+/**
+ * Ask for a data file (CSV) to import, and read it. Resolves to null if the
+ * dialog is cancelled. (Its text goes into the sheet, so no handle is kept.)
+ */
+export function chooseDataFile(): Promise<{ name: string; text: string } | null> {
+  return new Promise((resolve) => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = DATA_FILE.accept
+    input.onchange = async () => {
+      const file = input.files?.[0]
+      resolve(file ? { name: file.name, text: await file.text() } : null)
+    }
+    input.oncancel = () => resolve(null)
+    input.click()
+  })
 }
 
 /** Ask for one or more files to open. Resolves to [] if the dialog is cancelled. */

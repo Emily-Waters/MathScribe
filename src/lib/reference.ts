@@ -98,6 +98,19 @@ export const REFERENCE: ReferenceSection[] = [
         source: 't_1 = 1.21 s\nt_2 = 1.17 s\nt_3 = 1.24 s\nt_avg\nt_count\nt',
         explain: 'Numbered variables form a series: t_avg is the mean ± standard error, t_count the count, t the sum.',
       },
+      {
+        source: [
+          'import("ramp.csv")',
+          '    t (s), d (m)',
+          '    1.21, 3.50',
+          '    1.17, 3.48',
+          '    1.24, 3.52',
+          't_avg',
+          'v = d_2 / t_2',
+        ].join('\n'),
+        explain: 'import() opens a file chooser for a CSV file. Its rows go into the sheet under the line, folded away, and each '
+          + 'value becomes a variable named for its column and row: t_1, t_2, …. A unit in a header, t (s), goes with that column.',
+      },
     ],
   },
   {

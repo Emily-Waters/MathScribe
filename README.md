@@ -553,6 +553,10 @@ written without spaces (`9.81 m/s^2`, `kg*m^2`). To multiply a number by a
 variable whose name is also a unit, use `*`: `1/2 * m * v^2`, not `1/2 m v^2`.
 A warning is shown when a line looks like that mistake.
 
+**Micro:** write the µ prefix as `u` (`5.0 um`, `2.0 uF`, `3.0 us`), or type µ or μ
+(`5.0 µm`); it's shown as µ either way. (μ on its own is still a name, such as a
+friction coefficient.)
+
 - **A value you type keeps its unit** wherever it's shown later: `m = 9.11e-31 kg`
   stays in kg and `L = 1.00e-10 m` in m, in later lines and function working.
 - **Computed results are shown in tidy units:** `N/kg` becomes `m/s^2`, `kg m/s^2`
@@ -811,8 +815,9 @@ Angles from asin, acos and atan are in radians; add `to deg` for degrees.
 
 ### Series: sums, means and counts
 
-Numbered variables form a series. Define `t1`, `t2`, `t3`, … (or `t_1`, `t_2`, …)
-and these names become available:
+Numbered variables form a series. Define `t1`, `t2`, `t3`, … (or `t_1`, `t_2`, …;
+either spelling finds a value defined with the other) and these names become
+available:
 
 | Name | Value | Shown as |
 | --- | --- | --- |
@@ -835,10 +840,52 @@ and these names become available:
 - Every use of a series mean shares one uncertainty source, so using `t_avg` twice
   in a formula is correctly treated as correlated.
 - Members must all have compatible units. Results are shown in the first member's unit.
-- The series aggregates aren't listed in a block's Local row, since they're derived.
 - A name that only matches one numbered variable still forms a series: if a block
   defines `psi_200` and you write `psi`, it means that one-member series. Check the
   name if a value appears where you expected an "undefined" error.
+
+### Importing data (CSV)
+
+Write `import()` on a line, then press the **Choose a CSV file…** button that appears
+between its brackets. The file's rows go into the sheet, indented under the line,
+which now names the file:
+
+```
+import("run1.csv")
+    t (s), x (m), y (m)
+    0.10, 0.012, 0.031
+    0.20, 0.047, 0.118
+    …
+v = x_4 / t_4
+x_avg
+```
+
+- Each value becomes a variable named for its column and row: `t_1`, `t_2`, …, so
+  the series names (`t_avg`, `t_count`, …) work too. As with any series, `t1` and
+  `t_1` are the same name.
+- The first row names the columns. A unit in brackets, `t (s)` or `t [s]`, goes
+  with every value in that column; without one the values are plain numbers.
+  Values keep their sig figs as typed (0.10 is 2 sig figs). Commas, tabs or
+  semicolons separate the values; empty cells are skipped.
+- The output shows a summary instead of the rows: the file, the number of rows,
+  and for each column its variables (t₁ … t₄₀) and the range of its values.
+  The file's name between the brackets is a button too: press it to choose another
+  file, which replaces the rows.
+- In the editor, the rows are folded away when they arrive (unfold them from the
+  gutter). Instead of line numbers they show their row numbers, in colour: row 3
+  holds t_3, x_3 and y_3. The header row shows –. The rows count as part of the
+  import's line, so the line after a 27-row import on line 1 is line 2, in the
+  gutter and in the output's messages alike.
+- The rows are laid out as a table when the file is imported: the columns padded
+  and right-aligned so the digits line up, the header in bold, on a shaded band.
+  (Separators are written as commas; the values are unchanged.)
+- An import line and its rows stay together: moving the line (Alt+↑/↓), deleting
+  it (Ctrl+Shift+K), or cutting or copying it takes its rows too, and other lines
+  step over the block rather than into it. Deleting any of the import line removes
+  the whole import; so does the × after it in the editor, or **Remove** in the
+  output. Folded rows can't be edited by accident; unfold them to change the data.
+- The data is kept in the sheet, so it works anywhere the sheet is opened. It's
+  left out of the LaTeX and Word exports.
 
 ## To do
 

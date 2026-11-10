@@ -149,6 +149,9 @@ function blockToLatex(b: Block, o: LatexOptions): string {
     }
     case 'spacer':
       return '\\vspace{\\baselineskip}'
+    case 'import':
+      // Imported data only defines variables; it isn't part of the document.
+      return ''
     case 'constants': {
       if (b.hidden && !b.error && !b.entries.some((e) => e.error)) return ''
       const shown = b.entries.filter((e) => !e.error)

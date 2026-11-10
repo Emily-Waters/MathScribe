@@ -356,6 +356,11 @@ exports[`the Reference tab’s examples > Layout: Steps:   #numbered 1`] = `
 3: F = m (9.81 m/s^2) = (2.00 kg) (9.81 m/s^2) = 19.6 N"
 `;
 
+exports[`the Reference tab’s examples > Repeated measurements: import("ramp.csv") 1`] = `
+"6: \\bart = \\frac13\\sum_i=1^3 t_i = \\fract_1 + t_2 + t_33 = \\frac1.21 s + 1.17 s + 1.24 s3 = (1.21 ± 0.02) s
+7: v = \\fracd_2t_2 = \\frac3.48 m1.17 s = 2.97 m/s"
+`;
+
 exports[`the Reference tab’s examples > Repeated measurements: t_1 = 1.21 s 1`] = `
 "1: t_1 = 1.21 s
 2: t_2 = 1.17 s

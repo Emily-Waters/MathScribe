@@ -42,6 +42,7 @@ import {
 } from './syntax.ts'
 import { Solver, contains, countOccurrences, matchingParen, splitArgs, splitEquation } from './solve.ts'
 import { nestBrackets } from './brackets.ts'
+import type { CsvColumn } from './csv.ts'
 
 /** Our own mathjs instance, with the functions below added or replaced. */
 const math = create(all)
@@ -127,6 +128,9 @@ export function closesVector(src: string, end: number): boolean {
 
 /** Text ending where a bracket would start a call's arguments: after a name (`f`, `λ`) or a closing bracket. */
 const CALL_BEFORE = new RegExp(String.raw`(?:${NAME_CHAR}|[)\]])$`)
+
+/** The vector products, written as operators: dot(a, b) → a · b, cross(a, b) → a × b. */
+const VECTOR_PRODUCTS = { dot: '\\cdot', cross: '\\times' } as const
 
 /** Whether some text has a vector written `<…>` or `vector(…)` in it. */
 const hasVector = (src: string) =>
@@ -336,6 +340,20 @@ export interface CalcResult {
   info?: string
 }
 
+/** What an imported column made: its variables (name_first … name_last) and the range of its values. */
+export interface DataColumn {
+  name: string
+  unit?: string
+  /** How many values (empty cells are skipped). */
+  count: number
+  /** The rows of its first and last values, so its variables run name_first … name_last. */
+  first?: number
+  last?: number
+  /** The smallest and largest values, as LaTeX. */
+  min?: string
+  max?: string
+}
+
 /** A variable as the sheet lists it: its name, value as LaTeX, and sig figs. */
 export interface Variable {
   name: string
@@ -358,8 +376,17 @@ export interface Variable {
 /** Single-letter units that are far more often meant as variables. */
 const UNIT_DENYLIST = new Set(['b', 'B'])
 
-/** Whether a word is a unit (used after a number, or after `to`). */
+/**
+ * The micro prefix as typed: the micro sign µ, or the Greek μ often typed for
+ * it, before a unit's name. mathjs writes micro as u, so `3.0 µm` is 3.0 um.
+ */
+const MICRO_SIGN = /^[µμ](?=[A-Za-z])/
+/** A unit's name with a typed micro sign written as mathjs's u: `µm` → um. */
+export const withMicroPrefix = (id: string) => id.replace(MICRO_SIGN, 'u')
+
+/** Whether a word is a unit (used after a number, or after `to`). µ counts as the micro prefix. */
 export function isUnitName(id: string): boolean {
+  id = withMicroPrefix(id)
   if (UNIT_DENYLIST.has(id)) return false
   try {
     return math.Unit.isValuelessUnit(id)
@@ -403,15 +430,17 @@ export function describeUnit(name: string): string | null {
 /** Pieces of a unit expression, read one after another: a power (`^2`, `^(-1)`), the first unit, then `/unit` or `*unit`. */
 const POWER = /\^(\(-?\d+(?:\.\d+)?\)|-?\d+(?:\.\d+)?)/y
 /** (A unit ends where a name or a call would go on: `2 mλ` has no unit.) */
-const FIRST_UNIT = new RegExp(String.raw`[ \t]*([A-Za-z]+)(?!${NAME_CHAR}|\()`, 'y')
-const NEXT_UNIT = new RegExp(String.raw`([*/·])([A-Za-z]+)(?!${NAME_CHAR}|\()`, 'y')
+/** A unit's name, which may start with a typed micro sign (µm). */
+const UNIT_WORD = String.raw`(?:[µμ](?=[A-Za-z]))?[A-Za-z]+`
+const FIRST_UNIT = new RegExp(String.raw`[ \t]*(${UNIT_WORD})(?!${NAME_CHAR}|\()`, 'y')
+const NEXT_UNIT = new RegExp(String.raw`([*/·])(${UNIT_WORD})(?!${NAME_CHAR}|\()`, 'y')
 
 /** Read a unit expression like `m/s^2` or `kg*m^2` starting at `pos`. */
 function readUnit(src: string, pos: number): { text: string; end: number } | null {
   FIRST_UNIT.lastIndex = pos
   const first = FIRST_UNIT.exec(src)
   if (!first || !isUnitName(first[1])) return null
-  let text = first[1]
+  let text = withMicroPrefix(first[1])
   let end = FIRST_UNIT.lastIndex
 
   const readPower = () => {
@@ -428,7 +457,7 @@ function readUnit(src: string, pos: number): { text: string; end: number } | nul
     NEXT_UNIT.lastIndex = end
     const next = NEXT_UNIT.exec(src)
     if (!next || !isUnitName(next[2])) break
-    text += (next[1] === '/' ? '/' : '*') + next[2]
+    text += (next[1] === '/' ? '/' : '*') + withMicroPrefix(next[2])
     end = NEXT_UNIT.lastIndex
     readPower()
   }
@@ -684,6 +713,23 @@ export function numberTex(s: string): string {
 }
 
 /** `(kg m) / s^2` or `m/s^2` → \mathrm{kg}\cdot\mathrm{m}/\mathrm{s}^{2} */
+/** Whether a unit's name is a unit with the micro prefix (um, us, uF), worked out once per name. */
+const microUnits = new Map<string, boolean>()
+function hasMicroPrefix(name: string): boolean {
+  if (name.length < 2 || !name.startsWith('u')) return false
+  let micro = microUnits.get(name)
+  if (micro === undefined) {
+    try {
+      const parts = math.unit(1, name).units
+      micro = parts.length === 1 && (parts[0].prefix as unknown as { name: string }).name === 'u'
+    } catch {
+      micro = false
+    }
+    microUnits.set(name, micro)
+  }
+  return micro
+}
+
 export function unitTex(s: string): string {
   // Brackets matter in a denominator (J/(mol·K)), but not around a numerator.
   const norm = s.trim()
@@ -697,6 +743,8 @@ export function unitTex(s: string): string {
     if (tok === 'deg') return '^{\\circ}'
     if (tok === 'ohm') return '\\Omega'
     if (tok === 'angstrom' || tok === 'angstroms') return '\\text{\\AA}'
+    // The micro prefix, u in mathjs, as µ: um → µm.
+    if (hasMicroPrefix(tok)) return `\\mu\\mathrm{${tok.slice(1)}}`
     return `\\mathrm{${tok}}`
   })
 }
@@ -818,6 +866,11 @@ function normalise(value: unknown, keepUnits: boolean): unknown {
  * ends, as with `let` in a nested block. Extends Map so mathjs accepts it as a
  * scope, and functions defined with `f(x) = ...` close over the scope they were
  * defined in.
+ *
+ * A numbered name answers to either spelling: when `t1` isn't defined, `t1`
+ * finds `t_1`, and the other way round. So a series typed `t1, t2, …` and an
+ * imported column (`t_1, t_2, …`) are written the same way. A name defined in
+ * both spellings keeps each.
  */
 class Scope<T = unknown> extends Map<string, T> {
   readonly parent: Scope<T> | undefined
@@ -828,12 +881,40 @@ class Scope<T = unknown> extends Map<string, T> {
   }
 
   get(key: string): T | undefined {
-    return super.has(key) ? super.get(key) : this.parent?.get(key)
+    return this.getExactly(this.spelling(key))
   }
 
   has(key: string): boolean {
-    return super.has(key) || (this.parent?.has(key) ?? false)
+    return this.hasExactly(this.spelling(key))
   }
+
+  /** The name as defined: `key` itself, or its other spelling (t1 ↔ t_1) if only that is. */
+  private spelling(key: string): string {
+    if (this.hasExactly(key)) return key
+    const other = otherSpelling(key)
+    return other !== undefined && this.hasExactly(other) ? other : key
+  }
+
+  private getExactly(key: string): T | undefined {
+    return super.has(key) ? super.get(key) : this.parent?.getExactly(key)
+  }
+
+  private hasExactly(key: string): boolean {
+    return super.has(key) || (this.parent?.hasExactly(key) ?? false)
+  }
+}
+
+/** A numbered name written without an underscore, `t1`, `ω2` (1: the letters, 2: the number). */
+const NUMBERED = new RegExp(String.raw`^([A-Za-z${GREEK_CHARS}]+)(\d+)$`)
+/** …and with one, `t_1` (1: the letters, 2: the number). */
+const NUMBERED_SUBSCRIPT = new RegExp(String.raw`^([A-Za-z${GREEK_CHARS}]+)_(\d+)$`)
+
+/** A numbered name's other spelling: t1 → t_1, t_1 → t1 (undefined for other names). */
+function otherSpelling(name: string): string | undefined {
+  const plain = NUMBERED.exec(name)
+  if (plain) return `${plain[1]}_${plain[2]}`
+  const sub = NUMBERED_SUBSCRIPT.exec(name)
+  return sub ? `${sub[1]}${sub[2]}` : undefined
 }
 
 /** All the parallel scopes for one level: values plus per-variable metadata. */
@@ -1264,6 +1345,23 @@ function productSeparator(left: MathNode, right: MathNode): string {
   return ' '
 }
 
+/**
+ * mathjs's unit errors, said plainly. "Units do not match ('J' != '3454.93
+ * (kg m^2) / (s^4 A)')" comes from converting with `to`: it becomes "This is
+ * in (kg m^2) / (s^4 A), which can't be converted to J." On its own, it comes
+ * from adding or comparing values in different units.
+ */
+function readableUnitError(message: string): string {
+  const conversion = /^Units do not match \('(.+)' != '[-+\d.e]+\s*(.*)'\)$/.exec(message)
+  if (conversion) {
+    return `This is in ${conversion[2] || 'no unit'}, which can't be converted to ${conversion[1]}. Check the units of the values it uses.`
+  }
+  if (message === 'Units do not match') {
+    return 'The units don\'t match: values in different units (or one with a unit and one without) can\'t be added, subtracted or compared.'
+  }
+  return message
+}
+
 /** Prefixes people expect to read: pico to tera, plus centi. */
 const COMMON_PREFIXES = new Set(['', 'p', 'n', 'u', 'm', 'c', 'k', 'M', 'G', 'T'])
 
@@ -1327,6 +1425,52 @@ interface StoredVariable {
   /** Its defining expression, for ΔX working. */
   def?: MathNode
   agg?: Aggregate
+}
+
+/** An imported value, ready to store: its variable's name, value (with the column's unit) and sig figs. */
+interface DataValue {
+  name: string
+  value: unknown
+  sf: number
+}
+
+/**
+ * Each column's values, made once per column as read (sheets are evaluated on
+ * every edit, and imported data can have tens of thousands of values). The
+ * values aren't changed by calculations with them, so they can be shared.
+ */
+const madeColumns = new WeakMap<CsvColumn, DataValue[] & { range: { lowest: DataValue; highest: DataValue } }>()
+
+/** A column's values, as variables: t_1, t_2, …, with the column's unit and their sig figs as typed. */
+function columnValues(c: CsvColumn) {
+  const made = madeColumns.get(c)
+  if (made) return made
+  // The column's unit, read once: each value is a copy of one unit of it, scaled.
+  // (A unit with an offset, like degC, doesn't scale, so each of those is made afresh.)
+  const one = c.unit ? math.unit(1, c.unit) : undefined
+  const scales = one !== undefined && !one.units.some((p) => p.unit.offset)
+  let lowest: DataValue | undefined
+  let highest: DataValue | undefined
+  let low = Infinity
+  let high = -Infinity
+  const values = c.values.map(({ row, text }): DataValue => {
+    const x = Number(text)
+    let value: unknown = x
+    if (c.unit) {
+      const u = scales ? one!.clone() : math.unit(x, c.unit)
+      if (scales) u.value = (one!.value as number) * x
+      u.fixPrefix = true
+      value = u
+    }
+    // A whole number without a unit is exact, as when it's typed in a sheet.
+    const v = { name: `${c.name}_${row}`, value, sf: c.unit || isMeasuredLiteral(text) ? countSigFigs(text) : EXACT }
+    if (x < low) [low, lowest] = [x, v]
+    if (x > high) [high, highest] = [x, v]
+    return v
+  })
+  const result = Object.assign(values, { range: { lowest: lowest!, highest: highest! } })
+  madeColumns.set(c, result)
+  return result
 }
 
 /** Evaluates a sheet line by line, keeping its variables, their sig figs and uncertainties, and the functions it defines. */
@@ -1443,14 +1587,19 @@ export class Calculator {
   private store(name: string, v: StoredVariable): void {
     this.scope.set(name, v.value)
     this.sigs.set(name, v.sf)
-    this.uncs.set(name, v.contributions ?? new Map())
-    this.uncSfs.set(name, v.uncSf)
-    this.declared.set(name, v.declared || undefined)
-    this.notations.set(name, v.notation)
-    this.vectors.set(name, v.vector)
-    this.shown.set(name, v.shown)
-    this.defs.set(name, v.def)
-    this.aggs.set(name, v.agg)
+    // What's unset is only written where it has to hide a value from before (in
+    // this scope or an outer one): imported data can make thousands of variables.
+    const put = <T>(s: Scope<T>, value: T | undefined) => {
+      if (value !== undefined || s.has(name)) s.set(name, value as T)
+    }
+    put(this.uncs, v.contributions?.size ? v.contributions : undefined)
+    put(this.uncSfs, v.uncSf)
+    put(this.declared, v.declared || undefined)
+    put(this.notations, v.notation)
+    put(this.vectors, v.vector)
+    put(this.shown, v.shown)
+    put(this.defs, v.def)
+    put(this.aggs, v.agg)
   }
 
   /**
@@ -1702,6 +1851,13 @@ export class Calculator {
       // Products as in a textbook, ma, ½mv², 2.0 kg · 9.81 m/s² (or with every dot, if the option is on).
       if (isOperatorNode(n) && n.fn === 'multiply') {
         const factor = (a: MathNode, side: 'left' | 'right') => {
+          // A negative value with a unit keeps its value bracketed, like the other
+          // values in the product: −(500 N) sin(30°), not −500 N sin(30°).
+          const negated = unwrap(a)
+          if (!this.options.productDots && isOperatorNode(negated) && negated.fn === 'unaryMinus'
+            && isNumberWithUnit(unwrap(negated.args[0]))) {
+            return `-\\left(${unwrap(negated.args[0]).toTex(options).trim()}\\right)`
+          }
           const tex = a.toTex(options).trim()
           return needsBrackets(a, side, !this.options.productDots) ? `\\left(${tex}\\right)` : tex
         }
@@ -1725,6 +1881,17 @@ export class Calculator {
       }
       if (isFunctionNode(n) && n.fn.name === VECTOR_FUNCTION) {
         return `\\left\\langle ${n.args.map((a) => a.toTex(options).trim()).join(', ')}\\right\\rangle`
+      }
+      // dot and cross products as operators, F · d and a × b (not mathjs's (F · d)),
+      // bracketing an argument only where it needs it, such as a sum.
+      const product = isFunctionNode(n) && n.args.length === 2 && typeof this.scope.get(n.fn.name) !== 'function'
+        ? VECTOR_PRODUCTS[n.fn.name as keyof typeof VECTOR_PRODUCTS] : undefined
+      if (product && isFunctionNode(n)) {
+        const [a, b] = n.args.map((arg, i) => {
+          const tex = arg.toTex(options).trim()
+          return needsBrackets(arg, i === 0 ? 'left' : 'right', false) ? `\\left(${tex}\\right)` : tex
+        })
+        return ` ${a} ${product} ${b}`
       }
       if (isFunctionNode(n) && (!(n.fn.name in math) || typeof this.scope.get(n.fn.name) === 'function')) {
         // User-defined function (even one named like a built-in, e.g. sum): f(x), not \mathrm{f}(x)
@@ -2103,10 +2270,10 @@ export class Calculator {
   private aggregateWorking(agg: Aggregate): string[] {
     const n = agg.members.length
     if (n === 1 && agg.kind !== 'count') return [symbolTex(agg.members[0])]
-    const list = (f: (m: string) => string) => {
-      const items = agg.members.map(f)
-      return (n > 6 ? [...items.slice(0, 2), '\\cdots', items[n - 1]] : items).join(' + ')
-    }
+    // A long series shows its first two members, ⋯, and its last (only those are typeset).
+    const list = (f: (m: string) => string) => (n > 6
+      ? [f(agg.members[0]), f(agg.members[1]), '\\cdots', f(agg.members[n - 1])]
+      : agg.members.map(f)).join(' + ')
     const names = list(symbolTex)
     const values = list((m) => this.toTex(this.variableNode(m), new Map()))
     const baseTex = symbolTex(agg.base)
@@ -2160,6 +2327,33 @@ export class Calculator {
   /** Show every `@name` in the sheet in `unit` (from a line like `@a_0:3 to angstrom`). */
   declareConstantUnit(name: string, unit: string): void {
     this.constantUnit.set(name, unit)
+  }
+
+  /**
+   * Imported data (`import("run1.csv")`): each value becomes a variable named
+   * for its column and row, t_1, t_2, …, with the column's unit and its sig
+   * figs as typed (a whole number without a unit is exact, as when typed).
+   * Returns what each column made, for the import's summary.
+   */
+  defineData(columns: CsvColumn[]): { columns: DataColumn[]; error?: string } {
+    const bad = columns.find((c) => c.unit && !isValidUnit(c.unit))
+    if (bad) return { columns: [], error: `In column ${bad.name}, "${bad.unit}" isn't a unit MathScribe knows.` }
+    const out: DataColumn[] = []
+    for (const c of columns) {
+      if (!c.values.length) {
+        out.push({ name: c.name, unit: c.unit, count: 0 })
+        continue
+      }
+      const values = columnValues(c)
+      for (const v of values) this.store(v.name, v)
+      const { lowest, highest } = values.range
+      out.push({
+        name: c.name, unit: c.unit, count: values.length,
+        first: c.values[0].row, last: c.values.at(-1)!.row,
+        min: this.valueTex(lowest.value, lowest.sf), max: this.valueTex(highest.value, highest.sf),
+      })
+    }
+    return { columns: out }
   }
 
   defineConstant(input: string): CalcResult {
@@ -3128,7 +3322,7 @@ export class Calculator {
     } catch (e) {
       const message = e instanceof RangeError
         ? 'A function here calls itself without end, so it never finishes.'
-        : (e as Error).message
+        : readableUnitError((e as Error).message)
       return { tex: layoutEquation('full', parts(), multiline), error: message, warning, trace, info: ctx.info }
     }
     if (ctx.asPercent && math.isUnit(value)) {
@@ -3257,6 +3451,7 @@ export class Calculator {
     }
   }
 
+
   /** Sig figs of each component of a typed vector (`<0.50, -9.81> m/s^2` → 2, 3). */
   private componentSigFigs(node: MathNode, literals: Map<number, string>): number[] {
     let n = unwrap(node)
@@ -3337,13 +3532,20 @@ export class Calculator {
   ): Variable[] {
     // Map.prototype.entries only sees this scope's own entries. Uncertainty
     // references and series aggregates are derived on demand, so not listed.
+    // Each one's TeX is worked out when it's first asked for (a hover, say): a
+    // sheet with thousands of imported values would otherwise typeset them all
+    // on every edit.
+    const typeset = (name: string, v: unknown, sf: number) => {
+      const unc = this.total(uncs.get(name), v)
+      return `${symbolTex(name)} = ${this.valueTex(v, sf, unc, uncSfs.get(name), declared.get(name) === true)}`
+    }
     return [...scope.entries()]
       .filter(([name, v]) => typeof v !== 'function' && !isHiddenName(name) && !aggs.get(name))
       .map(([name, v]) => {
         const sf = sigs.get(name) ?? EXACT
-        const unc = this.total(uncs.get(name), v)
-        const tex = this.valueTex(v, sf, unc, uncSfs.get(name), declared.get(name) === true)
-        return { name, sf, tex: `${symbolTex(name)} = ${tex}` }
+        let tex: string | undefined
+        // (Not enumerable, so code that walks the list's properties doesn't typeset them all.)
+        return Object.defineProperty({ name, sf }, 'tex', { get: () => (tex ??= typeset(name, v, sf)), enumerable: false }) as Variable
       })
   }
 }

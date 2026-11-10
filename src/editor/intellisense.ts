@@ -29,7 +29,7 @@ import type { SheetSymbol } from '../lib/document.ts'
 import { describeUnit, isUnitName, numberTex, symbolTex, unitNames, unitTex } from '../lib/engine.ts'
 import { STORAGE_KEYS } from '../config.ts'
 import { readStored, writeStored } from '../lib/storage.ts'
-import { GREEK_CHARS, NAME, NAME_CHAR, PERCENT, SETTINGS } from '../lib/syntax.ts'
+import { GREEK_CHARS, NAME, NAME_CHAR, PERCENT, SETTINGS, memberName, parseMemberName } from '../lib/syntax.ts'
 import { BUILTIN_FUNCTIONS, COMMANDS, KEYWORDS, MATH_CONSTANTS, SERIES_SUFFIXES, SETTING_WORDS } from './vocabulary.ts'
 import { inDataBlock, inNote, inTextBlock, isProseLine } from './language.ts'
 import { greekCompletions, greekOnSpace } from './greek.ts'
@@ -133,6 +133,82 @@ const unitOptions: Completion[] = unitNames().map((name) => ({
   detail: describeUnit(name)?.replace(`1 ${name} = `, '= ') ?? undefined,
 }))
 
+/** A namespace's name and a dot, and what's typed of a member so far: `run1.x` (1: the namespace, 2: the member so far). */
+const MEMBER_SO_FAR = new RegExp(String.raw`(?<![\w.${GREEK_CHARS}])(${NAME})\.(${NAME_CHAR}*)$`)
+
+/** A symbol under another name (its value and information kept). */
+const renamed = (s: SheetSymbol, name: string): SheetSymbol =>
+  Object.defineProperty({ ...s, name }, 'tex', { get: () => s.tex, enumerable: false }) as SheetSymbol
+
+/** The members of namespace `ns`, named as written after the dot: run1__x_1 → x_1. */
+function membersOf(symbols: SheetSymbol[], ns: string): SheetSymbol[] {
+  return symbols.flatMap((s) => {
+    const m = parseMemberName(s.name)
+    return m?.namespace === ns ? [renamed(s, m.member)] : []
+  })
+}
+
+/** Each namespace, and what's in it (series by name: x, not x_1 … x_40). */
+function namespaces(symbols: SheetSymbol[]): Map<string, string[]> {
+  const out = new Map<string, Set<string>>()
+  for (const s of symbols) {
+    const m = parseMemberName(s.name)
+    if (!m) continue
+    const set = out.get(m.namespace) ?? new Set<string>()
+    set.add(SERIES_MEMBER.exec(m.member)?.[1] ?? m.member)
+    out.set(m.namespace, set)
+  }
+  return new Map([...out].map(([ns, set]) => [ns, [...set]]))
+}
+
+/**
+ * Suggestions for names the sheet defines: variables, parameters and
+ * functions, with a series (t_1, t_2, …, or t1, t2, …) offered as tₙ and its
+ * statistics (t_avg, t_count, …) rather than member by member.
+ */
+function nameOptions(visible: SheetSymbol[]): Completion[] {
+  const names = new Set(visible.map((s) => s.name))
+  // Each series: how many members it has, and its first and last numbers.
+  const series = new Map<string, { count: number; first: number; last: number }>()
+  for (const s of visible) {
+    const m = SERIES_MEMBER.exec(s.name)
+    if (s.kind !== 'variable' || !m) continue
+    const n = Number(m[2])
+    const known = series.get(m[1])
+    series.set(m[1], known
+      ? { count: known.count + (s.members ?? 1), first: Math.min(known.first, n), last: Math.max(known.last, n) }
+      : { count: s.members ?? 1, first: n, last: n })
+  }
+  // One numbered name isn't really a series (psi_200 alone shouldn't suggest psi_avg).
+  const isSeries = (base: string) => (series.get(base)?.count ?? 0) >= 2
+
+  // A series' members aren't listed one by one (an imported column can have
+  // thousands); the series offers tₙ for them instead, below.
+  const options: Completion[] = visible
+    .filter((s) => { const m = SERIES_MEMBER.exec(s.name); return !(s.kind === 'variable' && m && isSeries(m[1])) })
+    .map((s) => (s.kind === 'function'
+      ? snippetCompletion(`${s.name}(\${})`, {
+        label: s.name, type: 'function', detail: `(${s.params ?? ''})`, info: () => symbolInfo(s), boost: 2,
+      })
+      : { label: s.name, type: 'variable', detail: s.kind === 'parameter' ? 'parameter' : undefined, info: () => symbolInfo(s), boost: 3 }))
+
+  for (const [base, { count, first, last }] of series) {
+    if (!isSeries(base)) continue
+    const detail = `series (${count})`
+    // tₙ: one of its values; accepting it types the name, ready for the number.
+    options.push(snippetCompletion(`${base}\${n}`, {
+      label: `${base}${SUBSCRIPT_N}`, type: 'variable', detail, boost: 2,
+      info: () => infoNode(`${symbolTex(`${base}_${first}`)} \\ldots ${symbolTex(`${base}_${last}`)}`,
+        `One of the series' ${count} values: type its number after the name, ${base}${first} (or ${base}_${first}).`),
+    }))
+    for (const { suffix, description } of SERIES_SUFFIXES) {
+      if (names.has(base + suffix)) continue
+      options.push({ label: base + suffix, type: 'variable', detail, info: description, boost: 1 })
+    }
+  }
+  return options
+}
+
 /** Suggestions for what’s being typed, from where the cursor is on the line. */
 export function complete(ctx: CompletionContext): CompletionResult | null {
   const line = ctx.state.doc.lineAt(ctx.pos)
@@ -197,53 +273,32 @@ export function complete(ctx: CompletionContext): CompletionResult | null {
     }
   }
 
+  const visible = [...visibleAt(ctx.state, line.number).values()].filter((s) => s.kind !== 'constant')
+
+  // `a.`: a namespace's members (a slice's series, a named import's columns, a named plot's fit).
+  const dotted = MEMBER_SO_FAR.exec(before)
+  if (dotted) {
+    const members = membersOf(visible, dotted[1])
+    if (!members.length) return null
+    return { from: ctx.pos - dotted[2].length, options: nameOptions(members), validFor: WORD_SO_FAR }
+  }
+
   // A name.
   const word = ctx.matchBefore(WORD)
   if (!word || (word.from === word.to && !ctx.explicit)) return null
   // Part of a number like 1e5.
   if (/[\d.]$/.test(line.text.slice(0, word.from - line.from))) return null
 
-  const visible = [...visibleAt(ctx.state, line.number).values()].filter((s) => s.kind !== 'constant')
-  const names = new Set(visible.map((s) => s.name))
-
-  // Series: t_1, t_2, … (or t1, t2, …) make t, t_avg, t_count, …: how many each
-  // has, and its first and last numbers.
-  const series = new Map<string, { count: number; first: number; last: number }>()
-  for (const s of visible) {
-    const m = SERIES_MEMBER.exec(s.name)
-    if (s.kind !== 'variable' || !m) continue
-    const n = Number(m[2])
-    const known = series.get(m[1])
-    series.set(m[1], known
-      ? { count: known.count + (s.members ?? 1), first: Math.min(known.first, n), last: Math.max(known.last, n) }
-      : { count: s.members ?? 1, first: n, last: n })
-  }
-  // One numbered name isn't really a series (psi_200 alone shouldn't suggest psi_avg).
-  const isSeries = (base: string) => (series.get(base)?.count ?? 0) >= 2
-
-  // A series' members aren't listed one by one (an imported column can have
-  // thousands); the series offers tₙ for them instead, below.
-  const options: Completion[] = visible
-    .filter((s) => { const m = SERIES_MEMBER.exec(s.name); return !(s.kind === 'variable' && m && isSeries(m[1])) })
-    .map((s) => (s.kind === 'function'
-      ? snippetCompletion(`${s.name}(\${})`, {
-        label: s.name, type: 'function', detail: `(${s.params ?? ''})`, info: () => symbolInfo(s), boost: 2,
-      })
-      : { label: s.name, type: 'variable', detail: s.kind === 'parameter' ? 'parameter' : undefined, info: () => symbolInfo(s), boost: 3 }))
-
-  for (const [base, { count, first, last }] of series) {
-    if (!isSeries(base)) continue
-    const detail = `series (${count})`
-    // tₙ: one of its values; accepting it types the name, ready for the number.
-    options.push(snippetCompletion(`${base}\${n}`, {
-      label: `${base}${SUBSCRIPT_N}`, type: 'variable', detail, boost: 2,
-      info: () => infoNode(`${symbolTex(`${base}_${first}`)} \\ldots ${symbolTex(`${base}_${last}`)}`,
-        `One of the series' ${count} values: type its number after the name, ${base}${first} (or ${base}_${first}).`),
-    }))
-    for (const { suffix, description } of SERIES_SUFFIXES) {
-      if (names.has(base + suffix)) continue
-      options.push({ label: base + suffix, type: 'variable', detail, info: description, boost: 1 })
-    }
+  // A namespace's members are offered after its name and a dot, not here; it's offered itself.
+  const own = visible.filter((s) => !parseMemberName(s.name))
+  const names = new Set(own.map((s) => s.name))
+  const options = nameOptions(own)
+  for (const [ns, members] of namespaces(visible)) {
+    if (names.has(ns)) continue
+    options.push({
+      label: ns, type: 'namespace', detail: members.map((m) => `.${m}`).join(' '), boost: 3,
+      info: () => infoNode(undefined, `Holds ${members.map((m) => `${ns}.${m}`).join(', ')}: type a dot after it for them.`),
+    })
   }
 
   for (const f of BUILTIN_FUNCTIONS) {
@@ -335,6 +390,12 @@ const hoverInfo = hoverTooltip((view, pos) => {
     return show(word.from, infoNode(unitTex(name), describeUnit(name) ?? `${name} (an SI unit)`))
   }
 
+  // A namespace's member, `a.x_1`.
+  const ns = new RegExp(String.raw`(?<![\w.${GREEK_CHARS}])(${NAME})\.$`).exec(before)
+  if (ns) {
+    const member = visibleAt(state, line.number).get(memberName(ns[1], name))
+    return member ? show(word.from - ns[0].length, symbolInfo(member)) : null
+  }
   const symbol = visibleAt(state, line.number).get(name)
   if (symbol) return show(word.from, symbolInfo(symbol))
   const builtin = BUILTIN_FUNCTIONS.find((f) => f.name === name)

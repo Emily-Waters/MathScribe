@@ -5,6 +5,7 @@
  */
 import { evaluateSheet, type Block, type Sheet } from '../lib/document.ts'
 import type { CalcOptions } from '../lib/engine.ts'
+import type { PlotData } from '../lib/plot.ts'
 import { EXAMPLE_CALC_OPTIONS } from '../config.ts'
 
 /** The settings tests evaluate with. */
@@ -20,6 +21,8 @@ export interface Line {
   info?: string
   hidden?: boolean
   trace?: { tex: string }[]
+  /** A plot() line's graph. */
+  plot?: PlotData
 }
 
 /** A sheet, evaluated. */

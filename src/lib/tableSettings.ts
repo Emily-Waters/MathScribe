@@ -36,18 +36,31 @@ const ROW = /^rows\s+(\d+)$/
 const LINES = new RegExp(`^lines\\s+(${TABLE_LINES.join('|')})$`)
 
 /**
- * What's between a table's brackets, split at its first semicolon (outside any
- * brackets) into the columns and the settings.
+ * What's between a table's or plot's brackets, split at its first semicolon
+ * (outside any brackets or quotes) into the columns and the settings.
  */
-export function splitTableArgs(inner: string): { columns: string; settings?: string } {
+export function splitCallArgs(inner: string): { columns: string; settings?: string } {
   let depth = 0
+  let quoted = false
   for (let i = 0; i < inner.length; i++) {
     const c = inner[i]
-    if (c === '(' || c === '[' || c === '{') depth++
+    if (c === '"') quoted = !quoted
+    else if (quoted) continue
+    else if (c === '(' || c === '[' || c === '{') depth++
     else if (c === ')' || c === ']' || c === '}') depth--
     else if (c === ';' && depth === 0) return { columns: inner.slice(0, i), settings: inner.slice(i + 1) }
   }
   return { columns: inner }
+}
+
+/**
+ * A table's or plot's line with new settings text, written after a semicolon
+ * in its brackets (or taken out, if `text` is empty). `inner`: where what's
+ * between the brackets is, in the line.
+ */
+export function withSettingsText(line: string, inner: { from: number; to: number }, text: string): string {
+  const { columns } = splitCallArgs(line.slice(inner.from, inner.to))
+  return `${line.slice(0, inner.from)}${columns.trimEnd()}${text ? `; ${text}` : ''}${line.slice(inner.to)}`
 }
 
 /** A table's settings from their text, or what's wrong with them. */
@@ -86,8 +99,5 @@ export function formatTableSettings(s: TableSettings): string {
 }
 
 /** A table line's text with new settings (written after a semicolon, or taken out if they're all defaults). */
-export function withTableSettings(line: string, inner: { from: number; to: number }, s: TableSettings): string {
-  const { columns } = splitTableArgs(line.slice(inner.from, inner.to))
-  const text = formatTableSettings(s)
-  return `${line.slice(0, inner.from)}${columns.trimEnd()}${text ? `; ${text}` : ''}${line.slice(inner.to)}`
-}
+export const withTableSettings = (line: string, inner: { from: number; to: number }, s: TableSettings): string =>
+  withSettingsText(line, inner, formatTableSettings(s))

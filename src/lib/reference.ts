@@ -125,6 +125,40 @@ export const REFERENCE: ReferenceSection[] = [
         explain: 'table(…) shows series side by side, a row per number. name = … works out a column row by row, '
           + 'and makes it a series of its own (v_1, v_2, …), so v_avg works afterwards.',
       },
+      {
+        source: [
+          't1 = 0.10 s',
+          't2 = 0.20 s',
+          't3 = 0.30 s',
+          't4 = 0.40 s',
+          'x1 = 0.051 m pm 0.004 m',
+          'x2 = 0.098 m pm 0.004 m',
+          'x3 = 0.152 m pm 0.004 m',
+          'x4 = 0.199 m pm 0.004 m',
+          'plot(t, x; fit linear)',
+          'v = x_slope',
+        ].join('\n'),
+        explain: 'plot(x axis, y series…) draws one series against another, with error bars for uncertainties. '
+          + 'fit linear adds a best-fit line and its equation, and makes its slope and intercept variables: x_slope, x_intercept. '
+          + 'The ⚙ after it sets the rows, style, fit, axes and title.',
+      },
+      {
+        source: [
+          't1 = 0.10 s',
+          't2 = 0.20 s',
+          't3 = 0.30 s',
+          't4 = 0.40 s',
+          'x1 = 0.020 m',
+          'x2 = 0.098 m',
+          'x3 = 0.152 m',
+          'x4 = 0.199 m',
+          'a = select(t, x; t from 0.2)',
+          'p = plot(a.t, a.x; fit linear)',
+          'v = p.slope',
+        ].join('\n'),
+        explain: 'select(…) keeps the rows where its conditions hold, as new series under a name: a.t, a.x, numbered from 1. '
+          + 'A named plot keeps its fit the same way: p.slope, p.intercept. Name an import too, run1 = import(…), to keep two files apart.',
+      },
     ],
   },
   {

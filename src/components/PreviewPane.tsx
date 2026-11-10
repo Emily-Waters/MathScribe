@@ -3,6 +3,7 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState, type M
 import { lineNumbering, listItems, splitInlineMath, titleSegments, type Block, type ImportBlock, type Sheet } from '../lib/document.ts'
 import { loadLatexOptions, saveLatexOptions, toLatexDocument, type LatexOptions } from '../lib/latex.ts'
 import { symbolTex, unitTex, type CalcOptions } from '../lib/engine.ts'
+import { THEME_PALETTE, plotSvg, type PlotData } from '../lib/plot.ts'
 import { ReferencePane } from './ReferencePane.tsx'
 import { OptionsMenu } from './OptionsMenu.tsx'
 import { LatexOptionsMenu } from './LatexOptionsMenu.tsx'
@@ -45,6 +46,12 @@ const LineLink = createContext<{ activeLine: number | null; onJump: (line: numbe
   onJump: () => {},
 })
 
+/** A `plot(…)` line's plot, drawn in the app's colours (it follows the theme). */
+function PlotView({ plot }: { plot: PlotData }) {
+  const svg = useMemo(() => plotSvg(plot, THEME_PALETTE), [plot])
+  return <div className="plot" dangerouslySetInnerHTML={{ __html: svg }} />
+}
+
 /** Line numbers as the editor shows them, for messages (an import's data rows count as part of its line). */
 const LineNumbers = createContext<(line: number) => number>((line) => line)
 
@@ -80,6 +87,7 @@ function ImportSummary({ block }: { block: ImportBlock }) {
         <span className="group__title">
           <span className="group__kind">Data</span>
           {block.file ?? 'no file chosen yet: choose one in the import line'}
+          {block.name && <span className="import__rows"> as <strong>{block.name}</strong></span>}
           {loaded && <span className="import__rows"> · {block.rows} row{block.rows === 1 ? '' : 's'}</span>}
         </span>
         {block.note && <span className="calc__note">{block.note}</span>}
@@ -94,7 +102,10 @@ function ImportSummary({ block }: { block: ImportBlock }) {
           <tbody>
             {block.columns.map((c) => (
               <tr key={c.name}>
-                <td><Tex latex={symbolTex(c.name)} />{c.unit && <> <Tex latex={`\\left[${unitTex(c.unit)}\\right]`} /></>}</td>
+                <td>
+                  <Tex latex={symbolTex(c.name)} />{c.unit && <> <Tex latex={`\\left[${unitTex(c.unit)}\\right]`} /></>}
+                  {c.uncertainty && <span className="import__unc" title={`Each value's uncertainty is in column ${c.uncertainty}`}> ± {c.uncertainty}</span>}
+                </td>
                 <td>{c.count
                   ? <Tex latex={c.count === 1 ? symbolTex(`${c.name}_${c.first}`) : `${symbolTex(`${c.name}_${c.first}`)} \\ldots ${symbolTex(`${c.name}_${c.last}`)}`} />
                   : 'no values'}</td>
@@ -189,12 +200,15 @@ export function RenderedBlock({ block }: { block: Block }) {
               ))}
             </div>
           )}
-          <div className="calc__row">
-            {block.tex
-              ? <Tex latex={block.tex} display />
-              : <code className="calc__source">{block.source}</code>}
-            {block.note && <span className="calc__note">{block.note}</span>}
-          </div>
+          {block.plot && <PlotView plot={block.plot} />}
+          {(block.tex || !block.plot) && (
+            <div className="calc__row">
+              {block.tex
+                ? <Tex latex={block.tex} display />
+                : <code className="calc__source">{block.source}</code>}
+              {block.note && <span className="calc__note">{block.note}</span>}
+            </div>
+          )}
           {block.error && <LineMessage kind="error" line={block.line} text={block.error} />}
           {block.warning && <LineMessage kind="warn" line={block.line} text={block.warning} />}
           {block.info && (
@@ -313,8 +327,9 @@ export function PreviewPane({
   const downloadTex = () => downloadFile(`${baseName}.tex`, latexSource)
   // The Word writer loads only when it's first used.
   const downloadDocx = async () => {
-    const { toDocx, DOCX_TYPE } = await import('../lib/docx.ts')
-    downloadFile(`${baseName}.docx`, toDocx(sheet.blocks, latexOptions) as Uint8Array<ArrayBuffer>, DOCX_TYPE)
+    const [{ toDocx, DOCX_TYPE }, { plotImages }] = await Promise.all([import('../lib/docx.ts'), import('../lib/plotImage.ts')])
+    const images = await plotImages(sheet.blocks)
+    downloadFile(`${baseName}.docx`, toDocx(sheet.blocks, latexOptions, images) as Uint8Array<ArrayBuffer>, DOCX_TYPE)
   }
   const docRef = useRef<HTMLDivElement>(null)
   const link = useMemo(() => ({ activeLine, onJump }), [activeLine, onJump])

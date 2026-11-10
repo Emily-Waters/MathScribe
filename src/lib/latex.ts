@@ -6,6 +6,8 @@
  */
 import { STORAGE_KEYS } from '../config.ts'
 import { isOmitted, listItems, splitInlineMath, titleSegments, type Block } from './document.ts'
+import { symbolTex, unitTex } from './engine.ts'
+import type { PlotData, PlotName } from './plot.ts'
 import { readStoredJson, writeStoredJson } from './storage.ts'
 
 /** The Document options: how an exported document (LaTeX or Word) looks. */
@@ -93,7 +95,7 @@ function gather(eqs: Equation[]): string {
 
 /** A line that's just an equation, so it can join the equations around it. */
 function simpleEquation(b: Block): Equation | null {
-  if (b.kind === 'calc' && !b.error && !b.hidden && !b.trace?.length) return { tex: b.tex, note: b.note }
+  if (b.kind === 'calc' && !b.error && !b.hidden && !b.trace?.length && !b.plot) return { tex: b.tex, note: b.note }
   if (b.kind === 'latex') return { tex: b.latex }
   return null
 }
@@ -167,6 +169,8 @@ function blockToLatex(b: Block, o: LatexOptions): string {
     case 'calc': {
       if (b.error) return errorComment(b.line, b.source, b.error)
       if (b.hidden) return ''
+      // A plot, as a pgfplots graph, then its fits' equations (if any).
+      if (b.plot) return [plotToLatex(b.plot), b.tex ? gather([{ tex: b.tex, note: b.note }]) : ''].filter(Boolean).join('\n')
       // The working inside a function call: indented and a little smaller, above the line.
       const working = b.trace?.length ? ['\\begin{msworking}', gather(b.trace), '\\end{msworking}'].join('\n') : ''
       return [working, gather([{ tex: b.tex, note: b.note }])].filter(Boolean).join('\n')
@@ -213,16 +217,80 @@ function itemLatex(b: Block, o: LatexOptions): string {
 }
 
 // ---------------------------------------------------------------------------
+// Plots (pgfplots)
+// ---------------------------------------------------------------------------
+
+/** Each series' colour, in order (xcolor names, as pgfplots loads xcolor). */
+const PLOT_COLOURS = ['blue', 'orange', 'teal', 'violet', 'brown', 'cyan']
+
+/** A number for pgfplots: plain, without float noise. */
+const plotNumber = (v: number) => String(Number(v.toPrecision(10)))
+
+/** An axis's or series' name and unit as LaTeX: `$t\,[\mathrm{s}]$`. */
+function plotLabel(p: PlotName & { unit?: string }): string {
+  const name = p.name ? symbolTex(p.name) : p.expr ? `\\text{${escapeTex(p.expr)}}` : ''
+  const unit = p.unit ? `\\left[${unitTex(p.unit)}\\right]` : ''
+  return `$${[name, unit].filter(Boolean).join('\\,')}$`
+}
+
+/**
+ * A plot as a pgfplots graph: its points (with error bars for uncertainties),
+ * lines between them if its style says so, and its fits as dashed lines.
+ */
+function plotToLatex(plot: PlotData): string {
+  const { settings } = plot
+  const xs = plot.series.flatMap((s) => s.points.map((p) => p.x))
+  const options = [
+    'width=0.8\\linewidth', 'height=0.5\\linewidth', 'grid=major',
+    `xlabel={${plotLabel(plot.x)}}`, `ylabel={${plotLabel(plot.y)}}`,
+    ...(settings.title ? [`title={${escapeTex(settings.title)}}`] : []),
+    ...(settings.x.log ? ['xmode=log'] : []),
+    ...(settings.y.log ? ['ymode=log'] : []),
+    ...(settings.x.from !== undefined ? [`xmin=${settings.x.from}`] : []),
+    ...(settings.x.to !== undefined ? [`xmax=${settings.x.to}`] : []),
+    ...(settings.y.from !== undefined ? [`ymin=${settings.y.from}`] : []),
+    ...(settings.y.to !== undefined ? [`ymax=${settings.y.to}`] : []),
+    ...(plot.series.length > 1 ? ['legend pos=north west'] : []),
+  ]
+  const lines = ['\\begin{center}', '\\begin{tikzpicture}', `\\begin{axis}[${options.join(', ')}]`]
+  plot.series.forEach((s, i) => {
+    const colour = PLOT_COLOURS[i % PLOT_COLOURS.length]
+    const errors = s.points.some((p) => p.dx || p.dy)
+    const style = [
+      `color=${colour}`,
+      settings.style === 'lines' ? 'no markers' : 'mark=*',
+      ...(settings.style === 'points' ? ['only marks'] : []),
+      ...(errors ? ['error bars/.cd', 'x dir=both', 'x explicit', 'y dir=both', 'y explicit'] : []),
+    ]
+    const coordinates = [...s.points].sort((a, b) => a.x - b.x).map((p) => `(${plotNumber(p.x)}, ${plotNumber(p.y)})`
+      + (errors ? ` +- (${plotNumber(p.dx ?? 0)}, ${plotNumber(p.dy ?? 0)})` : ''))
+    lines.push(`\\addplot[${style.join(', ')}] coordinates {${coordinates.join(' ')}};`)
+    if (plot.series.length > 1) lines.push(`\\addlegendentry{${plotLabel(s)}}`)
+    if (s.fit && xs.length) {
+      const domain = `${plotNumber(Math.min(...xs))}:${plotNumber(Math.max(...xs))}`
+      lines.push(`\\addplot[color=${colour}, dashed, no markers, domain=${domain}, samples=${settings.x.log ? 50 : 2}, forget plot] {${plotNumber(s.fit.slope)}*x + ${plotNumber(s.fit.intercept)}};`)
+    }
+  })
+  lines.push('\\end{axis}', '\\end{tikzpicture}', '\\end{center}')
+  return lines.join('\n')
+}
+
+/** Whether any block, at any depth, is a plot (so the preamble loads pgfplots). */
+const hasPlot = (blocks: Block[]): boolean => blocks.some((b) =>
+  (b.kind === 'calc' && !!b.plot && !b.hidden) || ((b.kind === 'group' || b.kind === 'layout') && hasPlot(b.children)))
+
+// ---------------------------------------------------------------------------
 // The document
 // ---------------------------------------------------------------------------
 
 /** The document's preamble: its class, packages and settings, from the Document options. */
-function preamble(o: LatexOptions): string[] {
+function preamble(o: LatexOptions, plots = false): string[] {
   const left = o.align === 'left'
   return [
     `\\documentclass[${[o.fontSize, o.paper, ...(left ? ['fleqn'] : [])].join(',')}]{article}`,
     `\\usepackage[margin=${MARGIN_CM[o.margins]}cm]{geometry}`,
     '\\usepackage{amsmath, amssymb}',
+    ...(plots ? ['% Plots.', '\\usepackage{pgfplots}', '\\pgfplotsset{compat=1.18}'] : []),
     '% Long runs of equations may break across pages.',
     '\\allowdisplaybreaks',
     ...(o.compact ? [
@@ -266,7 +334,7 @@ function preamble(o: LatexOptions): string[] {
 export function toLatexDocument(blocks: Block[], options: LatexOptions = DEFAULT_LATEX_OPTIONS): string {
   return [
     '% Made with MathScribe',
-    ...preamble(options),
+    ...preamble(options, hasPlot(blocks)),
     '',
     '\\begin{document}',
     ...(options.title.trim() ? ['\\maketitle'] : []),

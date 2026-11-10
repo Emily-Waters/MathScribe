@@ -11,6 +11,7 @@
 import { strToU8, zipSync } from 'fflate'
 import { listItems, isOmitted, splitInlineMath, titleSegments, type Block } from './document.ts'
 import { MARGIN_CM, type LatexOptions } from './latex.ts'
+import { PLOT_SIZE, type PlotData } from './plot.ts'
 import { EM_SPACE, texToMath, texToOmml, xmlEscape } from './omml.ts'
 
 // ---------------------------------------------------------------------------
@@ -185,7 +186,43 @@ interface Ctx {
   inList?: boolean
   /** List numbering instances made so far: each list restarts its count. */
   nums: { abstract: 0 | 1 }[]
+  /** Plots' pictures, drawn beforehand (by plotPng, in the browser). */
+  images: PlotImages
+  /** The pictures placed so far: each is a file in word/media. */
+  media: Uint8Array[]
 }
+
+/** Plots' pictures as PNG files, by the plot they show. */
+export type PlotImages = Map<PlotData, Uint8Array>
+
+/** A plot's picture: as wide as PLOT_WIDTH of the text, at the drawing's proportions. */
+const PLOT_WIDTH = 0.85
+/** EMUs (Word's drawing unit) per twip. */
+const EMU_PER_TWIP = 635
+
+/** A picture (the `n`th in word/media), as a paragraph: an inline drawing. */
+function picture(ctx: Ctx, png: Uint8Array): Item {
+  ctx.media.push(png)
+  const n = ctx.media.length
+  const cx = Math.round(ctx.width * PLOT_WIDTH * EMU_PER_TWIP)
+  const cy = Math.round((cx * PLOT_SIZE.height) / PLOT_SIZE.width)
+  const name = `Plot ${n}`
+  const pic = '<pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">'
+    + `<pic:nvPicPr><pic:cNvPr id="${n}" name="${name}"/><pic:cNvPicPr/></pic:nvPicPr>`
+    + `<pic:blipFill><a:blip r:embed="${imageRel(n)}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>`
+    + `<pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr>`
+    + '</pic:pic>'
+  const drawing = '<w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0">'
+    + `<wp:extent cx="${cx}" cy="${cy}"/><wp:docPr id="${n}" name="${name}"/>`
+    + '<wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/></wp:cNvGraphicFramePr>'
+    + '<a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">'
+    + `<a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">${pic}</a:graphicData></a:graphic>`
+    + '</wp:inline></w:drawing></w:r>'
+  return { props: { jc: 'center', keepNext: true }, content: drawing }
+}
+
+/** The relationship id of the `n`th picture (after the document's three parts). */
+const imageRel = (n: number) => `rId${3 + n}`
 
 const NOTE: RunFormat = { italic: true, color: COLORS.note }
 
@@ -313,6 +350,11 @@ function block(b: Block, ctx: Ctx): Item[] {
     case 'calc':
       // Errors stay out of the document, as in the LaTeX export.
       if (b.error || b.hidden) return []
+      // A plot: its picture (if it was drawn), then its fits' equations.
+      if (b.plot) {
+        const png = ctx.images.get(b.plot)
+        return [...(png ? [picture(ctx, png)] : []), ...(b.tex ? [equation(ctx, b.tex, b.note)] : [])]
+      }
       return [
         ...(b.trace ?? []).map((t) => equation(ctx, t.tex, t.note, true)),
         equation(ctx, b.tex, b.note),
@@ -429,6 +471,7 @@ function coreXml(o: LatexOptions): string {
 const CONTENT_TYPES = `${HEAD}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">`
   + '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
   + '<Default Extension="xml" ContentType="application/xml"/>'
+  + '<Default Extension="png" ContentType="image/png"/>'
   + '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>'
   + '<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>'
   + '<Override PartName="/word/numbering.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"/>'
@@ -442,15 +485,25 @@ const ROOT_RELS = `${HEAD}<Relationships xmlns="http://schemas.openxmlformats.or
   + '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>'
   + '</Relationships>'
 
-/** The document's relationships: its styles, numbering and settings. */
-const DOC_RELS = `${HEAD}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">`
+/** Where the `n`th picture is in the zip, and as the document refers to it. */
+const mediaPath = (n: number) => `media/plot${n}.png`
+
+/** The document's relationships: its styles, numbering and settings, and its pictures. */
+const docRels = (pictures: number) => `${HEAD}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">`
   + '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'
   + '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering" Target="numbering.xml"/>'
   + '<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings" Target="settings.xml"/>'
+  + Array.from({ length: pictures }, (_, i) => `<Relationship Id="${imageRel(i + 1)}" `
+    + `Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="${mediaPath(i + 1)}"/>`).join('')
   + '</Relationships>'
 
 /** The document's parts, as XML text by path in the zip. (Exported for tests.) */
-export function docxParts(sheetBlocks: Block[], o: LatexOptions, today = new Date()): Record<string, string> {
+export function docxParts(sheetBlocks: Block[], o: LatexOptions, today = new Date(), images: PlotImages = new Map()): Record<string, string> {
+  return docxPackage(sheetBlocks, o, today, images).parts
+}
+
+/** The document's XML parts, and its pictures' files (by path in the zip). */
+function docxPackage(sheetBlocks: Block[], o: LatexOptions, today: Date, images: PlotImages) {
   const page = PAPER[o.paper]
   const margin = Math.round(MARGIN_CM[o.margins] * TWIPS_PER_CM)
   const width = page.w - 2 * margin
@@ -460,6 +513,7 @@ export function docxParts(sheetBlocks: Block[], o: LatexOptions, today = new Dat
     longest * NOTE_CHAR_EMS * fontSizeOf(o) * TWIPS_PER_EM_PER_HALF_POINT + NOTE_PADDING)))
   const ctx: Ctx = {
     o, width, indent: 0, center: false, nums: [], small: fontSizeOf(o) - WORKING_SIZE_STEP, noteWidth,
+    images, media: [],
   }
   const title: Item[] = o.title.trim() ? [
     { props: { style: 'Title' }, content: run(o.title.trim()) },
@@ -472,25 +526,35 @@ export function docxParts(sheetBlocks: Block[], o: LatexOptions, today = new Dat
   const body = [...title, ...blocks(sheetBlocks, ctx)].map(itemXml).join('')
   const sect = `<w:sectPr><w:pgSz w:w="${page.w}" w:h="${page.h}"/>`
     + `<w:pgMar w:top="${margin}" w:right="${margin}" w:bottom="${margin}" w:left="${margin}" w:header="${SPACING.pageHeader}" w:footer="${SPACING.pageHeader}" w:gutter="0"/></w:sectPr>`
-  const document = `${HEAD}<w:document ${W} ${M} xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">`
+  const document = `${HEAD}<w:document ${W} ${M} xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"`
+    + ' xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing">'
     + `<w:body>${body}${sect}</w:body></w:document>`
-  return {
+  const parts: Record<string, string> = {
     '[Content_Types].xml': CONTENT_TYPES,
     '_rels/.rels': ROOT_RELS,
     'docProps/core.xml': coreXml(o),
     'word/document.xml': document,
-    'word/_rels/document.xml.rels': DOC_RELS,
+    'word/_rels/document.xml.rels': docRels(ctx.media.length),
     'word/styles.xml': stylesXml(o),
     'word/numbering.xml': numberingXml(ctx.nums),
     'word/settings.xml': settingsXml(o),
   }
+  const media = Object.fromEntries(ctx.media.map((png, i) => [`word/${mediaPath(i + 1)}`, png]))
+  return { parts, media }
 }
 
 /** The file type of a .docx, for downloading it. */
 export const DOCX_TYPE = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 
-/** The sheet as a .docx file. */
-export function toDocx(sheetBlocks: Block[], o: LatexOptions): Uint8Array {
-  const parts = docxParts(sheetBlocks, o)
-  return zipSync(Object.fromEntries(Object.entries(parts).map(([path, xml]) => [path, strToU8(xml)])))
+/**
+ * The sheet as a .docx file. Plots are pictures, drawn beforehand (see
+ * plotImages); one without a picture is left out, though its fit equations stay.
+ */
+export function toDocx(sheetBlocks: Block[], o: LatexOptions, images: PlotImages = new Map()): Uint8Array {
+  const { parts, media } = docxPackage(sheetBlocks, o, new Date(), images)
+  return zipSync({
+    ...Object.fromEntries(Object.entries(parts).map(([path, xml]) => [path, strToU8(xml)])),
+    // (PNGs are compressed already.)
+    ...Object.fromEntries(Object.entries(media).map(([path, png]) => [path, [png, { level: 0 }] as [Uint8Array, { level: 0 }]])),
+  })
 }

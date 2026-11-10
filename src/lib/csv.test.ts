@@ -30,6 +30,46 @@ describe('parseCsv', () => {
   })
 })
 
+describe('uncertainty columns', () => {
+  const data = (header: string, ...rows: string[]) => `import("run.csv")\n    ${header}\n${rows.map((r) => `    ${r}`).join('\n')}\n`
+
+  it('fold dx into x, by any of its names, but only when there is an x', () => {
+    for (const name of ['dx', 'δx', 'σx', 'delta_x', 'sigma_x', 'x_unc', 'x_err']) {
+      const csv = parseCsv([`x (m), ${name} (m)`, '1.0, 0.1'])
+      expect(csv.columns.map((c) => c.name)).toEqual(['x'])
+      expect(csv.columns[0].unc).toMatchObject({ column: name, unit: 'm', percent: false })
+    }
+    expect(parseCsv(['t, dx', '1, 2']).columns.map((c) => c.name)).toEqual(['t', 'dx'])
+    expect(parseCsv(['x, dx, x_err', '1, 2, 3']).error).toBe('Columns dx and x_err are both uncertainties of x: keep one.')
+  })
+
+  it('give each value its row’s uncertainty, as pm would', () => {
+    const src = data('t (s), x (m), dx (m)', '0.10, 0.051, 0.004', '0.20, 0.098, 0.004', '0.30, 0.152,')
+    expect(value(`${src}a = x_1`)).toBe('(0.051 ± 0.004) m')
+    expect(value(`${src}a = delta x_2`)).toBe('0.004 m')
+    expect(value(`${src}a = x_3`)).toBe('0.152 m') // no uncertainty in its row
+    expect(lines(`${src}a = dx_1`).at(-1)!.error).toMatch(/Undefined symbol/) // the column isn't variables of its own
+  })
+
+  it('take x’s unit when they have none, convert one that differs, and read % as relative', () => {
+    expect(value(`${data('x (m), dx', '0.051, 0.004')}a = x_1`)).toBe('(0.051 ± 0.004) m')
+    expect(value(`${data('x (m), dx (mm)', '0.051, 4')}a = x_1`)).toBe('(0.051 ± 0.004) m')
+    expect(value(`${data('x (m), dx (%)', '0.050, 10')}a = x_1`)).toBe('(0.050 ± 0.005) m')
+  })
+
+  it('say what’s wrong with a unit that doesn’t fit', () => {
+    const block = (src: string) => sheet(src).blocks[0] as ImportBlock
+    expect(block(data('x (m), dx (s)', '1, 2')).error).toMatch(/is in s, which doesn't convert to x's m/)
+    expect(block(data('x, dx (m)', '1, 2')).error).toMatch(/has a unit \(m\) but x doesn't/)
+  })
+
+  it('show as error bars on a plot', () => {
+    const src = data('t (s), x (m), dx (m)', '0.10, 0.051, 0.004', '0.20, 0.098, 0.006')
+    const plot = lines(`${src}plot(t, x)`).at(-1)!.plot!
+    expect(plot.series[0].points.map((p) => p.dy)).toEqual([0.004, 0.006])
+  })
+})
+
 describe('withImportedData', () => {
   it('names the file and puts its rows under the import line, indented', () => {
     expect(withImportedData('m = 2\nimport()   # run 1\ny = 3', 2, 'run1.csv', 't (s)\r\n0.10\r\n\r\n'))

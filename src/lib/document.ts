@@ -2,6 +2,7 @@ import {
   Calculator,
   type CalcOptions,
   type DataColumn,
+  type Definition,
   type FunctionLine,
   type FunctionResult,
   type TraceLine,
@@ -10,10 +11,11 @@ import {
 } from './engine.ts'
 import {
   ASSIGNMENT, CONSTANT_DECLARATION, EXACT_SETTING, DEF, DEF_HEAD, FUNCTION_HEAD, IMPORT, LAYOUT_STYLES, LEADING_NAME, LINE_COMMANDS,
-  MULTILINE, NAME_WITH_SETTINGS, NOTATIONS, UNPACK_HEAD, commandPattern, indentOf, type LayoutStyle, type LineCommand,
+  MULTILINE, NAME_WITH_SETTINGS, NOTATIONS, PLOT_CALL, SELECT_CALL, UNPACK_HEAD, commandPattern, indentOf, type LayoutStyle, type LineCommand,
   type Notation,
 } from './syntax.ts'
 import { parseCsv, type CsvData } from './csv.ts'
+import type { PlotData } from './plot.ts'
 
 /**
  * Imported data as read, kept between evaluations of the sheet (one per edit)
@@ -88,6 +90,8 @@ export interface ImportBlock {
   line: number
   /** Last line of the data. */
   endLine: number
+  /** Its name, for `run1 = import(…)`: its columns are run1.t, run1.x, …. */
+  name?: string
   /** The file's name, or undefined for `import()` before a file is chosen. */
   file?: string
   /** What each column made. */
@@ -136,6 +140,10 @@ export interface CalcBlock {
   trace?: TraceLine[]
   /** Calculated but not shown (`#hide`). */
   hidden?: boolean
+  /** A `plot(…)` line's plot (`tex` is then its fits' equations, if any). */
+  plot?: PlotData
+  /** What a select or named plot made (a__x_1, p__slope), for suggestions. */
+  defines?: Definition[]
 }
 
 /** A `Title { … }` block: the variables assigned inside it are local to it. */
@@ -437,15 +445,15 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
         endLine = idx + 1
       }
       const block: ImportBlock = {
-        kind: 'import', line, endLine, file: imported[1], columns: [], rows: 0, note,
+        kind: 'import', line, endLine, name: imported[1], file: imported[2], columns: [], rows: 0, note,
         hidden: (command ?? inherited) === 'hide',
       }
       if (rows.length) {
         const csv = readCsv(rows)
-        const defined = csv.error ? { columns: [], error: csv.error } : calc.defineData(csv.columns)
+        const defined = csv.error ? { columns: [], error: csv.error } : calc.defineData(csv.columns, imported[1])
         Object.assign(block, { columns: defined.columns, rows: csv.rows, error: defined.error })
-      } else if (imported[1] !== undefined) {
-        block.error = `The data from ${imported[1]} is missing: choose the file again.`
+      } else if (imported[2] !== undefined) {
+        block.error = `The data from ${imported[2]} is missing: choose the file again.`
       }
       add(block)
       continue
@@ -723,6 +731,11 @@ export function collectSymbols(sheet: Sheet, source: string): SheetSymbol[] {
               name: def[1], kind: 'function', line: b.line, from: b.line, to,
               tex: b.tex.split(' = ')[0], params: def[2].trim(),
             })
+            break
+          }
+          // A select or named plot: the variables it made, a.x_1, p.slope (not a variable a).
+          if (b.defines || SELECT_CALL.test(b.source) || PLOT_CALL.test(b.source)) {
+            for (const d of b.defines ?? []) out.push(variable(d.name, b.line, b.line + 1, to, scope, d.members))
             break
           }
           const assign = ASSIGNMENT.exec(b.source)

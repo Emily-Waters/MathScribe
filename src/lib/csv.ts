@@ -11,6 +11,10 @@
  * `t [s]`, goes with every value in that column. Each value becomes a variable,
  * numbered by its row: t_1, t_2, … (so t_avg, t_count and so on work too).
  * Values are kept as typed, so 0.10 keeps its two sig figs.
+ *
+ * A column named dx (or δx, σx, x_unc, x_err) holds x's uncertainties: each
+ * x_n gets its row's, as if typed `x_n = 0.012 m pm 0.001 m`. In the column's
+ * unit, or x's if it has none; `dx (%)` is a percentage of each value.
  */
 import { INDENT, IS_NAME, indentOf } from './syntax.ts'
 
@@ -19,6 +23,52 @@ export interface CsvColumn {
   name: string
   unit?: string
   values: { row: number; text: string }[]
+  /** Its values' uncertainties, from a column of their own (dx for x): see UNCERTAINTY_COLUMN. */
+  unc?: CsvUncertainty
+}
+
+/** A column of uncertainties: its name, unit (`%` for a percentage of each value), and each as typed, by row. */
+export interface CsvUncertainty {
+  column: string
+  unit?: string
+  percent: boolean
+  values: Map<number, string>
+}
+
+/**
+ * A column holding another's uncertainties: dx, δx, σx, delta_x, sigma_x,
+ * x_unc or x_err for column x (1 or 2: the other column's name). It only
+ * counts as one when there's a column x; otherwise it's a column of its own.
+ */
+const UNCERTAINTY_COLUMN = [/^(?:delta_|sigma_|d|δ|σ)(.+)$/, /^(.+)_(?:unc|err)$/]
+
+/** The column `name` holds the uncertainties of, if any. */
+function uncertaintyOf(name: string, names: Set<string>): string | undefined {
+  return UNCERTAINTY_COLUMN.map((p) => p.exec(name)?.[1]).find((of) => of !== undefined && names.has(of))
+}
+
+/** Fold each uncertainty column into the column it belongs to. */
+function pairUncertainties(columns: CsvColumn[]): { columns: CsvColumn[]; error?: string } {
+  const names = new Set(columns.map((c) => c.name))
+  const of = new Map(columns.map((c) => [c.name, uncertaintyOf(c.name, names)]))
+  const out: CsvColumn[] = []
+  for (const c of columns) {
+    const base = of.get(c.name)
+    // (An uncertainty column of an uncertainty column, ddx, is a column of its own.)
+    if (!base || of.get(base)) {
+      out.push(c)
+      continue
+    }
+    const target = columns.find((t) => t.name === base)!
+    if (target.unc) return { columns: [], error: `Columns ${target.unc.column} and ${c.name} are both uncertainties of ${base}: keep one.` }
+    target.unc = {
+      column: c.name,
+      unit: c.unit === '%' ? undefined : c.unit,
+      percent: c.unit === '%',
+      values: new Map(c.values.map((v) => [v.row, v.text.replace(/^-/, '')])),
+    }
+  }
+  return { columns: out }
 }
 
 /** A CSV, read: its columns and how many data rows it has, or what's wrong with it. */
@@ -76,7 +126,8 @@ export function parseCsv(lines: string[]): CsvData {
       columns[c].values.push({ row: r + 1, text: text.replace(/^\+/, '') })
     }
   }
-  return { columns, rows: rows.length - 1 }
+  const paired = pairUncertainties(columns)
+  return { columns: paired.columns, rows: rows.length - 1, ...(paired.error ? { columns: [], error: paired.error } : {}) }
 }
 
 /**

@@ -870,6 +870,73 @@ v_avg                    # v is a series now: v_1, v_2, …
   column is still worked out for every row.
 - Tables go into the LaTeX and Word exports as arrays.
 
+### Plots
+
+`plot(…)` on a line of its own draws a graph: the first series is the x axis,
+the others are plotted against it.
+
+```
+plot(t, x)                 # x against t, with error bars for uncertainties
+plot(t, x, y)              # two series on one graph, with a legend
+plot(t, x; fit linear)     # adds a best-fit line and its equation
+v = x_slope                # the fit's slope, with its uncertainty
+```
+
+- Each axis is labelled with its name and unit; every y series must be in units
+  that convert to the first one's.
+- `fit linear` is a least-squares line. Its equation and R² show under the graph,
+  and its slope and intercept become variables, `x_slope` and `x_intercept`, with
+  their uncertainties.
+- When every point has a y uncertainty, the fit is **weighted**: each point counts
+  by 1/δy², so precise points pull the line more, and the slope's and intercept's
+  uncertainties come from the error bars. It shows the reduced chi-squared, χ²_ν:
+  about 1 when the points scatter as much as their bars say, well above 1 when they
+  scatter more (or a straight line is the wrong shape), well below 1 when the bars
+  are larger than they need be. Without uncertainties on every point, the fit is
+  unweighted and its uncertainties come from the scatter. (x uncertainties are
+  drawn but don't affect the fit.)
+- **Settings:** the ⚙ after a plot opens its settings: rows, style (points, lines,
+  or both), fit, each axis's range and log scale, and a title. As with tables,
+  they're kept after a semicolon: `plot(t, x; rows 2-, style both, fit linear,
+  x from 0 to 1, log y, title "Run 1")`.
+- In the LaTeX export a plot is a pgfplots graph (the package is added only when
+  the sheet has one); in the Word export it's a picture.
+- A named plot, `p = plot(t, x; fit linear)`, keeps its fit under its name:
+  `p.slope`, `p.intercept`, `p.r2` (and `p.chi2` for a weighted fit). With several
+  series, each has its own: `p.x_slope`, `p.y_slope`. (An unnamed plot makes
+  `x_slope` and `x_intercept` instead.)
+
+### Selections and names with a dot
+
+`select(…)` takes the rows where conditions hold, as new series under a name:
+
+```
+a = select(t, x; t from 0.2 to 0.8)   # a.t, a.x: just those rows
+a.x_1                                 # the first row that matched (numbered from 1)
+a.x_avg                               # statistics of the selection
+p = plot(a.t, a.x; fit linear)        # fit only the selected region
+v = p.slope
+```
+
+- Conditions go after the semicolon, and all must hold: `t from 0.2 to 0.8` (either
+  end can be left off), `x to 0.16`, `rows 5-20`. A bare number is in the series'
+  unit; a bound can have its own, `t from 250 ms`. In a condition, a name means the
+  selected series of that name first, so `select(run1.t, run1.x; t from 0.2)` works.
+- Each value keeps its sig figs and uncertainty, as the same source, so a selection
+  stays correlated with the data it came from (`x_2 - a.x_1` is exactly 0).
+- `a.x` is shown x_a, and `a.x_1` is x_{a,1}.
+
+Names with a dot work the same everywhere they're made:
+
+| Made by | Holds |
+| --- | --- |
+| `a = select(t, x; …)` | `a.t`, `a.x`, their members and statistics |
+| `run1 = import("run1.csv")` | each column: `run1.t`, `run1.x_3`, `run1.x_avg` |
+| `p = plot(t, x; fit linear)` | the series it plots, `p.t`, `p.x` (the rows drawn, numbered from 1), and its fit: `p.slope`, `p.intercept`, `p.r2`, `p.chi2` |
+
+Naming imports keeps two files with the same columns apart:
+`d = run2.x_avg - run1.x_avg`. Typing a name and a dot suggests what it holds.
+
 ### Importing data (CSV)
 
 Write `import()` on a line, then press the **Choose a CSV file…** button that appears
@@ -893,6 +960,13 @@ x_avg
   with every value in that column; without one the values are plain numbers.
   Values keep their sig figs as typed (0.10 is 2 sig figs). Commas, tabs or
   semicolons separate the values; empty cells are skipped.
+- **Uncertainties:** a column named `dx` holds x's uncertainties (so do `δx`, `σx`,
+  `delta_x`, `sigma_x`, `x_unc` and `x_err`, as long as there's an `x` column). Each
+  `x_n` gets its row's uncertainty, exactly as if typed `x_3 = 0.152 m pm 0.004 m`:
+  it sets the value's precision, `delta x_3` reads it, and it carries through
+  calculations, tables and plots (as error bars). It's in the uncertainty column's
+  unit, or x's if it has none; `dx (%)` is a percentage of each value. A row with an
+  empty `dx` cell has no uncertainty. The column doesn't make variables of its own.
 - The output shows a summary instead of the rows: the file, the number of rows,
   and for each column its variables (t₁ … t₄₀) and the range of its values.
   The file's name between the brackets is a button too: press it to choose another

@@ -7,6 +7,29 @@ import { parseXml, texToOmml } from './omml.ts'
 import { SAMPLE } from './sample.ts'
 import { REFERENCE } from './reference.ts'
 
+describe('plots', () => {
+  const source = 't1 = 0.10 s\nt2 = 0.20 s\nt3 = 0.30 s\nx1 = 0.05 m\nx2 = 0.10 m\nx3 = 0.16 m\nplot(t, x; fit linear)'
+
+  it('are pictures, drawn beforehand, with their fit equations under them', () => {
+    const blocks = sheet(source).blocks
+    const plot = blocks.flatMap((b) => (b.kind === 'calc' && b.plot ? [b.plot] : []))[0]
+    const png = new Uint8Array([137, 80, 78, 71])
+    const files = unzipSync(toDocx(blocks, DEFAULT_LATEX_OPTIONS, new Map([[plot, png]])))
+    expect(files['word/media/plot1.png']).toEqual(png)
+    expect(strFromU8(files['word/_rels/document.xml.rels'])).toContain('Id="rId4" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/plot1.png"')
+    const document = strFromU8(files['word/document.xml'])
+    expect(document).toContain('<a:blip r:embed="rId4"/>')
+    expect(document).toContain('R')
+    expect(parseXml(document)).toBeTruthy()
+  })
+
+  it('are left out without a picture, keeping the equation', () => {
+    const document = docxParts(sheet(source).blocks, DEFAULT_LATEX_OPTIONS)['word/document.xml']
+    expect(document).not.toContain('<w:drawing>')
+    expect(document).toContain('<m:oMath>')
+  })
+})
+
 describe('LaTeX to Word equations (OMML)', () => {
   it('builds fractions, powers and subscripts', () => {
     const x = texToOmml('a = \\frac{F_{\\mathrm{par}}}{m^{2}}')

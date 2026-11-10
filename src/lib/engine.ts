@@ -36,14 +36,17 @@ import { BUILTIN_CONSTANTS, DEFAULT_CONSTANT_SIG_FIGS, suggestConstant } from '.
 import {
   ASSIGNMENT, ASSIGNMENT_WITH_VALUE, AXES, COMPONENTS_SETTING, CONSTANT_REF, DECLARED, EXACT_SETTING, IS_NAME,
   GREEK_BY_CHAR, GREEK_BY_NAME, GREEK_CHARS, LEADING_NAME, NAME, NAME_CHAR, NAME_WITH_SETTINGS, NOTATIONS, NUMBER, ONE_LINE_FUNCTION, PERCENT, SERIES_SUFFIXES,
-  TABLE_CALL, UNCERTAINTY_WORDS, UNIT_VECTOR_SETTING, UNPACK, VECTOR_FUNCTION,
+  PLOT_CALL, RESERVED_NAMESPACES, SELECT_CALL, TABLE_CALL, UNCERTAINTY_WORDS, UNIT_VECTOR_SETTING, UNPACK, VECTOR_FUNCTION,
+  expandDots, memberName, parseMemberName, readableMembers,
   type DisplayMode, type LineCommand, type Notation, type Precision, type SeriesSuffix, type UncertaintyWord,
   type VectorStyle,
 } from './syntax.ts'
 import { Solver, contains, countOccurrences, matchingParen, splitArgs, splitEquation } from './solve.ts'
 import { nestBrackets } from './brackets.ts'
 import type { CsvColumn } from './csv.ts'
-import { parseTableSettings, splitTableArgs } from './tableSettings.ts'
+import { parseTableSettings, splitCallArgs } from './tableSettings.ts'
+import { parsePlotSettings } from './plotSettings.ts'
+import { linearFit, type LinearFit, type PlotData, type PlotPoint, type PlotSeries } from './plot.ts'
 
 /** Our own mathjs instance, with the functions below added or replaced. */
 const math = create(all)
@@ -339,7 +342,35 @@ export interface CalcResult {
   warning?: string
   /** Something worth knowing that isn't a problem, e.g. other solutions of an equation. */
   info?: string
+  /** A `plot(…)` line's plot (its `tex` is then the fits' equations, if any). */
+  plot?: PlotData
+  /**
+   * What a select or a named plot made, for suggestions: each variable's inside
+   * name (a__x_1); a series by its first and last members, the first standing
+   * for `members` of them, as an import's columns are.
+   */
+  defines?: Definition[]
 }
+
+/** A variable a line made, for suggestions (see CalcResult.defines). */
+export interface Definition {
+  name: string
+  members?: number
+}
+
+/** A missing p.slope (or intercept, r2, chi2) explained: a plot has one only with a fit. */
+function fitHint(message: string): string {
+  const m = /^Undefined symbol (\S+)\.(slope|intercept|r2|chi2)$/.exec(message)
+  if (!m) return message
+  return m[2] === 'chi2'
+    ? `${message}: a plot has a χ² only for a weighted fit (fit linear, with an uncertainty on every y value).`
+    : `${message}: a plot has a slope, intercept and R² only with a fit. Add fit linear to it (or choose Fit in its ⚙).`
+}
+
+/** A series' first and last members as Definitions (just the one, if that's all it has). */
+const seriesDefinitions = (base: string, count: number): Definition[] => (count > 1
+  ? [{ name: `${base}_1`, members: count - 1 }, { name: `${base}_${count}`, members: 1 }]
+  : count === 1 ? [{ name: `${base}_1` }] : [])
 
 /** What an imported column made: its variables (name_first … name_last) and the range of its values. */
 export interface DataColumn {
@@ -353,6 +384,8 @@ export interface DataColumn {
   /** The smallest and largest values, as LaTeX. */
   min?: string
   max?: string
+  /** The column its uncertainties came from: `dx`, or `dx (%)`. */
+  uncertainty?: string
 }
 
 /** A variable as the sheet lists it: its name, value as LaTeX, and sig figs. */
@@ -697,7 +730,20 @@ export function symbolTex(name: string): string {
     if (stat[2] === 'std') return `\\sigma_{${base}}`
     if (stat[2] === 'sem') return `\\sigma_{\\bar{${base}}}`
     if (stat[2] === 'count') return `n_{${base}}`
-    return `\\bar{${base}}`
+    // A namespace's series keeps its subscript outside the bar: a.x_avg → x̄_a.
+    const sub = parseMemberName(stat[1]) ? /^(.*?)(_\{.*\})$/.exec(base) : null
+    return sub ? `\\bar{${sub[1]}}${sub[2]}` : `\\bar{${base}}`
+  }
+  // A namespace's member, a.x_1: the namespace goes first in the subscript, x_{a,1}.
+  const member = parseMemberName(name)
+  if (member) {
+    const ns = namePart(member.namespace)
+    // A named plot's fit: p.r2 → R²_p, p.chi2 → χ²_ν,p.
+    if (member.member === 'r2') return `R^{2}_{${ns}}`
+    if (member.member === 'chi2') return `\\chi^{2}_{\\nu,${ns}}`
+    const tex = symbolTex(member.member)
+    const sub = /^(.*?)_\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}$/.exec(tex)
+    return sub ? `${sub[1]}_{${ns},${sub[2]}}` : `${tex}_{${ns}}`
   }
   const trailingDigits = TRAILING_DIGITS.exec(name)
   if (trailingDigits) return `${namePart(trailingDigits[1])}_{${trailingDigits[2]}}`
@@ -875,10 +921,13 @@ function normalise(value: unknown, keepUnits: boolean): unknown {
  */
 class Scope<T = unknown> extends Map<string, T> {
   readonly parent: Scope<T> | undefined
+  /** Selections' series, looked up rather than copied (shared by every scope of a Calculator). */
+  readonly views: Views | undefined
 
-  constructor(parent?: Scope<T>) {
+  constructor(parent?: Scope<T>, views?: Views) {
     super()
     this.parent = parent
+    this.views = views ?? parent?.views
   }
 
   get(key: string): T | undefined {
@@ -889,11 +938,16 @@ class Scope<T = unknown> extends Map<string, T> {
     return this.hasExactly(this.spelling(key))
   }
 
-  /** The name as defined: `key` itself, or its other spelling (t1 ↔ t_1) if only that is. */
+  /**
+   * The name as defined: `key` itself, or its other spelling (t1 ↔ t_1) if only
+   * that is; or, for a selection's member (a.x_3), the variable it is.
+   */
   private spelling(key: string): string {
     if (this.hasExactly(key)) return key
     const other = otherSpelling(key)
-    return other !== undefined && this.hasExactly(other) ? other : key
+    if (other !== undefined && this.hasExactly(other)) return other
+    const target = this.views?.resolve(key)
+    return target !== undefined ? this.spelling(target) : key
   }
 
   private getExactly(key: string): T | undefined {
@@ -905,6 +959,55 @@ class Scope<T = unknown> extends Map<string, T> {
   }
 }
 
+/** A selection's member by number, `a__x_3` or `a__x3` (1: the series, 2: the number). */
+const VIEW_MEMBER = /^(.+?)_?(\d+)$/
+
+/**
+ * The series of selections and named plots (`a = select(t, x; …)`), as lookups:
+ * a.x is the list of variables it picks, [x_2, x_5, …], so a.x_1 is x_2 itself,
+ * with its sig figs and uncertainty, and nothing is copied (a selection of
+ * thousands of rows is redone on every edit). Scoped by `{ }` blocks, as
+ * variables are.
+ */
+class Views {
+  private readonly levels: Map<string, (string | undefined)[]>[] = [new Map()]
+
+  push(): void {
+    this.levels.push(new Map())
+  }
+
+  pop(): void {
+    if (this.levels.length > 1) this.levels.pop()
+  }
+
+  /** Make series `base` (a__x) the variables `names` picks, numbered from 1 (a gap: no member there). */
+  set(base: string, names: (string | undefined)[]): void {
+    this.levels.at(-1)!.set(base, names)
+  }
+
+  /** Forget the series under namespace `ns` set at this level (a selection being redone). */
+  clear(ns: string): void {
+    const level = this.levels.at(-1)!
+    for (const base of [...level.keys()]) if (parseMemberName(base)?.namespace === ns) level.delete(base)
+  }
+
+  /** The variables series `base` picks, if it's a selection's. */
+  get(base: string): (string | undefined)[] | undefined {
+    for (let i = this.levels.length - 1; i >= 0; i--) {
+      const names = this.levels[i].get(base)
+      if (names) return names
+    }
+    return undefined
+  }
+
+  /** The variable a selection's member is: a__x_3 → x_7 (undefined if it isn't one). */
+  resolve(key: string): string | undefined {
+    if (!key.includes('__') || this.levels.every((l) => !l.size)) return undefined
+    const m = VIEW_MEMBER.exec(key)
+    return m ? this.get(m[1])?.[Number(m[2]) - 1] : undefined
+  }
+}
+
 /** A numbered name written without an underscore, `t1`, `ω2` (1: the letters, 2: the number). */
 const NUMBERED = new RegExp(String.raw`^([A-Za-z${GREEK_CHARS}]+)(\d+)$`)
 /** …and with one, `t_1` (1: the letters, 2: the number). */
@@ -912,6 +1015,12 @@ const NUMBERED_SUBSCRIPT = new RegExp(String.raw`^([A-Za-z${GREEK_CHARS}]+)_(\d+
 
 /** A numbered name's other spelling: t1 → t_1, t_1 → t1 (undefined for other names). */
 function otherSpelling(name: string): string | undefined {
+  // Inside a namespace too: a.t1 ↔ a.t_1.
+  const member = name.includes('__') ? parseMemberName(name) : null
+  if (member) {
+    const other = otherSpelling(member.member)
+    return other === undefined ? undefined : memberName(member.namespace, other)
+  }
   const plain = NUMBERED.exec(name)
   if (plain) return `${plain[1]}_${plain[2]}`
   const sub = NUMBERED_SUBSCRIPT.exec(name)
@@ -1020,6 +1129,15 @@ function toDisplayUnit(value: unknown, unit: string): unknown {
       + '(only an angle in radians, from atan or asin for example, can be given a unit this way).')
   }
   throw new Error(`This value can't be shown in ${unit}.`)
+}
+
+/** A column of a table or plot: its name (if it has one), its header as TeX, and the variable holding each row's value. */
+interface SeriesColumn {
+  name?: string
+  /** An unnamed column's expression, as typed. */
+  expr?: string
+  header: string
+  rows: Map<number, string>
 }
 
 /** A column of a table worked out row by row, with a name: `v = x / t` (1: the name, 2: the expression). */
@@ -1455,6 +1573,41 @@ interface DataValue {
   name: string
   value: unknown
   sf: number
+  /** Its uncertainty, from the column's uncertainty column (dx for x), in the value's unit. */
+  unc?: unknown
+  /** The uncertainty's sig figs as typed (not for a percentage), kept for display as with `pm`. */
+  uncSf?: number
+}
+
+/** What's wrong with a column's uncertainty column's unit, if anything. */
+function uncertaintyUnitError(c: CsvColumn): string | undefined {
+  const u = c.unc
+  if (!u || u.percent || !u.unit) return undefined
+  const where = `Column ${u.column}, the uncertainties of ${c.name},`
+  if (!isValidUnit(u.unit)) return `${where} has a unit MathScribe doesn't know: "${u.unit}".`
+  if (!c.unit) return `${where} has a unit (${u.unit}) but ${c.name} doesn't: give ${c.name} its unit too, or take it off ${u.column}.`
+  if (!math.unit(u.unit).equalBase(math.unit(c.unit))) return `${where} is in ${u.unit}, which doesn't convert to ${c.name}'s ${c.unit}.`
+  return undefined
+}
+
+/**
+ * A value's uncertainty, as typed in its row of the uncertainty column: in the
+ * value's unit, and that number in the column's unit (for its sig figs).
+ */
+function dataUncertainty(c: CsvColumn, x: number, text: string): { unc: unknown; dx: number } {
+  const n = Number(text)
+  const u = c.unc!
+  if (u.percent) {
+    const dx = (Math.abs(x) * n) / PERCENT_SCALE
+    if (!c.unit) return { unc: dx, dx }
+    const q = math.unit(dx, c.unit)
+    q.fixPrefix = true
+    return { unc: q, dx }
+  }
+  if (!c.unit) return { unc: n, dx: n }
+  const q = math.unit(n, u.unit ?? c.unit)
+  q.fixPrefix = true
+  return { unc: q, dx: u.unit && u.unit !== c.unit ? q.toNumber(c.unit) : n }
 }
 
 /**
@@ -1486,7 +1639,15 @@ function columnValues(c: CsvColumn) {
       value = u
     }
     // A whole number without a unit is exact, as when it's typed in a sheet.
-    const v = { name: `${c.name}_${row}`, value, sf: c.unit || isMeasuredLiteral(text) ? countSigFigs(text) : EXACT }
+    const v: DataValue = { name: `${c.name}_${row}`, value, sf: c.unit || isMeasuredLiteral(text) ? countSigFigs(text) : EXACT }
+    // With an uncertainty, it sets the precision, as with `x = 0.012 m pm 0.001 m`.
+    const uncText = c.unc?.values.get(row)
+    if (uncText !== undefined && Number(uncText) > 0) {
+      const { unc, dx } = dataUncertainty(c, x, uncText)
+      v.unc = unc
+      v.uncSf = c.unc!.percent ? undefined : countSigFigs(uncText)
+      v.sf = formatWithUncertainty(x, dx, v.uncSf).sf
+    }
     if (x < low) [low, lowest] = [x, v]
     if (x > high) [high, highest] = [x, v]
     return v
@@ -1498,24 +1659,26 @@ function columnValues(c: CsvColumn) {
 
 /** Evaluates a sheet line by line, keeping its variables, their sig figs and uncertainties, and the functions it defines. */
 export class Calculator {
-  private readonly root = new Scope()
+  /** Selections' and named plots' series, as lookups (before the scopes, which share them). */
+  private readonly views = new Views()
+  private readonly root = new Scope(undefined, this.views)
   private scope = this.root
   /** Significant figures of each variable, scoped alongside the values. */
-  private readonly sigsRoot = new Scope<number>()
+  private readonly sigsRoot = new Scope<number>(undefined, this.views)
   private sigs = this.sigsRoot
   /** Uncertainty contributions of each variable (empty map: no uncertainty). */
-  private readonly uncsRoot = new Scope<Contributions>()
+  private readonly uncsRoot = new Scope<Contributions>(undefined, this.views)
   private uncs = this.uncsRoot
   /** Sig figs of uncertainties as typed in a declaration (`pm 0.1` → 1), kept for display. */
-  private uncSfs = new Scope<number | undefined>()
+  private uncSfs = new Scope<number | undefined>(undefined, this.views)
   /** Whether a variable's sig figs were declared (`m:3 = …`); then they beat the global setting. */
-  private declared = new Scope<boolean | undefined>()
+  private declared = new Scope<boolean | undefined>(undefined, this.views)
   /** A variable's declared notation (`x:sci = …`), used wherever its value is shown. */
-  private notations = new Scope<Notation | undefined>()
+  private notations = new Scope<Notation | undefined>(undefined, this.views)
   /** Notation numbers are being formatted in right now (see inNotation). */
   private notation: Notation | undefined
   /** How a variable holding a vector is shown (⟨…⟩, or with unit vectors), wherever its value appears. */
-  private vectors = new Scope<VectorStyle | undefined>()
+  private vectors = new Scope<VectorStyle | undefined>(undefined, this.views)
   /** How tuples are being shown right now (undefined: as a plain tuple, (…)); see inVectorStyle. */
   private vectorStyle: VectorStyle | undefined
   /**
@@ -1530,11 +1693,11 @@ export class Calculator {
    * How to show a variable in substitution steps when its value is made only of
    * numbers and built-in constants (`theta = pi/4` shows as π/4, not 0.785).
    */
-  private shown = new Scope<string | undefined>()
+  private shown = new Scope<string | undefined>(undefined, this.views)
   /** Defining expression of each computed variable, for showing ΔX working. */
-  private defs = new Scope<MathNode | undefined>()
+  private defs = new Scope<MathNode | undefined>(undefined, this.views)
   /** Names currently standing for a series aggregate (undefined once assigned explicitly). */
-  private aggs = new Scope<Aggregate | undefined>()
+  private aggs = new Scope<Aggregate | undefined>(undefined, this.views)
   /** Uncertainty source for each series mean, so repeated uses stay correlated. */
   private readonly aggregateSources = new Map<string, number>()
   /** Multi-line functions, keyed by the callable stored in the scope. */
@@ -2159,11 +2322,16 @@ export class Calculator {
 
   /** Variables named base1, base2, … or base_1, base_2, …, visible from here, in index order. */
   private seriesMembers(base: string): string[] {
+    // A selection's series: its members are its numbers (each a lookup; see Views).
+    const view = this.views.get(base)
+    if (view) return view.flatMap((name, i) => (name ? [`${base}_${i + 1}`] : []))
     const re = new RegExp(`^${escapeRegExp(base)}_?(\\d+)$`)
     const found = new Map<string, number>()
     for (let s: Scope | undefined = this.scope; s; s = s.parent) {
-      // Map.prototype.keys only sees this level's own names.
+      // Map.prototype.keys only sees this level's own names. (startsWith first:
+      // it's much quicker than the pattern, and a sheet can have thousands.)
       for (const name of s.keys()) {
+        if (!name.startsWith(base)) continue
         const m = re.exec(name)
         if (!m || found.has(name) || isUncertaintyName(name) || this.aggs.get(name)) continue
         if (typeof this.scope.get(name) === 'function') continue
@@ -2356,22 +2524,33 @@ export class Calculator {
    * Imported data (`import("run1.csv")`): each value becomes a variable named
    * for its column and row, t_1, t_2, …, with the column's unit and its sig
    * figs as typed (a whole number without a unit is exact, as when typed).
+   * A named import (`run1 = import(…)`) puts them under its name: run1.t_1.
    * Returns what each column made, for the import's summary.
    */
-  defineData(columns: CsvColumn[]): { columns: DataColumn[]; error?: string } {
+  defineData(columns: CsvColumn[], namespace?: string): { columns: DataColumn[]; error?: string } {
+    if (namespace && RESERVED_NAMESPACES.has(namespace)) return { columns: [], error: `${namespace} is a reserved word: choose another name for the data.` }
+    // The name a column's variables go under: x, or run1.x.
+    const named = (name: string) => (namespace ? memberName(namespace, name) : name)
     const bad = columns.find((c) => c.unit && !isValidUnit(c.unit))
     if (bad) return { columns: [], error: `In column ${bad.name}, "${bad.unit}" isn't a unit MathScribe knows.` }
+    const badUnc = columns.map(uncertaintyUnitError).find(Boolean)
+    if (badUnc) return { columns: [], error: badUnc }
     const out: DataColumn[] = []
     for (const c of columns) {
+      const uncertainty = c.unc && (c.unc.percent ? `${c.unc.column} (%)` : c.unc.column)
       if (!c.values.length) {
-        out.push({ name: c.name, unit: c.unit, count: 0 })
+        out.push({ name: named(c.name), unit: c.unit, count: 0, uncertainty })
         continue
       }
       const values = columnValues(c)
-      for (const v of values) this.store(v.name, v)
+      for (const v of values) {
+        // Each value's uncertainty is a source of its own, as each `pm` is.
+        if (v.unc !== undefined) this.store(named(v.name), { ...v, contributions: new Map([[this.nextSource++, v.unc]]) })
+        else this.store(named(v.name), v)
+      }
       const { lowest, highest } = values.range
       out.push({
-        name: c.name, unit: c.unit, count: values.length,
+        name: named(c.name), unit: c.unit, count: values.length, uncertainty,
         first: c.values[0].row, last: c.values.at(-1)!.row,
         min: this.valueTex(lowest.value, lowest.sf), max: this.valueTex(highest.value, highest.sf),
       })
@@ -2993,10 +3172,12 @@ export class Calculator {
     this.multiline = multiline
     this.lineNotation = notation
     try {
-      const { tex, error, warning, info, trace, returnNote } = this.evaluateLine(input, mode, explicit)
+      const { tex, error, warning, info, trace, returnNote, plot, defines } = this.evaluateLine(input, mode, explicit)
+      // Messages name a namespace's members as typed, a.x_1 (not a__x_1).
+      const readable = (s: string | undefined) => (s?.includes('__') ? fitHint(readableMembers(s)) : s)
       // Brackets by nesting, ( ) inside [ ] inside { }, once each equation is finished.
       return {
-        tex: nestBrackets(tex), error, warning, info, returnNote,
+        tex: nestBrackets(tex), error: readable(error), warning: readable(warning), info: readable(info), returnNote, plot, defines,
         trace: trace?.length ? trace.map((t) => ({ ...t, tex: nestBrackets(t.tex) })) : undefined,
       }
     } finally {
@@ -3087,56 +3268,16 @@ export class Calculator {
    */
   private evaluateTable(argsText: string): LineResult {
     // The settings come after a semicolon (see tableSettings.ts).
-    const parts = splitTableArgs(argsText)
+    const parts = splitCallArgs(argsText)
     const { settings, error: settingsError } = parseTableSettings(parts.settings)
     if (settingsError) return { tex: '', error: settingsError }
     const args = splitArgs(parts.columns).map((a) => a.trim()).filter(Boolean)
     if (!args.length) {
       return { tex: '', error: 'Name the series to show, table(t, x), and any columns worked out from them: table(t, x, v = x / t).' }
     }
-    /** Each column: its header, and the variable holding each row's value. */
-    const columns: { header: string; rows: Map<number, string> }[] = []
-    const errors: string[] = []
-    /** Unnamed columns' values, held in hidden variables until the table is drawn. */
-    const hidden: string[] = []
-
-    for (const [i, arg] of args.entries()) {
-      // A series, by name.
-      if (IS_NAME.test(arg)) {
-        const rows = this.seriesRows(arg)
-        if (!rows.size) return { tex: '', error: `${arg} isn't a series: define ${arg}_1, ${arg}_2, … (or import them) to show it in a table.` }
-        columns.push({ header: symbolTex(arg), rows })
-        continue
-      }
-      // A column worked out row by row: `v = x / t`, or just `x / t`.
-      const named = TABLE_COLUMN.exec(arg)
-      const name = named?.[1]
-      const expr = named ? named[2] : arg
-      // The series it uses, and the rows where all of them have a value.
-      const used = new Map<string, Map<number, string>>()
-      for (const m of expr.matchAll(NAME_IN_LINE)) {
-        const id = m[1]
-        if (used.has(id) || (this.scope.has(id) && !this.aggs.get(id))) continue
-        const rows = this.seriesRows(id)
-        if (rows.size) used.set(id, rows)
-      }
-      if (!used.size) {
-        return { tex: '', error: `${expr} doesn't use any series, so it would be the same in every row.` }
-      }
-      const numbers = [...[...used.values()][0].keys()].filter((n) => [...used.values()].every((rows) => rows.has(n)))
-      const rows = new Map<number, string>()
-      for (const n of numbers) {
-        const target = name ? `${name}_${n}` : `${UNPACKED}table${i}_${n}`
-        const result = this.evaluateLine(`${target} = ${withRowValues(expr, used, n)}`, 'val', false)
-        if (result.error) {
-          errors.push(`Row ${n}: ${result.error}`)
-          continue
-        }
-        rows.set(n, target)
-        if (!name) hidden.push(target)
-      }
-      columns.push({ header: name ? symbolTex(name) : this.expressionTex(expr), rows })
-    }
+    const made = this.seriesColumns(args, 'show it in a table')
+    if ('error' in made) return { tex: '', error: made.error }
+    const { columns, errors, hidden } = made
 
     // Every row that any column has, in order (within the settings' rows); a long
     // table shows its first and last rows, unless the settings ask for all of them.
@@ -3185,6 +3326,337 @@ export class Calculator {
     }
   }
 
+  /**
+   * `plot(t, x, y)`: series plotted against the first one, a point per row
+   * (columns as in table(), so `plot(t, v = x / t)` works too). Values are
+   * converted to one unit per axis; uncertainties become error bars. With `fit
+   * linear` in the settings, each series gets a best-fit line, and its slope
+   * and intercept (with their uncertainties) become variables: x_slope,
+   * x_intercept. The line's text is the fits' equations.
+   */
+  private evaluatePlot(argsText: string, plotName?: string): LineResult {
+    if (plotName && RESERVED_NAMESPACES.has(plotName)) return { tex: '', error: `${plotName} is a reserved word: choose another name for the plot.` }
+    // A plot named again forgets what it held (p.slope from a fit since taken off).
+    if (plotName) {
+      this.views.clear(plotName)
+      // (Deleting while going through a Map is safe.)
+      const prefix = memberName(plotName, '')
+      for (const old of this.scope.keys()) if (old.startsWith(prefix)) this.forget(old)
+    }
+    const parts = splitCallArgs(argsText)
+    const { settings, error: settingsError } = parsePlotSettings(parts.settings)
+    if (settingsError) return { tex: '', error: settingsError }
+    const args = splitArgs(parts.columns).map((a) => a.trim()).filter(Boolean)
+    if (args.length < 2) return { tex: '', error: 'Give the x series, then what to plot against it: plot(t, x), or plot(t, x, y).' }
+    const made = this.seriesColumns(args, 'plot it')
+    if ('error' in made) return { tex: '', error: made.error }
+    const { columns, errors, hidden } = made
+    const [xColumn, ...yColumns] = columns
+    const inRange = (n: number) => (settings.from === undefined || n >= settings.from) && (settings.to === undefined || n <= settings.to)
+    const onAxis = (v: number, a: { from?: number; to?: number }) => (a.from === undefined || v >= a.from) && (a.to === undefined || v <= a.to)
+
+    // Each axis's unit (its first value's), and every value (and uncertainty) as a number in it.
+    const unitOf = (c: SeriesColumn) => this.split(this.scope.get([...c.rows.values()][0]), EXACT)?.unit
+    // Each unit's size in SI, worked out once: a value in it is then its SI value
+    // over that, rather than a mathjs conversion for each of thousands of points.
+    // (A unit with an offset, like degC, is converted by mathjs.)
+    const scales = new Map<string, { one: Unit; scale?: number }>()
+    const scaleOf = (unit: string) => {
+      let s = scales.get(unit)
+      if (!s) {
+        const one = math.unit(1, unit)
+        scales.set(unit, s = { one, scale: one.units.some((p) => p.unit.offset) ? undefined : (one.value as number) })
+      }
+      return s
+    }
+    const numbers = (name: string, unit: string | undefined): { v: number; d?: number } => {
+      const value = this.scope.get(name)
+      const contributions = this.uncs.get(name)
+      let sumSq = 0
+      if (contributions) for (const c of contributions.values()) sumSq += magnitudeOf(c) ** 2
+      if (!math.isUnit(value)) {
+        if (unit) throw new Error('no unit') // (caught: the series don't share a unit)
+        return { v: Number(value), d: Math.sqrt(sumSq) || undefined }
+      }
+      const u = value as Unit
+      const s = scaleOf(unit ?? '')
+      if (!u.equalBase(s.one)) throw new Error('units differ') // (caught: the series don't share a unit)
+      if (s.scale === undefined) return { v: u.toNumber(unit ?? ''), d: Math.sqrt(sumSq) / ((s.one.value as number) || 1) || undefined }
+      return { v: (u.value as number) / s.scale, d: Math.sqrt(sumSq) / s.scale || undefined }
+    }
+    const xUnit = unitOf(xColumn)
+    const yUnit = unitOf(yColumns[0])
+    const series: PlotSeries[] = []
+    try {
+      for (const c of yColumns) {
+        const points: PlotPoint[] = []
+        for (const [n, yName] of c.rows) {
+          const xName = xColumn.rows.get(n)
+          if (!xName || !inRange(n)) continue
+          const x = numbers(xName, xUnit)
+          const y = numbers(yName, yUnit)
+          // An axis's range is what's on the plot: a point outside it isn't drawn,
+          // fitted, or kept in a named plot's series.
+          if (!onAxis(x.v, settings.x) || !onAxis(y.v, settings.y)) continue
+          points.push({ n, x: x.v, y: y.v, dx: x.d, dy: y.d })
+        }
+        series.push({ name: c.name, expr: c.expr, points })
+      }
+    } catch {
+      for (const name of hidden) this.forget(name)
+      return { tex: '', error: 'The series plotted against x have different units, so they can\'t share the y axis: plot them separately.' }
+    }
+    for (const name of hidden) this.forget(name)
+
+    // A named plot holds the series it plots, p.t and p.x: the rows it draws, numbered from 1.
+    const defines: Definition[] = []
+    if (plotName) {
+      const drawn = [...new Set(series.flatMap((s) => s.points.map((p) => p.n)))].sort((a, b) => a - b)
+      const named = columns.filter((c) => c.name)
+      const shorts = named.map((c) => parseMemberName(c.name!)?.member ?? c.name!)
+      named.forEach((c, i) => {
+        // Two with the same name (run1.x, run2.x) keep their namespaces apart: p.run1_x, p.run2_x.
+        const clash = shorts.filter((s) => s === shorts[i]).length > 1
+        const base = memberName(plotName, clash ? c.name!.replace('__', '_') : shorts[i])
+        // A lookup into the variables drawn, not a copy (see Views).
+        const picked = drawn.map((n) => c.rows.get(n))
+        this.views.set(base, picked)
+        defines.push(...seriesDefinitions(base, picked.length))
+      })
+    }
+
+    // Best-fit lines, and their slopes and intercepts as variables.
+    const fits: string[] = []
+    if (settings.fit === 'linear') {
+      for (const [i, s] of series.entries()) {
+        const fit = linearFit(s.points)
+        if (!fit) {
+          errors.push(`A line needs two or more points with different x values${s.name ? ` (${s.name})` : ''}.`)
+          continue
+        }
+        s.fit = fit
+        // Where the fit's numbers go: p.slope for a named plot (p.x_slope when it
+        // has several series); x_slope for an unnamed plot's named series.
+        const own = parseMemberName(s.name ?? '')?.member ?? s.name ?? `y${i + 1}`
+        const target = (suffix: string) => (plotName
+          ? memberName(plotName, series.length === 1 ? suffix : `${own}_${suffix}`)
+          : s.name ? `${s.name}_${suffix}` : undefined)
+        fits.push(this.fitTex(s, fit, xColumn.name, xUnit, yUnit, target))
+        for (const [suffix, v] of [['r2', fit.r2], ['chi2', fit.chi2]] as const) {
+          const to = plotName && v !== undefined ? target(suffix) : undefined
+          if (to) this.store(to, { value: v, sf: EXACT })
+        }
+        if (plotName) {
+          for (const suffix of ['slope', 'intercept', 'r2', ...(fit.chi2 !== undefined ? ['chi2'] : [])]) defines.push({ name: target(suffix)! })
+        }
+      }
+    }
+
+    const points = series.reduce((sum, s) => sum + s.points.length, 0)
+    const plot: PlotData = {
+      x: { name: xColumn.name, expr: xColumn.expr, unit: xUnit },
+      // One series names the y axis; several share it, named in the legend.
+      y: series.length === 1 ? { name: series[0].name, expr: series[0].expr, unit: yUnit } : { unit: yUnit },
+      series,
+      settings,
+    }
+    return {
+      // (A weighted fit is two rows already, so it's gathered even on its own.)
+      tex: fits.length > 1 || fits[0]?.includes('\\\\') ? `\\begin{gathered}${fits.join(' \\\\ ')}\\end{gathered}` : fits[0] ?? '',
+      plot,
+      error: errors.length ? `${errors[0]}${errors.length > 1 ? ` (and ${errors.length - 1} more)` : ''}` : undefined,
+      info: points ? undefined : 'Nothing to plot: no row has both an x and a y value.',
+      defines: defines.length ? defines : undefined,
+    }
+  }
+
+  /**
+   * A series' best-fit line as an equation, y = (a ± δa) x + (b ± δb), R² = …;
+   * and its slope and intercept as variables, with their uncertainties, for
+   * later lines to use, named by `target` (p.slope, or y_slope; none if undefined).
+   */
+  private fitTex(
+    s: PlotSeries, fit: LinearFit, xName: string | undefined, xUnit: string | undefined, yUnit: string | undefined,
+    target: (suffix: string) => string | undefined,
+  ): string {
+    // The slope's unit is simplified (m/s, not m/s… as a ratio); the intercept stays in y's unit.
+    const slopeQuantity = (v: number, unit: string | undefined) => (unit ? normalise(math.unit(v, unit), false) : v)
+    const interceptQuantity = (v: number) => {
+      if (!yUnit) return v
+      const u = math.unit(v, yUnit)
+      u.fixPrefix = true
+      return u
+    }
+    const slopeUnit = yUnit && xUnit ? `(${yUnit}) / (${xUnit})` : yUnit ?? (xUnit ? `(${xUnit})^-1` : undefined)
+    const parts = [
+      { value: slopeQuantity(fit.slope, slopeUnit), unc: slopeQuantity(fit.slopeUnc, slopeUnit), suffix: 'slope' },
+      { value: interceptQuantity(fit.intercept), unc: interceptQuantity(fit.interceptUnc), suffix: 'intercept' },
+    ].map((p) => {
+      const sf = this.uncertainParts(p.value, p.unc)?.sf ?? EXACT
+      // Each is a measured result: its uncertainty is a source of its own.
+      const to = target(p.suffix)
+      if (to) this.store(to, { value: p.value, sf, contributions: new Map([[this.nextSource++, p.unc]]) })
+      return this.valueTex(p.value, sf, fit.slopeUnc || fit.interceptUnc ? p.unc : undefined)
+    })
+    const y = s.name ? symbolTex(s.name) : 'y'
+    const x = xName ? symbolTex(xName) : 'x'
+    // The slope in brackets with its unit, so the unit doesn't run into x: [(0.50 ± 0.01) m/s] t.
+    const line = `${y} = \\left(${parts[0]}\\right) ${x} + ${parts[1]}`
+    const r2 = `R^{2} = ${fit.r2.toFixed(4)}`
+    if (!fit.weighted) return `${line},\\quad ${r2}`
+    // A weighted fit says so, with its reduced χ² (how well the line matches the
+    // error bars), on a line of its own under the equation so it isn't too wide.
+    const chi2 = fit.chi2 !== undefined ? `,\\quad \\chi^{2}_{\\nu} = ${Number(fit.chi2.toPrecision(2))}` : ''
+    return `${line} \\\\ ${r2}${chi2}\\quad \\text{(weighted by }\\delta ${symbolTex(s.name ?? 'y')}\\text{)}`
+  }
+
+  /**
+   * The columns of a table or plot, from its arguments: a series by name, or a
+   * column worked out row by row (`v = x / t` makes the series v; `x / t` is
+   * held in hidden variables, listed in `hidden` to forget when done). Rows
+   * that can't be worked out are listed in `errors`; `purpose` finishes the
+   * message for a name that isn't a series ("show it in a table").
+   */
+  /**
+   * `a = select(t, x; t from 0.2 to 0.8)`: the rows of series where every
+   * condition holds, as new series under the name a: a.t, a.x, numbered from 1
+   * (a.x_1 is the first row that matched). Each value keeps its sig figs and
+   * uncertainty (the same source, so a slice and its data stay correlated).
+   *
+   * Conditions, after the semicolon, all of which must hold:
+   *   rows 5-20                 by row number
+   *   t from 0.2 to 0.8         a series' values in a range (either end can be left off);
+   *                             a bare number is in the series' unit, or give one: 200 ms
+   */
+  private evaluateSelect(name: string, argsText: string): LineResult {
+    if (RESERVED_NAMESPACES.has(name)) return { tex: '', error: `${name} is a reserved word: choose another name for the selection.` }
+    const parts = splitCallArgs(argsText)
+    const args = splitArgs(parts.columns).map((a) => a.trim()).filter(Boolean)
+    if (!args.length) return { tex: '', error: 'Give the series to select from: a = select(t, x; t from 0.2 to 0.8).' }
+    const notSeries = args.find((a) => !IS_NAME.test(a))
+    if (notSeries) return { tex: '', error: `${notSeries} isn't a series name: select takes series, like select(t, x; …).` }
+    const columns = args.map((arg) => ({ arg, rows: this.seriesRows(arg) }))
+    const missing = columns.find((c) => !c.rows.size)
+    if (missing) return { tex: '', error: `${missing.arg} isn't a series: define ${missing.arg}_1, ${missing.arg}_2, … (or import them) to select from it.` }
+
+    // The conditions.
+    const tests: ((n: number) => boolean)[] = []
+    const shown: string[] = []
+    for (const part of (parts.settings ?? '').split(',').map((p) => p.trim()).filter(Boolean)) {
+      const rows = /^rows?\s+(\d+)?\s*(?:-\s*(\d+)?)?$/.exec(part)
+      if (rows && (rows[1] || rows[2])) {
+        const from = rows[1] ? Number(rows[1]) : undefined
+        const to = part.includes('-') ? (rows[2] ? Number(rows[2]) : undefined) : from
+        tests.push((n) => (from === undefined || n >= from) && (to === undefined || n <= to))
+        shown.push(`\\text{rows } ${from ?? 1}\\text{–}${to ?? '\\text{end}'}`)
+        continue
+      }
+      const range = new RegExp(String.raw`^(${NAME})\s+(?:from\s+(.+?))?\s*(?:\bto\s+(.+))?$`).exec(part)
+      if (!range || (!range[2] && !range[3])) {
+        return { tex: '', error: `"${readableMembers(part)}" isn't a condition: use t from 0.2 to 0.8 (either end can be left off), or rows 5-20.` }
+      }
+      // A name is one of the series selected first (t for run1.t), then any series.
+      const chosen = columns.find((c) => (parseMemberName(c.arg)?.member ?? c.arg) === range[1])
+      const series = chosen?.rows ?? this.seriesRows(range[1])
+      if (!series.size) return { tex: '', error: `${range[1]} isn't a series, so it can't choose rows.` }
+      const unit = this.split(this.scope.get([...series.values()][0]), EXACT)?.unit
+      const bound = (text: string | undefined) => {
+        if (text === undefined) return undefined
+        let q = math.evaluate(preprocess(text, this.isVariable).text, this.scope) as unknown
+        if (typeof q === 'number' && unit) q = math.unit(q, unit)
+        const fits = unit ? math.isUnit(q) && (q as Unit).equalBase(math.unit(unit)) : typeof q === 'number'
+        if (!fits) throw new Error(`${text} isn't in units of ${range[1]}${unit ? ` (${unit})` : ' (it has none)'}.`)
+        return q
+      }
+      let lo: unknown
+      let hi: unknown
+      try {
+        lo = bound(range[2])
+        hi = bound(range[3])
+      } catch (e) {
+        return { tex: '', error: readableUnitError((e as Error).message) }
+      }
+      // Compared as plain numbers, in SI (a Unit's value is held in SI), not through
+      // mathjs, which is slow over thousands of rows. (Units were checked above.)
+      const si = (q: unknown) => (math.isUnit(q) ? ((q as Unit).value as number) : typeof q === 'number' ? q : NaN)
+      const low = lo === undefined ? -Infinity : si(lo)
+      const high = hi === undefined ? Infinity : si(hi)
+      tests.push((n) => {
+        const member = series.get(n)
+        if (!member) return false
+        const v = si(this.scope.get(member))
+        return v >= low && v <= high
+      })
+      const ends = [lo !== undefined ? `${this.valueTex(lo)} \\le ` : '', symbolTex(chosen?.arg ?? range[1]), hi !== undefined ? ` \\le ${this.valueTex(hi)}` : '']
+      shown.push(ends.join(''))
+    }
+
+    // The rows every series has, and every condition keeps.
+    const all = [...columns[0].rows.keys()].filter((n) => columns.every((c) => c.rows.has(n))).sort((a, b) => a - b)
+    const kept = all.filter((n) => tests.every((t) => t(n)))
+
+    // Each series is a lookup into the variables it picks (see Views); a selection
+    // of the same name before is replaced (a sheet can redo one).
+    this.views.clear(name)
+    const names: string[] = []
+    for (const c of columns) {
+      const short = parseMemberName(c.arg)?.member ?? c.arg
+      const base = memberName(name, short)
+      names.push(base)
+      this.views.set(base, kept.map((n) => c.rows.get(n)!))
+    }
+
+    const conditions = shown.length ? `\\quad \\left(${shown.join(',\\ ')}\\right)` : ''
+    return {
+      tex: `${names.map(symbolTex).join(',\\ ')}${conditions}:\\ ${kept.length} \\text{ of } ${all.length} \\text{ rows}`,
+      info: kept.length ? undefined : 'No rows match, so the selection is empty.',
+      defines: names.flatMap((base) => seriesDefinitions(base, kept.length)),
+    }
+  }
+
+  private seriesColumns(args: string[], purpose: string):
+    { columns: SeriesColumn[]; errors: string[]; hidden: string[] } | { error: string } {
+    const columns: SeriesColumn[] = []
+    const errors: string[] = []
+    const hidden: string[] = []
+    for (const [i, arg] of args.entries()) {
+      // A series, by name.
+      if (IS_NAME.test(arg)) {
+        const rows = this.seriesRows(arg)
+        if (!rows.size) return { error: `${arg} isn't a series: define ${arg}_1, ${arg}_2, … (or import them) to ${purpose}.` }
+        columns.push({ name: arg, header: symbolTex(arg), rows })
+        continue
+      }
+      // A column worked out row by row: `v = x / t`, or just `x / t`.
+      const named = TABLE_COLUMN.exec(arg)
+      const name = named?.[1]
+      const expr = named ? named[2] : arg
+      // The series it uses, and the rows where all of them have a value.
+      const used = new Map<string, Map<number, string>>()
+      for (const m of expr.matchAll(NAME_IN_LINE)) {
+        const id = m[1]
+        if (used.has(id) || (this.scope.has(id) && !this.aggs.get(id))) continue
+        const rows = this.seriesRows(id)
+        if (rows.size) used.set(id, rows)
+      }
+      if (!used.size) return { error: `${expr} doesn't use any series, so it would be the same in every row.` }
+      const numbers = [...[...used.values()][0].keys()].filter((n) => [...used.values()].every((rows) => rows.has(n)))
+      const rows = new Map<number, string>()
+      for (const n of numbers) {
+        const target = name ? `${name}_${n}` : `${UNPACKED}column${i}_${n}`
+        const result = this.evaluateLine(`${target} = ${withRowValues(expr, used, n)}`, 'val', false)
+        if (result.error) {
+          errors.push(`Row ${n}: ${result.error}`)
+          continue
+        }
+        rows.set(n, target)
+        if (!name) hidden.push(target)
+      }
+      columns.push({ name, expr: name ? undefined : expr, header: name ? symbolTex(name) : this.expressionTex(expr), rows })
+    }
+    return { columns, errors, hidden }
+  }
+
   /** A series' values by number: t_1, t_2, … (or t1, t2, …) as 1 → "t_1", 2 → "t_2", …. */
   private seriesRows(base: string): Map<number, string> {
     const number = new RegExp(`^${escapeRegExp(base)}_?(\\d+)$`)
@@ -3226,9 +3698,15 @@ export class Calculator {
   }
 
   private evaluateLine(input: string, requestedMode: DisplayMode, explicit = false): LineResult {
-    // `table(t, x, v = x / t)`: series in a table.
+    // `a.x_1`, a namespace's member, is the variable a__x_1 inside.
+    input = expandDots(input)
+    // `table(t, x, v = x / t)`: series in a table; `plot(t, x)`: plotted; `a = select(t, x; …)`: a slice.
     const table = TABLE_CALL.exec(input.trim())
     if (table) return this.evaluateTable(table[1])
+    const plotCall = PLOT_CALL.exec(input.trim())
+    if (plotCall) return this.evaluatePlot(plotCall[2], plotCall[1])
+    const select = SELECT_CALL.exec(input.trim())
+    if (select) return this.evaluateSelect(select[1], select[2])
 
     // `tuple(a, b, c) = …` unpacks a tuple. (Before one-line functions: it looks like one.)
     const unpack = UNPACK.exec(input.trim())
@@ -3660,6 +4138,7 @@ export class Calculator {
 
   /** Enter a nested block. */
   pushScope(): void {
+    this.views.push()
     this.scope = new Scope(this.scope)
     this.sigs = new Scope(this.sigs)
     this.uncs = new Scope(this.uncs)
@@ -3675,6 +4154,7 @@ export class Calculator {
   /** Leave the current block, returning the variables it defined. */
   popScope(): Variable[] {
     const locals = this.describe(this.scope, this.sigs, this.uncs, this.uncSfs, this.aggs, this.declared)
+    this.views.pop()
     this.scope = this.scope.parent ?? this.root
     this.sigs = this.sigs.parent ?? this.sigsRoot
     this.uncs = this.uncs.parent ?? this.uncsRoot

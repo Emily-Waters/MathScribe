@@ -95,3 +95,20 @@ describe('page and title', () => {
     expect(tex).toContain('\\begin{document}\n\\maketitle')
   })
 })
+
+describe('plots', () => {
+  const data = 't1 = 0.10 s\nt2 = 0.20 s\nt3 = 0.30 s\nx1 = 0.05 m pm 0.01 m\nx2 = 0.10 m pm 0.01 m\nx3 = 0.16 m pm 0.01 m\n'
+
+  it('are pgfplots graphs, with pgfplots loaded only when there is one', () => {
+    expect(exportOf('x = 1')).not.toContain('pgfplots')
+    const tex = exportOf(`${data}plot(t, x; fit linear, log y)`)
+    expect(tex).toContain('\\usepackage{pgfplots}')
+    const graph = body(tex)
+    expect(graph).toContain('\\begin{axis}[')
+    expect(graph).toContain('ymode=log')
+    expect(graph).toContain('xlabel={$t\\,\\left[\\mathrm{s}\\right]$}')
+    expect(graph).toContain('(0.1, 0.05) +- (0, 0.01)')
+    expect(graph).toMatch(/\\addplot\[color=blue, dashed/) // the fit
+    expect(graph).toContain('R^{2}')
+  })
+})

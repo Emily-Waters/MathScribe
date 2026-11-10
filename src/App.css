@@ -620,6 +620,18 @@ body {
   padding: 0 12px;
 }
 
+/* A plot(…) line's plot: as wide as the output allows, up to its drawn size */
+.plot {
+  max-width: 640px;
+  margin: 6px 0;
+}
+
+.plot svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
 /* Working from inside a function call, shown above the line that calls it */
 .calc__trace {
   padding-left: 10px;
@@ -662,7 +674,8 @@ body {
   color: var(--accent);
 }
 
-.import__rows {
+.import__rows,
+.import__unc {
   color: var(--muted);
 }
 
@@ -1148,6 +1161,25 @@ body {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+.cm-ms-table-menu {
+  width: min(340px, calc(100vw - 32px));
+}
+
+.cm-ms-table-menu__title {
+  width: 170px;
+  font: inherit;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 4px;
+}
+
+.cm-ms-table-menu__rows input[type='checkbox'] {
+  width: auto;
+  margin-left: 6px;
 }
 
 .cm-ms-table-menu__rows input {

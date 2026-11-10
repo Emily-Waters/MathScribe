@@ -11,7 +11,8 @@ import { StreamLanguage, foldService, indentService, type StringStream } from '@
 import { tags } from '@lezer/highlight'
 import { closesVector, isUnitName } from '../lib/engine.ts'
 import {
-  COMMAND_NAMES, CONSTANT_TOKEN, FUNCTION_HEAD, INDENT_WIDTH, NAME, NUMBER, SETTINGS, commandPattern, indentOf,
+  COMMAND_NAMES, CONSTANT_TOKEN, FUNCTION_HEAD, GREEK_CHARS, INDENT_WIDTH, NAME, NAME_CHAR, NUMBER, SETTINGS,
+  commandPattern, indentOf,
 } from '../lib/syntax.ts'
 
 /** What a line is, from how it starts and ends (as document.ts reads it). */
@@ -36,6 +37,8 @@ interface State {
 const COMMAND = new RegExp(String.raw`#(?:${COMMAND_NAMES.join('|')})(?=\s|$)`)
 /** `#text` on an opener: the lines indented under it are prose. */
 const TEXT_COMMAND = commandPattern(['text'])
+/** A word at the current position: a name (Greek letters included), keyword or unit. */
+const WORD = new RegExp(`[A-Za-z_${GREEK_CHARS}]${NAME_CHAR}*`)
 /** A number at the current position. */
 const NUMBER_TOKEN = new RegExp(NUMBER)
 /** Words coloured as keywords. */
@@ -138,7 +141,7 @@ function token(stream: StringStream, state: State): string | null {
     state.inUnit = false
   }
 
-  const word = stream.match(/[A-Za-z_]\w*/) as RegExpMatchArray | null
+  const word = stream.match(WORD) as RegExpMatchArray | null
   if (word) {
     const id = word[0]
     const call = /^\s*\(/.test(stream.string.slice(stream.pos))
@@ -279,6 +282,15 @@ export const mathscribeFolding = foldService.of((state, lineStart, lineEnd) => {
   }
   return last > first.number ? { from: lineEnd, to: doc.line(last).to } : null
 })
+
+/** Whether a line (or the start of it) is a heading, prose or raw LaTeX, where there are no names. */
+export const isProseLine = (before: string) => /^\s*[#>$]/.test(before)
+
+/** A finished display command (followed by a space), anywhere in a line. */
+const TYPED_COMMAND = new RegExp(String.raw`(?:^|\s)#(?:${COMMAND_NAMES.join('|')})(?=\s)`, 'g')
+
+/** Whether a `#` note has started on the line before this point (not one of the commands). */
+export const inNote = (before: string) => /(?:^|\s)#/.test(before.replace(TYPED_COMMAND, ' '))
 
 /**
  * Whether line `n` is prose inside a `Title:  #text` block: the nearest line

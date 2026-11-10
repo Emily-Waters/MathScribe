@@ -15,7 +15,10 @@ import { mathscribeFolding, mathscribeIndent, mathscribeLanguage } from '../edit
 import { SYNTAX_TOKENS, mathscribeHighlight, type Palette, type SyntaxThemeId } from '../editor/themes.ts'
 import { Dropdown } from './Dropdown.tsx'
 import { gotoDefinition, setDefinitions } from '../editor/gotoDefinition.ts'
-import { acceptOnTab, intellisense, setSymbols } from '../editor/intellisense.ts'
+import {
+  acceptKeysSetting, acceptOnTab, intellisense, reconfigureAcceptKeys, setSymbols, type AcceptKeys,
+} from '../editor/intellisense.ts'
+import { typeGreek } from '../editor/greek.ts'
 
 interface EditorPaneProps {
   value: string
@@ -41,6 +44,8 @@ interface EditorPaneProps {
   /** Whether the app theme is dark, so CodeMirror's own parts (tooltips, find panel) match. */
   dark: boolean
   customPalette: Palette | null
+  /** Which keys accept a suggestion. */
+  acceptKeys: AcceptKeys
   /** The contents of the editor's Options menu. */
   options: ReactNode
 }
@@ -152,7 +157,11 @@ const baseTheme = EditorView.theme({
 const darkness = new Compartment()
 
 /** Everything a sheet's editor is set up with; `on` reports edits and cursor moves to the app. */
-function extensions(handlers: { change: (v: string) => void; cursor: (line: number, clicked: boolean) => void }, dark: boolean): Extension[] {
+function extensions(
+  handlers: { change: (v: string) => void; cursor: (line: number, clicked: boolean) => void },
+  dark: boolean,
+  acceptKeys: AcceptKeys,
+): Extension[] {
   return [
     lineNumbers(),
     diagnosticsGutter,
@@ -175,13 +184,14 @@ function extensions(handlers: { change: (v: string) => void; cursor: (line: numb
     diagnosticsField,
     gotoDefinition,
     intellisense,
+    acceptKeysSetting(acceptKeys),
     baseTheme,
     darkness.of(EditorView.darkTheme.of(dark)),
     placeholder('m = 2.0 kg'),
     EditorView.contentAttributes.of({ 'aria-label': 'Math input', spellcheck: 'false' }),
     keymap.of([
-      // Tab accepts a suggestion if the list is open, otherwise indents.
-      { key: 'Tab', run: (v) => acceptOnTab(v) || tabToStop(v), shift: indentLess },
+      // Tab accepts a suggestion if the list is open, turns \Delta into Δ, or else indents.
+      { key: 'Tab', run: (v) => acceptOnTab(v) || typeGreek(v) || tabToStop(v), shift: indentLess },
       ...defaultKeymap,
       ...historyKeymap,
       ...foldKeymap,
@@ -206,7 +216,7 @@ function extensions(handlers: { change: (v: string) => void; cursor: (line: numb
  */
 export function EditorPane({
   value, onChange, docId, openIds, jump, insert, onCursorLine, diagnostics, definitions, symbols, theme, dark, customPalette,
-  options,
+  acceptKeys, options,
 }: EditorPaneProps) {
   const host = useRef<HTMLDivElement>(null)
   const view = useRef<EditorView | null>(null)
@@ -219,13 +229,14 @@ export function EditorPane({
   }, [onChange, onCursorLine])
 
   const darkNow = useRef(dark)
+  const acceptKeysNow = useRef(acceptKeys)
   /** A fresh editor state for a sheet's text. */
   const makeState = useRef((text: string) => EditorState.create({
     doc: text,
     extensions: extensions({
       change: (s) => handlers.current.change(s),
       cursor: (l, clicked) => handlers.current.cursor(l, clicked),
-    }, darkNow.current),
+    }, darkNow.current, acceptKeysNow.current),
   }))
 
   useEffect(() => {
@@ -288,6 +299,11 @@ export function EditorPane({
     darkNow.current = dark
     view.current?.dispatch({ effects: darkness.reconfigure(EditorView.darkTheme.of(dark)) })
   }, [dark, docId])
+
+  useEffect(() => {
+    acceptKeysNow.current = acceptKeys
+    view.current?.dispatch({ effects: reconfigureAcceptKeys(acceptKeys) })
+  }, [acceptKeys, docId])
 
   // Jump requests from clicking the output: put the cursor at the start of that
   // line's text (not a selection, so typing doesn't replace the line) and scroll

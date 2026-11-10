@@ -28,6 +28,8 @@ export const STORAGE_KEYS = {
   latexOptions: 'mathscribe:latex-options',
   /** Where the divider between Input and Output sits. */
   split: 'mathscribe:split',
+  /** Which keys accept a suggestion in the editor. */
+  acceptKeys: 'mathscribe:accept-keys',
 } as const
 
 // ---------------------------------------------------------------------------

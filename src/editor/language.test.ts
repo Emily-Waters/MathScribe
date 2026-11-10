@@ -52,6 +52,10 @@ describe('highlighting', () => {
     expect(tokens('tuple(r:3, theta:deg) = p')).toEqual(['tuple:fn', 'r:var', '3:num', 'theta:var', 'deg:unit', 'p:var'])
   })
 
+  it('reads Greek letters as part of a name', () => {
+    expect(tokens('ΔE = 2 * ω_0')).toEqual(['ΔE:var', '2:num', 'ω_0:var'])
+  })
+
   it('colours #sci and #dec as commands', () => {
     expect(tokens('p^2   #sci   # density')).toEqual(['p:var', '2:num', '#sci:cmd', '# density:note'])
   })

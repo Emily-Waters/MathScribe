@@ -28,6 +28,30 @@ describe('basic calculation', () => {
   })
 })
 
+describe('Greek letters in names', () => {
+  it('are shown as the letter, in front of the rest of the name', () => {
+    expect(shown('E_f = 5.0 J\nE_i = 2.0 J\nΔE = E_f - E_i')).toBe('\\Delta E = E_f- E_i = 5.0 J- 2.0 J = 3.0 J')
+    expect(last('Δv_x = 2.0 m/s').tex).toMatch(/^\\Delta v_\{x\} = /)
+    expect(last('ω1 = 2.0').tex).toMatch(/^\\omega_\{1\} = /)
+    expect(last('Δforce = 2.0 N').tex).toMatch(/^\\Delta \\mathrm\{force\} = /)
+  })
+
+  it('work like any name: in products, series and functions', () => {
+    expect(value('ΔE = 3.0 J\nx = 2ΔE')).toBe('6.0 J')
+    expect(value('Δt_1 = 1.0 s\nΔt_2 = 1.2 s\nΔt_avg')).toBe('(1.10 ± 0.10) s')
+    expect(value('f(ω) = 2 * ω\ny = f(3.0)')).toBe('6.0')
+    // A function named with a Greek letter, called with several arguments (not a bracketed list).
+    const call = last('λ(L, n) = 2 * L / n\nL = 300.0 nm\nn1 = 2\nλ_1 = λ(L, n1)')
+    expect(call.error).toBeUndefined()
+    expect(call.tex).toMatch(/^\\lambda_\{1\} = /)
+    expect(value('def Λ(a, b)\n    c = a * b\n    return c\nk = Λ(2.0, 3.0)')).toBe('6.0')
+  })
+
+  it('keep a spelled-out Delta with a space as an uncertainty', () => {
+    expect(readable(last('E = 2.0 J pm 0.1 J\nDelta E =').tex)).toBe('\\Delta E = 0.1 J')
+  })
+})
+
 describe('products', () => {
   const src = 'm = 2.00 kg\nv = 4.0 m/s\ntheta = 30. deg\nr = 2.0 m\nFn = 3.0\n'
 

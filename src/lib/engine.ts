@@ -35,7 +35,7 @@ import {
 import { BUILTIN_CONSTANTS, DEFAULT_CONSTANT_SIG_FIGS, suggestConstant } from './constants.ts'
 import {
   ASSIGNMENT, ASSIGNMENT_WITH_VALUE, AXES, COMPONENTS_SETTING, CONSTANT_REF, DECLARED, EXACT_SETTING, IS_NAME,
-  LEADING_NAME, NAME, NAME_WITH_SETTINGS, NOTATIONS, NUMBER, ONE_LINE_FUNCTION, PERCENT, SERIES_SUFFIXES,
+  GREEK_BY_CHAR, GREEK_BY_NAME, GREEK_CHARS, LEADING_NAME, NAME, NAME_CHAR, NAME_WITH_SETTINGS, NOTATIONS, NUMBER, ONE_LINE_FUNCTION, PERCENT, SERIES_SUFFIXES,
   UNCERTAINTY_WORDS, UNIT_VECTOR_SETTING, UNPACK, VECTOR_FUNCTION,
   type DisplayMode, type LineCommand, type Notation, type Precision, type SeriesSuffix, type UncertaintyWord,
   type VectorStyle,
@@ -124,6 +124,9 @@ export function closesVector(src: string, end: number): boolean {
   return false
 }
 
+/** Text ending where a bracket would start a call's arguments: after a name (`f`, `λ`) or a closing bracket. */
+const CALL_BEFORE = new RegExp(String.raw`(?:${NAME_CHAR}|[)\]])$`)
+
 /** Whether some text has a vector written `<…>` or `vector(…)` in it. */
 const hasVector = (src: string) =>
   expandVectors(src) !== src || new RegExp(`\\b${VECTOR_FUNCTION}\\s*\\(`).test(src)
@@ -137,7 +140,7 @@ export function bareTuple(src: string): string | null {
   for (let i = 0; i < src.length; i++) {
     if (src[i] !== '(') continue
     const before = src.slice(0, i).trimEnd()
-    if (/[\w)\]]$/.test(before)) continue // a call: f(a, b), solve(…), or (x)(y)
+    if (CALL_BEFORE.test(before)) continue // a call: f(a, b), λ(a, b), solve(…), or (x)(y)
     let depth = 0
     let comma = false
     let j = i
@@ -398,8 +401,9 @@ export function describeUnit(name: string): string | null {
 
 /** Pieces of a unit expression, read one after another: a power (`^2`, `^(-1)`), the first unit, then `/unit` or `*unit`. */
 const POWER = /\^(\(-?\d+(?:\.\d+)?\)|-?\d+(?:\.\d+)?)/y
-const FIRST_UNIT = /[ \t]*([A-Za-z]+)(?![\w(])/y
-const NEXT_UNIT = /([*/·])([A-Za-z]+)(?![\w(])/y
+/** (A unit ends where a name or a call would go on: `2 mλ` has no unit.) */
+const FIRST_UNIT = new RegExp(String.raw`[ \t]*([A-Za-z]+)(?!${NAME_CHAR}|\()`, 'y')
+const NEXT_UNIT = new RegExp(String.raw`([*/·])([A-Za-z]+)(?!${NAME_CHAR}|\()`, 'y')
 
 /** Read a unit expression like `m/s^2` or `kg*m^2` starting at `pos`. */
 function readUnit(src: string, pos: number): { text: string; end: number } | null {
@@ -431,7 +435,15 @@ function readUnit(src: string, pos: number): { text: string; end: number } | nul
 }
 
 /** Every number in a line, but not digits inside a name (`v_0`) or after a point. */
-const NUMBER_LITERAL = new RegExp(String.raw`(?<![\w.])${NUMBER}`, 'g')
+const NUMBER_LITERAL = new RegExp(String.raw`(?<!${NAME_CHAR}|\.)${NUMBER}`, 'g')
+/** Every name in a line that isn't a call: not part of a longer name, or after `.` or `\`. */
+const NAME_IN_LINE = new RegExp(String.raw`(?<!${NAME_CHAR}|[\\.])(${NAME})(?!${NAME_CHAR}|\()`, 'g')
+/** After a unit, another term (a name or a bracket), not `to` or `in`: `1/2 m v^2`. */
+const MORE_TERMS = new RegExp(String.raw`^[ \t]+(?!(?:to|in)(?!${NAME_CHAR}))(?:${NAME_CHAR}|\()`)
+/** `pm` as a word (not the start of a name like `pmax`). */
+const PM_WORD = new RegExp(`^pm(?!${NAME_CHAR})`)
+/** A character that can be part of a name. */
+const NAME_CHAR_RE = new RegExp(NAME_CHAR)
 /** `to` before a unit. */
 const CONVERSION = /\bto\s+/g
 
@@ -470,7 +482,7 @@ export function preprocess(src: string, isVariable: (id: string) => boolean): { 
     if (!unit) continue
     // (`0.25 m to kPa` is a conversion, not another term.)
     if (/^[A-Za-z]+$/.test(unit.text) && isVariable(unit.text)
-      && /^[ \t]+(?!to\b|in\b)[\w(]/.test(src.slice(unit.end))) {
+      && MORE_TERMS.test(src.slice(unit.end))) {
       shadowed.add(unit.text)
     }
     out += `${src.slice(last, m.index)}(${m[0]} * unit("${unit.text}"))`
@@ -603,7 +615,7 @@ function splitPm(src: string): [string, string] | null {
     let len = 0
     if (c === '±') len = 1
     else if (c === '+' && src[i + 1] === '-') len = 2
-    else if (c === 'p' && /^pm\b/.test(src.slice(i)) && (i === 0 || !/\w/.test(src[i - 1]))) len = 2
+    else if (c === 'p' && PM_WORD.test(src.slice(i)) && (i === 0 || !NAME_CHAR_RE.test(src[i - 1]))) len = 2
     if (len) return [src.slice(0, i).trim(), src.slice(i + len).trim()]
   }
   return null
@@ -613,20 +625,30 @@ function splitPm(src: string): [string, string] | null {
 // LaTeX helpers
 // ---------------------------------------------------------------------------
 
-/** Names written as Greek letters: `theta` → θ. */
-const GREEK = new Set([
-  'alpha', 'beta', 'gamma', 'delta', 'epsilon', 'varepsilon', 'zeta', 'eta', 'theta',
-  'vartheta', 'iota', 'kappa', 'lambda', 'mu', 'nu', 'xi', 'pi', 'rho', 'sigma', 'tau',
-  'upsilon', 'phi', 'varphi', 'chi', 'psi', 'omega', 'Gamma', 'Delta', 'Theta', 'Lambda',
-  'Xi', 'Pi', 'Sigma', 'Upsilon', 'Phi', 'Psi', 'Omega',
-])
+/** A Greek letter in a name, as a piece of its own (to split `ΔE` into Δ and E). */
+const GREEK_LETTER = new RegExp(`([${GREEK_CHARS}])`)
 
-/** One part of a name, as LaTeX: Greek letters, single letters and digits as they are, words upright. */
+/**
+ * One part of a name, as LaTeX: Greek letters (spelled out, `theta`, or typed,
+ * θ) as their commands, single letters and digits as they are, words upright.
+ * A typed Greek letter goes in front of the rest: `ΔE` → \Delta E, `Δforce` →
+ * \Delta \mathrm{force}.
+ */
 function namePart(s: string): string {
-  if (GREEK.has(s)) return `\\${s}`
+  if (GREEK_BY_NAME.has(s)) return `\\${s}`
+  if (GREEK_LETTER.test(s)) {
+    return s.split(GREEK_LETTER).filter(Boolean).map((piece) => {
+      if (!GREEK_LETTER.test(piece)) return namePart(piece)
+      const name = GREEK_BY_CHAR.get(piece)
+      return name ? `\\${name}` : piece
+    }).join(' ')
+  }
   if (s.length === 1 || /^\d+$/.test(s)) return s
   return `\\mathrm{${s}}`
 }
+
+/** A name of letters then digits, `a2`, `ω1` (1: the letters, 2: the digits), which reads a₂. */
+const TRAILING_DIGITS = new RegExp(String.raw`^([A-Za-z${GREEK_CHARS}]+?)(\d+)$`)
 
 /** `v_0` → v_{0}, `F_net` → F_{\mathrm{net}}, `F_net_x` → F_{\mathrm{net},x}, `theta` → \theta, `a2` → a_{2} */
 export function symbolTex(name: string): string {
@@ -646,7 +668,7 @@ export function symbolTex(name: string): string {
     if (stat[2] === 'count') return `n_{${base}}`
     return `\\bar{${base}}`
   }
-  const trailingDigits = /^([A-Za-z]+?)(\d+)$/.exec(name)
+  const trailingDigits = TRAILING_DIGITS.exec(name)
   if (trailingDigits) return `${namePart(trailingDigits[1])}_{${trailingDigits[2]}}`
   // More than one subscript (`F_net_x`, a component) reads F_{net,x}.
   const [base, ...rest] = name.split('_')
@@ -1933,7 +1955,7 @@ export class Calculator {
    * defined explicitly with the same name takes precedence.
    */
   private defineAggregates(line: string, skip?: string): string | undefined {
-    for (const m of line.matchAll(/(?<![\w\\.])([A-Za-z][A-Za-z0-9_]*)(?![\w(])/g)) {
+    for (const m of line.matchAll(NAME_IN_LINE)) {
       const name = m[1]
       if (name === skip || (this.scope.has(name) && !this.aggs.get(name))) continue
       // e1, e2, … don't turn `e` into a sum: Euler's number (and pi, tau, …) win.

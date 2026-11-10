@@ -103,7 +103,10 @@ amber one; hover the bar to read the message.
 On a Mac, use ⌘ for Ctrl. `def` bodies, `:` layout blocks and `{ }` blocks fold
 from the arrows in the gutter.
 
-**Suggestions as you type** (Enter or Tab accepts, Esc closes, Ctrl+Space asks):
+**Suggestions as you type** (Tab accepts, Esc closes, Ctrl+Space asks). Enter always
+starts a new line, so a unit suggested at the end of a line doesn't get in the way;
+to have Enter accept a suggestion too, choose *Tab or Enter* under Input → Options →
+Accept suggestions with.
 
 | Typing | Suggests |
 | --- | --- |
@@ -111,6 +114,7 @@ from the arrows in the gutter.
 | `@` | constants with their description and value, including your own `@constants` |
 | a unit, after a number or `to` | units, with what they are in SI (`angstrom = 1e-10 m`); `percent` after `to` |
 | `#` after a line's text | display commands, with what each does |
+| `\` and a Greek letter's name | the letter: `\Delta` gives Δ (see Greek letters) |
 
 Nothing is suggested in headings, `>` text, `$` lines or notes.
 
@@ -437,6 +441,29 @@ a                   # still the outer value
 - Functions see the variables from where they were defined (lexical scope).
 - Each block lists its local variables underneath.
 - For arranging lines without scoping them, use a layout block (`Title:`) instead.
+
+### Greek letters
+
+Names can be spelled out (`theta`, `mu_k`, `Delta`), shown as θ, μ_k and Δ, or use
+the Greek letters themselves. A letter typed into a name stays part of it, so
+`ΔE` is a variable of its own, shown ΔE:
+
+```
+ΔE = E_f - E_i        # ΔE = E_f − E_i
+Δv_x = v_2 - v_1      # Δv_x = …
+ω = 2 * pi * f        # ω = 2πf
+```
+
+- **Typing one:** type `\` and the letter's name, then Tab or a space: `\Delta`
+  gives Δ, and `\omega` gives ω. As in LaTeX, the space ends the name, so
+  `\Delta E` types ΔE (type another space for a space). The suggestion list shows
+  the letters as you type `\de…`. Every letter with a LaTeX name works (α to ω,
+  and Γ, Δ, Θ, Λ, Ξ, Π, Σ, Υ, Φ, Ψ, Ω).
+- This happens where names are typed, not in headings, `>` text, `$` lines, notes
+  or `$…$` maths, where `\Delta` is LaTeX and stays as typed.
+- `ΔE` and `Delta E` (with a space) are different: the first is a variable, the
+  second is E's uncertainty (see Uncertainty). Both are shown ΔE.
+- A sheet with Greek letters is saved as UTF-8, like any other text file.
 
 ### Built-in functions
 
@@ -929,6 +956,7 @@ Roughly in priority order.
   theme before the page draws)
 - `src/editor/gotoDefinition.ts`: Ctrl+Click / F12 go to definition
 - `src/editor/intellisense.ts`: suggestions as you type and hover information;
+  `src/editor/greek.ts`: typing Greek letters (`\Delta` then Tab or a space);
   `src/editor/vocabulary.ts`: the commands, keywords and built-in functions they describe
 - `src/components/EditorPane.tsx`: the editor; `PreviewPane.tsx`: rendered output,
   LaTeX and Reference tabs; `ReferencePane.tsx`: the Reference tab;

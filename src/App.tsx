@@ -12,6 +12,8 @@ import {
   type CustomSyntax, type SyntaxThemeId,
 } from './editor/themes.ts'
 import { SyntaxOptions } from './components/SyntaxOptions.tsx'
+import { SuggestionOptions } from './components/SuggestionOptions.tsx'
+import { loadAcceptKeys, saveAcceptKeys, type AcceptKeys } from './editor/intellisense.ts'
 import { applyAppTheme, loadAppTheme, saveAppTheme, useAppearance, watchSystemTheme, type AppThemeId } from './appTheme.ts'
 import { ThemeMenu } from './components/ThemeMenu.tsx'
 import { DEFAULT_CALC_OPTIONS } from './config.ts'
@@ -49,6 +51,12 @@ export default function App() {
     saveCustomSyntax(c)
   }
   const appearance = useAppearance()
+  // Which keys accept a suggestion in the editor (Tab, or Tab and Enter).
+  const [acceptKeys, setAcceptKeys] = useState<AcceptKeys>(loadAcceptKeys)
+  const changeAcceptKeys = (keys: AcceptKeys) => {
+    setAcceptKeys(keys)
+    saveAcceptKeys(keys)
+  }
   // Worked out on every render (it's cheap): a preset's colours depend on the app
   // theme as well as light/dark (Minimal uses the text colour, for instance).
   const activeCustom = customSyntax ?? { base: DEFAULT_SYNTAX_THEME }
@@ -162,15 +170,19 @@ export default function App() {
               theme={syntaxTheme}
               dark={appearance.mode === 'dark'}
               customPalette={syntaxPalette}
+              acceptKeys={acceptKeys}
               options={
-                <SyntaxOptions
-                  theme={syntaxTheme}
-                  onThemeChange={changeSyntaxTheme}
-                  custom={activeCustom}
-                  palette={syntaxPalette}
-                  mode={appearance.mode}
-                  onCustomChange={changeCustomSyntax}
-                />
+                <>
+                  <SyntaxOptions
+                    theme={syntaxTheme}
+                    onThemeChange={changeSyntaxTheme}
+                    custom={activeCustom}
+                    palette={syntaxPalette}
+                    mode={appearance.mode}
+                    onCustomChange={changeCustomSyntax}
+                  />
+                  <SuggestionOptions acceptKeys={acceptKeys} onAcceptKeysChange={changeAcceptKeys} />
+                </>
               }
             />
           }

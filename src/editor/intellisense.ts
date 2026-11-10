@@ -11,21 +11,28 @@
  *   after `@`                 → constants
  *   after a number, or `to`   → units (and `percent` after `to`)
  *   `#` after a line's text   → display commands
+ *   `\` and a letter's name   → Greek letters (`\Delta` → Δ; see greek.ts)
  *   a name                    → variables, functions, series names, keywords
+ *
+ * A suggestion is accepted with Tab (or Enter too, if the setting says so), so
+ * by default Enter at the end of a line always starts a new one.
  */
 import {
-  acceptCompletion, autocompletion, snippetCompletion,
+  acceptCompletion, autocompletion, completionKeymap, snippetCompletion,
   type Completion, type CompletionContext, type CompletionResult,
 } from '@codemirror/autocomplete'
-import { StateEffect, StateField, type EditorState, type Extension } from '@codemirror/state'
-import { EditorView, hoverTooltip, type Command } from '@codemirror/view'
+import { Compartment, Prec, StateEffect, StateField, type EditorState, type Extension } from '@codemirror/state'
+import { EditorView, hoverTooltip, keymap, type Command } from '@codemirror/view'
 import katex from 'katex'
 import { BUILTIN_CONSTANTS } from '../lib/constants.ts'
 import type { SheetSymbol } from '../lib/document.ts'
 import { describeUnit, isUnitName, numberTex, unitNames, unitTex } from '../lib/engine.ts'
-import { COMMAND_NAMES, NAME, PERCENT, SETTINGS } from '../lib/syntax.ts'
+import { STORAGE_KEYS } from '../config.ts'
+import { readStored, writeStored } from '../lib/storage.ts'
+import { GREEK_CHARS, NAME, NAME_CHAR, PERCENT, SETTINGS } from '../lib/syntax.ts'
 import { BUILTIN_FUNCTIONS, COMMANDS, KEYWORDS, MATH_CONSTANTS, SERIES_SUFFIXES, SETTING_WORDS } from './vocabulary.ts'
-import { inTextBlock } from './language.ts'
+import { inNote, inTextBlock, isProseLine } from './language.ts'
+import { greekCompletions, greekOnSpace } from './greek.ts'
 
 // ---------------------------------------------------------------------------
 // What the sheet defines
@@ -102,14 +109,6 @@ function symbolInfo(s: SheetSymbol): HTMLElement {
 // Completions
 // ---------------------------------------------------------------------------
 
-/** Text kinds where nothing is suggested: headings, prose, raw LaTeX. */
-const isProseLine = (before: string) => /^\s*[#>$]/.test(before)
-/** A finished display command (followed by a space), anywhere in a line. */
-const TYPED_COMMAND = new RegExp(String.raw`(?:^|\s)#(?:${COMMAND_NAMES.join('|')})(?=\s)`, 'g')
-
-/** A `#` note has started earlier on the line (not one of the commands). */
-const inNote = (before: string) => /(?:^|\s)#/.test(before.replace(TYPED_COMMAND, ' '))
-
 // A display setting being typed after a `:` (`phi:3:de`), 1: what's typed of it so far:
 /** …on the name being assigned. */
 const SETTING_ON_NAME = new RegExp(String.raw`^\s*${NAME}${SETTINGS}:([A-Za-z]*)$`)
@@ -147,6 +146,10 @@ export function complete(ctx: CompletionContext): CompletionResult | null {
     }
   }
   if (inNote(before)) return null
+
+  // `\…`: a Greek letter, typed as its character.
+  const greek = greekCompletions(before, ctx.pos)
+  if (greek) return greek
 
   // `@…`: constants.
   const at = /@\w*$/.exec(before)
@@ -192,7 +195,7 @@ export function complete(ctx: CompletionContext): CompletionResult | null {
   }
 
   // A name.
-  const word = ctx.matchBefore(/[A-Za-z_]\w*/)
+  const word = ctx.matchBefore(WORD)
   if (!word || (word.from === word.to && !ctx.explicit)) return null
   // Part of a number like 1e5.
   if (/[\d.]$/.test(line.text.slice(0, word.from - line.from))) return null
@@ -229,11 +232,50 @@ export function complete(ctx: CompletionContext): CompletionResult | null {
   }
   for (const k of KEYWORDS) options.push({ label: k.name, type: 'keyword', detail: k.description, boost: -1 })
 
-  return { from: word.from, options, validFor: /^\w*$/ }
+  return { from: word.from, options, validFor: WORD_SO_FAR }
 }
 
-/** Tab accepts a suggestion when the list is open (Enter does too). */
+/** A name being typed (Greek letters included), and what may follow while the list stays open. */
+const WORD = new RegExp(`[A-Za-z_${GREEK_CHARS}]${NAME_CHAR}*`)
+const WORD_SO_FAR = new RegExp(`^${NAME_CHAR}*$`)
+
+/** Tab accepts a suggestion when the list is open. */
 export const acceptOnTab: Command = acceptCompletion
+
+// ---------------------------------------------------------------------------
+// Which keys accept a suggestion
+// ---------------------------------------------------------------------------
+
+/** Tab only (the default, so Enter always starts a new line), or Tab and Enter. */
+export const ACCEPT_KEYS = [
+  { id: 'tab', name: 'Tab', description: 'Enter always starts a new line, even with suggestions showing.' },
+  { id: 'tab-enter', name: 'Tab or Enter', description: 'Enter accepts a suggestion while the list is showing.' },
+] as const
+export type AcceptKeys = (typeof ACCEPT_KEYS)[number]['id']
+
+/** Which keys accept a suggestion, as chosen last time in this browser. */
+export function loadAcceptKeys(): AcceptKeys {
+  const saved = readStored(STORAGE_KEYS.acceptKeys)
+  return ACCEPT_KEYS.find((k) => k.id === saved)?.id ?? 'tab'
+}
+
+/** Remember which keys accept a suggestion (if storage is blocked, until reload). */
+export function saveAcceptKeys(keys: AcceptKeys): void {
+  writeStored(STORAGE_KEYS.acceptKeys, keys)
+}
+
+/** The suggestion list's keys (arrows, Escape, …), with Enter only if it accepts. */
+const suggestionKeymap = (keys: AcceptKeys) =>
+  Prec.highest(keymap.of(completionKeymap.filter((k) => k.key !== 'Enter' || keys === 'tab-enter')))
+
+/** Holds the suggestion keys, so the setting can change them in a running editor. */
+const suggestionKeys = new Compartment()
+
+/** The suggestion keys for a new editor. */
+export const acceptKeysSetting = (keys: AcceptKeys): Extension => suggestionKeys.of(suggestionKeymap(keys))
+
+/** Change which keys accept a suggestion, in a running editor. */
+export const reconfigureAcceptKeys = (keys: AcceptKeys) => suggestionKeys.reconfigure(suggestionKeymap(keys))
 
 // ---------------------------------------------------------------------------
 // Hover information
@@ -286,7 +328,9 @@ const hoverInfo = hoverTooltip((view, pos) => {
 /** Suggestions as you type, and hover information. */
 export const intellisense: Extension = [
   symbolsField,
-  autocompletion({ override: [complete], icons: true }),
+  // The suggestion keys come from acceptKeysSetting instead of the defaults (whose Enter always accepts).
+  autocompletion({ override: [complete], icons: true, defaultKeymap: false }),
+  greekOnSpace,
   hoverInfo,
   // A full theme (not a base theme), so it wins over CodeMirror's built-in light
   // tooltip styles; the colours come from the app theme.

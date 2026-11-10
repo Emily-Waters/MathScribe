@@ -42,6 +42,18 @@ export const DEFAULT_CALC_OPTIONS: CalcOptions = {
 }
 
 /**
+ * When a sheet is worked out while typing. A sheet that's quick to work out is
+ * worked out on every keystroke; a slow one (thousands of rows of data), once
+ * typing pauses, so the editor never waits for it.
+ */
+export const EVALUATION = {
+  /** Worked out on every keystroke if the last time took less than this (ms). */
+  instantBelowMs: 25,
+  /** Otherwise, worked out once typing has paused this long (ms). */
+  pauseMs: 150,
+} as const
+
+/**
  * Fixed settings for the examples in the Reference and Library tabs, so they
  * look the same whatever the Output options say. (The tests use them too.)
  */

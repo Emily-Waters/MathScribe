@@ -258,6 +258,13 @@ function splitNote(text: string): {
   return { body: rest.slice(0, hash).trim(), note: rest.slice(hash + 1).trim() || undefined, command, multiline, notation, layout }
 }
 
+/** A sheet evaluated, and how long that took (ms), to decide when to evaluate it next. */
+export function evaluateSheetTimed(source: string, options: CalcOptions): { sheet: Sheet; ms: number } {
+  const started = performance.now()
+  const sheet = evaluateSheet(source, options)
+  return { sheet, ms: performance.now() - started }
+}
+
 /** Read and evaluate a whole sheet, line by line, into blocks. */
 export function evaluateSheet(source: string, options: CalcOptions): Sheet {
   const calc = new Calculator(options)

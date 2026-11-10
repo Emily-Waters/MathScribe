@@ -6,7 +6,7 @@ import { SheetTabs } from './components/SheetTabs.tsx'
 import { EditorPane } from './components/EditorPane.tsx'
 import { PreviewPane } from './components/PreviewPane.tsx'
 import { SplitPane } from './components/SplitPane.tsx'
-import { collectDefinitions, collectDiagnostics, collectSymbols, evaluateSheet } from './lib/document.ts'
+import { collectDefinitions, collectDiagnostics, collectSymbols, evaluateSheetTimed } from './lib/document.ts'
 import type { CalcOptions } from './lib/engine.ts'
 import {
   DEFAULT_SYNTAX_THEME, customPalette, loadCustomSyntax, loadSyntaxTheme, saveCustomSyntax, saveSyntaxTheme,
@@ -17,7 +17,8 @@ import { SuggestionOptions } from './components/SuggestionOptions.tsx'
 import { loadAcceptKeys, saveAcceptKeys, type AcceptKeys } from './editor/intellisense.ts'
 import { applyAppTheme, loadAppTheme, saveAppTheme, useAppearance, watchSystemTheme, type AppThemeId } from './appTheme.ts'
 import { ThemeMenu } from './components/ThemeMenu.tsx'
-import { DEFAULT_CALC_OPTIONS } from './config.ts'
+import { DEFAULT_CALC_OPTIONS, EVALUATION } from './config.ts'
+import { useSettled } from './useSettled.ts'
 import './App.css'
 
 /** How the save state reads in the top bar. */
@@ -90,10 +91,18 @@ export default function App() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [file])
-  const sheet = useMemo(() => evaluateSheet(source, options), [source, options])
+  // The sheet, worked out on every keystroke if that's quick; if the last time
+  // was slow, once typing pauses (see EVALUATION), so the editor never waits.
+  const [slow, setSlow] = useState(false)
+  const evaluated = useSettled(source, slow ? EVALUATION.pauseMs : 0)
+  const evaluation = useMemo(() => evaluateSheetTimed(evaluated, options), [evaluated, options])
+  // (Kept from the last evaluation: React re-renders straight away when it changes.)
+  const nowSlow = evaluation.ms >= EVALUATION.instantBelowMs
+  if (nowSlow !== slow) setSlow(nowSlow)
+  const { sheet } = evaluation
   const diagnostics = useMemo(() => collectDiagnostics(sheet.blocks), [sheet.blocks])
   const definitions = useMemo(() => collectDefinitions(sheet.blocks), [sheet.blocks])
-  const symbols = useMemo(() => collectSymbols(sheet, source), [sheet, source])
+  const symbols = useMemo(() => collectSymbols(sheet, evaluated), [sheet, evaluated])
 
   // Linking: the editor's cursor line highlights its output; clicking output
   // moves the cursor to that line.

@@ -65,6 +65,9 @@ export function readable(tex: string): string {
     .replace(/\s*\\times\s*10\^\{(-?\d+)\}/g, 'e$1')
     .replace(/\^\{\\circ\}/g, '°')
     .replace(/\\left\(|\\right\)/g, (m) => (m === '\\left(' ? '(' : ')'))
+    // Brackets by nesting: [ ] as they are, and { } as ❴ ❵ (plain braces are taken out below).
+    .replace(/\\left\[|\\right\]/g, (m) => (m === '\\left[' ? '[' : ']'))
+    .replace(/\\left\\\{|\\right\\\}/g, (m) => (m === '\\left\\{' ? '❴' : '❵'))
     .replace(/\\left\\langle\s*|\\right\\rangle/g, (m) => (m.startsWith('\\left') ? '⟨' : '⟩'))
     .replace(/\\hat\{\\imath\}/g, 'î').replace(/\\hat\{\\jmath\}/g, 'ĵ').replace(/\\hat\{k\}/g, 'k̂')
     .replace(/\\pm/g, '±')

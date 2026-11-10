@@ -41,6 +41,7 @@ import {
   type VectorStyle,
 } from './syntax.ts'
 import { Solver, contains, countOccurrences, matchingParen, splitArgs, splitEquation } from './solve.ts'
+import { nestBrackets } from './brackets.ts'
 
 /** Our own mathjs instance, with the functions below added or replaced. */
 const math = create(all)
@@ -2390,7 +2391,7 @@ export class Calculator {
     this.uncs.set(name, new Map())
     this.defs.set(name, undefined)
     this.aggs.set(name, undefined)
-    return { signature, body }
+    return { signature, body: body.map((b) => ({ ...b, tex: nestBrackets(b.tex) })) }
   }
 
   private currentScopes(): ScopeSet {
@@ -2776,7 +2777,11 @@ export class Calculator {
     this.lineNotation = notation
     try {
       const { tex, error, warning, info, trace, returnNote } = this.evaluateLine(input, mode, explicit)
-      return { tex, error, warning, info, returnNote, trace: trace?.length ? trace : undefined }
+      // Brackets by nesting, ( ) inside [ ] inside { }, once each equation is finished.
+      return {
+        tex: nestBrackets(tex), error, warning, info, returnNote,
+        trace: trace?.length ? trace.map((t) => ({ ...t, tex: nestBrackets(t.tex) })) : undefined,
+      }
     } finally {
       this.multiline = false
       this.lineNotation = {}

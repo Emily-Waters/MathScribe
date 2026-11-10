@@ -263,11 +263,17 @@ for those too. Values with a `±` always use =.
 
 **Products:** type `*` between factors, and they're written as in a textbook:
 `1/2 * m * v^2` shows ½mv², `m * @g * cos(theta)` shows mg cos θ, and `2 * pi * r`
-shows 2πr. A dot is kept where it's needed: before a number or a value (`m · 2`,
-and between the values in a substitution step, 2.00 kg · 9.81 m/s²), after a value
-with a unit, and between a number and a fraction (2 · ½, not 2½). A word-like name
-gets a thin space (Fn m). Sums and negative factors are bracketed: m(v + u),
-m(−v). Turn on *Show · in every product* in the Output options for m·g·cos θ.
+shows 2πr. Values with a unit, or in scientific notation, are bracketed, so a
+substitution step reads (2.00 kg)(9.81 m/s²), 4π(250.0 Å) and 8(9.11 × 10⁻³¹ kg).
+A dot is kept where it's needed: before a number (`m · 2`), and between a number and
+a fraction (2 · ½, not 2½). A word-like name gets a thin space (Fn m). Sums and
+negative factors are bracketed: m(v + u), m(−v). Turn on *Show · in every product*
+in the Output options for m·g·cos θ and 2.00 kg · 9.81 m/s².
+
+**Brackets by nesting:** in the output, brackets with others inside them change,
+as in textbooks: ( ) innermost, then [ ], then { }: `((a + b) * c)^2` shows
+[(a + b)c]². A function call's brackets stay round, sin((a + b)c), and so do a
+tuple's. What you type in the editor stays as you wrote it.
 
 ### Layout blocks
 

@@ -36,7 +36,7 @@ exports[`golden sheets > the sample sheet 1`] = `
 16: t = \\fracv_fa = \\frac5.86 m/s4.91 m/s^2 = (1.19 ± 0.01) s
 17: E_k = \\frac12 m v_f^2 = \\frac12 (2.00 kg) (5.86 m/s)^2 = (34.3 ± 0.6) J
 18: v_f = (21.09 ± 0.17) km/h
-22: \\delta v_f = \\sqrt(\\frac\\partial v_f\\partial a· \\delta a)^2 + (\\frac\\partial v_f\\partial d· \\delta d)^2 = \\sqrt(\\fracd\\sqrt2 a d· \\delta a)^2 + (\\fraca\\sqrt2 a d· \\delta d)^2 = \\sqrt(\\frac3.50 m\\sqrt2 (4.91 m/s^2) (3.50 m)· 0.07 m/s^2)^2 + (\\frac4.91 m/s^2\\sqrt2 (4.91 m/s^2) (3.50 m)· 0.02 m)^2 = 0.05 m/s
+22: \\delta v_f = \\sqrt(\\frac\\partial v_f\\partial a· \\delta a)^2 + (\\frac\\partial v_f\\partial d· \\delta d)^2 = \\sqrt(\\fracd\\sqrt2 a d· \\delta a)^2 + (\\fraca\\sqrt2 a d· \\delta d)^2 = \\sqrt[\\frac3.50 m\\sqrt2 (4.91 m/s^2) (3.50 m)· 0.07 m/s^2]^2 + [\\frac4.91 m/s^2\\sqrt2 (4.91 m/s^2) (3.50 m)· 0.02 m]^2 = 0.05 m/s
 23: \\frac\\delta v_fv_f = \\frac0.05 m/s5.86 m/s = 0.008
 27: t_1 = 1.21 s
 28: t_2 = 1.17 s
@@ -128,7 +128,7 @@ A block is released from rest on a frictionless incline.
 Values with pm carry an uncertainty; results combine them in quadrature.
 
 \\begin{gather*}
-  \\delta v_{f} = \\sqrt{\\left(\\frac{\\partial v_{f}}{\\partial a}\\cdot \\delta a\\right)^{2} + \\left(\\frac{\\partial v_{f}}{\\partial d}\\cdot \\delta d\\right)^{2}} = \\sqrt{\\left(\\frac{d}{\\sqrt{2 a d}}\\cdot \\delta a\\right)^{2} + \\left(\\frac{a}{\\sqrt{2 a d}}\\cdot \\delta d\\right)^{2}} = \\sqrt{\\left(\\frac{3.50\\,\\mathrm{m}}{\\sqrt{2 \\left(4.91\\,\\mathrm{m}/\\mathrm{s}^{2}\\right) \\left(3.50\\,\\mathrm{m}\\right)}}\\cdot 0.07\\,\\mathrm{m}/\\mathrm{s}^{2}\\right)^{2} + \\left(\\frac{4.91\\,\\mathrm{m}/\\mathrm{s}^{2}}{\\sqrt{2 \\left(4.91\\,\\mathrm{m}/\\mathrm{s}^{2}\\right) \\left(3.50\\,\\mathrm{m}\\right)}}\\cdot 0.02\\,\\mathrm{m}\\right)^{2}} = 0.05\\,\\mathrm{m}/\\mathrm{s} \\tag*{how the uncertainty in v\\_f is worked out} \\\\
+  \\delta v_{f} = \\sqrt{\\left(\\frac{\\partial v_{f}}{\\partial a}\\cdot \\delta a\\right)^{2} + \\left(\\frac{\\partial v_{f}}{\\partial d}\\cdot \\delta d\\right)^{2}} = \\sqrt{\\left(\\frac{d}{\\sqrt{2 a d}}\\cdot \\delta a\\right)^{2} + \\left(\\frac{a}{\\sqrt{2 a d}}\\cdot \\delta d\\right)^{2}} = \\sqrt{\\left[\\frac{3.50\\,\\mathrm{m}}{\\sqrt{2 \\left(4.91\\,\\mathrm{m}/\\mathrm{s}^{2}\\right) \\left(3.50\\,\\mathrm{m}\\right)}}\\cdot 0.07\\,\\mathrm{m}/\\mathrm{s}^{2}\\right]^{2} + \\left[\\frac{4.91\\,\\mathrm{m}/\\mathrm{s}^{2}}{\\sqrt{2 \\left(4.91\\,\\mathrm{m}/\\mathrm{s}^{2}\\right) \\left(3.50\\,\\mathrm{m}\\right)}}\\cdot 0.02\\,\\mathrm{m}\\right]^{2}} = 0.05\\,\\mathrm{m}/\\mathrm{s} \\tag*{how the uncertainty in v\\_f is worked out} \\\\
   \\frac{\\delta v_{f}}{v_{f}} = \\frac{0.05\\,\\mathrm{m}/\\mathrm{s}}{5.86\\,\\mathrm{m}/\\mathrm{s}} = 0.008 \\tag*{relative uncertainty}
 \\end{gather*}
 
@@ -419,7 +419,7 @@ exports[`the Reference tab’s examples > Uncertainty: d = 3.50 m pm 0.02 m 2`] 
 "1: d = (3.50 ± 0.02) m
 2: t = (1.21 ± 0.03) s
 3: v = \\fracdt = \\frac3.50 m1.21 s = (2.89 ± 0.07) m/s
-4: \\delta v = \\sqrt(\\frac\\partial v\\partial d· \\delta d)^2 + (\\frac\\partial v\\partial t· \\delta t)^2 = \\sqrt(\\frac1t· \\delta d)^2 + ((-\\fracdt^2)· \\delta t)^2 = \\sqrt(\\frac11.21 s· 0.02 m)^2 + ((-\\frac3.50 m(1.21 s)^2)· 0.03 s)^2 = 0.07 m/s
+4: \\delta v = \\sqrt(\\frac\\partial v\\partial d· \\delta d)^2 + (\\frac\\partial v\\partial t· \\delta t)^2 = \\sqrt(\\frac1t· \\delta d)^2 + [(-\\fracdt^2)· \\delta t]^2 = \\sqrt(\\frac11.21 s· 0.02 m)^2 + ❴[-\\frac3.50 m(1.21 s)^2]· 0.03 s❵^2 = 0.07 m/s
 5: \\frac\\delta vv = \\frac0.07 m/s2.89 m/s = 0.03"
 `;
 

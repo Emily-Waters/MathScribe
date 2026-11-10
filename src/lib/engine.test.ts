@@ -95,6 +95,13 @@ describe('products', () => {
   it('bracket a squared negative value in scientific notation once', () => {
     expect(last('p:sci = -0.0707 angstrom^-0.5\np^2').tex).toMatch(/= \{\\left\(-7\.07 \\times 10\^\{-2\}[^()]*\\right\)\}\^\{2\} =/)
   })
+
+  it('nest brackets as ( ) inside [ ] inside { }, but keep a call’s round', () => {
+    const src = 'a = 1.0\nb = 2.0\nc = 3.0\n'
+    expect(shown(`${src}y = ((a + b) * c)^2`).split(' = ')[1]).toBe('[(a+ b) c]^2')
+    expect(shown(`${src}y = (((a + b) * c)^2 * a)^2`).split(' = ')[1]).toBe('❴[(a+ b) c]^2 a❵^2')
+    expect(shown(`${src}y = sin((a + b) * c)`).split(' = ')[1]).toBe('\\sin((a+ b) c)')
+  })
 })
 
 describe('significant figures', () => {

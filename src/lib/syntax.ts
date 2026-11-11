@@ -184,6 +184,19 @@ export const MEMBER_DOT = '.'
 /** Between a series' name and a member's number: t_1. */
 export const SUBSCRIPT = '_'
 
+// ---------------------------------------------------------------------------
+// Comments, and values in text
+// ---------------------------------------------------------------------------
+
+/** A comment line starts with this: `// check the units`. It's never shown or worked out. */
+export const COMMENT_START = '//'
+
+/** Whether a line (indentation and all) is a comment. */
+export const isComment = (line: string) => line.trimStart().startsWith(COMMENT_START)
+
+/** A value in text, `{{c_Na}}`, `{{V:4 to mL}}` (1: what's between the braces). */
+export const VALUE_IN_TEXT = /\{\{([^{}]+)\}\}/g
+
 /**
  * An import line: `import()` (no file chosen yet) or `import("run1.csv")`,
  * with the file's rows indented under it; or a named one, `run1 = import(…)`,

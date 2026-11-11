@@ -16,6 +16,7 @@ const names = tagHighlighter([
   { tag: t.processingInstruction, class: 'cmd' }, { tag: t.lineComment, class: 'note' }, { tag: t.heading, class: 'head' },
   { tag: t.content, class: 'text' }, { tag: t.quote, class: 'quote' }, { tag: t.special(t.string), class: 'latex' },
   { tag: t.labelName, class: 'title' }, { tag: t.brace, class: 'brace' },
+  { tag: t.comment, class: 'comment' }, { tag: t.special(t.variableName), class: 'value' },
 ])
 
 /** The coloured tokens of a one-line sheet, as `text:kind` (operators and brackets left out). */
@@ -26,6 +27,17 @@ function tokens(line: string): string[] {
   highlightTree(tree, names, (from, to, cls) => out.push(`${line.slice(from, to)}:${cls}`))
   return out
 }
+
+describe('comments and values in text', () => {
+  it('colours a // line as a comment, whatever it holds', () => {
+    expect(tokens('// m = 2 kg # not a calculation')).toEqual(['// m = 2 kg # not a calculation:comment'])
+    expect(tokens('    // indented')).toEqual(['// indented:comment'])
+  })
+
+  it('sets a {{value}} off from the prose around it', () => {
+    expect(tokens('> about {{c_Na:3}} in all')).toContain('{{c_Na:3}}:value')
+  })
+})
 
 describe('highlighting', () => {
   it('reads a unit after a number as a unit, as the engine does', () => {

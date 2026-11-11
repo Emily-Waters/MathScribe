@@ -27,6 +27,8 @@ export const HIDDEN_PREFIX = {
   constant: 'at',
   solved: 'solved',
   unpacked: 'unpacked',
+  /** A value put into text, `{{c_Na}}`, while it's worked out. */
+  inline: 'inline',
 } as const
 
 /** A constant held at full precision: `@c:exact` → at__c__x. */
@@ -58,6 +60,9 @@ export const unpackedName = (id: number) => `${HIDDEN_PREFIX.unpacked}${JOIN}${i
 /** Row `row` of a table's unnamed column `column`. */
 export const unpackedColumnName = (column: number, row: number) =>
   seriesMemberName(`${HIDDEN_PREFIX.unpacked}${JOIN}${COLUMN}${column}`, row)
+
+/** A value in text while it's worked out (there's only ever one at a time). */
+export const INLINE_VALUE_NAME = `${HIDDEN_PREFIX.inline}${JOIN}value`
 
 /** A namespace's member: `a.x_1` → a__x_1. */
 export const memberName = (namespace: string, member: string) => `${namespace}${JOIN}${member}`
@@ -114,6 +119,7 @@ export function parseSeriesStatName(name: string): { base: string; suffix: Serie
 /** Hidden variables: made for the sheet's own use, not listed as its variables. */
 export const isHiddenName = (name: string) =>
   isUncertaintyName(name) || parseConstantRefName(name) !== null || parseSolvedName(name) !== null || isUnpackedName(name)
+  || name === INLINE_VALUE_NAME
 
 /** A namespace's member's namespace and member: a__x_1 → a, x_1 (null if it isn't one). */
 export function parseMemberName(name: string): { namespace: string; member: string } | null {

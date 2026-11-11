@@ -12,11 +12,11 @@ import { tags } from '@lezer/highlight'
 import { closesVector, isUnitName } from '../lib/engine.ts'
 import {
   CALL, COMMAND_NAMES, CONSTANT_TOKEN, DEF_START, FUNCTION_HEAD, GREEK_CHARS, IMPORT, INDENT_WIDTH, KEYWORD, NAME, NAME_CHAR,
-  NUMBER, SETTINGS, UNPACK_SO_FAR, commandPattern, indentOf,
+  COMMENT_START, NUMBER, SETTINGS, UNPACK_SO_FAR, VALUE_IN_TEXT, commandPattern, indentOf, isComment,
 } from '../lib/syntax.ts'
 
 /** What a line is, from how it starts and ends (as document.ts reads it). */
-type LineKind = 'calc' | 'heading' | 'text' | 'latex' | 'opener' | 'def' | 'data'
+type LineKind = 'calc' | 'heading' | 'text' | 'latex' | 'opener' | 'def' | 'data' | 'comment'
 
 /** The tokenizer's state, carried from one token (and line) to the next. */
 interface State {
@@ -73,7 +73,10 @@ function lineKind(line: string): LineKind {
 
 /** The next token on the line, and its kind (a key of tokenTable below). */
 function token(stream: StringStream, state: State): string | null {
-  if (stream.sol()) {
+  if (stream.sol() && isComment(stream.string) && state.dataIndent === null) {
+    // A comment, anywhere (a text block's comment, even indented less, doesn't end it).
+    state.kind = 'comment'
+  } else if (stream.sol()) {
     const indent = indentOf(stream.string)
     // A text block, or imported data, ends at the first line indented no further than its opener.
     // (Imported data also ends at a blank line; see blankLine below.)
@@ -100,6 +103,9 @@ function token(stream: StringStream, state: State): string | null {
   }
 
   switch (state.kind) {
+    case 'comment':
+      stream.skipToEnd()
+      return 'comment'
     case 'heading':
       stream.skipToEnd()
       return 'heading'
@@ -196,14 +202,20 @@ function token(stream: StringStream, state: State): string | null {
   return null
 }
 
-/** `> prose with $inline maths$`: the maths is set off from the prose. */
+/** A value in prose, `{{c_Na}}`, at the current position. */
+const VALUE_TOKEN = new RegExp(`^${VALUE_IN_TEXT.source}`)
+/** Prose up to the next maths or value. */
+const PROSE_RUN = /^(?:[^${]|\{(?!\{))+/
+
+/** `> prose with $inline maths$ and {{values}}`: the maths and values are set off from the prose. */
 function proseToken(stream: StringStream): string {
   if (stream.sol()) {
     stream.eatSpace()
     if (stream.eat('>')) return 'marker'
   }
   if (stream.match(/\$[^$]*\$/)) return 'latex'
-  if (!stream.match(/[^$]+/)) stream.next()
+  if (stream.match(VALUE_TOKEN)) return 'value'
+  if (!stream.match(PROSE_RUN)) stream.next()
   return 'text'
 }
 
@@ -229,6 +241,8 @@ export const mathscribeLanguage = StreamLanguage.define<State>({
     keyword: tags.keyword,
     command: tags.processingInstruction,
     note: tags.lineComment,
+    comment: tags.comment,
+    value: tags.special(tags.variableName),
     heading: tags.heading,
     text: tags.content,
     marker: tags.quote,
@@ -239,8 +253,8 @@ export const mathscribeLanguage = StreamLanguage.define<State>({
     operator: tags.operator,
   },
   languageData: {
-    // (No comment token: a line starting with # is a heading, not a comment,
-    // so Ctrl+/ "toggle comment" would change what the line means.)
+    // Ctrl+/ toggles a `//` comment. (Not #: a line starting with # is a heading.)
+    commentTokens: { line: COMMENT_START },
     // Typing `}` on its own re-indents the line to match its block.
     indentOnInput: /^\s*\}$/,
   },
@@ -249,7 +263,7 @@ export const mathscribeLanguage = StreamLanguage.define<State>({
 /** Whether a line opens an indented block: `Title:`, `name {`, or a `def`. */
 const opensBlock = (text: string) => {
   const t = text.trim()
-  return /^def\s/.test(t) || /[:{]$/.test(bodyOf(t))
+  return DEF_START.test(t) || /[:{]$/.test(bodyOf(t))
 }
 
 /**
@@ -370,8 +384,11 @@ export const mathscribeFolding = foldService.of((state, lineStart, lineEnd) => {
   return last > first.number ? { from: lineEnd, to: doc.line(last).to } : null
 })
 
-/** Whether a line (or the start of it) is a heading, prose or raw LaTeX, where there are no names. */
-export const isProseLine = (before: string) => /^\s*[#>$]/.test(before)
+/** Whether a line (or the start of it) is a heading, prose, raw LaTeX or a comment, where there are no names. */
+export const isProseLine = (before: string) => /^\s*[#>$]/.test(before) || isComment(before)
+
+/** Whether a value in text, `{{…`, is being typed here, where there are names after all. */
+export const inValue = (before: string) => /\{\{[^{}]*$/.test(before) && !isComment(before)
 
 /** A finished display command (followed by a space), anywhere in a line. */
 const TYPED_COMMAND = new RegExp(String.raw`(?:^|\s)#(?:${COMMAND_NAMES.join('|')})(?=\s)`, 'g')

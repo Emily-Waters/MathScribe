@@ -142,17 +142,22 @@ export function RenderedBlock({ block }: { block: Block }) {
     case 'heading': {
       const number = block.number && <span className="doc__heading-number">{block.number}</span>
       const text = <Title text={block.text} />
-      if (block.level === 1) return <h3 className="doc__heading doc__heading--section" {...link(block.line)}>{number}{text}</h3>
-      if (block.level === 2) return <h4 className="doc__heading doc__heading--subsection" {...link(block.line)}>{number}{text}</h4>
-      return <p className="doc__heading doc__heading--bold" {...link(block.line)}>{text}</p>
+      // (A value in it that couldn't be worked out is explained under it.)
+      const error = block.error && <LineMessage kind="error" line={block.line} text={block.error} />
+      if (block.level === 1) return <>{<h3 className="doc__heading doc__heading--section" {...link(block.line)}>{number}{text}</h3>}{error}</>
+      if (block.level === 2) return <>{<h4 className="doc__heading doc__heading--subsection" {...link(block.line)}>{number}{text}</h4>}{error}</>
+      return <><p className="doc__heading doc__heading--bold" {...link(block.line)}>{text}</p>{error}</>
     }
     case 'text':
       return (
-        <p className="doc__text" {...link(block.line)}>
-          {splitInlineMath(block.text).map((seg, i) =>
-            seg.math ? <Tex key={i} latex={seg.value} /> : <span key={i}>{seg.value}</span>,
-          )}
-        </p>
+        <>
+          <p className="doc__text" {...link(block.line)}>
+            {splitInlineMath(block.text).map((seg, i) =>
+              seg.math ? <Tex key={i} latex={seg.value} /> : <span key={i}>{seg.value}</span>,
+            )}
+          </p>
+          {block.error && <LineMessage kind="error" line={block.line} text={block.error} />}
+        </>
       )
     case 'latex':
       return <div className="calc" {...link(block.line)}><Tex latex={block.latex} display /></div>

@@ -98,6 +98,7 @@ amber one; hover the bar to read the message.
 | Shift+Alt+↑ / ↓ | Duplicate the line |
 | Ctrl+Click a function's name, or F12 | Go to its definition (names you can jump from are underlined while Ctrl is held) |
 | Ctrl+F | Find and replace |
+| Ctrl+/ | Comment or uncomment the line (or selected lines) with `//` |
 | Ctrl+Z / Ctrl+Y | Undo / redo |
 
 On a Mac, use ⌘ for Ctrl. `def` bodies, `:` layout blocks and `{ }` blocks fold
@@ -220,6 +221,8 @@ block's first line to hide it. The dialog remembers your last choices.
 | `## Title` | `\subsection{Title}`, numbered 1.1, 1.2, … |
 | `### Title` (or more `#`) | `\textbf{Title}` bold run-in heading |
 | `> Some text` | paragraph; `$...$` for inline LaTeX |
+| `> It took {{V_avg}}.` | a variable's value in text (see Values in text) |
+| `// a note to self` | a comment: never shown or worked out |
 | `$ \LaTeX` | raw LaTeX, displayed but not evaluated |
 | `Title {` … `}` | a block that scopes its variables |
 | `Title:  #numbered` + indented lines | a layout block: centered, bulleted or numbered |
@@ -231,6 +234,30 @@ subscript: `Hydrogen 2p_z orbital {` shows 2p with a subscript z, and `x_{max}`
 takes a longer one. Write `\_` for a plain underscore. `$…$` adds inline maths,
 as in `>` text: `## Energy $E_n = -13.6/n^2$ eV`. The LaTeX export uses
 `\textsubscript` and `$…$` to match.
+
+**Values in text:** `{{name}}` in a `>` line, a `#text` block, a heading or a
+block's title puts in the variable's value, as it is at that point in the sheet,
+with its unit, sig figs and any uncertainty. Numbers in your discussion then stay
+right when the data changes.
+
+```
+V1 = 27.55 mL
+V2 = 27.10 mL
+> The average volume was {{V_avg}}, or {{V_avg to L}}.   → (27.3 ± 0.2) mL, or (0.0273 ± 0.0002) L
+## Moles in {{V1:3}} of solution                         → Moles in 27.6 mL of solution
+```
+
+- Settings go on the name as on any line (`{{x:3}}`, `{{x:sci}}`), and `to`
+  converts. Any expression works too: `{{2 * m}}`, `{{delta F}}`, `{{a.x_1}}`.
+- A value is worked out where the text is, so it must be defined above it. A name
+  that isn't (or a typo) is marked as an error on that line, and left as typed.
+- In the exports, each value is inline maths. Inside `$…$`, `{{…}}` is left alone.
+- Typing `{{` suggests names, as in a calculation.
+
+**Comments:** a line starting with `//` is never shown or worked out, wherever it
+is: between calculations, inside a block or function, or in a `#text` block (where
+it doesn't end the block or split a paragraph, even if it's indented less).
+Ctrl+/ comments or uncomments the selected lines.
 
 **Spacing:** one blank line between lines is just for readability in the input and
 doesn't change the output. Two or more blank lines leave one empty line in the

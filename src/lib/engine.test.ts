@@ -197,7 +197,11 @@ describe('names with subscripts', () => {
     for (const [name, tex] of [['v_fx', 'v_{fx}'], ['p_tx', 'p_{tx}'], ['v_Ai', 'v_{Ai}'], ['F_AB', 'F_{AB}'], ['v_x1', 'v_{x1}']]) {
       expect(symbolTex(name)).toBe(tex)
     }
-    for (const [name, tex] of [['v_cm', 'v_{\\mathrm{cm}}'], ['x_eq', 'x_{\\mathrm{eq}}'], ['F_net_x', 'F_{\\mathrm{net},x}'], ['E_thermal', 'E_{\\mathrm{thermal}}']]) {
+    for (const [name, tex] of [
+      ['v_cm', 'v_{\\mathrm{cm}}'], ['x_eq', 'x_{\\mathrm{eq}}'], ['F_net_x', 'F_{\\mathrm{net},x}'], ['E_thermal', 'E_{\\mathrm{thermal}}'],
+      // Element symbols stay upright: c(Na), not c with an italic N and a.
+      ['c_Na', 'c_{\\mathrm{Na}}'], ['n_Mg', 'n_{\\mathrm{Mg}}'],
+    ]) {
       expect(symbolTex(name)).toBe(tex)
     }
   })

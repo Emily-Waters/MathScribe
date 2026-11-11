@@ -76,6 +76,9 @@ export const mathscribeHighlight = HighlightStyle.define([
   { tag: tags.keyword, color: v('keyword'), fontWeight: '600' },
   { tag: tags.processingInstruction, color: v('command'), fontWeight: '600' },
   { tag: tags.lineComment, color: v('note'), fontStyle: 'italic' },
+  // A `//` comment line, in the note's colour; a `{{value}}` in prose, as a variable.
+  { tag: tags.comment, color: v('note'), fontStyle: 'italic' },
+  { tag: tags.special(tags.variableName), color: v('variable') },
   { tag: tags.heading, color: v('heading'), fontWeight: '700' },
   { tag: tags.content, color: v('text') },
   { tag: tags.quote, color: v('note') },

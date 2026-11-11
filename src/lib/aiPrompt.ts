@@ -99,6 +99,7 @@ export const defaultChoices = (kind: CreateKind): Record<string, boolean> =>
  */
 export const SNIPPETS = {
   products: 'm = 2.00 kg\nv = 3.0 m/s\nK = 1/2 * m * v^2',
+  valueInText: '// a comment\nT1 = 1.21 s\nT2 = 1.17 s\n> The mean period was {{T_avg}}.',
   convert: 'v = 25.0 m/s\nv_kmh = v to km/h',
   angle: 'theta = asin(0.50) to deg',
   settings: 'phi:3:deg = atan(0.75)',
@@ -161,9 +162,12 @@ uncertainties carried through automatically.
 - \`name = expression\`: a calculation (the main kind of line).
 - \`# Title\`, \`## Title\`, \`### Title\`: section, subsection, bold heading.
 - \`> Some text\`: a paragraph of prose; \`$...$\` inside it is inline LaTeX.
+- \`{{name}}\` in prose or a heading puts in a variable's value as worked out above it, with
+  its unit and sig figs: \`> The mean was {{T_avg}}.\` Settings and \`to\` work: \`{{V:3 to L}}\`.
+${code(SNIPPETS.valueInText)}
 - \`$ \\LaTeX\`: raw LaTeX, displayed but not evaluated.
 - \`x = 3  # note\`: text after \` # \` on a calculation is its description.
-- A line starting with \`#\` is ALWAYS a heading. There are no comment lines: use \`>\` for text.
+- \`// …\`: a comment, never shown. A line starting with \`#\` is ALWAYS a heading.
 - A blank line is just spacing; two blank lines leave a gap in the output.
 
 ## Calculations
@@ -240,7 +244,8 @@ ${code(SNIPPETS.plot)}
 - Don't write LaTeX in calculation lines (\`\\frac\`, \`\\cdot\`); write plain maths.
 - Don't write \`(a, b)\` for a pair: use \`tuple(a, b)\`. \`<3.0, 4.0> N\` is a vector.
 - Don't put a unit after a variable (\`m kg\`), or leave out \`*\`.
-- Don't use \`#\` for a comment on its own line: it makes a heading.
+- Don't use \`#\` for a comment on its own line: it makes a heading. Use \`//\`.
+- Don't type a computed number into prose: use \`{{name}}\`, so it stays right.
 
 ## Questions and solutions
 Write every question first, then a \`# Solutions\` section at the end, with one block per

@@ -32,7 +32,7 @@ import { readStored, writeStored } from '../lib/storage.ts'
 import { CALL, GREEK_CHARS, KEYWORD, NAME, NAME_CHAR, PERCENT, SETTINGS } from '../lib/syntax.ts'
 import { memberName, parseMemberName, parseNumberedName, seriesMemberName } from '../lib/names.ts'
 import { BUILTIN_FUNCTIONS, COMMANDS, KEYWORDS, MATH_CONSTANTS, SERIES_SUFFIXES, SETTING_WORDS } from './vocabulary.ts'
-import { inDataBlock, inNote, inTextBlock, isProseLine } from './language.ts'
+import { inDataBlock, inNote, inTextBlock, inValue, isProseLine } from './language.ts'
 import { greekCompletions, greekOnSpace } from './greek.ts'
 
 // ---------------------------------------------------------------------------
@@ -221,18 +221,21 @@ function nameOptions(visible: SheetSymbol[]): Completion[] {
 export function complete(ctx: CompletionContext): CompletionResult | null {
   const line = ctx.state.doc.lineAt(ctx.pos)
   const before = line.text.slice(0, ctx.pos - line.from)
-  if (isProseLine(before) || inTextBlock(ctx.state.doc, line.number) || inDataBlock(ctx.state.doc, line.number)) return null
+  if (inDataBlock(ctx.state.doc, line.number)) return null
+  // Prose has no names, except in a value being typed: `{{c_`.
+  const value = inValue(before)
+  if (!value && (isProseLine(before) || inTextBlock(ctx.state.doc, line.number))) return null
 
   // `#…` after the line's text: display commands.
   const command = /(?:^|\s)(#\w*)$/.exec(before)
-  if (command && before.trim() !== command[1]) {
+  if (!value && command && before.trim() !== command[1]) {
     return {
       from: ctx.pos - command[1].length,
       options: COMMANDS.map((c) => ({ label: c.name, type: 'keyword', detail: c.description })),
       validFor: /^#\w*$/,
     }
   }
-  if (inNote(before)) return null
+  if (!value && inNote(before)) return null
 
   // `\…`: a Greek letter, typed as its character.
   const greek = greekCompletions(before, ctx.pos)

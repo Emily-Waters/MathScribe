@@ -41,7 +41,7 @@ import {
   type VectorStyle,
 } from './syntax.ts'
 import {
-  FIT, JOIN, RESERVED_NAMESPACES, constantRefName, expandDots, isHiddenName, isUncertaintyName, memberName,
+  FIT, INLINE_VALUE_NAME, JOIN, RESERVED_NAMESPACES, constantRefName, expandDots, isHiddenName, isUncertaintyName, memberName,
   parseConstantRefName, parseMemberName, parseNumberedName, parseSeriesStatName, parseSolvedName, parseUncertaintyName, readableMembers,
   seriesMemberName, solvedName, uncertaintyName, unpackedColumnName, unpackedName,
 } from './names.ts'
@@ -604,6 +604,9 @@ export function preprocess(src: string, isVariable: (id: string) => boolean): { 
 
 // (Each delta F, @c and solved unknown is held in a hidden variable: see names.ts.)
 
+/** A value in text with settings on its name: `V:4 to mL` (1: the name, 2: the settings, 3: the rest). */
+const NAME_THEN_SETTINGS = new RegExp(String.raw`^(${NAME})((?::[^:\s]+)+)(.*)$`)
+
 /** `delta F` (or `Delta F`): F's uncertainty (1: the letter, 2: the name). */
 const DELTA_REF = new RegExp(String.raw`\b(${UNCERTAINTY_WORDS.join('|')})\s+(${NAME})`, 'g')
 
@@ -755,10 +758,11 @@ const NUMBERED_LABEL = new RegExp(String.raw`^([A-Za-z${GREEK_CHARS}])(\d+[A-Za-
 
 /**
  * A short subscript made of labels rather than a word: a number and a letter
- * (`1x`, `x1`), a letter and a component (`fx`, `tx`), or a capital with a
- * letter (`Ai`, `AB`). Words (`net`, `max`, `cm`, `eq`) aren't.
+ * (`1x`, `x1`), a letter and a component (`fx`, `tx`), a capital and initial or
+ * final (`Ai`, `Bf`), or two capitals (`AB`). Words (`net`, `max`, `cm`, `eq`)
+ * aren't, and nor are element symbols (`Na`, `Ca`, `Mg`), which stay upright.
  */
-const LABELS = /^(?:\d+[A-Za-z]|[A-Za-z]\d+|[A-Za-z][xyz]|[A-Z][a-z]|[A-Z]{2})$/
+const LABELS = /^(?:\d+[A-Za-z]|[A-Za-z]\d+|[A-Za-z][xyz]|[A-Z][if]|[A-Z]{2})$/
 
 /** A subscript as LaTeX: labels each as itself (`fx` → f x, letters italic), a word upright (`net`). */
 const subscriptPart = (s: string) => (LABELS.test(s) ? [...s].map(namePart).join('') : namePart(s))
@@ -2617,6 +2621,30 @@ export class Calculator {
     return { columns: out }
   }
 
+  /**
+   * A value for text, `{{c_Na}}`, as LaTeX: its value now, with its sig figs,
+   * unit and uncertainty. Settings go on the name as on any line (`V:4`,
+   * `x:sci`), and `to` converts (`V to mL`); any expression works.
+   */
+  inlineValue(source: string): { tex?: string; error?: string } {
+    const text = expandDots(source.trim())
+    const settings = NAME_THEN_SETTINGS.exec(text)
+    // A name on its own is read as a line of its own, so it shows as the variable
+    // does (in the unit it was typed in); anything else is worked out as a value.
+    const line = IS_NAME.test(text)
+      ? text
+      : settings
+        ? `${INLINE_VALUE_NAME}${settings[2]} = ${settings[1]}${settings[3]}`
+        : `${INLINE_VALUE_NAME} = ${text}`
+    try {
+      const result = this.evaluateLine(line, 'val', true)
+      if (result.error) return { error: readableMembers(result.error) }
+      return { tex: nestBrackets(result.parts?.result ?? result.tex) }
+    } finally {
+      this.forget(INLINE_VALUE_NAME)
+    }
+  }
+
   defineConstant(input: string): CalcResult {
     const name = ASSIGNMENT.exec(input)?.[1]
     if (!name) return { tex: '', error: 'Inside @constants, each line is "name = value".' }
@@ -3977,7 +4005,9 @@ export class Calculator {
       // A call to a function that declares its result's unit (`conc(n, V):mol/L`) keeps that unit, as a conversion does.
       const called = isFunctionNode(bare) ? this.scope.get(bare.fn.name) : undefined
       const declaresUnit = typeof called === 'function' && !!this.userFunctions.get(called)?.returnUnit
-      value = normalise(expr.compile().evaluate(this.scope), isConversion(expr) || isLiteral(expr) || declaresUnit)
+      // A name on its own (`c`, `y = c`) is shown as the variable is: in its unit.
+      const justAName = isSymbolNode(bare)
+      value = normalise(expr.compile().evaluate(this.scope), isConversion(expr) || isLiteral(expr) || declaresUnit || justAName)
       // A value typed with a unit keeps that unit wherever it's shown (L = 1.00e-10 m
       // stays in m, not 100 pm), as a conversion's result does.
       if (isLiteral(expr) && math.isUnit(value)) (value as Unit).fixPrefix = true

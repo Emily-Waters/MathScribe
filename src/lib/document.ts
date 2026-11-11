@@ -11,8 +11,8 @@ import {
 } from './engine.ts'
 import {
   ASSIGNMENT, CONSTANT_DECLARATION, EXACT_SETTING, DEF, DEF_HEAD, FUNCTION_HEAD, IMPORT, LAYOUT_STYLES, LEADING_NAME, LINE_COMMANDS,
-  MULTILINE, NAME_WITH_SETTINGS, NOTATIONS, PLOT_CALL, SELECT_CALL, UNPACK_HEAD, commandPattern, indentOf, type LayoutStyle, type LineCommand,
-  type Notation,
+  MULTILINE, NAME_WITH_SETTINGS, NOTATIONS, PLOT_CALL, SELECT_CALL, UNPACK_HEAD, VALUE_IN_TEXT, commandPattern, indentOf, isComment,
+  type LayoutStyle, type LineCommand, type Notation,
 } from './syntax.ts'
 import { parseCsv, type CsvData } from './csv.ts'
 import type { PlotData } from './plot.ts'
@@ -69,8 +69,15 @@ function readCsv(rows: string[]): CsvData {
  */
 export type Block =
   /** `#` → 1 (section), `##` → 2 (subsection), `###` or more → 3 (bold paragraph) */
-  | { kind: 'heading'; line: number; level: 1 | 2 | 3; text: string; /** "2" or "2.1", as LaTeX numbers it */ number?: string }
-  | { kind: 'text'; line: number; text: string }
+  | {
+    kind: 'heading'; line: number; level: 1 | 2 | 3; text: string
+    /** "2" or "2.1", as LaTeX numbers it */
+    number?: string
+    /** A value in its text (`{{x}}`) that couldn't be worked out. */
+    error?: string
+  }
+  /** Prose; `{{x}}` in it is replaced by x's value, as inline maths. */
+  | { kind: 'text'; line: number; text: string; error?: string }
   | { kind: 'latex'; line: number; latex: string }
   /** A gap of one empty line, from two or more blank lines in the input. */
   | { kind: 'spacer'; line: number }
@@ -272,6 +279,21 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
   /** Blocks currently open: `{ }` groups, and indentation-based layout blocks. */
   const open: (GroupBlock | LayoutBlock)[] = []
   const add = (b: Block) => (open.at(-1)?.children ?? root).push(b)
+  /**
+   * Text with each `{{x}}` (outside `$…$`) as x's value at this point in the
+   * sheet, in inline maths; and what's wrong with the first that can't be worked out.
+   */
+  const withValues = (text: string): { text: string; error?: string } => {
+    if (!text.includes('{{')) return { text }
+    let error: string | undefined
+    const filled = text.split(/(\$[^$]*\$)/).map((part, i) => (i % 2 ? part : part.replace(VALUE_IN_TEXT, (whole, source: string) => {
+      const v = calc.inlineValue(source)
+      if (v.tex !== undefined) return `$${v.tex}$`
+      error ??= `${whole}: ${v.error}`
+      return whole
+    }))).join('')
+    return { text: filled, error }
+  }
   const lastLine = (b: Block): number =>
     ('endLine' in b && b.endLine) || b.line
   /** Close the innermost layout block, at its last line. */
@@ -338,7 +360,7 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
         closed = true
         break
       }
-      if (!text || text.startsWith('#')) continue
+      if (!text || text.startsWith('#') || isComment(text)) continue
       const entry = splitNote(text)
       if (parseDeclaration(entry.body)) {
         declarations.push(entries.length)
@@ -376,6 +398,8 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
       blankRun++
       continue
     }
+    // A comment is as if it weren't there: it doesn't end a block, or break up blank lines.
+    if (isComment(trimmed)) continue
     // Layout blocks end at the first line indented no further than their opener.
     const indent = indentOf(raw)
     while (open.at(-1)?.kind === 'layout' && indent <= (open.at(-1) as LayoutBlock).indent) closeLayout()
@@ -420,11 +444,11 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
         subsection++
         number = `${section}.${subsection}`
       }
-      add({ kind: 'heading', line, level, number, text: trimmed.replace(/^#+/, '').trim() })
+      add({ kind: 'heading', line, level, number, ...withValues(trimmed.replace(/^#+/, '').trim()) })
       continue
     }
     if (trimmed.startsWith('>')) {
-      add({ kind: 'text', line, text: trimmed.slice(1).trim() })
+      add({ kind: 'text', line, ...withValues(trimmed.slice(1).trim()) })
       continue
     }
     if (trimmed.startsWith('$')) {
@@ -475,6 +499,7 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
       while (idx + 1 < lines.length && (!lines[idx + 1].trim() || indentOf(lines[idx + 1]) > defIndent)) {
         idx++
         const text = lines[idx].trim()
+        if (isComment(text)) continue
         // Blank lines at the end of the body count toward the gap after the function.
         blankRun = text ? 0 : blankRun + 1
         if (!text || text.startsWith('#')) continue // blank lines and comments
@@ -505,19 +530,22 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
     } else if (body.endsWith(':') && layout === 'text') {
       // `Title:  #text`: the lines indented under it are prose, not calculations.
       // Lines run together into paragraphs; a blank line starts a new one.
+      const title = withValues(body.slice(0, -1).trim())
       const block: LayoutBlock = {
-        kind: 'layout', line, title: body.slice(0, -1).trim(), note, style: 'text', children: [], indent,
-        command: command ?? (inherited === 'hide' ? 'hide' : undefined),
+        kind: 'layout', line, title: title.text, note, style: 'text', children: [], indent,
+        command: command ?? (inherited === 'hide' ? 'hide' : undefined), error: title.error,
       }
       let paragraph: { line: number; text: string[] } | null = null
       let lastText = line
       const endParagraph = () => {
-        if (paragraph) block.children.push({ kind: 'text', line: paragraph.line, text: paragraph.text.join(' ') })
+        if (paragraph) block.children.push({ kind: 'text', line: paragraph.line, ...withValues(paragraph.text.join(' ')) })
         paragraph = null
       }
-      while (idx + 1 < lines.length && (!lines[idx + 1].trim() || indentOf(lines[idx + 1]) > indent)) {
+      // (A comment, even one indented less, doesn't end the block.)
+      while (idx + 1 < lines.length && (!lines[idx + 1].trim() || indentOf(lines[idx + 1]) > indent || isComment(lines[idx + 1]))) {
         idx++
         const text = lines[idx].trim()
+        if (isComment(text)) continue
         // Blank lines at the end of the block count toward the gap after it.
         blankRun = text ? 0 : blankRun + 1
         if (!text) {
@@ -536,20 +564,25 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
       add(block)
     } else if (body.endsWith(':')) {
       // `Title:  #numbered`: the lines indented under it are laid out together.
+      const title = withValues(body.slice(0, -1).trim())
       const block: LayoutBlock = {
-        kind: 'layout', line, title: body.slice(0, -1).trim(), note, style: layout, children: [], indent,
+        kind: 'layout', line, title: title.text, note, style: layout, children: [], indent,
         command: command ?? (inherited === 'hide' ? 'hide' : undefined),
         multiline: ownMultiline || undefined,
         notation: ownNotation,
+        error: title.error,
       }
       add(block)
       open.push(block)
     } else if (body.endsWith('{')) {
+      // (Values in its title are the ones from before the block.)
+      const title = withValues(body.slice(0, -1).trim())
       const group: GroupBlock = {
-        kind: 'group', line, title: body.slice(0, -1).trim(), note, children: [], locals: [],
+        kind: 'group', line, title: title.text, note, children: [], locals: [],
         command: command ?? (inherited === 'hide' ? 'hide' : undefined),
         multiline: ownMultiline || undefined,
         notation: ownNotation,
+        error: title.error,
       }
       add(group)
       open.push(group)
@@ -837,6 +870,8 @@ export function collectDiagnostics(blocks: Block[]): Map<number, Diagnostic> {
         break
       }
       case 'import':
+      case 'heading':
+      case 'text':
         put(b.line, 'error', b.error)
         break
       case 'constants':

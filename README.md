@@ -1054,7 +1054,17 @@ Roughly in priority order.
 - [ ] **Inline results**: a faint value at the end of each line in the editor
       (`F = m * a   ⟶ 19.6 N`).
 
-### 4. Lab work
+### 4. More maths (what Mathcad has that courses need)
+
+- [ ] **Numerical integrals and derivatives**: `integral(f(x), x, 0, 2)` and
+      `derivative(f(x), x, 1.5)`, with units, sig figs and uncertainty carried through,
+      and the working shown.
+- [ ] **Systems of equations**: solve several equations for several unknowns at once,
+      e.g. both final velocities in a collision.
+- [ ] **Piecewise and conditional functions**: `if` in functions, and functions defined
+      piece by piece (a force that switches on at a time, a spring that only pushes).
+
+### 5. Lab work
 
 - [ ] **Plot functions**, not just data: `plot(t, x, f(t))`, or a curve over a range.
 - [ ] **Non-linear fits**: quadratic, exponential and power-law fits, alongside the
@@ -1077,7 +1087,7 @@ Roughly in priority order.
   - **Concentration**: a molarity unit (`M` itself is taken by the mega prefix, so
     `molar`, or just `mol/L`).
 
-### 5. Housekeeping
+### 6. Housekeeping
 
 - [ ] **Evaluate in a web worker**, if very long sheets still lag once typing pauses.
 - [ ] **Narrow screens**: a stacked layout, or an Input / Output switch, for

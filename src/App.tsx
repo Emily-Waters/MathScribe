@@ -18,6 +18,7 @@ import { loadAcceptKeys, saveAcceptKeys, type AcceptKeys } from './editor/intell
 import { applyAppTheme, loadAppTheme, saveAppTheme, useAppearance, watchSystemTheme, type AppThemeId } from './appTheme.ts'
 import { ThemeMenu } from './components/ThemeMenu.tsx'
 import { CreateDialog } from './components/CreateDialog.tsx'
+import { ErrorBoundary } from './components/ErrorBoundary.tsx'
 import { DEFAULT_CALC_OPTIONS, EVALUATION } from './config.ts'
 import { useSettled } from './useSettled.ts'
 import './App.css'
@@ -218,6 +219,7 @@ export default function App() {
             />
           }
           right={
+            <ErrorBoundary name="The output" resetKey={sheet}>
             <PreviewPane
               sheet={sheet}
               options={options}
@@ -229,6 +231,7 @@ export default function App() {
               onInsert={insertText}
               onRemoveImport={removeImport}
             />
+            </ErrorBoundary>
           }
         />
       </main>

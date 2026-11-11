@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { EXAMPLE_CALC_OPTIONS } from '../config.ts'
-import { evaluateSheet } from '../lib/document.ts'
+import { evaluateSheetSafely } from '../lib/document.ts'
 import { symbolTex } from '../lib/engine.ts'
 import { LIBRARY, searchLibrary, type LibraryEntry } from '../lib/library.ts'
 import { copyText, useFlash } from '../useFlash.ts'
@@ -77,7 +77,7 @@ function Entry({ entry: e, message, onInsert, onCopy }: {
   onCopy: () => void
 }) {
   // The function and its example, evaluated together as one small sheet.
-  const blocks = useMemo(() => evaluateSheet(`${e.source}\n${e.example}`, EXAMPLE_CALC_OPTIONS).blocks, [e])
+  const blocks = useMemo(() => evaluateSheetSafely(`${e.source}\n${e.example}`, EXAMPLE_CALC_OPTIONS).blocks, [e])
   return (
     <div className="ref__example lib__entry">
       <div className="lib__head">

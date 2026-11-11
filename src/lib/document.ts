@@ -1,4 +1,4 @@
-import { Calculator, type CalcOptions, type FunctionLine, type Variable, symbolTex } from './engine.ts'
+import { Calculator, type CalcOptions, type FunctionLine, type Variable, symbolTex, unexpectedError } from './engine.ts'
 import {
   ASSIGNMENT, CONSTANT_DECLARATION, EXACT_SETTING, DEF, DEF_HEAD, FUNCTION_HEAD, IMPORT, LAYOUT_STYLES, LEADING_NAME, LINE_COMMANDS,
   DISPLAY_MODE, LAYOUT_STYLE, LINE_COMMAND, MULTILINE, NAME_WITH_SETTINGS, NOTATIONS, PLOT_CALL, SELECT_CALL, UNPACK_HEAD, VALUE_IN_TEXT,
@@ -127,8 +127,19 @@ function splitNote(text: string): {
 /** A sheet evaluated, and how long that took (ms), to decide when to evaluate it next. */
 export function evaluateSheetTimed(source: string, options: CalcOptions): { sheet: Sheet; ms: number } {
   const started = performance.now()
-  const sheet = evaluateSheet(source, options)
-  return { sheet, ms: performance.now() - started }
+  return { sheet: evaluateSheetSafely(source, options), ms: performance.now() - started }
+}
+
+/**
+ * A sheet evaluated, whatever happens: if reading it fails in a way nothing
+ * expected, the sheet is one error saying so, rather than the app going blank.
+ */
+export function evaluateSheetSafely(source: string, options: CalcOptions): Sheet {
+  try {
+    return evaluateSheet(source, options)
+  } catch (e) {
+    return { blocks: [{ kind: BLOCK_KIND.calc, line: 1, source: '', tex: '', error: unexpectedError(e) }], variables: [] }
+  }
 }
 
 /** Read and evaluate a whole sheet, line by line, into blocks. */

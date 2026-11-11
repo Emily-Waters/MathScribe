@@ -1,6 +1,6 @@
 import { useMemo, useRef, type RefObject } from 'react'
 import { EXAMPLE_CALC_OPTIONS } from '../config.ts'
-import { evaluateSheet } from '../lib/document.ts'
+import { evaluateSheetSafely } from '../lib/document.ts'
 import { BUILTIN_CONSTANTS } from '../lib/constants.ts'
 import { REFERENCE } from '../lib/reference.ts'
 import { copyText, useFlash } from '../useFlash.ts'
@@ -17,7 +17,7 @@ export function ReferencePane() {
   // Evaluated once, when the tab is first opened.
   const rendered = useMemo(() => REFERENCE.map((section) => ({
     ...section,
-    examples: section.examples.map((ex) => ({ ...ex, blocks: evaluateSheet(ex.source, EXAMPLE_CALC_OPTIONS).blocks })),
+    examples: section.examples.map((ex) => ({ ...ex, blocks: evaluateSheetSafely(ex.source, EXAMPLE_CALC_OPTIONS).blocks })),
   })), [])
   const [flash, showFlash] = useFlash<string>()
   const scroller = useRef<HTMLDivElement>(null)

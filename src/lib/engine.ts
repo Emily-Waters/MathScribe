@@ -414,6 +414,10 @@ export interface Definition {
   members?: number
 }
 
+/** An error nothing expected, as a message for its line. */
+export const unexpectedError = (e: unknown): string =>
+  `This couldn't be worked out: ${e instanceof Error ? e.message : String(e)}`
+
 /** A missing p.slope (or intercept, r2, chi2) explained: a plot has one only with a fit. */
 function fitHint(message: string): string {
   const m = MISSING_FIT_MEMBER.exec(message)
@@ -3376,6 +3380,9 @@ export class Calculator {
         tex: nestBrackets(tex), error: readable(error), warning: readable(warning), info: readable(info), returnNote, plot, defines,
         trace: trace?.length ? trace.map((t) => ({ ...t, tex: nestBrackets(t.tex) })) : undefined,
       }
+    } catch (e) {
+      // Anything a line's own handling didn't catch stays that line's error, not the whole sheet's.
+      return { tex: '', error: readableSpecies(readableMembers(unexpectedError(e))) }
     } finally {
       this.multiline = false
       this.lineNotation = {}

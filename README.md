@@ -1,31 +1,39 @@
 # MathScribe
 
 A plain-text calculation sheet. Type calculations on the left, one per line;
-variables carry forward to later lines, units, significant figures and
-uncertainties are tracked, and every line is typeset on the right as
-`symbolic = substituted = result`. The sheet exports to LaTeX.
+every line is typeset on the right as `symbolic = substituted = result`, the way
+working is written by hand.
 
-**Use it online:** <https://emily-waters.github.io/MathScribe/>
-
-To run it locally:
+**Use it online:** <https://emily-waters.github.io/MathScribe/> (nothing to
+install, no sign-in, and nothing leaves your browser).
 
 ```
-npm install
-npm run dev
+m = 2.00 kg pm 0.05 kg
+a = 9.81 m/s^2
+F = m * a              →  F = ma = (2.00 kg)(9.81 m/s²) = (19.6 ± 0.5) N
 ```
 
-**Testing:** `npm test` runs the tests once; `npm run test:watch` re-runs them as
-you edit. They cover the calculation rules, the sheet structure and LaTeX export,
-and the editor's highlighting, indentation, folding and suggestions. The golden
-tests (`src/lib/golden.test.ts`) record the full output of whole sheets (the
-sample sheet, a hydrogen-orbitals worksheet and every Reference example) in
-`src/lib/__snapshots__/`; when a change alters that output on purpose, check the
-difference and update the recording with `npx vitest run -u`.
+**What it does:**
 
-**Deploying:** every push to `main` lints, tests and builds the site and
-publishes it to GitHub Pages (`.github/workflows/deploy.yml`); progress shows in
-the repository's Actions tab. If any step fails, nothing is published. The build uses `/MathScribe/` as its base path (`vite.config.ts`), so if the
-repository is renamed, change it there too.
+- **Units** carried through every calculation, converted with `to`, and tidied
+  (kg·m/s² becomes N).
+- **Significant figures** counted as typed and applied by the usual rules.
+- **Uncertainties** (`pm`) propagated automatically, correlations included, with
+  the working shown on request.
+- **Working shown**: the formula, the values substituted, and the result, for
+  every line, including inside your own functions.
+- **Data**: CSV import, series statistics, tables, plots with weighted linear
+  fits, and selections of rows.
+- **Chemistry**: formulas, molarity, and species that cancel like units.
+- **Solving**: equations rearranged and solved for an unknown.
+- **Documents**: headings, prose with live values, lists and blocks; exported to
+  LaTeX and to Word with editable equations.
+- **Create with AI**: a prompt for any AI model to write a sheet (a test, an
+  assignment, a lab write-up), and its answer opened as a sheet.
+
+**Contents:** [The window](#the-window) · [Saving](#saving) ·
+[Create with AI](#create-with-ai) · [Syntax](#syntax) · [To do](#to-do) ·
+[Development](#development) · [Structure](#structure)
 
 Built on [mathjs](https://mathjs.org) (parsing, evaluation, units),
 [KaTeX](https://katex.org) (rendering) and [CodeMirror](https://codemirror.net)
@@ -200,6 +208,18 @@ end, which starts by defining the question's values; add `#hide` to a solution
 block's first line to hide it. The dialog remembers your last choices.
 
 ## Syntax
+
+**In this section:** [Display commands](#display-commands) ·
+[Layout blocks](#layout-blocks) · [Functions](#functions) ·
+[Blocks and scope](#blocks-and-scope) · [Greek letters](#greek-letters) ·
+[Built-in functions](#built-in-functions) · [Vectors](#vectors) ·
+[Tuples](#tuples-and-coordinates) · [Units](#units) ·
+[Significant figures](#significant-figures) · [Uncertainty](#uncertainty) ·
+[Constants](#constants) · [Chemistry](#chemistry) ·
+[Solving equations](#solving-equations) · [Series](#series-sums-means-and-counts) ·
+[Tables](#tables) · [Plots](#plots) ·
+[Selections](#selections-and-names-with-a-dot) ·
+[Importing data](#importing-data-csv)
 
 | Line | Meaning |
 | --- | --- |
@@ -657,7 +677,6 @@ usual rules:
   scientific notation: 1.50 × 10³.
 - Results of exact inputs aren't limited by sig figs (`1/3 ≈ 0.333333`); write
   `name:3 = …` to choose.
-- Hover a variable in a block's Local row to see its sig figs.
 
 Pick a number instead of Auto to show every result to that many sig figs.
 
@@ -1107,79 +1126,112 @@ x_avg
 
 ## To do
 
-Roughly in priority order.
+In priority order within each group. The first two groups are what stands
+between MathScribe and a general calculation tool like Mathcad; the rest make
+what's here better.
 
-### 1. Quality of life
+### 1. Maths (the gap to Mathcad)
 
-- [ ] **Remember the output options** (sig figs, substitution, ≈) in the browser.
+- [ ] **Conditionals and piecewise functions**: `if` in functions and expressions
+      (`F = if(x > 0, k * x, 0 N)`), and functions defined piece by piece. Most
+      engineering checks ("is the stress below the limit?") need this, with a
+      pass/fail line that shows the comparison.
+- [ ] **Systems of equations**: `solve` for several unknowns at once
+      (`tuple(v_1, v_2) = solve(eq_1, eq_2; v_1, v_2)`), linear exactly and
+      non-linear numerically, with the working shown.
+- [ ] **Numerical integrals and derivatives**: `integral(f(x), x, 0, 2)` and
+      `derivative(f(x), x, 1.5)`, with units, sig figs and uncertainty carried
+      through, typeset as ∫ and d/dx.
+- [ ] **Symbolic calculus and algebra**: differentiate, integrate, expand and
+      simplify an expression symbolically (`derivative(x^2 * sin(x), x)` →
+      2x sin x + x² cos x), by way of a computer algebra library.
+- [ ] **Ranges and sums**: `x = range(0, 10, 0.5)` as a series, `sum(f(n), n, 1, 10)`
+      and products, so a series can be generated as well as typed or imported.
+- [ ] **Matrices typeset**: matrices and vectors shown as matrices, with
+      determinant, inverse, transpose and solving A·x = b shown as working.
+- [ ] **Differential equations**: a numerical ODE solver (`odesolve`) whose result
+      is a series to plot.
+- [ ] **Optimisation and root finding over a range**: `minimise`, `maximise`, and
+      every root of f(x) = 0 between two bounds.
+- [ ] **Complex numbers** shown in rectangular and polar form, for AC circuits.
+
+### 2. Engineering documents (the gap to Mathcad)
+
+- [ ] **Lab and data tables**: quantities as rows and trials as columns, row labels,
+      a spanning header with the unit, shaded empty cells, and numbered captions
+      ("Table 1: …").
+- [ ] **Conversion-factor working**: show a calculation as a chain of fractions
+      (2.755 × 10⁻² L × 0.01000 mol EDTA / 1 L), the factor-label method chemistry
+      courses ask for.
+- [ ] **Title page and page breaks**: labelled fields (author, course, instructor,
+      date) on a page of their own, and `#pagebreak`.
+- [ ] **Text formatting**: bold, italic, underline and links in prose; unnumbered
+      and "1)"-style headings; figure and table references.
+- [ ] **Images**: a picture or diagram in the sheet, with a caption.
+- [ ] **PDF**: compile the LaTeX to a PDF in the app (pdfTeX in WebAssembly, or an
+      "Open in Overleaf" button), and a print layout for the Rendered tab.
+- [ ] **Document options**: exact margins, line spacing, headers and footers with
+      page numbers.
+- [ ] **Unit systems**: show results in US customary units (ft, lbf, psi) by
+      choice, and define your own units (`unit kip = 1000 lbf`).
+- [ ] **Checks**: a line that states a requirement (`check sigma < sigma_allow`),
+      shown as OK or NOT OK, with a summary of every check in the sheet.
+- [ ] **Includes**: use another sheet's variables and functions
+      (`include("beams.txt")`), for shared constants and methods.
+
+### 3. Plots and data
+
+- [ ] **Plot functions**, not just data: `plot(t, x, f(t))`, or a curve over a range.
+- [ ] **Non-linear fits**: quadratic, exponential and power-law fits, alongside the
+      linear one, and a fit over part of the data.
+- [ ] **More plots**: bar charts and histograms, two y axes, residuals under a fit.
+- [ ] **Spreadsheet data**: paste from Excel or Google Sheets, and import `.xlsx`.
+- [ ] **Text columns** in imported data (labels, categories), to group and filter by.
+
+### 4. Chemistry
+
+- [ ] **Molar mass from a formula**: `M({H2O})` → 18.02 g/mol from a built-in table
+      of atomic weights, brackets and hydrates included, with the sum shown as
+      working and sig figs from the atomic weights.
+- [ ] **Balancing equations**: `balance({C3H8 + O2 -> CO2 + H2O})`, with the
+      coefficients usable as mole ratios.
+- [ ] **Limiting reagent and yield**: which reactant runs out, theoretical and
+      percent yield.
+- [ ] **Equilibrium and pH helpers**: ICE tables, pH/pOH, K from concentrations.
+
+### 5. Editor
+
 - [ ] **Quick fixes on warnings**, like VS Code's lightbulb: trailing zeros →
       `300.`, a unit read as a variable → insert `*`, an unknown constant → the
       suggested one.
 - [ ] **Hover shows a variable's value at that line**, not at the end of its scope.
-- [ ] **Go to definition for variables and constants** (`@rho_w` → its
-      `@constants` entry).
-
-### 2. Sharing
-
-- [ ] **Share by link**: the sheet compressed into the URL
-      (`…/MathScribe/#sheet=…`), so opening the link loads it, with no server and
-      nothing uploaded.
-- [ ] **Installable and offline**: make the app a progressive web app, so it can be
-      installed from the browser and used without a connection.
-- [ ] **Templates**: "New from template", e.g. a lab write-up with sections, a
-      measurements table and an uncertainty analysis.
-
-### 3. Editor intelligence
-
-- [ ] **Parameter hints**: typing `E_k(1, ` shows `E_k(n, m [kg], L [m])` with the
-      current parameter highlighted.
-- [ ] **Snippets**: `def`, `:  #numbered` blocks, `@constants { }`.
-- [ ] **Rename (F2)**: rename a variable or function everywhere it's used,
-      respecting scope.
 - [ ] **Inline results**: a faint value at the end of each line in the editor
       (`F = m * a   ⟶ 19.6 N`).
+- [ ] **Parameter hints**: typing `E_k(1, ` shows `E_k(n, m [kg], L [m])` with the
+      current parameter highlighted.
+- [ ] **Rename (F2)** a variable or function everywhere it's used, respecting scope.
+- [ ] **Go to definition for variables and constants** (`@rho_w` → its
+      `@constants` entry).
+- [ ] **Snippets**: `def`, `:  #numbered` blocks, `@constants { }`.
 
-### 4. More maths (what Mathcad has that courses need)
+### 6. Sharing and the app
 
-- [ ] **Numerical integrals and derivatives**: `integral(f(x), x, 0, 2)` and
-      `derivative(f(x), x, 1.5)`, with units, sig figs and uncertainty carried through,
-      and the working shown.
-- [ ] **Systems of equations**: solve several equations for several unknowns at once,
-      e.g. both final velocities in a collision.
-- [ ] **Piecewise and conditional functions**: `if` in functions, and functions defined
-      piece by piece (a force that switches on at a time, a spring that only pushes).
-
-### 5. Lab work
-
-- [ ] **Plot functions**, not just data: `plot(t, x, f(t))`, or a curve over a range.
-- [ ] **Non-linear fits**: quadratic, exponential and power-law fits, alongside the
-      linear one.
-- [ ] **Explore compiling the LaTeX to a PDF** in the LaTeX tab (a Source / PDF
-      switch and Download PDF). Options considered: an online
-      compile service such as texlive.net (simple, but sends the sheet off the
-      device), pdfTeX compiled to WebAssembly (private, but tens of MB), or an
-      "Open in Overleaf" button.
-- [ ] **Chemistry** (stoichiometry already works by hand, with `mol`, `g/mol` and
-      `@N_A`, `@R`, `@F`, `@V_m`):
-  - **Molar mass from a formula**: `M(H2O)` → 18.02 g/mol from a built-in table of
-    atomic weights, including brackets and hydrates (`Ca(OH)2`, `CuSO4·5H2O`), with
-    the sum shown as working and sig figs from the atomic weights.
-  - **Formulas typeset**: H₂O, SO₄²⁻ in names and output (`n_H2O` → n(H₂O)).
-  - **Balancing equations**: `balance(C3H8 + O2 -> CO2 + H2O)` → C₃H₈ + 5 O₂ →
-    3 CO₂ + 4 H₂O, with the coefficients usable as mole ratios.
-  - **Limiting reagent and yield**: which reactant runs out, theoretical and
-    percent yield.
-  - **Concentration**: a molarity unit (`M` itself is taken by the mega prefix, so
-    `molar`, or just `mol/L`).
-
-### 6. Housekeeping
-
+- [ ] **Share by link**: the sheet compressed into the URL
+      (`…/MathScribe/#sheet=…`), with no server and nothing uploaded.
+- [ ] **Installable and offline**: a progressive web app.
+- [ ] **Templates**: "New from template" (a lab write-up, a problem set, a design
+      calculation).
+- [ ] **Remember the output options** (sig figs, substitution, ≈) in the browser,
+      or keep them in the sheet so it looks the same wherever it's opened.
+- [ ] **Narrow screens**: a stacked layout, or an Input / Output switch.
 - [ ] **Evaluate in a web worker**, if very long sheets still lag once typing pauses.
-- [ ] **Narrow screens**: a stacked layout, or an Input / Output switch, for
-      phones and small laptops.
 
 ### Done
 
+- [x] **Chemistry notation**: formulas in braces (`{Ca^2+}`), reactions, molarity
+      (`M`), species as units that cancel in mole ratios, and display names.
+- [x] **Values in text** (`{{name}}`) and `//` comments.
+- [x] **Create with AI**: a prompt for any AI to write a sheet, and its answer opened.
 - [x] **Tables**: `table(…)`, with computed columns that become series, and settings.
 - [x] **Plots**: `plot(…)`, with error bars, a linear fit (weighted by the error bars
       when there are some), settings, and both exports.
@@ -1198,8 +1250,39 @@ Roughly in priority order.
 - [x] **Custom colour theme**: per-category colour pickers in the editor options,
       starting from a preset, with separate light and dark colours.
 - [x] **IntelliSense**: suggestions as you type and hover information.
-- [x] **Automated tests** (Vitest): unit tests, golden tests of whole sheets, and
-      editor tests, run on every push before the site is published.
+- [x] **Automated tests** (Vitest): unit tests, golden tests of whole sheets,
+      editor tests, and a robustness test of malformed input, run on every push
+      before the site is published.
+
+## Development
+
+```
+npm install
+npm run dev        # the app, at localhost
+npm test           # the tests, once (npm run test:watch re-runs them as you edit)
+npm run lint
+npm run build      # type check, then build the site
+```
+
+**Tests** cover the calculation rules, the sheet structure, both exports, and the
+editor's highlighting, indentation, folding and suggestions. The golden tests
+(`src/lib/golden.test.ts`) record the full output of whole sheets (the sample
+sheet, a hydrogen-orbitals worksheet and every Reference example) in
+`src/lib/__snapshots__/`; when a change alters that output on purpose, check the
+difference and update the recording with `npx vitest run -u`. The robustness test
+(`src/lib/robustness.test.ts`) runs malformed and awkward sheets through reading,
+the editor's information and both exports, which must never throw.
+
+**Failing safely:** a line that fails in a way nothing expected shows an error on
+that line only; a sheet that can't be read at all shows one error instead of a
+blank app; and a failure drawing the output is contained to the output pane, with
+the editor and your text untouched.
+
+**Deploying:** every push to `main` lints, tests and builds the site and
+publishes it to GitHub Pages (`.github/workflows/deploy.yml`); progress shows in
+the repository's Actions tab. If any step fails, nothing is published. The build
+uses `/MathScribe/` as its base path (`vite.config.ts`), so if the repository is
+renamed, change it there too.
 
 ## Structure
 
@@ -1243,6 +1326,10 @@ Roughly in priority order.
 - `src/lib/plot.ts`: the linear fit, axes, and drawing a plot as SVG;
   `src/lib/plotImage.ts`: plots as pictures for the Word export
 - `src/lib/brackets.ts`: choosing ( ), [ ] and { } by nesting in the output
+- `src/lib/chemistry.ts`: formulas in braces, and species as units;
+  `src/lib/katex.ts`: KaTeX with mhchem, which everything that draws maths imports
+- `src/components/ErrorBoundary.tsx`: keeps a failure drawing the output from
+  blanking the app
 - `src/lib/aiPrompt.ts`: Create's prompt (what can be made, its tickboxes, and the
   rules of writing a sheet, whose examples a test evaluates) and reading the AI's
   answer back; `src/components/CreateDialog.tsx`: the dialog

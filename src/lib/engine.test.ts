@@ -187,6 +187,21 @@ describe('to percent', () => {
   })
 })
 
+describe('to an angle unit', () => {
+  it('reads a plain number as radians, as from asin, acos and atan', () => {
+    expect(value('theta = asin(0.50) to deg')).toBe('30.°')
+    expect(value('v_x = 3.0 m/s\nv_y = 4.0 m/s\ntheta = atan(v_y / v_x) to deg')).toBe('53°')
+    expect(value('v_x = 3.0 m/s\nv_y = 4.0 m/s\ntheta = atan2(v_y, v_x) to deg')).toBe('53°')
+    expect(value('theta = atan(0.75)\nphi = theta to deg')).toBe('37°')
+    expect(value('p = tuple(0.50, 1.00) to deg')).toBe('(29, 57)°')
+  })
+
+  it('still converts quantities, and explains a number with no unit', () => {
+    expect(value('theta = 30.0 deg to rad')).toBe('0.524 rad')
+    expect(lines('x = 3.0 to cm').at(-1)!.error).toBe("3 has no unit, so it can't be converted to cm: give it one (3.0 m to cm).")
+  })
+})
+
 describe('unit display', () => {
   it('explains units that don’t match in plain words', () => {
     expect(last('m = 40. T\na = 9.81 m/s^2\nE = m * a * 2.0 m to J').error)

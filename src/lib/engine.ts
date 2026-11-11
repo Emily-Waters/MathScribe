@@ -232,6 +232,33 @@ for (const name of ['sin', 'cos', 'tan'] as const) {
   math.import({ [name]: wrapped }, { override: true })
 }
 
+/**
+ * `x to deg` for a plain number reads it as radians, as `:deg` does: so
+ * `asin(0.50) to deg`, `atan(v_y / v_x) to deg` and `theta to deg` work. (mathjs
+ * only converts quantities that already have a unit; an angle from asin, acos or
+ * atan is a plain number, in radians.) A tuple of plain numbers converts each one.
+ */
+{
+  const original = math[OP.to] as unknown as ((x: unknown, unit: unknown) => unknown) & { toTex?: unknown }
+  const radian = math.unit(UNIT.radian)
+  const isAngle = (unit: unknown) => math.isUnit(unit) && (unit as Unit).equalBase(radian)
+  const inRadians = (x: unknown): unknown => (typeof x === 'number'
+    ? math.unit(x, UNIT.radian)
+    : math.isMatrix(x) ? math.map(x, (v: MathType) => inRadians(v) as MathType) : x)
+  const wrapped = Object.assign(
+    (x: unknown, unit: unknown) => {
+      if (isAngle(unit)) return original(inRadians(x), unit)
+      // (mathjs's own message for this is about argument types.)
+      if (typeof x === 'number' && math.isUnit(unit)) {
+        throw new Error(`${x} has no unit, so it can't be converted to ${(unit as Unit).formatUnits()}: give it one (3.0 m to cm).`)
+      }
+      return original(x, unit)
+    },
+    { toTex: original.toTex },
+  )
+  math.import({ [OP.to]: wrapped }, { override: true })
+}
+
 /** mathjs's built-in constants. Series sums never take these names. */
 const BUILTIN_CONSTANT_NAMES = new Set([
   'pi', 'PI', 'e', 'E', 'tau', 'phi', 'i', 'Infinity', 'NaN',

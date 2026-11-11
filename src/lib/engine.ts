@@ -36,7 +36,7 @@ import { BUILTIN_CONSTANTS, DEFAULT_CONSTANT_SIG_FIGS, suggestConstant } from '.
 import {
   ASSIGNMENT, ASSIGNMENT_WITH_VALUE, AXES, COMPONENTS_SETTING, CONSTANT_REF, DECLARED, EXACT_SETTING, IS_NAME,
   GREEK_BY_CHAR, GREEK_BY_NAME, GREEK_CHARS, LEADING_NAME, NAME, NAME_CHAR, NAME_WITH_SETTINGS, NOTATIONS, NUMBER, ONE_LINE_FUNCTION, PERCENT, SERIES_SUFFIXES,
-  KEYWORD, PLOT_CALL, RETURN_LINE, SELECT_CALL, SOLVE_CALL, SUBSCRIPT, TABLE_CALL, UNCERTAINTY_WORDS, UNIT_VECTOR_SETTING, UNPACK, VECTOR_FUNCTION,
+  ELSE_IF_LINE, ELSE_LINE, IF_LINE, KEYWORD, PLOT_CALL, RETURN_LINE, SELECT_CALL, SOLVE_CALL, SUBSCRIPT, TABLE_CALL, UNCERTAINTY_WORDS, UNIT_VECTOR_SETTING, UNPACK, VECTOR_FUNCTION,
   DISPLAY_MODE, EACH_SETTING, LABEL_QUOTE, LINE_COMMAND, SERIES_STAT, VALUE_IN_TEXT,
   type DisplayMode, type LineCommand, type Notation, type Precision, type UncertaintyWord,
   type VectorStyle,
@@ -46,7 +46,7 @@ import {
   parseConstantRefName, parseMemberName, parseNumberedName, parseSeriesStatName, parseSolvedName, parseUncertaintyName, readableMembers,
   seriesMemberName, solvedName, uncertaintyName, unpackedColumnName, unpackedName,
 } from './names.ts'
-import { FN, MATHJS_IN, MATH_CONSTANT, OP, OP_SYMBOL, UNIT, UNIT_LOOKS, isOp } from './mathjsNames.ts'
+import { COMPARISONS, FN, MATHJS_IN, MATH_CONSTANT, OP, OP_SYMBOL, UNIT, UNIT_LOOKS, isOp } from './mathjsNames.ts'
 import {
   SPECIES_AFTER_UNIT, formulaOf, formulaTex, isSpeciesUnit, outsideMaths, readableSpecies, speciesUnit, withFormulas,
 } from './chemistry.ts'
@@ -376,6 +376,8 @@ export interface FunctionLine {
   command?: LineCommand
   /** `#multiline` on this body line. */
   multiline?: boolean
+  /** Its indentation: lines indented under an `if` or `else` belong to it. */
+  indent?: number
 }
 
 /** One equation of working from inside a function call. */
@@ -1207,7 +1209,48 @@ class Values {
 const innerValues = (vars: Variables) => new Values(new Scope(vars))
 
 /** Each kind of line in a function's body: `x = …`, `tuple(a, b) = …`, `return …`. */
-const STATEMENT_KIND = { assign: 'assign', unpack: 'unpack', return: 'return' } as const
+const STATEMENT_KIND = { assign: 'assign', unpack: 'unpack', return: 'return', branch: 'branch' } as const
+
+/**
+ * Where a body line is among the function's branches. A line under an `if` or
+ * `else` runs only if that branch is taken (and the branches around it): its
+ * guards. A branch line (`if`, `else if`, `else`) has an id, the chain it's part
+ * of (the id of its `if`), and its condition (none for `else`); it's taken if
+ * no earlier branch of its chain was and its condition holds.
+ */
+interface Guarded {
+  guards: number[]
+  branch?: { id: number; chain: number; code?: math.EvalFunction }
+}
+
+/** Which body lines run, as a call goes through them in order. */
+class BranchRun {
+  private readonly taken = new Set<number>()
+  private readonly decided = new Set<number>()
+
+  /** Whether a line is reached: every branch around it was taken. */
+  reaches(s: Guarded): boolean {
+    return s.guards.every((g) => this.taken.has(g))
+  }
+
+  /** Whether a branch line still needs its condition looked at (no earlier branch of its chain was taken). */
+  open(s: Guarded): boolean {
+    return !!s.branch && !this.decided.has(s.branch.chain)
+  }
+
+  /** Take a branch: the lines under it run, and the rest of its chain doesn't. */
+  take(s: Guarded): void {
+    if (!s.branch) return
+    this.taken.add(s.branch.id)
+    this.decided.add(s.branch.chain)
+  }
+}
+
+/** Whether a condition's value counts as holding. */
+function holds(value: unknown, what: string): boolean {
+  if (typeof value === 'boolean') return value
+  throw new Error(`${what} isn't a condition: it should compare values, like v > 0 m/s.`)
+}
 
 /** What's needed to replay a multi-line function's body to show its working. */
 interface UserFunction {
@@ -1215,7 +1258,7 @@ interface UserFunction {
   /** Each parameter's cast unit (`m to kg` → 'kg'), if it has one. */
   casts: (string | undefined)[]
   /** Body lines as source text: `x = a + b`, and the return expression `x`. */
-  statements: { kind: typeof STATEMENT_KIND.assign | typeof STATEMENT_KIND.return; text: string; note?: string; command?: LineCommand; multiline?: boolean }[]
+  statements: (Guarded & { kind: typeof STATEMENT_KIND.assign | typeof STATEMENT_KIND.return | typeof STATEMENT_KIND.branch; text: string; note?: string; command?: LineCommand; multiline?: boolean })[]
   definedIn: Variables
   /** Defined with #multiline: every line that calls it is laid out one = per row. */
   multiline: boolean
@@ -2307,6 +2350,14 @@ export class Calculator {
     // Written with extra precision (2.00, 1.2e3): always a measured value.
     if (isLitCall(node)) return countSigFigs(unitCallText(node))
     if (isSymbolNode(node)) return this.vars.get(node.name)?.sf ?? EXACT
+    // `cond ? a : b`: the sig figs of whichever it comes to.
+    if (math.isConditionalNode(node)) {
+      let chosen = node.trueExpr
+      try {
+        if (node.condition.compile().evaluate(this.scope) !== true) chosen = node.falseExpr
+      } catch { /* reported when the line is worked out */ }
+      return this.sigFigsOf(chosen, literals, measured)
+    }
     // A call to a function that declares its result's sig figs (`f(x):3 = …`).
     if (isFunctionNode(node)) {
       const f = this.scope.get(node.fn.name)
@@ -2359,6 +2410,12 @@ export class Calculator {
         visit(n.args[0], true)
       } else if (isOp(n, OP.unaryMinus)) {
         visit(n.args[0], measured)
+      } else if (math.isConditionalNode(n)) {
+        // A condition's numbers are limits to compare with (x > 10 N), not measurements.
+        visit(n.trueExpr, false)
+        visit(n.falseExpr, false)
+      } else if (math.isRelationalNode(n) || (isOperatorNode(n) && COMPARISONS.has(n.fn))) {
+        // (Nor on a comparison of its own: ok = x < 300 m.)
       } else {
         n.forEach((c) => visit(c, false))
       }
@@ -2926,18 +2983,74 @@ export class Calculator {
     if (bad !== undefined) return { signature, body, error: `"${bad}" isn't a valid parameter: write a name, or "name to unit".` }
     const badUnit = casts.find((u) => u !== undefined && !isValidUnit(u))
     if (badUnit) return { signature, body, error: `"${badUnit}" isn't a unit MathScribe knows.` }
-    type Statement =
+    type Statement = Guarded & (
       // `unit`: a display unit on the name (`th:deg = …`), which the value keeps.
       | { kind: typeof STATEMENT_KIND.assign; name: string; code: math.EvalFunction; unit?: string; components?: boolean }
       | { kind: typeof STATEMENT_KIND.unpack; targets: TupleName[]; code: math.EvalFunction }
       | { kind: typeof STATEMENT_KIND.return; code: math.EvalFunction }
+      | { kind: typeof STATEMENT_KIND.branch; text: string }
+    )
     const statements: Statement[] = []
     const sources: UserFunction['statements'] = []
 
     const duplicate = params.find((p, i) => params.indexOf(p) !== i)
     if (duplicate) return { signature, body, error: `The parameter "${duplicate}" is listed twice.` }
 
-    for (const { line, text, note, command, multiline: lineMultiline } of lines) {
+    // Branches open at this line (each with its `if`/`else` line's indentation),
+    // and the chains an `else` could still continue, by their `if`'s indentation.
+    const open: { indent: number; id: number }[] = []
+    const chains: { indent: number; chain: number }[] = []
+    let nextBranch = 0
+
+    for (const { line, text, note, command, multiline: lineMultiline, indent = 0 } of lines) {
+      // A line indented no further than a branch's own line ends that branch.
+      while (open.length && indent <= open.at(-1)!.indent) open.pop()
+      while (chains.length && indent < chains.at(-1)!.indent) chains.pop()
+      const guards = open.map((b) => b.id)
+      // How far in the definition's card shows it: one step per branch around it.
+      const inset = '\\quad '.repeat(guards.length)
+
+      // `if …`, `else if …`, `else`: a branch, holding the lines indented under it.
+      const elseIf = ELSE_IF_LINE.exec(text)
+      const ifLine = elseIf ? null : IF_LINE.exec(text)
+      const isElse = ELSE_LINE.test(text)
+      if (ifLine || elseIf || isElse) {
+        const continues = chains.at(-1)?.indent === indent
+        if (!ifLine && !continues) {
+          return { signature, body, error: `Line ${line}: this ${KEYWORD.else} has no ${KEYWORD.if} before it at the same indentation.` }
+        }
+        if (ifLine && continues) chains.pop()
+        const id = nextBranch++
+        const chain = ifLine ? id : chains.at(-1)!.chain
+        if (ifLine) chains.push({ indent, chain })
+        // (After an `else`, the chain is over: another `else` has nothing to continue.)
+        if (isElse) chains.pop()
+        const condition = ifLine?.[1] ?? elseIf?.[1]
+        try {
+          let code: math.EvalFunction | undefined
+          let tex = '\\text{otherwise}'
+          if (condition !== undefined) {
+            const literals = new Map<number, string>()
+            for (const m of condition.matchAll(NUMBER_LITERAL)) addLiteral(literals, m[0])
+            const expanded = this.expandConstants(condition)
+            if (expanded.error) throw new Error(expanded.error)
+            const node = math.parse(preprocess(expanded.text, this.isVariable).text)
+            code = node.compile()
+            tex = `\\text{${ifLine ? KEYWORD.if : `${KEYWORD.else} ${KEYWORD.if}`} }${this.toTex(node, literals)}`
+          }
+          const branch = { id, chain, code }
+          statements.push({ kind: STATEMENT_KIND.branch, text: condition ?? '', guards, branch })
+          sources.push({ kind: STATEMENT_KIND.branch, text: condition ?? '', note, command, multiline: lineMultiline, guards, branch })
+          body.push({ tex: `${inset}${tex}`, note, line })
+        } catch (e) {
+          return { signature, body, error: `Line ${line}: ${(e as Error).message}` }
+        }
+        open.push({ indent, id })
+        continue
+      }
+      // Any other line ends the chain at its indentation: an `else` after it has no `if`.
+      if (chains.at(-1)?.indent === indent) chains.pop()
+
       const ret = RETURN_LINE.exec(text)
       // `x = …`, or with display settings: `x:3 = …`, `theta:deg = …`.
       const assign = ASSIGNMENT_WITH_VALUE.exec(text)
@@ -2946,7 +3059,7 @@ export class Calculator {
       const unpackNames = unpack?.[1].split(',').map((n) => n.trim())
       const source = ret?.[1] ?? unpack?.[2] ?? assign?.[2]
       if (!source) {
-        return { signature, body, error: `Line ${line}: inside a function, each line is "name = …", "tuple(a, b) = …" or "return …".` }
+        return { signature, body, error: `Line ${line}: inside a function, each line is "name = …", "tuple(a, b) = …", "return …", or an if / else with lines indented under it.` }
       }
       // Each unpacked name, with any settings (`tuple(r:3, th:deg) = …`).
       const unpackTargets = unpackNames?.map(parseTupleName)
@@ -2962,22 +3075,22 @@ export class Calculator {
         const node = math.parse(preprocess(expanded.text, this.isVariable).text)
         const code = node.compile()
         if (unpackNames) {
-          statements.push({ kind: STATEMENT_KIND.unpack, targets: targets!, code })
-          sources.push({ kind: STATEMENT_KIND.assign, text, note, command, multiline: lineMultiline })
+          statements.push({ kind: STATEMENT_KIND.unpack, targets: targets!, code, guards })
+          sources.push({ kind: STATEMENT_KIND.assign, text, note, command, multiline: lineMultiline, guards })
           const names = targets!.map((t) => symbolTex(t.name)).join(', ')
-          body.push({ tex: `\\left(${names}\\right) = ${this.toTex(node, literals)}`, note, line })
+          body.push({ tex: `${inset}\\left(${names}\\right) = ${this.toTex(node, literals)}`, note, line })
         } else if (ret) {
-          statements.push({ kind: STATEMENT_KIND.return, code })
-          sources.push({ kind: STATEMENT_KIND.return, text: source, note, command, multiline: lineMultiline })
-          body.push({ tex: `${signature} = ${this.toTex(node, literals)}`, note, line })
+          statements.push({ kind: STATEMENT_KIND.return, code, guards })
+          sources.push({ kind: STATEMENT_KIND.return, text: source, note, command, multiline: lineMultiline, guards })
+          body.push({ tex: `${inset}${signature} = ${this.toTex(node, literals)}`, note, line })
         } else {
           const declared = parseDeclaration(text)
           const unit = declared && !('error' in declared) && declared.unit !== PERCENT ? declared.unit : undefined
           const components = declared && !('error' in declared) ? declared.components : undefined
-          statements.push({ kind: STATEMENT_KIND.assign, name: assign![1], code, unit, components })
+          statements.push({ kind: STATEMENT_KIND.assign, name: assign![1], code, unit, components, guards })
           // Keep the line as written, so a declared `x:3 =` applies when its working is shown.
-          sources.push({ kind: STATEMENT_KIND.assign, text, note, command, multiline: lineMultiline })
-          body.push({ tex: `${symbolTex(assign![1])} = ${this.toTex(node, literals)}`, note, line })
+          sources.push({ kind: STATEMENT_KIND.assign, text, note, command, multiline: lineMultiline, guards })
+          body.push({ tex: `${inset}${symbolTex(assign![1])} = ${this.toTex(node, literals)}`, note, line })
         }
       } catch (e) {
         return { signature, body, error: `Line ${line}: ${(e as Error).message}` }
@@ -2995,7 +3108,14 @@ export class Calculator {
       }
       const local = innerValues(definedIn)
       params.forEach((p, i) => local.set(p, castArgument(p, casts[i], args[i])))
+      const run = new BranchRun()
       for (const s of statements) {
+        if (!run.reaches(s)) continue
+        if (s.kind === STATEMENT_KIND.branch) {
+          const code = s.branch?.code
+          if (run.open(s) && (!code || holds(code.evaluate(local), s.text))) run.take(s)
+          continue
+        }
         const v = s.code.evaluate(local)
         if (s.kind === STATEMENT_KIND.return) return returnUnit ? toDisplayUnit(v, returnUnit) : v
         if (s.kind === STATEMENT_KIND.unpack) {
@@ -3108,7 +3228,23 @@ export class Calculator {
         })
       })
       const lines: TraceLine[] = []
+      const run = new BranchRun()
       for (const s of def.statements) {
+        if (!run.reaches(s)) continue
+        if (s.kind === STATEMENT_KIND.branch) {
+          if (!run.open(s)) continue
+          const code = s.branch?.code
+          if (!code) {
+            run.take(s)
+            continue
+          }
+          // The comparison, with its values: v > 0 = 2.0 m/s > 0 = true.
+          const shown = this.evaluateLine(s.text, mode, explicit)
+          if (s.command !== LINE_COMMAND.hide || shown.error) lines.push({ tex: shown.tex, note: s.note })
+          if (shown.error) break
+          if (holds(code.evaluate(this.scope), s.text)) run.take(s)
+          continue
+        }
         const own = s.command && s.command !== LINE_COMMAND.hide ? s.command : undefined
         // The function's own #multiline (or the body line's) lays out its working too.
         const outerMultiline = this.multiline

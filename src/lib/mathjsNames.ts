@@ -20,6 +20,9 @@ export const OP = {
 } as const
 export type Op = (typeof OP)[keyof typeof OP]
 
+/** mathjs's names for comparisons: `<`, `<=`, `>`, `>=`, `==`, `!=`. */
+export const COMPARISONS: ReadonlySet<string> = new Set(['smaller', 'smallerEq', 'larger', 'largerEq', 'equal', 'unequal'])
+
 /** The symbol each is written with (an OperatorNode needs both, and mathjs's types check they match). */
 export const OP_SYMBOL = {
   add: '+',

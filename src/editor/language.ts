@@ -12,7 +12,7 @@ import { tags } from '@lezer/highlight'
 import { closesVector, isUnitName } from '../lib/engine.ts'
 import { REACTION_LINE } from '../lib/chemistry.ts'
 import {
-  CALL, COMMAND_NAMES, CONSTANT_TOKEN, DEF_START, FUNCTION_HEAD, GREEK_CHARS, IMPORT, INDENT_WIDTH, KEYWORD, NAME, NAME_CHAR,
+  BRANCH_START, CALL, COMMAND_NAMES, CONSTANT_TOKEN, DEF_START, FUNCTION_HEAD, GREEK_CHARS, IMPORT, INDENT_WIDTH, KEYWORD, NAME, NAME_CHAR,
   COMMENT_START, LAYOUT_STYLE, NUMBER, SETTINGS, UNPACK_SO_FAR, VALUE_IN_TEXT, commandPattern, indentOf, isComment,
 } from '../lib/syntax.ts'
 
@@ -109,6 +109,8 @@ function lineKind(line: string): LineKind {
   if (DEF_START.test(t)) return LINE_KIND.def
   const body = bodyOf(t)
   if (REACTION_LINE.test(body)) return LINE_KIND.reaction
+  // `if v > 0:` in a function's body is a branch, not a block's title.
+  if (BRANCH_START.test(t)) return LINE_KIND.calc
   if (body.endsWith(':') || (body.endsWith('{') && !body.startsWith('@constants'))) return LINE_KIND.opener
   return LINE_KIND.calc
 }
@@ -316,7 +318,7 @@ export const mathscribeLanguage = StreamLanguage.define<State>({
 /** Whether a line opens an indented block: `Title:`, `name {`, or a `def`. */
 const opensBlock = (text: string) => {
   const t = text.trim()
-  return DEF_START.test(t) || /[:{]$/.test(bodyOf(t))
+  return DEF_START.test(t) || BRANCH_START.test(t) || /[:{]$/.test(bodyOf(t))
 }
 
 /**

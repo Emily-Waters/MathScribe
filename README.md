@@ -492,10 +492,43 @@ def calc(a, b)
 - The definition is shown as a card with each body line as an equation, the return
   line reading `KE(mass, speed) = E`. `#hide` on the `def` line hides the card.
 
-Two limits for now: bodies are straight-line (no `if` or loops), and a variable the
-body reads from outside contributes its value but not its uncertainty; pass it as a
-parameter if its uncertainty matters. A cast unit can't contain spaces or brackets
-(write `J/mol/K`, not `J/(mol*K)`).
+**Conditions:** in a line, `condition ? a : b` gives `a` if the condition holds and
+`b` otherwise, so a one-line function can be piecewise; it's typeset with a brace,
+as piecewise functions are, and the result has the sig figs of the one it came to:
+
+```
+F = x > 0 m ? k * x : 0 N
+ramp(x) = x > 0 ? x : 0
+```
+
+In a `def`, write `if`, `else if` and `else`, with the lines of each indented under
+it (a trailing `:` is optional, as on `def`):
+
+```
+def friction(v)
+    if v > 0 m/s
+        f = -mu * N
+        return f
+    else if v < 0 m/s
+        return mu * N
+    else
+        return 0 N
+
+F_f = friction(-1.0 m/s)      # working: −1.0 m/s > 0 m/s = false, −1.0 m/s < 0 m/s = true, then μN
+```
+
+- The first branch whose condition holds runs; `else` runs if none did. Branches
+  nest, and lines after them carry on as usual.
+- A call's working shows each comparison it made, with its values, then the lines
+  of the branch taken. The definition's card shows the branches indented.
+- Conditions compare values (`<`, `<=`, `>`, `>=`, `==`, `!=`), with units, and
+  combine with `and`, `or` and `not`. A comparison on a line of its own shows
+  true or false: `ok = sigma < sigma_allow`.
+
+Two limits for now: there are no loops, and a variable the body reads from outside
+contributes its value but not its uncertainty; pass it as a parameter if its
+uncertainty matters. A cast unit can't contain spaces or brackets (write `J/mol/K`,
+not `J/(mol*K)`).
 
 ### Blocks and scope
 
@@ -1132,10 +1165,6 @@ what's here better.
 
 ### 1. Maths (the gap to Mathcad)
 
-- [ ] **Conditionals and piecewise functions**: `if` in functions and expressions
-      (`F = if(x > 0, k * x, 0 N)`), and functions defined piece by piece. Most
-      engineering checks ("is the stress below the limit?") need this, with a
-      pass/fail line that shows the comparison.
 - [ ] **Systems of equations**: `solve` for several unknowns at once
       (`tuple(v_1, v_2) = solve(eq_1, eq_2; v_1, v_2)`), linear exactly and
       non-linear numerically, with the working shown.
@@ -1228,6 +1257,8 @@ what's here better.
 
 ### Done
 
+- [x] **Conditions**: `condition ? a : b` in a line, and `if` / `else if` / `else`
+      in a function's body, with the comparisons shown in the working.
 - [x] **Chemistry notation**: formulas in braces (`{Ca^2+}`), reactions, molarity
       (`M`), species as units that cancel in mole ratios, and display names.
 - [x] **Values in text** (`{{name}}`) and `//` comments.

@@ -117,6 +117,19 @@ export const SNIPPETS = {
   delta: 'm = 2.0 kg pm 0.1 kg\na = 3.00 m/s^2\nF = m * a\ndelta F',
   constants: 'w = 2.00 kg * @g',
   function: 'KE(m, v) = 1/2 * m * v^2\nK = KE(2.0 kg, 3.0 m/s)',
+  conditions: [
+    'k = 250. N/m',
+    'F(x) = x > 0 m ? k * x : 0 N',
+    'def friction(v, f_k)',
+    '    if v > 0 m/s',
+    '        return -f_k',
+    '    else if v < 0 m/s',
+    '        return f_k',
+    '    else',
+    '        return 0 N',
+    'F_s = F(0.120 m)',
+    'F_f = friction(-1.5 m/s, 6.0 N)',
+  ].join('\n'),
   solve: 'v_0 = 0 m/s\nv_f = 5.86 m/s\na = 4.91 m/s^2\nd = solve(v_f^2 = v_0^2 + 2 * a * d, d)',
   series: 'T1 = 1.21 s\nT2 = 1.17 s\nT3 = 1.24 s\nT_avg\nT_std',
   plot: 'x1 = 0.10 m\nx2 = 0.20 m\nx3 = 0.30 m\nF1 = 0.52 N\nF2 = 0.98 N\nF3 = 1.51 N\np = plot(x, F; fit linear)\nk = p.slope',
@@ -236,7 +249,10 @@ ${constantNames}. 3 sig figs by default; \`@c:5\` for 5, \`@c:exact\` for every 
 ## Functions and solving
 ${code(SNIPPETS.function)}
 - Several steps: \`def KE(mass, speed)\`, an indented body of \`name = …\` lines, then
-  \`return E\`. No if or loops.
+  \`return E\`. No loops.
+- A condition in a line is \`cond ? a : b\`; in a def, \`if\`, \`else if\` and \`else\` with their
+  lines indented under them. Conditions compare values (\`<\`, \`>=\`, \`==\`, \`and\`, \`or\`).
+${code(SNIPPETS.conditions)}
 ${code(SNIPPETS.solve)}
 - \`solve(equation, unknown)\` rearranges and evaluates. Give a guess for hard ones:
   \`solve(x = cos(x), x, 0.5)\`.

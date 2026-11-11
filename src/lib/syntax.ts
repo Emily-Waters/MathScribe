@@ -106,6 +106,9 @@ export const KEYWORD = {
   to: 'to',
   /** An uncertainty: `2.0 kg pm 0.1 kg`. */
   pm: 'pm',
+  /** A branch in a function's body: `if v > 0`, `else if v < 0`, `else`. */
+  if: 'if',
+  else: 'else',
 } as const
 
 /** Calls with a meaning of their own, besides mathjs's functions. */
@@ -148,6 +151,20 @@ export const DEF_START = new RegExp(String.raw`^${KEYWORD.def}\s`)
 
 /** A function's `return` line (1: what it returns). */
 export const RETURN_LINE = new RegExp(String.raw`^${KEYWORD.return}\s+(.+)$`)
+
+/**
+ * A branch in a function's body, with the lines it holds indented under it
+ * (a trailing `:` is optional, as on `def`):
+ *   `if v > 0`        (1: the condition)
+ *   `else if v < 0`   (1: the condition)
+ *   `else`
+ */
+export const IF_LINE = new RegExp(String.raw`^${KEYWORD.if}\s+(.+?)\s*:?$`)
+export const ELSE_IF_LINE = new RegExp(String.raw`^${KEYWORD.else}\s+${KEYWORD.if}\s+(.+?)\s*:?$`)
+export const ELSE_LINE = new RegExp(String.raw`^${KEYWORD.else}\s*:?$`)
+
+/** A line that starts a branch (for the editor: the next line is indented). */
+export const BRANCH_START = new RegExp(String.raw`^(?:${KEYWORD.if}|${KEYWORD.else})(?:\s|:|$)`)
 
 /** Unpacking a tuple: `tuple(a, b:3) = …` (1: the names, 2: the right-hand side). */
 export const UNPACK = new RegExp(String.raw`^${CALL.tuple}\s*${PARAMETERS}${ASSIGNS}\s*(.+)$`)

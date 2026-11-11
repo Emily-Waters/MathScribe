@@ -171,6 +171,22 @@ export const REFERENCE: ReferenceSection[] = [
         explain: 'def with an indented body for several steps. Assignments inside are local.',
       },
       {
+        source: [
+          'def friction(v, f_k)',
+          '    if v > 0 m/s',
+          '        return -f_k',
+          '    else if v < 0 m/s',
+          '        return f_k',
+          '    else',
+          '        return 0 N',
+          'F_f = friction(-1.5 m/s, 6.0 N)',
+          'ramp(x) = x > 0 ? x : 0',
+          'y = ramp(3.0)',
+        ].join('\n'),
+        explain: 'if, else if and else in a def, with their lines indented under them: the first whose condition holds runs. '
+          + 'In a line, condition ? a : b gives a if the condition holds and b otherwise.',
+      },
+      {
         source: 'area(r) = pi * r^2\nr_1 = 2.0 cm\nA = area(r_1)',
         explain: 'The working shows the variables you passed in (r₁), not the parameter names.',
       },

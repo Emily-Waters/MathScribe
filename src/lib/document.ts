@@ -382,7 +382,7 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
         blankRun = text ? 0 : blankRun + 1
         if (!text || text.startsWith('#')) continue // blank lines and comments
         const split = splitNote(text)
-        bodyLines.push({ line: idx + 1, text: split.body, note: split.note, command: split.command, multiline: split.multiline })
+        bodyLines.push({ line: idx + 1, text: split.body, note: split.note, command: split.command, multiline: split.multiline, indent: indentOf(lines[idx]) })
       }
       const params = def[2].split(',').map((p) => p.trim()).filter(Boolean)
       // Parameters (`m`, or `m to kg`) are checked by defineFunction.

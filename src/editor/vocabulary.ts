@@ -46,6 +46,8 @@ export const SETTING_WORDS: { name: string; description: string }[] = [
 export const KEYWORDS: { name: string; description: string }[] = [
   { name: KEYWORD.def, description: 'Define a function with an indented body' },
   { name: KEYWORD.return, description: 'The value a def function gives back' },
+  { name: KEYWORD.if, description: 'In a def: the lines indented under it run if the condition holds (then else if …, else)' },
+  { name: KEYWORD.else, description: 'In a def, after an if: the lines under it run otherwise' },
   { name: KEYWORD.to, description: 'Convert to a unit: v to km/h, or to percent' },
   { name: KEYWORD.pm, description: 'An uncertainty: 2.0 kg pm 0.1 kg (also ± or +-)' },
   { name: UNCERTAINTY_WORDS[0], description: 'The uncertainty of a variable: delta F' },

@@ -326,6 +326,14 @@ exports[`the Reference tab’s examples > Functions: def KE(mass, speed) 1`] = `
      ↳ E = \\frac12 (2.00 kg) (3.00 m/s)^2 = 9.00 J"
 `;
 
+exports[`the Reference tab’s examples > Functions: def friction(v, f_k) 1`] = `
+"8: F_f = 6.0 N
+     ↳ (-1.5 m/s)> 0 m/s = \\textfalse
+     ↳ (-1.5 m/s)< 0 m/s = \\texttrue
+9: ramp(x) = \\begincases x, \\quad\\textif \\; x> 0 0, \\quad\\textotherwise\\endcases
+10: y = \\begincases 3.0, \\quad\\textif \\; 3.0> 0 0, \\quad\\textotherwise\\endcases = 3.0"
+`;
+
 exports[`the Reference tab’s examples > Functions: def polar(x, y) 1`] = `
 "5: P = (r, \\theta) = (1.41 m, 45.0°)
      ↳ r = \\sqrt(1.00 m)^2+(1.00 m)^2 = 1.41 m

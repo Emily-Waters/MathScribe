@@ -6,7 +6,7 @@
  * fixed ones.
  */
 import type { PlotSettings } from './plotSettings.ts'
-import { GREEK_BY_NAME } from './syntax.ts'
+import { GREEK_BY_NAME, GREEK_CHARS, SUBSCRIPT } from './syntax.ts'
 import { parseMemberName } from './names.ts'
 import { UNIT_LOOKS } from './mathjsNames.ts'
 
@@ -198,11 +198,17 @@ const superscript = (n: number | string) => [...String(n)].map((c) => SUPERSCRIP
 const escapeXml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
 /** A name's base and subscript as SVG text: `v_f` → v with f lowered, `theta` → θ; one letter in italics. */
+/** A letter, then a number (and maybe letters), with no underscore: `m1`, `v1x` (1: the letter, 2: the rest). */
+const LETTER_THEN_NUMBER = new RegExp(String.raw`^([A-Za-z${GREEK_CHARS}])(\d+[A-Za-z]*)$`)
+
 export function nameSvg(p: PlotName): string {
   if (!p.name) return escapeXml(p.expr ?? '')
   // A namespace's series, a.x, reads x with a lowered, as in the equations.
   const member = parseMemberName(p.name)
-  const [base, ...rest] = (member?.member ?? p.name).split('_')
+  const own = member?.member ?? p.name
+  // A letter then a number, without an underscore (`m1`, `v1x`), is the letter with the rest lowered.
+  const numbered = LETTER_THEN_NUMBER.exec(own)
+  const [base, ...rest] = numbered ? [numbered[1], numbered[2]] : own.split(SUBSCRIPT)
   const subs = member ? [member.namespace, ...rest] : rest
   const part = (s: string) => GREEK_BY_NAME.get(s) ?? s
   const shownBase = part(base)

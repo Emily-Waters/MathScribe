@@ -171,9 +171,11 @@ ${code(SNIPPETS.products)}
 - Always write \`*\` for multiplication: \`1/2 * m * v^2\`, \`2 * pi * r\`. Never \`2m\` or \`1/2 m v^2\`.
 - Powers are \`^\`. Functions: sqrt, sin, cos, tan, asin, acos, atan, atan2, exp, log (natural),
   log10, abs, min, max, round; constants pi and e.
-- Names: letters, digits and underscores; \`_\` makes subscripts (\`v_0\`, \`F_net_x\`). Greek by
-  name (\`theta\`, \`mu_k\`, \`Delta\`) or as characters (\`ΔE\`, \`ω\`). No dots in names. Don't use
-  \`phi\`, \`tau\`, \`e\` or \`pi\` as your own names.
+- Names: letters, digits and underscores; \`_\` makes subscripts. Name things as the question
+  writes them: \`v_0\` is v₀, \`v_1x\` (or \`v1x\`) is v₁ₓ, \`v_fx\` is v_fx, \`m_A\` is m_A, \`F_net_x\`
+  is F_net,x. A subscript that's a word (\`net\`, \`max\`, \`thermal\`) is shown upright.
+- Greek by name (\`theta\`, \`mu_k\`, \`Delta\`) or as characters (\`ΔE\`, \`ω\`): write \`Δt\`, not
+  \`dt\`. No dots in names. Don't use \`phi\`, \`tau\`, \`e\` or \`pi\` as your own names.
 - A variable can be redefined; later lines use the newest value.
 
 ## Units

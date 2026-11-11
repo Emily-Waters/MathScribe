@@ -741,11 +741,27 @@ export function symbolTex(name: string): string {
   }
   const trailingDigits = TRAILING_DIGITS.exec(name)
   if (trailingDigits) return `${namePart(trailingDigits[1])}_{${trailingDigits[2]}}`
+  // A letter, a number, then letters, `v1x`: v with 1x as its subscript.
+  const numberedLabel = NUMBERED_LABEL.exec(name)
+  if (numberedLabel) return `${namePart(numberedLabel[1])}_{${subscriptPart(numberedLabel[2])}}`
   // More than one subscript (`F_net_x`, a component) reads F_{net,x}.
   const [base, ...rest] = name.split('_')
   const subs = rest.filter(Boolean)
-  return subs.length ? `${namePart(base)}_{${subs.map(namePart).join(',')}}` : namePart(base)
+  return subs.length ? `${namePart(base)}_{${subs.map(subscriptPart).join(',')}}` : namePart(base)
 }
+
+/** One letter, then a number and letters, without an underscore: `v1x` (1: the letter, 2: the rest). */
+const NUMBERED_LABEL = new RegExp(String.raw`^([A-Za-z${GREEK_CHARS}])(\d+[A-Za-z]+)$`)
+
+/**
+ * A short subscript made of labels rather than a word: a number and a letter
+ * (`1x`, `x1`), a letter and a component (`fx`, `tx`), or a capital with a
+ * letter (`Ai`, `AB`). Words (`net`, `max`, `cm`, `eq`) aren't.
+ */
+const LABELS = /^(?:\d+[A-Za-z]|[A-Za-z]\d+|[A-Za-z][xyz]|[A-Z][a-z]|[A-Z]{2})$/
+
+/** A subscript as LaTeX: labels each as itself (`fx` → f x, letters italic), a word upright (`net`). */
+const subscriptPart = (s: string) => (LABELS.test(s) ? [...s].map(namePart).join('') : namePart(s))
 
 /** `1.235e+8` → 1.235 \times 10^{8} */
 export function numberTex(s: string): string {

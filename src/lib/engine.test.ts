@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { last, lineAt, lines, readable, sheet, shown, value } from '../test/helpers.ts'
-import { bareTuple, expandVectors } from './engine.ts'
+import { bareTuple, expandVectors, symbolTex } from './engine.ts'
 
 describe('basic calculation', () => {
   it('substitutes values and tidies the unit', () => {
@@ -184,6 +184,22 @@ describe('to percent', () => {
 
   it('scales an uncertainty too', () => {
     expect(value('g = (0.120 ± 0.005) to percent')).toBe('(12.0 ± 0.5) %')
+  })
+})
+
+describe('names with subscripts', () => {
+  it('reads a letter, a number and letters as the letter with the rest lowered: v1x', () => {
+    expect(symbolTex('v1x')).toBe('v_{1x}')
+    expect(symbolTex('m1')).toBe('m_{1}')
+  })
+
+  it('shows a short subscript of labels as labels, and a word upright', () => {
+    for (const [name, tex] of [['v_fx', 'v_{fx}'], ['p_tx', 'p_{tx}'], ['v_Ai', 'v_{Ai}'], ['F_AB', 'F_{AB}'], ['v_x1', 'v_{x1}']]) {
+      expect(symbolTex(name)).toBe(tex)
+    }
+    for (const [name, tex] of [['v_cm', 'v_{\\mathrm{cm}}'], ['x_eq', 'x_{\\mathrm{eq}}'], ['F_net_x', 'F_{\\mathrm{net},x}'], ['E_thermal', 'E_{\\mathrm{thermal}}']]) {
+      expect(symbolTex(name)).toBe(tex)
+    }
   })
 })
 

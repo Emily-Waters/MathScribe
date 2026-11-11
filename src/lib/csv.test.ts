@@ -2,7 +2,8 @@
 import { describe, expect, it } from 'vitest'
 import { alignColumns, parseCsv, withImportedData, withoutImport } from './csv.ts'
 import { lines, sheet, value } from '../test/helpers.ts'
-import { lineNumbering, type ImportBlock } from './document.ts'
+import { lineNumbering } from './document.ts'
+import type { ImportBlock } from './blocks.ts'
 
 describe('parseCsv', () => {
   it('reads the column names, units and values as typed', () => {

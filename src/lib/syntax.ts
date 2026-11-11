@@ -215,8 +215,9 @@ export const EXACT_SETTING = 'exact'
 export type Precision = number | typeof EXACT_SETTING
 
 /** Always scientific (`x:sci`) or always decimal (`x:dec`) notation. */
-export const NOTATIONS = ['sci', 'dec'] as const
-export type Notation = typeof NOTATIONS[number]
+export const NOTATION = { sci: 'sci', dec: 'dec' } as const
+export type Notation = (typeof NOTATION)[keyof typeof NOTATION]
+export const NOTATIONS: readonly Notation[] = Object.values(NOTATION)
 
 /** Show a unitless result ×100 with a % sign: `f:percent = …`, `… to percent`. */
 export const PERCENT = 'percent'
@@ -259,6 +260,10 @@ export const SERIES_SUFFIXES = {
   sem: 'sem',
   count: 'count',
 } as const
+
+/** Each statistic of a series, as SERIES_SUFFIXES names them: the mean, σ, σ/√n, the count. */
+export const SERIES_STAT = { mean: 'mean', std: 'std', sem: 'sem', count: 'count' } as const satisfies
+  Record<string, (typeof SERIES_SUFFIXES)[SeriesSuffix]>
 export type SeriesSuffix = keyof typeof SERIES_SUFFIXES
 
 // ---------------------------------------------------------------------------
@@ -290,23 +295,26 @@ export const CONSTANT_DECLARATION = new RegExp(String.raw`^@(${NAME})(?::(\d+|${
  *   sym   F = m·a                       (the equation only)
  *   val   F = 19.6 N                    (the result only)
  */
-export const DISPLAY_MODES = ['full', 'sym', 'val'] as const
-export type DisplayMode = typeof DISPLAY_MODES[number]
+export const DISPLAY_MODE = { full: 'full', sym: 'sym', val: 'val' } as const
+export type DisplayMode = (typeof DISPLAY_MODE)[keyof typeof DISPLAY_MODE]
+export const DISPLAY_MODES: readonly DisplayMode[] = Object.values(DISPLAY_MODE)
 
 /** The commands on a line: how much to show of it, or hide it. */
-export const LINE_COMMANDS = [...DISPLAY_MODES, 'hide'] as const
-export type LineCommand = typeof LINE_COMMANDS[number]
+export const LINE_COMMAND = { ...DISPLAY_MODE, hide: 'hide' } as const
+export type LineCommand = (typeof LINE_COMMAND)[keyof typeof LINE_COMMAND]
+export const LINE_COMMANDS: readonly LineCommand[] = Object.values(LINE_COMMAND)
 
 /** `#multiline`: one `=` per row; a layout, so it combines with the commands above. */
 export const MULTILINE = 'multiline'
 
 /** How a layout block (`Title:` with lines indented under it), or one line, is arranged. */
-export const LAYOUT_STYLES = ['center', 'list', 'numbered', 'text'] as const
-export type LayoutStyle = typeof LAYOUT_STYLES[number]
+export const LAYOUT_STYLE = { center: 'center', list: 'list', numbered: 'numbered', text: 'text' } as const
+export type LayoutStyle = (typeof LAYOUT_STYLE)[keyof typeof LAYOUT_STYLE]
+export const LAYOUT_STYLES: readonly LayoutStyle[] = Object.values(LAYOUT_STYLE)
 
 /** Every display command, in the order the editor lists them. (`#sci` and `#dec` are the notations, NOTATIONS.) */
 export const COMMAND_NAMES = [...LINE_COMMANDS, MULTILINE, ...NOTATIONS, ...LAYOUT_STYLES] as const
-export type CommandName = typeof COMMAND_NAMES[number]
+export type CommandName = LineCommand | typeof MULTILINE | Notation | LayoutStyle
 
 /**
  * One of `names` written as a command: `#name` on its own, not inside a word

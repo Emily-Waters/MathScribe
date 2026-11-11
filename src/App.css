@@ -564,7 +564,7 @@ body {
   color: var(--error);
 }
 
-.calc__msg--warn {
+.calc__msg--warning {
   color: var(--warn);
 }
 

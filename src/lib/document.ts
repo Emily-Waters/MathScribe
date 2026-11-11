@@ -1,21 +1,15 @@
-import {
-  Calculator,
-  type CalcOptions,
-  type DataColumn,
-  type Definition,
-  type FunctionLine,
-  type FunctionResult,
-  type TraceLine,
-  type Variable,
-  symbolTex,
-} from './engine.ts'
+import { Calculator, type CalcOptions, type FunctionLine, type Variable, symbolTex } from './engine.ts'
 import {
   ASSIGNMENT, CONSTANT_DECLARATION, EXACT_SETTING, DEF, DEF_HEAD, FUNCTION_HEAD, IMPORT, LAYOUT_STYLES, LEADING_NAME, LINE_COMMANDS,
-  MULTILINE, NAME_WITH_SETTINGS, NOTATIONS, PLOT_CALL, SELECT_CALL, UNPACK_HEAD, VALUE_IN_TEXT, commandPattern, indentOf, isComment,
-  type LayoutStyle, type LineCommand, type Notation,
+  DISPLAY_MODE, LAYOUT_STYLE, LINE_COMMAND, MULTILINE, NAME_WITH_SETTINGS, NOTATIONS, PLOT_CALL, SELECT_CALL, UNPACK_HEAD, VALUE_IN_TEXT,
+  commandPattern, indentOf, isComment,
+  type LayoutStyle, type Notation,
 } from './syntax.ts'
 import { parseCsv, type CsvData } from './csv.ts'
-import type { PlotData } from './plot.ts'
+import {
+  BLOCK_KIND, isContainer, type Block, type Command, type ConstantsBlock, type GroupBlock, type ImportBlock,
+  type LayoutBlock,
+} from './blocks.ts'
 
 /**
  * Imported data as read, kept between evaluations of the sheet (one per edit)
@@ -66,151 +60,15 @@ function readCsv(rows: string[]): CsvData {
  * Blocks scope variables like a programming language: inside a block you can
  * read everything defined above it, but anything assigned inside is local and
  * disappears at the closing `}`, leaving outer variables of the same name untouched.
+ *
+ * (What each kind of block holds is in blocks.ts.)
  */
-export type Block =
-  /** `#` → 1 (section), `##` → 2 (subsection), `###` or more → 3 (bold paragraph) */
-  | {
-    kind: 'heading'; line: number; level: 1 | 2 | 3; text: string
-    /** "2" or "2.1", as LaTeX numbers it */
-    number?: string
-    /** A value in its text (`{{x}}`) that couldn't be worked out. */
-    error?: string
-  }
-  /** Prose; `{{x}}` in it is replaced by x's value, as inline maths. */
-  | { kind: 'text'; line: number; text: string; error?: string }
-  | { kind: 'latex'; line: number; latex: string }
-  /** A gap of one empty line, from two or more blank lines in the input. */
-  | { kind: 'spacer'; line: number }
-  | CalcBlock
-  | GroupBlock
-  | LayoutBlock
-  | FunctionBlock
-  | ConstantsBlock
-  | ImportBlock
-
-/**
- * `import("run1.csv")` with the file's rows indented under it: data whose
- * values become variables (t_1, t_2, …). Only a summary is shown, not the rows.
- */
-export interface ImportBlock {
-  kind: 'import'
-  line: number
-  /** Last line of the data. */
-  endLine: number
-  /** Its name, for `run1 = import(…)`: its columns are run1.t, run1.x, …. */
-  name?: string
-  /** The file's name, or undefined for `import()` before a file is chosen. */
-  file?: string
-  /** What each column made. */
-  columns: DataColumn[]
-  rows: number
-  note?: string
-  error?: string
-  hidden?: boolean
-}
-
-/** `@constants { … }`: constants usable anywhere in the sheet as `@name`. */
-export interface ConstantsBlock {
-  kind: 'constants'
-  line: number
-  /** Line of the closing brace. */
-  endLine: number
-  note?: string
-  entries: { line: number; source: string; tex: string; note?: string; error?: string; warning?: string; info?: string }[]
-  error?: string
-  hidden?: boolean
-}
-
-/** `def f(a, b)` with its indented body. */
-export interface FunctionBlock extends FunctionResult {
-  kind: 'function'
-  line: number
-  /** Last line of the body. */
-  endLine: number
-  name: string
-  note?: string
-  hidden?: boolean
-}
-
-/** A calculation line, evaluated: its LaTeX, and anything to say about it. */
-export interface CalcBlock {
-  kind: 'calc'
-  line: number
-  source: string
-  tex: string
-  note?: string
-  error?: string
-  warning?: string
-  /** Extra information, e.g. other solutions of an equation (may contain $inline math$). */
-  info?: string
-  /** Working from inside functions called on this line, shown before it. */
-  trace?: TraceLine[]
-  /** Calculated but not shown (`#hide`). */
-  hidden?: boolean
-  /** A `plot(…)` line's plot (`tex` is then its fits' equations, if any). */
-  plot?: PlotData
-  /** What a select or named plot made (a__x_1, p__slope), for suggestions. */
-  defines?: Definition[]
-}
-
-/** A `Title { … }` block: the variables assigned inside it are local to it. */
-export interface GroupBlock {
-  kind: 'group'
-  line: number
-  /** Line of the closing brace (or the last line, if it's missing). */
-  endLine?: number
-  title: string
-  note?: string
-  children: Block[]
-  /** Variables defined inside this block (not visible after it). */
-  locals: Variable[]
-  error?: string
-  /** Display command given on the opener, inherited by lines inside. */
-  command?: Command
-  /** `#multiline` on the opener: every line inside is laid out one `=` per row. */
-  multiline?: boolean
-  /** `#sci` / `#dec` on the opener: the notation results inside are shown in. */
-  notation?: Notation
-}
-
-export type { LayoutStyle }
-
-/**
- * `Title:  #numbered` with indented lines under it: a block that only arranges
- * its lines (centered, or as a bulleted or numbered list). Unlike `{ }` blocks,
- * it doesn't scope variables. Indenting further inside a list makes a sub-list.
- */
-export interface LayoutBlock {
-  kind: 'layout'
-  line: number
-  /** Last line that belongs to it. */
-  endLine?: number
-  title: string
-  note?: string
-  /** No style: just a titled, indented section. */
-  style?: LayoutStyle
-  children: Block[]
-  /** A sub-list made by indenting further; it belongs to the item before it. */
-  nested?: boolean
-  error?: string
-  /** Display command given on the opener, inherited by lines inside. */
-  command?: Command
-  multiline?: boolean
-  notation?: Notation
-  /** Indentation of the opener; a line indented no further ends the block. */
-  indent: number
-  /** Indentation of its first line; a line indented further starts a sub-list. */
-  itemIndent?: number
-}
 
 /** A whole sheet, evaluated: its blocks, and the variables it ends with. */
 export interface Sheet {
   blocks: Block[]
   variables: Variable[]
 }
-
-/** A display command on a line or block (#sym, #val, #full, #hide). */
-export type Command = LineCommand
 
 /** `#sym`, `#val`, `#full`, `#hide` in a line. */
 const COMMAND = commandPattern(LINE_COMMANDS, 'gi')
@@ -371,7 +229,7 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
     }
     for (const k of declarations) {
       const e = entries[k]
-      const result = calc.evaluate(e.source, 'full')
+      const result = calc.evaluate(e.source, DISPLAY_MODE.full)
       entries[k] = {
         ...e, ...result,
         info: result.error ? undefined : declarationInfo(e.source, e.line),
@@ -381,7 +239,7 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
     constantBlocks.set(i, {
       end,
       block: {
-        kind: 'constants', line: i + 1, endLine: end + 1, note: opener.note, entries, hidden: opener.command === 'hide',
+        kind: BLOCK_KIND.constants, line: i + 1, endLine: end + 1, note: opener.note, entries, hidden: opener.command === LINE_COMMAND.hide,
         error: closed ? undefined : `The @constants block on line ${i + 1} is missing its closing }.`,
       },
     })
@@ -402,14 +260,14 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
     if (isComment(trimmed)) continue
     // Layout blocks end at the first line indented no further than their opener.
     const indent = indentOf(raw)
-    while (open.at(-1)?.kind === 'layout' && indent <= (open.at(-1) as LayoutBlock).indent) closeLayout()
+    while (open.at(-1)?.kind === BLOCK_KIND.layout && indent <= (open.at(-1) as LayoutBlock).indent) closeLayout()
     // In a list, a line indented further than the items starts a sub-list.
     const top = open.at(-1)
-    if (top?.kind === 'layout') {
+    if (top?.kind === BLOCK_KIND.layout) {
       top.itemIndent ??= indent
-      if (indent > top.itemIndent && (top.style === 'list' || top.style === 'numbered') && top.children.length) {
+      if (indent > top.itemIndent && (top.style === LAYOUT_STYLE.list || top.style === LAYOUT_STYLE.numbered) && top.children.length) {
         const sub: LayoutBlock = {
-          kind: 'layout', line, title: '', style: top.style, children: [], nested: true,
+          kind: BLOCK_KIND.layout, line, title: '', style: top.style, children: [], nested: true,
           indent: top.itemIndent, itemIndent: indent,
         }
         add(sub)
@@ -421,8 +279,8 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
     // before a closing brace, and not between list items.
     const parent = open.at(-1)
     const container = parent?.children ?? root
-    const inList = parent?.kind === 'layout' && (parent.style === 'list' || parent.style === 'numbered')
-    if (blankRun >= 2 && container.length && !trimmed.startsWith('}') && !inList) add({ kind: 'spacer', line })
+    const inList = parent?.kind === BLOCK_KIND.layout && (parent.style === LAYOUT_STYLE.list || parent.style === LAYOUT_STYLE.numbered)
+    if (blankRun >= 2 && container.length && !trimmed.startsWith('}') && !inList) add({ kind: BLOCK_KIND.spacer, line })
     blankRun = 0
 
     // Already evaluated in the first pass; just place the block.
@@ -444,15 +302,15 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
         subsection++
         number = `${section}.${subsection}`
       }
-      add({ kind: 'heading', line, level, number, ...withValues(trimmed.replace(/^#+/, '').trim()) })
+      add({ kind: BLOCK_KIND.heading, line, level, number, ...withValues(trimmed.replace(/^#+/, '').trim()) })
       continue
     }
     if (trimmed.startsWith('>')) {
-      add({ kind: 'text', line, ...withValues(trimmed.slice(1).trim()) })
+      add({ kind: BLOCK_KIND.text, line, ...withValues(trimmed.slice(1).trim()) })
       continue
     }
     if (trimmed.startsWith('$')) {
-      add({ kind: 'latex', line, latex: trimmed.replace(/^\$+|\$+$/g, '').trim() })
+      add({ kind: BLOCK_KIND.latex, line, latex: trimmed.replace(/^\$+|\$+$/g, '').trim() })
       continue
     }
 
@@ -476,8 +334,8 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
         endLine = idx + 1
       }
       const block: ImportBlock = {
-        kind: 'import', line, endLine, name: imported[1], file: imported[2], columns: [], rows: 0, note,
-        hidden: (command ?? inherited) === 'hide',
+        kind: BLOCK_KIND.import, line, endLine, name: imported[1], file: imported[2], columns: [], rows: 0, note,
+        hidden: (command ?? inherited) === LINE_COMMAND.hide,
       }
       if (rows.length) {
         const csv = readCsv(rows)
@@ -512,33 +370,33 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
         ? calc.defineFunction(def[1], params, bodyLines, multiline, def[3])
         : { signature: symbolTex(def[1]), body: [], error: `${def[1]} has no body: indent the lines under def.` }
       add({
-        kind: 'function', line, endLine: bodyLines.at(-1)?.line ?? line, name: def[1], note,
-        hidden: (command ?? inherited) === 'hide', ...result,
+        kind: BLOCK_KIND.function, line, endLine: bodyLines.at(-1)?.line ?? line, name: def[1], note,
+        hidden: (command ?? inherited) === LINE_COMMAND.hide, ...result,
       })
       continue
     }
 
     if (body === '}') {
       // Layout blocks inside the group end with it.
-      while (open.at(-1)?.kind === 'layout') closeLayout()
+      while (open.at(-1)?.kind === BLOCK_KIND.layout) closeLayout()
       const group = open.pop() as GroupBlock | undefined
       if (group) {
         group.locals = calc.popScope()
         group.endLine = line
       }
-      else add({ kind: 'calc', line, source: body, tex: '', error: 'Unmatched }: no block is open here.' })
-    } else if (body.endsWith(':') && layout === 'text') {
+      else add({ kind: BLOCK_KIND.calc, line, source: body, tex: '', error: 'Unmatched }: no block is open here.' })
+    } else if (body.endsWith(':') && layout === LAYOUT_STYLE.text) {
       // `Title:  #text`: the lines indented under it are prose, not calculations.
       // Lines run together into paragraphs; a blank line starts a new one.
       const title = withValues(body.slice(0, -1).trim())
       const block: LayoutBlock = {
-        kind: 'layout', line, title: title.text, note, style: 'text', children: [], indent,
-        command: command ?? (inherited === 'hide' ? 'hide' : undefined), error: title.error,
+        kind: BLOCK_KIND.layout, line, title: title.text, note, style: LAYOUT_STYLE.text, children: [], indent,
+        command: command ?? (inherited === LINE_COMMAND.hide ? LINE_COMMAND.hide : undefined), error: title.error,
       }
       let paragraph: { line: number; text: string[] } | null = null
       let lastText = line
       const endParagraph = () => {
-        if (paragraph) block.children.push({ kind: 'text', line: paragraph.line, ...withValues(paragraph.text.join(' ')) })
+        if (paragraph) block.children.push({ kind: BLOCK_KIND.text, line: paragraph.line, ...withValues(paragraph.text.join(' ')) })
         paragraph = null
       }
       // (A comment, even one indented less, doesn't end the block.)
@@ -566,8 +424,8 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
       // `Title:  #numbered`: the lines indented under it are laid out together.
       const title = withValues(body.slice(0, -1).trim())
       const block: LayoutBlock = {
-        kind: 'layout', line, title: title.text, note, style: layout, children: [], indent,
-        command: command ?? (inherited === 'hide' ? 'hide' : undefined),
+        kind: BLOCK_KIND.layout, line, title: title.text, note, style: layout, children: [], indent,
+        command: command ?? (inherited === LINE_COMMAND.hide ? LINE_COMMAND.hide : undefined),
         multiline: ownMultiline || undefined,
         notation: ownNotation,
         error: title.error,
@@ -578,8 +436,8 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
       // (Values in its title are the ones from before the block.)
       const title = withValues(body.slice(0, -1).trim())
       const group: GroupBlock = {
-        kind: 'group', line, title: title.text, note, children: [], locals: [],
-        command: command ?? (inherited === 'hide' ? 'hide' : undefined),
+        kind: BLOCK_KIND.group, line, title: title.text, note, children: [], locals: [],
+        command: command ?? (inherited === LINE_COMMAND.hide ? LINE_COMMAND.hide : undefined),
         multiline: ownMultiline || undefined,
         notation: ownNotation,
         error: title.error,
@@ -588,17 +446,17 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
       open.push(group)
       calc.pushScope()
     } else {
-      const effective = command ?? inherited ?? 'full'
-      const mode = effective === 'hide' ? 'full' : effective
+      const effective = command ?? inherited ?? DISPLAY_MODE.full
+      const mode = effective === LINE_COMMAND.hide ? DISPLAY_MODE.full : effective
       const result = calc.evaluate(body, mode, (command ?? inherited) !== undefined, multiline, { own: ownNotation, block: blockNotation })
       // `#center` (or another layout) on a single line: lay out just that line.
-      const own: LayoutBlock | undefined = layout && layout !== 'text'
-        ? { kind: 'layout', line, endLine: line, title: '', style: layout, children: [], indent }
+      const own: LayoutBlock | undefined = layout && layout !== LAYOUT_STYLE.text
+        ? { kind: BLOCK_KIND.layout, line, endLine: line, title: '', style: layout, children: [], indent }
         : undefined
       if (own) add(own)
       // A line that's just a function call can take its note from the return line.
       ;(own?.children ?? open.at(-1)?.children ?? root).push({
-        kind: 'calc', line, source: body, hidden: effective === 'hide', ...result,
+        kind: BLOCK_KIND.calc, line, source: body, hidden: effective === LINE_COMMAND.hide, ...result,
         note: note ?? result.returnNote,
         info: result.info ?? (result.error ? undefined : declarationInfo(body, line)),
         warning: duplicateDeclarations.get(line) ?? result.warning,
@@ -608,7 +466,7 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
 
   // Close anything left open so its locals don't leak into the top level.
   while (open.length) {
-    if (open.at(-1)!.kind === 'layout') {
+    if (open.at(-1)!.kind === BLOCK_KIND.layout) {
       closeLayout()
       continue
     }
@@ -638,7 +496,11 @@ export function splitInlineMath(text: string): { math: boolean; value: string }[
 }
 
 /** A piece of a title: plain text, a subscript, or inline maths. */
-export type TitleSegment = { kind: 'text' | 'sub' | 'math'; value: string }
+/** Each kind of piece of a title. */
+export const TITLE_SEGMENT = { text: 'text', sub: 'sub', math: 'math' } as const
+export type TitleSegmentKind = (typeof TITLE_SEGMENT)[keyof typeof TITLE_SEGMENT]
+
+export type TitleSegment = { kind: TitleSegmentKind; value: string }
 
 /** `p_z`, `E_k`, `x_{max}`: a subscript after a letter or digit. `\_` is a plain underscore. */
 const SUBSCRIPT = /(?<=[A-Za-z0-9])(?<!\\)_(\{[^{}]*\}|[A-Za-z0-9]+)/g
@@ -650,17 +512,17 @@ const SUBSCRIPT = /(?<=[A-Za-z0-9])(?<!\\)_(\{[^{}]*\}|[A-Za-z0-9]+)/g
 export function titleSegments(text: string): TitleSegment[] {
   const out: TitleSegment[] = []
   const plain = (s: string) => {
-    if (s) out.push({ kind: 'text', value: s.replace(/\\_/g, '_') })
+    if (s) out.push({ kind: TITLE_SEGMENT.text, value: s.replace(/\\_/g, '_') })
   }
   for (const seg of splitInlineMath(text)) {
     if (seg.math) {
-      out.push({ kind: 'math', value: seg.value })
+      out.push({ kind: TITLE_SEGMENT.math, value: seg.value })
       continue
     }
     let last = 0
     for (const m of seg.value.matchAll(SUBSCRIPT)) {
       plain(seg.value.slice(last, m.index))
-      out.push({ kind: 'sub', value: m[1].replace(/^\{|\}$/g, '') })
+      out.push({ kind: TITLE_SEGMENT.sub, value: m[1].replace(/^\{|\}$/g, '') })
       last = m.index + m[0].length
     }
     plain(seg.value.slice(last))
@@ -671,9 +533,9 @@ export function titleSegments(text: string): TitleSegment[] {
 /** Whether a block is left out of the output (and so isn't a list item). */
 export function isOmitted(b: Block): boolean {
   // Spacers, and imported data, which only defines variables.
-  if (b.kind === 'spacer' || b.kind === 'import') return true
-  if (b.kind === 'calc' || b.kind === 'function' || b.kind === 'constants') return !!b.hidden && !b.error
-  if (b.kind === 'group' || b.kind === 'layout') return b.command === 'hide' && !b.error
+  if (b.kind === BLOCK_KIND.spacer || b.kind === BLOCK_KIND.import) return true
+  if (b.kind === BLOCK_KIND.calc || b.kind === BLOCK_KIND.function || b.kind === BLOCK_KIND.constants) return !!b.hidden && !b.error
+  if (isContainer(b)) return b.command === LINE_COMMAND.hide && !b.error
   return false
 }
 
@@ -682,7 +544,7 @@ export function listItems(children: Block[]): { item: Block; subs: Block[] }[] {
   const items: { item: Block; subs: Block[] }[] = []
   for (const c of children) {
     if (isOmitted(c)) continue
-    if (c.kind === 'layout' && c.nested && items.length) items.at(-1)!.subs.push(c)
+    if (c.kind === BLOCK_KIND.layout && c.nested && items.length) items.at(-1)!.subs.push(c)
     else items.push({ item: c, subs: [] })
   }
   return items
@@ -696,21 +558,25 @@ export function collectDefinitions(blocks: Block[]): Map<string, number[]> {
   const out = new Map<string, number[]>()
   const put = (name: string, line: number) => out.set(name, [...(out.get(name) ?? []), line])
   const visit = (b: Block) => {
-    if (b.kind === 'function') put(b.name, b.line)
-    else if (b.kind === 'calc') {
+    if (b.kind === BLOCK_KIND.function) put(b.name, b.line)
+    else if (b.kind === BLOCK_KIND.calc) {
       const m = FUNCTION_HEAD.exec(b.source)
       if (m) put(m[1], b.line)
-    } else if (b.kind === 'group' || b.kind === 'layout') b.children.forEach(visit)
+    } else if (isContainer(b)) b.children.forEach(visit)
   }
   blocks.forEach(visit)
   for (const lines of out.values()) lines.sort((a, b) => a - b)
   return out
 }
 
+/** Each kind of name the editor knows. */
+export const SYMBOL_KIND = { variable: 'variable', parameter: 'parameter', function: 'function', constant: 'constant' } as const
+export type SymbolKind = (typeof SYMBOL_KIND)[keyof typeof SYMBOL_KIND]
+
 /** A name the editor can suggest or describe, and where it's visible. */
 export interface SheetSymbol {
   name: string
-  kind: 'variable' | 'parameter' | 'function' | 'constant'
+  kind: SymbolKind
   /** Line it's defined on. */
   line: number
   /** Lines it can be used on (a `{ }` block or function body scopes it). */
@@ -750,7 +616,7 @@ export function collectSymbols(sheet: Sheet, source: string): SheetSymbol[] {
   }
   /** A variable's symbol, with its value's TeX worked out only when it's shown. */
   const variable = (name: string, line: number, from: number, to: number, scope: () => Variable[], members?: number): SheetSymbol =>
-    Object.defineProperties({ name, kind: 'variable', line, from, to, members }, {
+    Object.defineProperties({ name, kind: SYMBOL_KIND.variable, line, from, to, members }, {
       tex: { get: () => lookup(scope).get(name)?.tex, enumerable: false },
       texOf: { value: (other: string) => lookup(scope).get(other)?.tex, enumerable: false },
     }) as SheetSymbol
@@ -760,7 +626,7 @@ export function collectSymbols(sheet: Sheet, source: string): SheetSymbol[] {
   const visit = (blocks: Block[], to: number, scope: () => Variable[]) => {
     for (const b of blocks) {
       switch (b.kind) {
-        case 'calc': {
+        case BLOCK_KIND.calc: {
           // `tuple(a, b) = …`: each name is a variable.
           const unpack = UNPACK_HEAD.exec(b.source)
           if (unpack) {
@@ -774,7 +640,7 @@ export function collectSymbols(sheet: Sheet, source: string): SheetSymbol[] {
           const def = FUNCTION_HEAD.exec(b.source)
           if (def) {
             out.push({
-              name: def[1], kind: 'function', line: b.line, from: b.line, to,
+              name: def[1], kind: SYMBOL_KIND.function, line: b.line, from: b.line, to,
               tex: b.tex.split(' = ')[0], params: def[2].trim(),
             })
             break
@@ -788,23 +654,23 @@ export function collectSymbols(sheet: Sheet, source: string): SheetSymbol[] {
           if (assign) out.push(variable(assign[1], b.line, b.line + 1, to, scope))
           break
         }
-        case 'function': {
+        case BLOCK_KIND.function: {
           const params = DEF_HEAD.exec(lines[b.line - 1] ?? '')?.[2].trim() ?? ''
-          out.push({ name: b.name, kind: 'function', line: b.line, from: b.line, to, tex: b.signature, params })
+          out.push({ name: b.name, kind: SYMBOL_KIND.function, line: b.line, from: b.line, to, tex: b.signature, params })
           // Inside the body, its parameters are names too.
           for (const p of params.split(',')) {
             const name = LEADING_NAME.exec(p.trim())?.[0]
-            if (name) out.push({ name, kind: 'parameter', line: b.line, from: b.line + 1, to: b.endLine })
+            if (name) out.push({ name, kind: SYMBOL_KIND.parameter, line: b.line, from: b.line + 1, to: b.endLine })
           }
           break
         }
-        case 'constants':
+        case BLOCK_KIND.constants:
           for (const e of b.entries) {
             const name = ASSIGNMENT.exec(e.source)?.[1]
-            if (name) out.push({ name: `@${name}`, kind: 'constant', line: e.line, from: 1, to: lines.length, tex: e.tex })
+            if (name) out.push({ name: `@${name}`, kind: SYMBOL_KIND.constant, line: e.line, from: 1, to: lines.length, tex: e.tex })
           }
           break
-        case 'import':
+        case BLOCK_KIND.import:
           // Each value is a variable, t_1, t_2, …: listed by the first and last (a
           // column can have thousands), which stand for all of them in a series.
           for (const c of b.columns) {
@@ -813,10 +679,10 @@ export function collectSymbols(sheet: Sheet, source: string): SheetSymbol[] {
             if (c.count > 1) out.push(variable(`${c.name}_${c.last}`, b.line, b.endLine + 1, to, scope, 1))
           }
           break
-        case 'group':
+        case BLOCK_KIND.group:
           visit(b.children, b.endLine ?? lines.length, () => b.locals)
           break
-        case 'layout':
+        case BLOCK_KIND.layout:
           // Layout blocks don't scope their variables.
           visit(b.children, to, scope)
           break
@@ -836,16 +702,20 @@ export function collectSymbols(sheet: Sheet, source: string): SheetSymbol[] {
 export function lineNumbering(blocks: Block[]): (line: number) => number {
   const hidden: { after: number; count: number }[] = []
   const visit = (b: Block) => {
-    if (b.kind === 'import' && b.endLine > b.line) hidden.push({ after: b.endLine, count: b.endLine - b.line })
-    else if (b.kind === 'group' || b.kind === 'layout') b.children.forEach(visit)
+    if (b.kind === BLOCK_KIND.import && b.endLine > b.line) hidden.push({ after: b.endLine, count: b.endLine - b.line })
+    else if (isContainer(b)) b.children.forEach(visit)
   }
   blocks.forEach(visit)
   return (line) => line - hidden.reduce((sum, h) => sum + (h.after < line ? h.count : 0), 0)
 }
 
+/** How serious a line's message is. */
+export const DIAGNOSTIC_KIND = { error: 'error', warning: 'warning' } as const
+export type DiagnosticKind = (typeof DIAGNOSTIC_KIND)[keyof typeof DIAGNOSTIC_KIND]
+
 /** An error or warning on a line, for the editor’s gutter. */
 export interface Diagnostic {
-  kind: 'error' | 'warning'
+  kind: DiagnosticKind
   message: string
 }
 
@@ -855,35 +725,35 @@ export function collectDiagnostics(blocks: Block[]): Map<number, Diagnostic> {
   const put = (line: number, kind: Diagnostic['kind'], message?: string) => {
     if (!message) return
     const existing = out.get(line)
-    if (!existing || (existing.kind === 'warning' && kind === 'error')) out.set(line, { kind, message })
+    if (!existing || (existing.kind === DIAGNOSTIC_KIND.warning && kind === DIAGNOSTIC_KIND.error)) out.set(line, { kind, message })
   }
   const visit = (b: Block) => {
     switch (b.kind) {
-      case 'calc':
-        put(b.line, 'warning', b.warning)
-        put(b.line, 'error', b.error)
+      case BLOCK_KIND.calc:
+        put(b.line, DIAGNOSTIC_KIND.warning, b.warning)
+        put(b.line, DIAGNOSTIC_KIND.error, b.error)
         break
-      case 'function': {
+      case BLOCK_KIND.function: {
         // "Line 12: …" errors point at a body line.
         const at = /^Line (\d+): (.*)$/.exec(b.error ?? '')
-        put(at ? Number(at[1]) : b.line, 'error', at ? at[2] : b.error)
+        put(at ? Number(at[1]) : b.line, DIAGNOSTIC_KIND.error, at ? at[2] : b.error)
         break
       }
-      case 'import':
-      case 'heading':
-      case 'text':
-        put(b.line, 'error', b.error)
+      case BLOCK_KIND.import:
+      case BLOCK_KIND.heading:
+      case BLOCK_KIND.text:
+        put(b.line, DIAGNOSTIC_KIND.error, b.error)
         break
-      case 'constants':
-        put(b.line, 'error', b.error)
+      case BLOCK_KIND.constants:
+        put(b.line, DIAGNOSTIC_KIND.error, b.error)
         for (const e of b.entries) {
-          put(e.line, 'warning', e.warning)
-          put(e.line, 'error', e.error)
+          put(e.line, DIAGNOSTIC_KIND.warning, e.warning)
+          put(e.line, DIAGNOSTIC_KIND.error, e.error)
         }
         break
-      case 'group':
-      case 'layout':
-        put(b.line, 'error', b.error)
+      case BLOCK_KIND.group:
+      case BLOCK_KIND.layout:
+        put(b.line, DIAGNOSTIC_KIND.error, b.error)
         b.children.forEach(visit)
         break
     }

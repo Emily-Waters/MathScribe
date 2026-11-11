@@ -37,7 +37,8 @@ import {
   ASSIGNMENT, ASSIGNMENT_WITH_VALUE, AXES, COMPONENTS_SETTING, CONSTANT_REF, DECLARED, EXACT_SETTING, IS_NAME,
   GREEK_BY_CHAR, GREEK_BY_NAME, GREEK_CHARS, LEADING_NAME, NAME, NAME_CHAR, NAME_WITH_SETTINGS, NOTATIONS, NUMBER, ONE_LINE_FUNCTION, PERCENT, SERIES_SUFFIXES,
   KEYWORD, PLOT_CALL, RETURN_LINE, SELECT_CALL, SOLVE_CALL, SUBSCRIPT, TABLE_CALL, UNCERTAINTY_WORDS, UNIT_VECTOR_SETTING, UNPACK, VECTOR_FUNCTION,
-  type DisplayMode, type LineCommand, type Notation, type Precision, type SeriesSuffix, type UncertaintyWord,
+  DISPLAY_MODE, LINE_COMMAND, SERIES_STAT,
+  type DisplayMode, type LineCommand, type Notation, type Precision, type UncertaintyWord,
   type VectorStyle,
 } from './syntax.ts'
 import {
@@ -45,8 +46,8 @@ import {
   parseConstantRefName, parseMemberName, parseNumberedName, parseSeriesStatName, parseSolvedName, parseUncertaintyName, readableMembers,
   seriesMemberName, solvedName, uncertaintyName, unpackedColumnName, unpackedName,
 } from './names.ts'
-import { FN, MATHJS_IN, OP, OP_SYMBOL, UNIT, UNIT_LOOKS, isOp } from './mathjsNames.ts'
-import { Solver, contains, countOccurrences, matchingParen, splitArgs, splitEquation } from './solve.ts'
+import { FN, MATHJS_IN, MATH_CONSTANT, OP, OP_SYMBOL, UNIT, UNIT_LOOKS, isOp } from './mathjsNames.ts'
+import { POLYNOMIAL_KIND, Solver, contains, countOccurrences, matchingParen, splitArgs, splitEquation } from './solve.ts'
 import { nestBrackets } from './brackets.ts'
 import type { CsvColumn } from './csv.ts'
 import { SETTING, parseRowRange, parseTableSettings, settingParts, splitCallArgs } from './tableSettings.ts'
@@ -226,7 +227,7 @@ const snap = (r: unknown, angle: unknown) => {
   const target = SNAP_TARGETS.find((t) => Math.abs(r - t) < SNAP_TOLERANCE && (t !== 0 || radians > TINY_ANGLE))
   return target === undefined ? r : target
 }
-for (const name of ['sin', 'cos', 'tan'] as const) {
+for (const name of [FN.sin, FN.cos, FN.tan] as const) {
   const original = math[name] as unknown as ((x: unknown) => unknown) & { toTex?: unknown }
   const wrapped = Object.assign((x: unknown) => snap(original(x), x), { toTex: original.toTex })
   math.import({ [name]: wrapped }, { override: true })
@@ -310,10 +311,10 @@ interface EquationParts {
 /** Join the parts of a calculation with `=`, keeping only what `mode` asks for. */
 function layoutEquation(mode: DisplayMode, p: EquationParts, multiline = false): string {
   let parts: (string | undefined)[]
-  if (mode === 'sym') {
+  if (mode === DISPLAY_MODE.sym) {
     // For a bare name, its defining formula is the first step (δF = √(…), t̄ = (1/n)Σ tᵢ).
     parts = p.bareSymbol ? [p.lhs, p.expr, p.steps[0]] : [p.lhs, p.expr]
-  } else if (mode === 'val') {
+  } else if (mode === DISPLAY_MODE.val) {
     const name = p.lhs ?? (p.bareSymbol ? p.expr : undefined)
     parts = p.result === undefined ? [p.lhs, p.expr] : [name, p.result]
   } else {
@@ -625,8 +626,9 @@ const SELECT_RANGE = new RegExp(String.raw`^(${NAME})\s+(?:${SETTING.from}\s+(.+
 //   a_count   number of values
 // ---------------------------------------------------------------------------
 
-/** What a series name works out: the sum, or one of the suffixed names' statistics. */
-type AggregateKind = 'sum' | typeof SERIES_SUFFIXES[SeriesSuffix]
+/** What a series name works out: the sum (a name on its own), or one of the suffixed names' statistics. */
+const AGGREGATE_KIND = { sum: 'sum', ...SERIES_STAT } as const
+type AggregateKind = (typeof AGGREGATE_KIND)[keyof typeof AGGREGATE_KIND]
 
 /** A name worked out from a series, and the variables it uses. */
 interface Aggregate {
@@ -639,7 +641,7 @@ interface Aggregate {
 /** What a name asks of a series: `t_avg` → t's mean; a name without a suffix, the sum. */
 function parseAggregateName(name: string): { base: string; kind: AggregateKind } {
   const stat = parseSeriesStatName(name)
-  return stat ? { base: stat.base, kind: SERIES_SUFFIXES[stat.suffix] } : { base: name, kind: 'sum' }
+  return stat ? { base: stat.base, kind: SERIES_SUFFIXES[stat.suffix] } : { base: name, kind: AGGREGATE_KIND.sum }
 }
 
 /** Text, escaped to match literally in a regular expression. */
@@ -721,10 +723,10 @@ export function symbolTex(name: string): string {
   if (stat) {
     const base = symbolTex(stat.base)
     switch (SERIES_SUFFIXES[stat.suffix]) {
-      case 'std': return `\\sigma_{${base}}`
-      case 'sem': return `\\sigma_{\\bar{${base}}}`
-      case 'count': return `n_{${base}}`
-      case 'mean': {
+      case AGGREGATE_KIND.std: return `\\sigma_{${base}}`
+      case AGGREGATE_KIND.sem: return `\\sigma_{\\bar{${base}}}`
+      case AGGREGATE_KIND.count: return `n_{${base}}`
+      case AGGREGATE_KIND.mean: {
         // A namespace's series keeps its subscript outside the bar: a.x_avg → x̄_a.
         const sub = parseMemberName(stat.base) ? /^(.*?)(_\{.*\})$/.exec(base) : null
         return sub ? `\\bar{${sub[1]}}${sub[2]}` : `\\bar{${base}}`
@@ -1128,13 +1130,16 @@ class Values {
 /** A new scope inside `vars`, as mathjs sees it: what's set in it stays there. */
 const innerValues = (vars: Variables) => new Values(new Scope(vars))
 
+/** Each kind of line in a function's body: `x = …`, `tuple(a, b) = …`, `return …`. */
+const STATEMENT_KIND = { assign: 'assign', unpack: 'unpack', return: 'return' } as const
+
 /** What's needed to replay a multi-line function's body to show its working. */
 interface UserFunction {
   params: string[]
   /** Each parameter's cast unit (`m to kg` → 'kg'), if it has one. */
   casts: (string | undefined)[]
   /** Body lines as source text: `x = a + b`, and the return expression `x`. */
-  statements: { kind: 'assign' | 'return'; text: string; note?: string; command?: LineCommand; multiline?: boolean }[]
+  statements: { kind: typeof STATEMENT_KIND.assign | typeof STATEMENT_KIND.return; text: string; note?: string; command?: LineCommand; multiline?: boolean }[]
   definedIn: Variables
   /** Defined with #multiline: every line that calls it is laid out one = per row. */
   multiline: boolean
@@ -1493,42 +1498,57 @@ const isNumberWithUnit = (n: MathNode): n is math.OperatorNode =>
  * fraction, a name (one letter, or Greek), a wide name (an upright word, like
  * Fn), or anything else (a call).
  */
-type Edge = 'number' | 'quantity' | 'bracket' | 'power' | 'minus' | 'fraction' | 'name' | 'wide' | 'other'
+const EDGE = {
+  number: 'number',
+  quantity: 'quantity',
+  bracket: 'bracket',
+  power: 'power',
+  minus: 'minus',
+  fraction: 'fraction',
+  name: 'name',
+  wide: 'wide',
+  other: 'other',
+} as const
+type Edge = (typeof EDGE)[keyof typeof EDGE]
+
+/** Which side of a factor: its left edge, or its right. */
+const SIDE = { left: 'left', right: 'right' } as const
+type Side = (typeof SIDE)[keyof typeof SIDE]
 
 /**
  * What a substituted value (pre-rendered TeX) shows at one edge: a bracket
  * ((−2.0), ⟨3.0, 4.0⟩), a unit at its end (⟨3.0, 4.0⟩ N), or a number.
  */
-function rawEdge(tex: string, side: 'left' | 'right'): Edge {
-  if (side === 'left') return /^(?:\\left|\()/.test(tex) ? 'bracket' : 'number'
-  if (/(?:\\right\)|\\right\\rangle|\))$/.test(tex)) return 'bracket'
-  return /\\mathrm|\\text/.test(tex) ? 'quantity' : 'number'
+function rawEdge(tex: string, side: Side): Edge {
+  if (side === SIDE.left) return /^(?:\\left|\()/.test(tex) ? EDGE.bracket : EDGE.number
+  if (/(?:\\right\)|\\right\\rangle|\))$/.test(tex)) return EDGE.bracket
+  return /\\mathrm|\\text/.test(tex) ? EDGE.quantity : EDGE.number
 }
 
 /** What `node` shows at its `side` edge (in a product written without dots). */
-function edgeOf(node: MathNode, side: 'left' | 'right'): Edge {
+function edgeOf(node: MathNode, side: Side): Edge {
   const n = unwrap(node)
   // Bracketed by the product: a value with a unit, a sum, ….
-  if (needsBrackets(n, side === 'left' ? 'right' : 'left', true)) return 'bracket'
-  if (isConstantNode(n) || isLitCall(n)) return 'number'
-  if (isUnitCall(n) || isNumberWithUnit(n)) return 'quantity'
+  if (needsBrackets(n, side === SIDE.left ? SIDE.right : SIDE.left, true)) return EDGE.bracket
+  if (isConstantNode(n) || isLitCall(n)) return EDGE.number
+  if (isUnitCall(n) || isNumberWithUnit(n)) return EDGE.quantity
   if (isSymbolNode(n)) {
     if (n.name.startsWith(RAW)) return rawEdge(n.name.slice(RAW.length), side)
     // Euler's number after a number would read as scientific notation (5.67e), so it counts as a number.
-    if (n.name === 'e' && side === 'left') return 'number'
-    return symbolTex(n.name).startsWith('\\mathrm') ? 'wide' : 'name'
+    if (n.name === MATH_CONSTANT.e && side === SIDE.left) return EDGE.number
+    return symbolTex(n.name).startsWith('\\mathrm') ? EDGE.wide : EDGE.name
   }
   if (isOperatorNode(n)) {
-    if (n.fn === OP.divide) return 'fraction'
-    if (n.fn === OP.multiply) return edgeOf(side === 'left' ? n.args[0] : n.args[n.args.length - 1], side)
+    if (n.fn === OP.divide) return EDGE.fraction
+    if (n.fn === OP.multiply) return edgeOf(side === SIDE.left ? n.args[0] : n.args[n.args.length - 1], side)
     if (n.fn === OP.pow) {
       // A power ends in its raised exponent. It starts with its base, which is
       // bracketed if it's a value with a unit: (0.400 Å)².
-      if (side === 'right') return 'power'
-      return isNumberWithUnit(unwrap(n.args[0])) ? 'bracket' : edgeOf(n.args[0], side)
+      if (side === SIDE.right) return EDGE.power
+      return isNumberWithUnit(unwrap(n.args[0])) ? EDGE.bracket : edgeOf(n.args[0], side)
     }
   }
-  return 'other'
+  return EDGE.other
 }
 
 /**
@@ -1551,12 +1571,12 @@ function inScientificNotation(node: MathNode): boolean {
  * `valuesBracketed` (products written without dots, where the brackets keep
  * values apart: 4π(250.0 Å), (2.00 kg)(9.81 m/s²)).
  */
-function needsBrackets(node: MathNode, side: 'left' | 'right', valuesBracketed: boolean): boolean {
+function needsBrackets(node: MathNode, side: Side, valuesBracketed: boolean): boolean {
   if (inScientificNotation(node)) return true
   const n = unwrap(node)
   if (valuesBracketed && isNumberWithUnit(n)) return true
   if (!isOperatorNode(n)) return false
-  if (n.fn === OP.unaryMinus) return side === 'right'
+  if (n.fn === OP.unaryMinus) return side === SIDE.right
   return !isOp(n, OP.multiply, OP.divide, OP.pow, OP.unaryPlus)
 }
 
@@ -1568,11 +1588,11 @@ function needsBrackets(node: MathNode, side: 'left' | 'right', valuesBracketed: 
  * which includes before a bracket: 4π(0.400 Å)²(0.688 Å⁻¹ᐟ²)².
  */
 function productSeparator(left: MathNode, right: MathNode): string {
-  const l = edgeOf(left, 'right')
-  const r = edgeOf(right, 'left')
-  if (r === 'number' || r === 'quantity' || r === 'minus' || l === 'quantity'
-    || (r === 'fraction' && (l === 'number' || l === 'fraction'))) return '\\cdot '
-  if (l === 'wide' || r === 'wide') return '\\,'
+  const l = edgeOf(left, SIDE.right)
+  const r = edgeOf(right, SIDE.left)
+  if (r === EDGE.number || r === EDGE.quantity || r === EDGE.minus || l === EDGE.quantity
+    || (r === EDGE.fraction && (l === EDGE.number || l === EDGE.fraction))) return '\\cdot '
+  if (l === EDGE.wide || r === EDGE.wide) return '\\,'
   return ' '
 }
 
@@ -2105,7 +2125,7 @@ export class Calculator {
       }
       // Products as in a textbook, ma, ½mv², 2.0 kg · 9.81 m/s² (or with every dot, if the option is on).
       if (isOp(n, OP.multiply)) {
-        const factor = (a: MathNode, side: 'left' | 'right') => {
+        const factor = (a: MathNode, side: Side) => {
           // A negative value with a unit keeps its value bracketed, like the other
           // values in the product: −(500 N) sin(30°), not −500 N sin(30°).
           const negated = unwrap(a)
@@ -2117,8 +2137,8 @@ export class Calculator {
           return needsBrackets(a, side, !this.options.productDots) ? `\\left(${tex}\\right)` : tex
         }
         const separator = (l: MathNode, r: MathNode) => (this.options.productDots ? '\\cdot ' : productSeparator(l, r))
-        return ` ${n.args.slice(1).reduce((out, a, i) => `${out}${separator(n.args[i], a)}${factor(a, 'right')}`,
-          factor(n.args[0], 'left'))}`
+        return ` ${n.args.slice(1).reduce((out, a, i) => `${out}${separator(n.args[i], a)}${factor(a, SIDE.right)}`,
+          factor(n.args[0], SIDE.left))}`
       }
       // A value in scientific notation raised to a power is bracketed: (7.07 × 10⁻²)², not 7.07 × 10⁻²².
       if (isOp(n, OP.pow)) {
@@ -2144,7 +2164,7 @@ export class Calculator {
       if (product && isFunctionNode(n)) {
         const [a, b] = n.args.map((arg, i) => {
           const tex = arg.toTex(options).trim()
-          return needsBrackets(arg, i === 0 ? 'left' : 'right', false) ? `\\left(${tex}\\right)` : tex
+          return needsBrackets(arg, i === 0 ? SIDE.left : SIDE.right, false) ? `\\left(${tex}\\right)` : tex
         })
         return ` ${a} ${product} ${b}`
       }
@@ -2444,25 +2464,25 @@ export class Calculator {
     let contributions: Contributions = new Map()
     let sf = EXACT
     switch (agg.kind) {
-      case 'count':
+      case AGGREGATE_KIND.count:
         value = n
         break
-      case 'sum':
+      case AGGREGATE_KIND.sum:
         value = total
         contributions = this.mergedContributions(agg.members)
         sf = this.seriesSigFigs(agg.members, total)
         break
-      case 'mean':
+      case AGGREGATE_KIND.mean:
         value = math.divide(total as MathType, n)
         sf = this.seriesSigFigs(agg.members, total)
         // Standard error σ/√n, as one source shared by every use of this mean.
         if (n >= 2) contributions = new Map([[this.aggregateSource(agg.base), this.standardError(values)]])
         else contributions = this.mergedContributions(agg.members)
         break
-      case 'std':
-      case 'sem':
+      case AGGREGATE_KIND.std:
+      case AGGREGATE_KIND.sem:
         if (n < 2) throw new Error('a standard deviation needs at least two values.')
-        value = agg.kind === 'std' ? this.stdDev(values) : this.standardError(values)
+        value = agg.kind === AGGREGATE_KIND.std ? this.stdDev(values) : this.standardError(values)
         sf = uncertaintySigFigs(this.split(value, EXACT)?.x ?? 0)
         break
     }
@@ -2523,7 +2543,7 @@ export class Calculator {
   /** Working for a line that is just an aggregate: Σ notation, members, values. */
   private aggregateWorking(agg: Aggregate): string[] {
     const n = agg.members.length
-    if (n === 1 && agg.kind !== 'count') return [symbolTex(agg.members[0])]
+    if (n === 1 && agg.kind !== AGGREGATE_KIND.count) return [symbolTex(agg.members[0])]
     // A long series shows its first two members, ⋯, and its last (only those are typeset).
     const list = (f: (m: string) => string) => (n > 6
       ? [f(agg.members[0]), f(agg.members[1]), '\\cdots', f(agg.members[n - 1])]
@@ -2535,15 +2555,15 @@ export class Calculator {
     const sum = (body: string) => `\\sum_{i=1}^{${n}} ${body}`
     const sub = this.options.showSubstitution
     switch (agg.kind) {
-      case 'sum':
+      case AGGREGATE_KIND.sum:
         return [sum(ith), names, ...(sub ? [values] : [])]
-      case 'mean':
+      case AGGREGATE_KIND.mean:
         return [`\\frac{1}{${n}}${sum(ith)}`, `\\frac{${names}}{${n}}`, ...(sub ? [`\\frac{${values}}{${n}}`] : [])]
-      case 'std':
+      case AGGREGATE_KIND.std:
         return [`\\sqrt{\\frac{1}{${n}-1}${sum(`\\left(${ith}-\\bar{${baseTex}}\\right)^{2}`)}}`]
-      case 'sem':
+      case AGGREGATE_KIND.sem:
         return this.standardErrorWorking(agg)
-      case 'count':
+      case AGGREGATE_KIND.count:
         return []
     }
   }
@@ -2637,7 +2657,7 @@ export class Calculator {
         ? `${INLINE_VALUE_NAME}${settings[2]} = ${settings[1]}${settings[3]}`
         : `${INLINE_VALUE_NAME} = ${text}`
     try {
-      const result = this.evaluateLine(line, 'val', true)
+      const result = this.evaluateLine(line, DISPLAY_MODE.val, true)
       if (result.error) return { error: readableMembers(result.error) }
       return { tex: nestBrackets(result.parts?.result ?? result.tex) }
     } finally {
@@ -2782,9 +2802,9 @@ export class Calculator {
     if (badUnit) return { signature, body, error: `"${badUnit}" isn't a unit MathScribe knows.` }
     type Statement =
       // `unit`: a display unit on the name (`th:deg = …`), which the value keeps.
-      | { kind: 'assign'; name: string; code: math.EvalFunction; unit?: string; components?: boolean }
-      | { kind: 'unpack'; targets: TupleName[]; code: math.EvalFunction }
-      | { kind: 'return'; code: math.EvalFunction }
+      | { kind: typeof STATEMENT_KIND.assign; name: string; code: math.EvalFunction; unit?: string; components?: boolean }
+      | { kind: typeof STATEMENT_KIND.unpack; targets: TupleName[]; code: math.EvalFunction }
+      | { kind: typeof STATEMENT_KIND.return; code: math.EvalFunction }
     const statements: Statement[] = []
     const sources: UserFunction['statements'] = []
 
@@ -2816,21 +2836,21 @@ export class Calculator {
         const node = math.parse(preprocess(expanded.text, this.isVariable).text)
         const code = node.compile()
         if (unpackNames) {
-          statements.push({ kind: 'unpack', targets: targets!, code })
-          sources.push({ kind: 'assign', text, note, command, multiline: lineMultiline })
+          statements.push({ kind: STATEMENT_KIND.unpack, targets: targets!, code })
+          sources.push({ kind: STATEMENT_KIND.assign, text, note, command, multiline: lineMultiline })
           const names = targets!.map((t) => symbolTex(t.name)).join(', ')
           body.push({ tex: `\\left(${names}\\right) = ${this.toTex(node, literals)}`, note, line })
         } else if (ret) {
-          statements.push({ kind: 'return', code })
-          sources.push({ kind: 'return', text: source, note, command, multiline: lineMultiline })
+          statements.push({ kind: STATEMENT_KIND.return, code })
+          sources.push({ kind: STATEMENT_KIND.return, text: source, note, command, multiline: lineMultiline })
           body.push({ tex: `${signature} = ${this.toTex(node, literals)}`, note, line })
         } else {
           const declared = parseDeclaration(text)
           const unit = declared && !('error' in declared) && declared.unit !== PERCENT ? declared.unit : undefined
           const components = declared && !('error' in declared) ? declared.components : undefined
-          statements.push({ kind: 'assign', name: assign![1], code, unit, components })
+          statements.push({ kind: STATEMENT_KIND.assign, name: assign![1], code, unit, components })
           // Keep the line as written, so a declared `x:3 =` applies when its working is shown.
-          sources.push({ kind: 'assign', text, note, command, multiline: lineMultiline })
+          sources.push({ kind: STATEMENT_KIND.assign, text, note, command, multiline: lineMultiline })
           body.push({ tex: `${symbolTex(assign![1])} = ${this.toTex(node, literals)}`, note, line })
         }
       } catch (e) {
@@ -2839,7 +2859,7 @@ export class Calculator {
     }
     // No `return`: like Python, the function gives no value. Called on a line of
     // its own, it just shows its working; used in a calculation, it's an error.
-    const returns = statements.some((s) => s.kind === 'return')
+    const returns = statements.some((s) => s.kind === STATEMENT_KIND.return)
 
     const definedIn = this.vars
     const fn = (...args: unknown[]) => {
@@ -2851,8 +2871,8 @@ export class Calculator {
       params.forEach((p, i) => local.set(p, castArgument(p, casts[i], args[i])))
       for (const s of statements) {
         const v = s.code.evaluate(local)
-        if (s.kind === 'return') return returnUnit ? toDisplayUnit(v, returnUnit) : v
-        if (s.kind === 'unpack') {
+        if (s.kind === STATEMENT_KIND.return) return returnUnit ? toDisplayUnit(v, returnUnit) : v
+        if (s.kind === STATEMENT_KIND.unpack) {
           const values = isTuple(v) ? v.toArray() as unknown[] : null
           if (!values || values.length !== s.targets.length) {
             const names = s.targets.map((t) => t.name).join(', ')
@@ -2912,7 +2932,7 @@ export class Calculator {
     } catch (e) {
       return { tex, warning, error: (e as Error).message }
     }
-    const traced = ctx.mode === 'val' ? null : this.traceCall(call, ctx.literals, ctx.mode, ctx.explicit)
+    const traced = ctx.mode === DISPLAY_MODE.val ? null : this.traceCall(call, ctx.literals, ctx.mode, ctx.explicit)
     return { tex, warning, trace: traced?.lines, info: ctx.info }
   }
 
@@ -2963,7 +2983,7 @@ export class Calculator {
       })
       const lines: TraceLine[] = []
       for (const s of def.statements) {
-        const own = s.command && s.command !== 'hide' ? s.command : undefined
+        const own = s.command && s.command !== LINE_COMMAND.hide ? s.command : undefined
         // The function's own #multiline (or the body line's) lays out its working too.
         const outerMultiline = this.multiline
         this.multiline = outerMultiline || def.multiline || !!s.multiline
@@ -2973,9 +2993,9 @@ export class Calculator {
         } finally {
           this.multiline = outerMultiline
         }
-        const hidden = s.command === 'hide' && !r.error
+        const hidden = s.command === LINE_COMMAND.hide && !r.error
         if (!hidden) lines.push(...(r.trace ?? []))
-        if (s.kind === 'return') {
+        if (s.kind === STATEMENT_KIND.return) {
           return { lines, ret: r.parts, retNote: s.note, retCommand: own, retSf: def.returnSf ?? r.sf }
         }
         if (!hidden) lines.push({ tex: r.tex, note: s.note })
@@ -3061,7 +3081,7 @@ export class Calculator {
       const poly = solver.polynomial(f, x)
       if (poly) {
         candidates = poly.solutions
-        quadratic = poly.kind === 'quadratic'
+        quadratic = poly.kind === POLYNOMIAL_KIND.quadratic
       }
     }
 
@@ -3222,7 +3242,7 @@ export class Calculator {
    * return-line command. `notation`: `#sci` or `#dec` on the line, or on a
    * block around it.
    */
-  evaluate(input: string, mode: DisplayMode = 'full', explicit = false, multiline = false, notation: LineNotation = {}): CalcResult {
+  evaluate(input: string, mode: DisplayMode = DISPLAY_MODE.full, explicit = false, multiline = false, notation: LineNotation = {}): CalcResult {
     this.multiline = multiline
     this.lineNotation = notation
     try {
@@ -3697,7 +3717,7 @@ export class Calculator {
       const rows = new Map<number, string>()
       for (const n of numbers) {
         const target = name ? seriesMemberName(name, n) : unpackedColumnName(i, n)
-        const result = this.evaluateLine(`${target} = ${withRowValues(expr, used, n)}`, 'val', false)
+        const result = this.evaluateLine(`${target} = ${withRowValues(expr, used, n)}`, DISPLAY_MODE.val, false)
         if (result.error) {
           errors.push(`Row ${n}: ${result.error}`)
           continue
@@ -3863,7 +3883,7 @@ export class Calculator {
     const typed = declared ? undefined : this.typedSfs.get(this.scope.get(name) as object)
     const sfs = components.map((_, i) => typed?.[i] ?? sf)
     components.forEach((c, i) => this.store(c.name, { value: c.value, sf: sfs[i], declared, notation }))
-    if (mode === 'sym') return result
+    if (mode === DISPLAY_MODE.sym) return result
     const rows = components.map((c, i) =>
       `${symbolTex(c.name)} &= ${this.inNotation(result.notation, () => this.valueTex(c.value, sfs[i], undefined, undefined, declared))}`)
     return { ...result, tex: withRows(result.tex, symbolTex(name), rows) }
@@ -3922,7 +3942,7 @@ export class Calculator {
     // When the whole right-hand side is one call, the line itself then reads
     // `r = <return expression> = … = result` instead of `r = f(y, z) = …`.
     // Lines shown before this one (e.g. the equation being solved), except for #val.
-    const trace: TraceLine[] = mode === 'val' ? [] : [...(ctx.prelude ?? [])]
+    const trace: TraceLine[] = mode === DISPLAY_MODE.val ? [] : [...(ctx.prelude ?? [])]
     let wholeLineTraced = false
     let returnNote: string | undefined
     /** For a line that's just a function call: the sig figs of what it returns. */
@@ -3933,7 +3953,7 @@ export class Calculator {
       const t = this.traceCall(call, literals, mode, explicit)
       if (!t) continue
       if (t.retSf !== undefined) this.callSigFigs.set(call, t.retSf)
-      if (mode !== 'val') {
+      if (mode !== DISPLAY_MODE.val) {
         trace.push(...t.lines)
         if (call === bare && t.ret) {
           exprTex = t.ret.expr
@@ -3954,7 +3974,7 @@ export class Calculator {
     if (uncRef) {
       // The uncertainty of a series mean is its standard error.
       const meanOf = this.vars.get(uncRef.of)?.agg
-      steps.push(...(meanOf?.kind === 'mean'
+      steps.push(...(meanOf?.kind === AGGREGATE_KIND.mean
         ? this.standardErrorWorking(meanOf)
         : this.deltaWorking(uncRef.of, uncRef.letter)))
     }
@@ -4026,13 +4046,13 @@ export class Calculator {
       const message = e instanceof RangeError
         ? 'A function here calls itself without end, so it never finishes.'
         : readableUnitError((e as Error).message)
-      return { tex: layoutEquation('full', parts(), multiline), error: message, warning, trace, info: ctx.info }
+      return { tex: layoutEquation(DISPLAY_MODE.full, parts(), multiline), error: message, warning, trace, info: ctx.info }
     }
     if (ctx.asPercent && math.isUnit(value)) {
       const u = value as Unit
       if (!u.equalBase(math.unit('m/m'))) {
         return {
-          tex: layoutEquation('full', parts(), multiline), warning, trace, info: ctx.info,
+          tex: layoutEquation(DISPLAY_MODE.full, parts(), multiline), warning, trace, info: ctx.info,
           error: `This has units of ${u.formatUnits()}, so it can't be a percent: only a unitless `
             + 'fraction can. (A density like 4πr²ψ² needs multiplying by a Δr first.)',
         }
@@ -4048,7 +4068,7 @@ export class Calculator {
           contributions = new Map([...contributions].map(([k, c]) => [k, math.unit(c as number, UNIT.radian)]))
         }
       } catch (e) {
-        return { tex: layoutEquation('full', parts(), multiline), warning, trace, info: ctx.info, error: (e as Error).message }
+        return { tex: layoutEquation(DISPLAY_MODE.full, parts(), multiline), warning, trace, info: ctx.info, error: (e as Error).message }
       }
     }
     const unc = this.total(contributions, value)
@@ -4113,7 +4133,7 @@ export class Calculator {
     if (assigned) {
       // Defined with #sym (on the line or its block): later substitutions keep the
       // symbol instead of the value. Otherwise, constant-only values stay symbolic.
-      const keepSymbol = ctx.mode === 'sym' && explicit
+      const keepSymbol = ctx.mode === DISPLAY_MODE.sym && explicit
       this.store(assigned, {
         value, sf: shownSf, contributions, uncSf: declaredUncSf, declared: declaredSf !== undefined, notation: kept, vector,
         shown: keepSymbol ? symbolTex(assigned) : this.constantForm(expr, literals),

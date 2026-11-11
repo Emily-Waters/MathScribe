@@ -8,6 +8,7 @@
  * falls back to plain runs of text for anything else.
  */
 import katex from 'katex'
+import { ALIGN } from './alignment.ts'
 
 // ---------------------------------------------------------------------------
 // A small XML reader, enough for KaTeX's MathML (no DOM needed, so it runs in tests too)
@@ -281,8 +282,8 @@ function table(n: XmlNode, ctx: Ctx): string {
   const cols = Math.max(1, ...rows.map((r) => elements(r).length))
   const aligns = (n.attrs.columnalign ?? '').split(/\s+/).filter(Boolean)
   const jc = (i: number) => {
-    const al = aligns[Math.min(i, aligns.length - 1)] ?? 'center'
-    return al === 'right' ? 'right' : al === 'left' ? 'left' : 'center'
+    const al = aligns[Math.min(i, aligns.length - 1)] ?? ALIGN.center
+    return al === ALIGN.right ? ALIGN.right : al === ALIGN.left ? ALIGN.left : ALIGN.center
   }
   const mcs = Array.from({ length: cols }, (_, i) =>
     `<m:mc><m:mcPr><m:count m:val="1"/><m:mcJc m:val="${jc(i)}"/></m:mcPr></m:mc>`).join('')

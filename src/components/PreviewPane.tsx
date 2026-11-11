@@ -1,6 +1,10 @@
 import katex from 'katex'
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
-import { lineNumbering, listItems, splitInlineMath, titleSegments, type Block, type ImportBlock, type Sheet } from '../lib/document.ts'
+import {
+  DIAGNOSTIC_KIND, TITLE_SEGMENT, lineNumbering, listItems, splitInlineMath, titleSegments, type DiagnosticKind, type Sheet,
+} from '../lib/document.ts'
+import { BLOCK_KIND, isContainer, type Block, type ImportBlock } from '../lib/blocks.ts'
+import { LAYOUT_STYLE, LINE_COMMAND } from '../lib/syntax.ts'
 import { loadLatexOptions, saveLatexOptions, toLatexDocument, type LatexOptions } from '../lib/latex.ts'
 import { symbolTex, unitTex, type CalcOptions } from '../lib/engine.ts'
 import { THEME_PALETTE, plotSvg, type PlotData } from '../lib/plot.ts'
@@ -27,18 +31,18 @@ export function Tex({ latex, display = false }: { latex: string; display?: boole
 function Title({ text }: { text: string }) {
   return (
     <>
-      {titleSegments(text).map((s, i) => (s.kind === 'math'
+      {titleSegments(text).map((s, i) => (s.kind === TITLE_SEGMENT.math
         ? <Tex key={i} latex={s.value} />
-        : s.kind === 'sub' ? <sub key={i}>{s.value}</sub> : <span key={i}>{s.value}</span>))}
+        : s.kind === TITLE_SEGMENT.sub ? <sub key={i}>{s.value}</sub> : <span key={i}>{s.value}</span>))}
     </>
   )
 }
 
 /** Whether a block or anything inside it has an error (so a hidden block still shows it). */
 const hasError = (b: Block): boolean =>
-  ((b.kind === 'calc' || b.kind === 'function' || b.kind === 'import') && !!b.error)
-  || (b.kind === 'constants' && (!!b.error || b.entries.some((e) => e.error)))
-  || ((b.kind === 'group' || b.kind === 'layout') && (!!b.error || b.children.some(hasError)))
+  ((b.kind === BLOCK_KIND.calc || b.kind === BLOCK_KIND.function || b.kind === BLOCK_KIND.import) && !!b.error)
+  || (b.kind === BLOCK_KIND.constants && (!!b.error || b.entries.some((e) => e.error)))
+  || (isContainer(b) && (!!b.error || b.children.some(hasError)))
 
 /** Linking between output and source lines: which line the cursor is on, and how to jump to one. */
 const LineLink = createContext<{ activeLine: number | null; onJump: (line: number) => void }>({
@@ -59,7 +63,7 @@ const LineNumbers = createContext<(line: number) => number>((line) => line)
  * A message about a line, "Line 12: …", numbered as the editor shows it. A
  * message that names a line itself (a function body's) gives that line.
  */
-function LineMessage({ kind, line, text }: { kind: 'error' | 'warn'; line: number; text: string }) {
+function LineMessage({ kind, line, text }: { kind: DiagnosticKind; line: number; text: string }) {
   const shown = useContext(LineNumbers)
   const own = /^Line (\d+): ([\s\S]*)$/.exec(text)
   return <p className={`calc__msg calc__msg--${kind}`}>Line {shown(own ? Number(own[1]) : line)}: {own ? own[2] : text}</p>
@@ -115,7 +119,7 @@ function ImportSummary({ block }: { block: ImportBlock }) {
           </tbody>
         </table>
       )}
-      {block.error && <LineMessage kind="error" line={block.line} text={block.error} />}
+      {block.error && <LineMessage kind={DIAGNOSTIC_KIND.error} line={block.line} text={block.error} />}
     </section>
   )
 }
@@ -139,16 +143,16 @@ function useLineLink() {
 export function RenderedBlock({ block }: { block: Block }) {
   const link = useLineLink()
   switch (block.kind) {
-    case 'heading': {
+    case BLOCK_KIND.heading: {
       const number = block.number && <span className="doc__heading-number">{block.number}</span>
       const text = <Title text={block.text} />
       // (A value in it that couldn't be worked out is explained under it.)
-      const error = block.error && <LineMessage kind="error" line={block.line} text={block.error} />
+      const error = block.error && <LineMessage kind={DIAGNOSTIC_KIND.error} line={block.line} text={block.error} />
       if (block.level === 1) return <>{<h3 className="doc__heading doc__heading--section" {...link(block.line)}>{number}{text}</h3>}{error}</>
       if (block.level === 2) return <>{<h4 className="doc__heading doc__heading--subsection" {...link(block.line)}>{number}{text}</h4>}{error}</>
       return <><p className="doc__heading doc__heading--bold" {...link(block.line)}>{text}</p>{error}</>
     }
-    case 'text':
+    case BLOCK_KIND.text:
       return (
         <>
           <p className="doc__text" {...link(block.line)}>
@@ -156,14 +160,14 @@ export function RenderedBlock({ block }: { block: Block }) {
               seg.math ? <Tex key={i} latex={seg.value} /> : <span key={i}>{seg.value}</span>,
             )}
           </p>
-          {block.error && <LineMessage kind="error" line={block.line} text={block.error} />}
+          {block.error && <LineMessage kind={DIAGNOSTIC_KIND.error} line={block.line} text={block.error} />}
         </>
       )
-    case 'latex':
+    case BLOCK_KIND.latex:
       return <div className="calc" {...link(block.line)}><Tex latex={block.latex} display /></div>
-    case 'spacer':
+    case BLOCK_KIND.spacer:
       return <div className="doc__spacer" aria-hidden="true" />
-    case 'constants':
+    case BLOCK_KIND.constants:
       if (block.hidden && !hasError(block)) return null
       return (
         <section className={`group group--constants${hasError(block) ? ' group--error' : ''}`}>
@@ -178,8 +182,8 @@ export function RenderedBlock({ block }: { block: Block }) {
                   {e.tex ? <Tex latex={e.tex} display /> : <code className="calc__source">{e.source}</code>}
                   {e.note && <span className="calc__note">{e.note}</span>}
                 </div>
-                {e.error && <LineMessage kind="error" line={e.line} text={e.error} />}
-                {e.warning && <LineMessage kind="warn" line={e.line} text={e.warning} />}
+                {e.error && <LineMessage kind={DIAGNOSTIC_KIND.error} line={e.line} text={e.error} />}
+                {e.warning && <LineMessage kind={DIAGNOSTIC_KIND.warning} line={e.line} text={e.warning} />}
                 {e.info && <p className="calc__msg calc__msg--info">{e.info}</p>}
               </div>
             ))}
@@ -187,10 +191,10 @@ export function RenderedBlock({ block }: { block: Block }) {
           {block.error && <p className="calc__msg calc__msg--error">{block.error}</p>}
         </section>
       )
-    case 'import':
+    case BLOCK_KIND.import:
       if (block.hidden && !block.error) return null
       return <ImportSummary block={block} />
-    case 'calc':
+    case BLOCK_KIND.calc:
       // `#hide` lines stay hidden unless something went wrong.
       if (block.hidden && !block.error) return null
       return (
@@ -214,8 +218,8 @@ export function RenderedBlock({ block }: { block: Block }) {
               {block.note && <span className="calc__note">{block.note}</span>}
             </div>
           )}
-          {block.error && <LineMessage kind="error" line={block.line} text={block.error} />}
-          {block.warning && <LineMessage kind="warn" line={block.line} text={block.warning} />}
+          {block.error && <LineMessage kind={DIAGNOSTIC_KIND.error} line={block.line} text={block.error} />}
+          {block.warning && <LineMessage kind={DIAGNOSTIC_KIND.warning} line={block.line} text={block.warning} />}
           {block.info && (
             <p className="calc__msg calc__msg--info">
               {splitInlineMath(block.info).map((seg, i) =>
@@ -224,7 +228,7 @@ export function RenderedBlock({ block }: { block: Block }) {
           )}
         </div>
       )
-    case 'function':
+    case BLOCK_KIND.function:
       if (block.hidden && !block.error) return null
       return (
         <section className={`group group--function${block.error ? ' group--error' : ''}`}>
@@ -244,20 +248,20 @@ export function RenderedBlock({ block }: { block: Block }) {
               </div>
             ))}
           </div>
-          {block.error && <LineMessage kind="error" line={block.line} text={block.error} />}
+          {block.error && <LineMessage kind={DIAGNOSTIC_KIND.error} line={block.line} text={block.error} />}
         </section>
       )
-    case 'layout': {
-      if (block.command === 'hide' && !hasError(block)) return null
+    case BLOCK_KIND.layout: {
+      if (block.command === LINE_COMMAND.hide && !hasError(block)) return null
       const title = (block.title || block.note) && (
         <p className="layout__title" {...link(block.line)}>
           <Title text={block.title} />
           {block.note && <span className="calc__note">{block.note}</span>}
         </p>
       )
-      const error = block.error && <LineMessage kind="error" line={block.line} text={block.error} />
-      if (block.style === 'list' || block.style === 'numbered') {
-        const List = block.style === 'numbered' ? 'ol' : 'ul'
+      const error = block.error && <LineMessage kind={DIAGNOSTIC_KIND.error} line={block.line} text={block.error} />
+      if (block.style === LAYOUT_STYLE.list || block.style === LAYOUT_STYLE.numbered) {
+        const List = block.style === LAYOUT_STYLE.numbered ? 'ol' : 'ul'
         const items = listItems(block.children).map(({ item, subs }) => (
           <li key={`${item.line}-${item.kind}`}>
             <RenderedBlock block={item} />
@@ -278,8 +282,8 @@ export function RenderedBlock({ block }: { block: Block }) {
         </div>
       )
     }
-    case 'group':
-      if (block.command === 'hide' && !hasError(block)) return null
+    case BLOCK_KIND.group:
+      if (block.command === LINE_COMMAND.hide && !hasError(block)) return null
       return (
         <section className={`group${block.error ? ' group--error' : ''}`}>
           <header className="group__header" {...link(block.line)}>

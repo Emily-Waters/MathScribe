@@ -1,5 +1,6 @@
 import { DEFAULT_LATEX_OPTIONS, MARGIN_CM, type LatexOptions } from '../lib/latex.ts'
 import { Dropdown } from './Dropdown.tsx'
+import { ALIGN } from '../lib/alignment.ts'
 
 interface LatexOptionsMenuProps {
   options: LatexOptions
@@ -25,8 +26,8 @@ export function LatexOptionsMenu({ options, onChange }: LatexOptionsMenuProps) {
       <label className="options__row">
         <span>Equations</span>
         <select value={options.align} onChange={(e) => set('align', e.target.value as LatexOptions['align'])}>
-          <option value="left">Left, like the output</option>
-          <option value="center">Centered</option>
+          <option value={ALIGN.left}>Left, like the output</option>
+          <option value={ALIGN.center}>Centered</option>
         </select>
       </label>
       <p className="options__help">Left aligns every equation flush left, with notes on the right.</p>

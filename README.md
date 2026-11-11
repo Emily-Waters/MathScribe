@@ -1160,6 +1160,14 @@ Roughly in priority order.
 - Shared values are named once: a word, marker or setting used in more than one
   place is a constant in one of the modules above (or `tableSettings.ts` for the
   words settings are written with), not repeated as text
+- Kinds come from one definition: every set of tags (a block's kind, a symbol's,
+  a display mode, a layout style, …) is a const object, `BLOCK_KIND = { group:
+  'group', … }`, with its type derived from it; code writes `BLOCK_KIND.group`, never
+  `'group'`. Related types extend a shared base rather than repeating fields.
+- `src/lib/blocks.ts`: the blocks a sheet is read into: `BLOCK_KIND`, `BlockBase`
+  and the small parts blocks share (a note, an error, hidden, spanning lines,
+  holding other blocks), and each block's type; `src/lib/alignment.ts`: left,
+  centre and right, for the Document option and the Word export
 - `src/lib/storage.ts`: reading and writing the browser's storage safely;
   `src/useFlash.ts`: copying to the clipboard, and the brief "Copied" messages
 - `src/lib/engine.ts`: evaluation with scoped variables, unit-literal handling,

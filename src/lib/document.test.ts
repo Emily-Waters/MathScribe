@@ -5,9 +5,10 @@
  */
 import { describe, expect, it } from 'vitest'
 import {
-  collectDefinitions, collectDiagnostics, collectSymbols, titleSegments,
-  type Block, type LayoutBlock,
+  DIAGNOSTIC_KIND, SYMBOL_KIND, TITLE_SEGMENT, collectDefinitions, collectDiagnostics, collectSymbols, titleSegments,
 } from './document.ts'
+import { LAYOUT_STYLE } from './syntax.ts'
+import { BLOCK_KIND, type Block, type LayoutBlock } from './blocks.ts'
 import { last, lines, sheet } from '../test/helpers.ts'
 import { toLatexDocument } from './latex.ts'
 
@@ -16,14 +17,14 @@ function outline(blocks: Block[], depth = 0): string[] {
   return blocks.flatMap((b) => {
     const pad = '  '.repeat(depth)
     switch (b.kind) {
-      case 'layout':
+      case BLOCK_KIND.layout:
         return [`${pad}layout ${b.style ?? 'plain'} "${b.title}"${b.nested ? ' nested' : ''}${b.error ? ' ERROR' : ''}`,
           ...outline(b.children, depth + 1)]
-      case 'group':
+      case BLOCK_KIND.group:
         return [`${pad}group "${b.title}" locals=${b.locals.map((v) => v.name).join(',')}`, ...outline(b.children, depth + 1)]
-      case 'calc':
+      case BLOCK_KIND.calc:
         return [`${pad}calc ${b.line}${b.hidden ? ' hidden' : ''}${b.error ? ' ERROR' : ''}`]
-      case 'text':
+      case BLOCK_KIND.text:
         return [`${pad}text ${b.line}`]
       default:
         return [`${pad}${b.kind} ${b.line}`]
@@ -41,7 +42,7 @@ describe('{ } blocks', () => {
 
   it('report a missing closing brace', () => {
     const s = sheet('Open {\n  x = 1')
-    expect(s.blocks[0]).toMatchObject({ kind: 'group', error: expect.stringMatching(/missing its closing }/) })
+    expect(s.blocks[0]).toMatchObject({ kind: BLOCK_KIND.group, error: expect.stringMatching(/missing its closing }/) })
   })
 })
 
@@ -122,10 +123,10 @@ describe('text blocks', () => {
   const block = blocks[1] as LayoutBlock
 
   it('join lines into paragraphs, split by blank lines, without calculating anything', () => {
-    expect(block).toMatchObject({ kind: 'layout', style: 'text', title: 'Discussion', endLine: 6 })
+    expect(block).toMatchObject({ kind: BLOCK_KIND.layout, style: LAYOUT_STYLE.text, title: 'Discussion', endLine: 6 })
     expect(block.children).toEqual([
-      { kind: 'text', line: 3, text: 'The result is lower than expected, because x = 5 isn’t calculated here.' },
-      { kind: 'text', line: 6, text: '# Not a heading, and $E = mc^2$ is maths.' },
+      { kind: BLOCK_KIND.text, line: 3, text: 'The result is lower than expected, because x = 5 isn’t calculated here.' },
+      { kind: BLOCK_KIND.text, line: 6, text: '# Not a heading, and $E = mc^2$ is maths.' },
     ])
   })
 
@@ -144,13 +145,13 @@ describe('text blocks', () => {
 describe('headings and titles', () => {
   it('make subscripts and inline maths', () => {
     expect(titleSegments('Hydrogen 2p_z orbital')).toEqual([
-      { kind: 'text', value: 'Hydrogen 2p' }, { kind: 'sub', value: 'z' }, { kind: 'text', value: ' orbital' },
+      { kind: TITLE_SEGMENT.text, value: 'Hydrogen 2p' }, { kind: TITLE_SEGMENT.sub, value: 'z' }, { kind: TITLE_SEGMENT.text, value: ' orbital' },
     ])
-    expect(titleSegments('x_{max}')).toEqual([{ kind: 'text', value: 'x' }, { kind: 'sub', value: 'max' }])
+    expect(titleSegments('x_{max}')).toEqual([{ kind: TITLE_SEGMENT.text, value: 'x' }, { kind: TITLE_SEGMENT.sub, value: 'max' }])
     expect(titleSegments('Energy $E_n$ eV')).toEqual([
-      { kind: 'text', value: 'Energy ' }, { kind: 'math', value: 'E_n' }, { kind: 'text', value: ' eV' },
+      { kind: TITLE_SEGMENT.text, value: 'Energy ' }, { kind: TITLE_SEGMENT.math, value: 'E_n' }, { kind: TITLE_SEGMENT.text, value: ' eV' },
     ])
-    expect(titleSegments('my\\_block')).toEqual([{ kind: 'text', value: 'my_block' }])
+    expect(titleSegments('my\\_block')).toEqual([{ kind: TITLE_SEGMENT.text, value: 'my_block' }])
   })
 
   it('export subscripts with \\textsubscript', () => {
@@ -161,7 +162,7 @@ describe('headings and titles', () => {
 
   it('number sections like LaTeX', () => {
     const s = sheet('# A\n## a\n## b\n# B\n## c')
-    expect(s.blocks.map((b) => (b.kind === 'heading' ? b.number : ''))).toEqual(['1', '1.1', '1.2', '2', '2.1'])
+    expect(s.blocks.map((b) => (b.kind === BLOCK_KIND.heading ? b.number : ''))).toEqual(['1', '1.1', '1.2', '2', '2.1'])
   })
 })
 
@@ -202,10 +203,10 @@ describe('editor information', () => {
   it('collects symbols with their scope', () => {
     const symbols = collectSymbols(sheet(src), src)
     const find = (name: string) => symbols.filter((s) => s.name === name)
-    expect(find('local')).toEqual([expect.objectContaining({ kind: 'variable', line: 7, from: 8, to: 8 })])
-    expect(find('b')).toEqual([expect.objectContaining({ kind: 'parameter', from: 6, to: 6 })])
-    expect(find('h')[0]).toMatchObject({ kind: 'function', params: 'a, b to m', to: 8 })
-    expect(find('y')[0]).toMatchObject({ kind: 'variable', from: 11, tex: expect.stringContaining('2.0') })
+    expect(find('local')).toEqual([expect.objectContaining({ kind: SYMBOL_KIND.variable, line: 7, from: 8, to: 8 })])
+    expect(find('b')).toEqual([expect.objectContaining({ kind: SYMBOL_KIND.parameter, from: 6, to: 6 })])
+    expect(find('h')[0]).toMatchObject({ kind: SYMBOL_KIND.function, params: 'a, b to m', to: 8 })
+    expect(find('y')[0]).toMatchObject({ kind: SYMBOL_KIND.variable, from: 11, tex: expect.stringContaining('2.0') })
   })
 
   it('collects the names a tuple is unpacked into', () => {
@@ -216,7 +217,7 @@ describe('editor information', () => {
 
   it('marks errors by line', () => {
     const d = collectDiagnostics(sheet(src).blocks)
-    expect(d.get(11)).toMatchObject({ kind: 'error' })
+    expect(d.get(11)).toMatchObject({ kind: DIAGNOSTIC_KIND.error })
     expect(d.size).toBe(1)
   })
 })

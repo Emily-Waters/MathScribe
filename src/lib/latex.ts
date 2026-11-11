@@ -5,7 +5,10 @@
  * options for the page and the look.
  */
 import { STORAGE_KEYS } from '../config.ts'
-import { isOmitted, listItems, splitInlineMath, titleSegments, type Block } from './document.ts'
+import { TITLE_SEGMENT, isOmitted, listItems, splitInlineMath, titleSegments } from './document.ts'
+import { BLOCK_KIND, isContainer, type Block } from './blocks.ts'
+import { ALIGN } from './alignment.ts'
+import { LAYOUT_STYLE, LINE_COMMAND } from './syntax.ts'
 import { symbolTex, unitTex } from './engine.ts'
 import type { PlotData, PlotName } from './plot.ts'
 import { readStoredJson, writeStoredJson } from './storage.ts'
@@ -13,7 +16,7 @@ import { readStoredJson, writeStoredJson } from './storage.ts'
 /** The Document options: how an exported document (LaTeX or Word) looks. */
 export interface LatexOptions {
   /** Equations flush left (like the Rendered tab), or centered (LaTeX's usual). */
-  align: 'left' | 'center'
+  align: typeof ALIGN.left | typeof ALIGN.center
   fontSize: '10pt' | '11pt' | '12pt'
   paper: 'a4paper' | 'letterpaper'
   margins: 'narrow' | 'normal' | 'wide'
@@ -32,7 +35,7 @@ export interface LatexOptions {
 
 /** The Document options until they’re changed. */
 export const DEFAULT_LATEX_OPTIONS: LatexOptions = {
-  align: 'left',
+  align: ALIGN.left,
   fontSize: '11pt',
   paper: 'a4paper',
   margins: 'normal',
@@ -68,9 +71,9 @@ const escapeTex = (s: string) =>
 
 /** A heading or block title in LaTeX: `2p_z` → 2p\textsubscript{z}. */
 function titleToLatex(text: string): string {
-  return titleSegments(text).map((s) => (s.kind === 'math'
+  return titleSegments(text).map((s) => (s.kind === TITLE_SEGMENT.math
     ? `$${s.value}$`
-    : s.kind === 'sub' ? `\\textsubscript{${escapeTex(s.value)}}` : escapeTex(s.value))).join('')
+    : s.kind === TITLE_SEGMENT.sub ? `\\textsubscript{${escapeTex(s.value)}}` : escapeTex(s.value))).join('')
 }
 
 /** Title and note of a block, as one heading. */
@@ -95,8 +98,8 @@ function gather(eqs: Equation[]): string {
 
 /** A line that's just an equation, so it can join the equations around it. */
 function simpleEquation(b: Block): Equation | null {
-  if (b.kind === 'calc' && !b.error && !b.hidden && !b.trace?.length && !b.plot) return { tex: b.tex, note: b.note }
-  if (b.kind === 'latex') return { tex: b.latex }
+  if (b.kind === BLOCK_KIND.calc && !b.error && !b.hidden && !b.trace?.length && !b.plot) return { tex: b.tex, note: b.note }
+  if (b.kind === BLOCK_KIND.latex) return { tex: b.latex }
   return null
 }
 
@@ -127,7 +130,7 @@ function joinBlocks(blocks: Block[], o: LatexOptions): string {
       continue
     }
     // A hidden line doesn't interrupt a run of equations; a gap (spacer) does.
-    if (b.kind !== 'spacer' && isOmitted(b)) continue
+    if (b.kind !== BLOCK_KIND.spacer && isOmitted(b)) continue
     flush()
     const tex = blockToLatex(b, o)
     if (tex) out.push(tex)
@@ -142,31 +145,31 @@ const errorComment = (line: number, what: string, error: string) => `% Line ${li
 /** One block as LaTeX. */
 function blockToLatex(b: Block, o: LatexOptions): string {
   switch (b.kind) {
-    case 'heading': {
+    case BLOCK_KIND.heading: {
       const text = titleToLatex(b.text)
       const star = o.numberSections ? '' : '*'
       if (b.level === 1) return `\\section${star}{${text}}`
       if (b.level === 2) return `\\subsection${star}{${text}}`
       return `\\noindent\\textbf{${text}}`
     }
-    case 'spacer':
+    case BLOCK_KIND.spacer:
       return '\\vspace{\\baselineskip}'
-    case 'import':
+    case BLOCK_KIND.import:
       // Imported data only defines variables; it isn't part of the document.
       return ''
-    case 'constants': {
+    case BLOCK_KIND.constants: {
       if (b.hidden && !b.error && !b.entries.some((e) => e.error)) return ''
       const shown = b.entries.filter((e) => !e.error)
       const errors = b.entries.filter((e) => e.error).map((e) => errorComment(e.line, e.source, e.error!))
       return titled(o, heading('Constants', b.note), [...errors, ...(shown.length ? [gather(shown)] : [])].join('\n'))
     }
-    case 'text':
+    case BLOCK_KIND.text:
       return splitInlineMath(b.text)
         .map((seg) => (seg.math ? `$${seg.value}$` : escapeTex(seg.value)))
         .join('')
-    case 'latex':
+    case BLOCK_KIND.latex:
       return gather([{ tex: b.latex }])
-    case 'calc': {
+    case BLOCK_KIND.calc: {
       if (b.error) return errorComment(b.line, b.source, b.error)
       if (b.hidden) return ''
       // A plot, as a pgfplots graph, then its fits' equations (if any).
@@ -175,20 +178,20 @@ function blockToLatex(b: Block, o: LatexOptions): string {
       const working = b.trace?.length ? ['\\begin{msworking}', gather(b.trace), '\\end{msworking}'].join('\n') : ''
       return [working, gather([{ tex: b.tex, note: b.note }])].filter(Boolean).join('\n')
     }
-    case 'function': {
+    case BLOCK_KIND.function: {
       if (b.error) return errorComment(b.line, `function ${b.name}`, b.error)
       if (b.hidden) return ''
       return titled(o, heading(`Function $${b.signature}$`, b.note), gather(b.body))
     }
-    case 'layout': {
+    case BLOCK_KIND.layout: {
       if (b.error && !b.children.length) return errorComment(b.line, `${b.title}:`, b.error)
-      if (b.command === 'hide') return ''
+      if (b.command === LINE_COMMAND.hide) return ''
       const title = heading(b.title && titleToLatex(b.title), b.note)
       // A text block: its paragraphs, under the title.
-      if (b.style === 'text') {
+      if (b.style === LAYOUT_STYLE.text) {
         return [title ? `\\paragraph{${title}}` : '', joinBlocks(b.children, o)].filter(Boolean).join('\n')
       }
-      const env = b.style === 'center' ? 'center' : b.style === 'list' ? 'itemize' : b.style === 'numbered' ? 'enumerate' : 'quote'
+      const env = b.style === LAYOUT_STYLE.center ? 'center' : b.style === LAYOUT_STYLE.list ? 'itemize' : b.style === LAYOUT_STYLE.numbered ? 'enumerate' : 'quote'
       const body = env === 'itemize' || env === 'enumerate'
         ? listItems(b.children).map(({ item, subs }) =>
           [`\\item ${itemLatex(item, o)}`, ...subs.map((s) => blockToLatex(s, o))].filter(Boolean).join('\n')).join('\n')
@@ -200,8 +203,8 @@ function blockToLatex(b: Block, o: LatexOptions): string {
         `\\end{${env}}`,
       ].filter(Boolean).join('\n')
     }
-    case 'group': {
-      if (b.command === 'hide') return ''
+    case BLOCK_KIND.group: {
+      if (b.command === LINE_COMMAND.hide) return ''
       return titled(o, heading(b.title && titleToLatex(b.title), b.note), joinBlocks(b.children, o))
     }
   }
@@ -209,10 +212,10 @@ function blockToLatex(b: Block, o: LatexOptions): string {
 
 /** A block as the content of `\item`: inline display maths, so it sits beside the marker. */
 function itemLatex(b: Block, o: LatexOptions): string {
-  if (b.kind === 'calc' && !b.error && !b.trace?.length) {
+  if (b.kind === BLOCK_KIND.calc && !b.error && !b.trace?.length) {
     return `$\\displaystyle ${b.tex}$${b.note ? ` \\hfill ${escapeTex(b.note)}` : ''}`
   }
-  if (b.kind === 'latex') return `$\\displaystyle ${b.latex}$`
+  if (b.kind === BLOCK_KIND.latex) return `$\\displaystyle ${b.latex}$`
   return blockToLatex(b, o)
 }
 
@@ -277,7 +280,7 @@ function plotToLatex(plot: PlotData): string {
 
 /** Whether any block, at any depth, is a plot (so the preamble loads pgfplots). */
 const hasPlot = (blocks: Block[]): boolean => blocks.some((b) =>
-  (b.kind === 'calc' && !!b.plot && !b.hidden) || ((b.kind === 'group' || b.kind === 'layout') && hasPlot(b.children)))
+  (b.kind === BLOCK_KIND.calc && !!b.plot && !b.hidden) || (isContainer(b) && hasPlot(b.children)))
 
 // ---------------------------------------------------------------------------
 // The document
@@ -285,7 +288,7 @@ const hasPlot = (blocks: Block[]): boolean => blocks.some((b) =>
 
 /** The document's preamble: its class, packages and settings, from the Document options. */
 function preamble(o: LatexOptions, plots = false): string[] {
-  const left = o.align === 'left'
+  const left = o.align === ALIGN.left
   return [
     `\\documentclass[${[o.fontSize, o.paper, ...(left ? ['fleqn'] : [])].join(',')}]{article}`,
     `\\usepackage[margin=${MARGIN_CM[o.margins]}cm]{geometry}`,

@@ -6,13 +6,14 @@ import { DEFAULT_LATEX_OPTIONS, type LatexOptions } from './latex.ts'
 import { parseXml, texToOmml } from './omml.ts'
 import { SAMPLE } from './sample.ts'
 import { REFERENCE } from './reference.ts'
+import { BLOCK_KIND } from './blocks.ts'
 
 describe('plots', () => {
   const source = 't1 = 0.10 s\nt2 = 0.20 s\nt3 = 0.30 s\nx1 = 0.05 m\nx2 = 0.10 m\nx3 = 0.16 m\nplot(t, x; fit linear)'
 
   it('are pictures, drawn beforehand, with their fit equations under them', () => {
     const blocks = sheet(source).blocks
-    const plot = blocks.flatMap((b) => (b.kind === 'calc' && b.plot ? [b.plot] : []))[0]
+    const plot = blocks.flatMap((b) => (b.kind === BLOCK_KIND.calc && b.plot ? [b.plot] : []))[0]
     const png = new Uint8Array([137, 80, 78, 71])
     const files = unzipSync(toDocx(blocks, DEFAULT_LATEX_OPTIONS, new Map([[plot, png]])))
     expect(files['word/media/plot1.png']).toEqual(png)

@@ -2,7 +2,8 @@
 import { describe, expect, it } from 'vitest'
 import { last, lines, sheet, value } from '../test/helpers.ts'
 import { symbolTex } from './engine.ts'
-import { collectSymbols, type ImportBlock } from './document.ts'
+import { collectSymbols } from './document.ts'
+import type { ImportBlock } from './blocks.ts'
 import { expandDots, parseMemberName, readableMembers } from './names.ts'
 
 const data = 't1 = 0.10 s\nt2 = 0.20 s\nt3 = 0.30 s\nt4 = 0.40 s\n'

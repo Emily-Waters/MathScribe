@@ -2,7 +2,8 @@
  * Plots as pictures, for the Word export: each plot's SVG (in print colours)
  * drawn onto a canvas and saved as a PNG. Browser only.
  */
-import type { Block } from './document.ts'
+import { BLOCK_KIND, isContainer, type Block } from './blocks.ts'
+import { LINE_COMMAND } from './syntax.ts'
 import { PLOT_SIZE, PRINT_PALETTE, plotSvg, type PlotData } from './plot.ts'
 import type { PlotImages } from './docx.ts'
 
@@ -12,8 +13,8 @@ const SCALE = 2.5
 /** The plots shown in the sheet, at any depth. */
 function plotsOf(blocks: Block[]): PlotData[] {
   return blocks.flatMap((b) => {
-    if (b.kind === 'calc') return b.plot && !b.hidden && !b.error ? [b.plot] : []
-    if (b.kind === 'group' || b.kind === 'layout') return b.command === 'hide' ? [] : plotsOf(b.children)
+    if (b.kind === BLOCK_KIND.calc) return b.plot && !b.hidden && !b.error ? [b.plot] : []
+    if (isContainer(b)) return b.command === LINE_COMMAND.hide ? [] : plotsOf(b.children)
     return []
   })
 }

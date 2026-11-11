@@ -9,7 +9,10 @@
  * become Google Docs equations.
  */
 import { strToU8, zipSync } from 'fflate'
-import { listItems, isOmitted, splitInlineMath, titleSegments, type Block } from './document.ts'
+import { TITLE_SEGMENT, listItems, isOmitted, splitInlineMath, titleSegments } from './document.ts'
+import { BLOCK_KIND, type Block, type LayoutBlock } from './blocks.ts'
+import { ALIGN, type Align } from './alignment.ts'
+import { LAYOUT_STYLE, LINE_COMMAND } from './syntax.ts'
 import { MARGIN_CM, type LatexOptions } from './latex.ts'
 import { PLOT_SIZE, type PlotData } from './plot.ts'
 import { EM_SPACE, texToMath, texToOmml, xmlEscape } from './omml.ts'
@@ -104,11 +107,11 @@ interface ParaProps {
   keepNext?: boolean
   /** A list: which numbering, and how deep. */
   num?: { id: number; level: number }
-  tabs?: { kind: 'left' | 'center' | 'right'; pos: number }[]
+  tabs?: { kind: Align; pos: number }[]
   before?: number
   after?: number
   indent?: number
-  jc?: 'left' | 'center' | 'right'
+  jc?: Align
 }
 
 /** A paragraph (whose properties can still change, e.g. to make it a list item) or finished XML (a table). */
@@ -162,9 +165,9 @@ const richText = (text: string, f: RunFormat = {}) =>
 
 /** A heading or block title: `2p_z` → 2p with a subscript z, `$…$` as maths. */
 const titleRuns = (text: string, f: RunFormat = {}) =>
-  titleSegments(text).map((s) => (s.kind === 'math'
+  titleSegments(text).map((s) => (s.kind === TITLE_SEGMENT.math
     ? texToOmml(s.value, f.size)
-    : run(s.value, { ...f, sub: s.kind === 'sub' }))).join('')
+    : run(s.value, { ...f, sub: s.kind === TITLE_SEGMENT.sub }))).join('')
 
 // ---------------------------------------------------------------------------
 // The sheet
@@ -218,7 +221,7 @@ function picture(ctx: Ctx, png: Uint8Array): Item {
     + '<a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">'
     + `<a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">${pic}</a:graphicData></a:graphic>`
     + '</wp:inline></w:drawing></w:r>'
-  return { props: { jc: 'center', keepNext: true }, content: drawing }
+  return { props: { jc: ALIGN.center, keepNext: true }, content: drawing }
 }
 
 /** The relationship id of the `n`th picture (after the document's three parts). */
@@ -239,19 +242,19 @@ function equation(ctx: Ctx, tex: string, note?: string, small = false): Item {
   const size = small ? ctx.small : undefined
   const indent = ctx.indent + (small ? INDENT : 0)
   const spacing = { before: SPACING.equation, after: SPACING.equation }
-  const jc = ctx.center || ctx.o.align === 'center' ? 'center' : 'left'
+  const jc = ctx.center || ctx.o.align === ALIGN.center ? ALIGN.center : ALIGN.left
   const { xml: math, ems } = texToMath(tex, size)
   const display = `<m:oMathPara><m:oMathParaPr><m:jc m:val="${jc}"/></m:oMathParaPr>${math}</m:oMathPara>`
   if (!note) return { props: { ...spacing, indent: indent || undefined }, content: display }
 
   const noteRuns = run(note, { ...NOTE, size })
   if (ctx.inList) {
-    return { props: { ...spacing, tabs: [{ kind: 'right', pos: ctx.width - indent }] }, content: `${math}${tab}${noteRuns}` }
+    return { props: { ...spacing, tabs: [{ kind: ALIGN.right, pos: ctx.width - indent }] }, content: `${math}${tab}${noteRuns}` }
   }
   const width = ctx.width - indent
   // Centered: an empty column on the left as wide as the note's, so the
   // equation is centered on the page like the ones without notes.
-  const centered = jc === 'center'
+  const centered = jc === ALIGN.center
   const noteWidth = Math.min(ctx.noteWidth, Math.round(width * (centered ? NOTE_COLUMN.centered : NOTE_COLUMN.ceiling)))
   const mathWidth = width - noteWidth * (centered ? 2 : 1)
   // Too wide to sit beside its note (an em is the font size in half-points × 10 twips):
@@ -259,7 +262,7 @@ function equation(ctx: Ctx, tex: string, note?: string, small = false): Item {
   if (ems * (size ?? fontSizeOf(ctx.o)) * TWIPS_PER_EM_PER_HALF_POINT > mathWidth) {
     return {
       xml: paraXml({ props: { before: SPACING.equation, after: 0, indent: indent || undefined, keepNext: true }, content: display })
-        + paraXml({ props: { before: 0, after: SPACING.equation, jc: 'right' }, content: noteRuns }),
+        + paraXml({ props: { before: 0, after: SPACING.equation, jc: ALIGN.right }, content: noteRuns }),
     }
   }
   const cell = (w: number, content: string) =>
@@ -271,7 +274,7 @@ function equation(ctx: Ctx, tex: string, note?: string, small = false): Item {
       + `<w:tblGrid>${centered ? `<w:gridCol w:w="${noteWidth}"/>` : ''}<w:gridCol w:w="${mathWidth}"/><w:gridCol w:w="${noteWidth}"/></w:tblGrid><w:tr>`
       + (centered ? cell(noteWidth, '<w:p/>') : '')
       + cell(mathWidth, paraXml({ props: spacing, content: display }))
-      + cell(noteWidth, paraXml({ props: { ...spacing, jc: 'right' }, content: noteRuns }))
+      + cell(noteWidth, paraXml({ props: { ...spacing, jc: ALIGN.right }, content: noteRuns }))
       + '</w:tr></w:tbl>',
   }
 }
@@ -280,11 +283,11 @@ function equation(ctx: Ctx, tex: string, note?: string, small = false): Item {
 function notesOf(list: Block[]): string[] {
   return list.flatMap((b): string[] => {
     switch (b.kind) {
-      case 'calc': return [b.note, ...(b.trace ?? []).map((t) => t.note)].filter((n): n is string => !!n)
-      case 'constants': return b.entries.map((e) => e.note).filter((n): n is string => !!n)
-      case 'function': return b.body.map((l) => l.note).filter((n): n is string => !!n)
-      case 'group':
-      case 'layout': return notesOf(b.children)
+      case BLOCK_KIND.calc: return [b.note, ...(b.trace ?? []).map((t) => t.note)].filter((n): n is string => !!n)
+      case BLOCK_KIND.constants: return b.entries.map((e) => e.note).filter((n): n is string => !!n)
+      case BLOCK_KIND.function: return b.body.map((l) => l.note).filter((n): n is string => !!n)
+      case BLOCK_KIND.group:
+      case BLOCK_KIND.layout: return notesOf(b.children)
       default: return []
     }
   })
@@ -328,26 +331,26 @@ const heading = (title: string, note?: string) =>
 
 /** Blocks as paragraphs and tables, leaving out hidden ones. */
 function blocks(list: Block[], ctx: Ctx): Item[] {
-  return list.flatMap((b) => (b.kind !== 'spacer' && isOmitted(b) ? [] : block(b, ctx)))
+  return list.flatMap((b) => (b.kind !== BLOCK_KIND.spacer && isOmitted(b) ? [] : block(b, ctx)))
 }
 
 function block(b: Block, ctx: Ctx): Item[] {
-  const base: ParaProps = { indent: ctx.indent || undefined, jc: ctx.center ? 'center' : undefined }
+  const base: ParaProps = { indent: ctx.indent || undefined, jc: ctx.center ? ALIGN.center : undefined }
   switch (b.kind) {
-    case 'heading': {
+    case BLOCK_KIND.heading: {
       const number = ctx.o.numberSections && b.level < 3 && b.number ? run(`${b.number}${EM_SPACE}`) : ''
       return [{ props: { style: `Heading${b.level}` }, content: number + titleRuns(b.text) }]
     }
-    case 'spacer':
+    case BLOCK_KIND.spacer:
       return [{ props: { after: 0 }, content: '' }]
-    case 'import':
+    case BLOCK_KIND.import:
       // Imported data only defines variables; it isn't part of the document.
       return []
-    case 'text':
+    case BLOCK_KIND.text:
       return [{ props: base, content: richText(b.text) }]
-    case 'latex':
+    case BLOCK_KIND.latex:
       return [equation(ctx, b.latex)]
-    case 'calc':
+    case BLOCK_KIND.calc:
       // Errors stay out of the document, as in the LaTeX export.
       if (b.error || b.hidden) return []
       // A plot: its picture (if it was drawn), then its fits' equations.
@@ -359,36 +362,36 @@ function block(b: Block, ctx: Ctx): Item[] {
         ...(b.trace ?? []).map((t) => equation(ctx, t.tex, t.note, true)),
         equation(ctx, b.tex, b.note),
       ]
-    case 'constants': {
+    case BLOCK_KIND.constants: {
       if (b.hidden && !b.error) return []
       const shown = b.entries.filter((e) => !e.error)
       if (!shown.length) return []
       return titled(ctx, heading('Constants', b.note), (inner) => shown.map((e) => equation(inner, e.tex, e.note)))
     }
-    case 'function': {
+    case BLOCK_KIND.function: {
       if (b.error || b.hidden) return []
       const title = `${run('Function ', { bold: true })}${texToOmml(b.signature)}${b.note ? run(` — ${b.note}`, { bold: true }) : ''}`
       return titled(ctx, title, (inner) => b.body.map((l) => equation(inner, l.tex, l.note)))
     }
-    case 'group':
-      if (b.command === 'hide') return []
+    case BLOCK_KIND.group:
+      if (b.command === LINE_COMMAND.hide) return []
       return titled(ctx, heading(b.title, b.note), (inner) => blocks(b.children, inner))
-    case 'layout': {
-      if (b.command === 'hide' || (b.error && !b.children.length)) return []
+    case BLOCK_KIND.layout: {
+      if (b.command === LINE_COMMAND.hide || (b.error && !b.children.length)) return []
       const title: Item[] = b.title || b.note
         ? [{ props: { ...base, keepNext: true, ...SPACING.title }, content: heading(b.title, b.note) }]
         : []
-      if (b.style === 'center') return [...title, ...blocks(b.children, { ...ctx, center: true })]
-      if (b.style === 'text') return [...title, ...blocks(b.children, ctx)]
-      if (b.style === 'list' || b.style === 'numbered') return [...title, ...list(b, ctx, 0)]
+      if (b.style === LAYOUT_STYLE.center) return [...title, ...blocks(b.children, { ...ctx, center: true })]
+      if (b.style === LAYOUT_STYLE.text) return [...title, ...blocks(b.children, ctx)]
+      if (b.style === LAYOUT_STYLE.list || b.style === LAYOUT_STYLE.numbered) return [...title, ...list(b, ctx, 0)]
       return [...title, ...blocks(b.children, { ...ctx, indent: ctx.indent + INDENT })]
     }
   }
 }
 
 /** A bulleted or numbered list (and the sub-lists indented under its items). */
-function list(b: Block & { kind: 'layout' }, ctx: Ctx, level: number): Item[] {
-  ctx.nums.push({ abstract: b.style === 'numbered' ? 1 : 0 })
+function list(b: LayoutBlock, ctx: Ctx, level: number): Item[] {
+  ctx.nums.push({ abstract: b.style === LAYOUT_STYLE.numbered ? 1 : 0 })
   const id = ctx.nums.length
   // List text starts at the numbering's indent; equations' notes still reach the margin.
   const itemCtx: Ctx = { ...ctx, indent: 0, inList: true }
@@ -398,7 +401,7 @@ function list(b: Block & { kind: 'layout' }, ctx: Ctx, level: number): Item[] {
     const marked: Item[] = first && !('xml' in first)
       ? [{ props: { ...first.props, num: { id, level }, indent: undefined }, content: first.content }, ...own.slice(1)]
       : [{ props: { num: { id, level } }, content: '' }, ...own]
-    const nested = subs.flatMap((s) => (s.kind === 'layout' && (s.style === 'list' || s.style === 'numbered')
+    const nested = subs.flatMap((s) => (s.kind === BLOCK_KIND.layout && (s.style === LAYOUT_STYLE.list || s.style === LAYOUT_STYLE.numbered)
       ? list(s, ctx, Math.min(level + 1, 2))
       : block(s, itemCtx)))
     return [...marked, ...nested]
@@ -454,7 +457,7 @@ function numberingXml(nums: Ctx['nums']): string {
 const settingsXml = (o: LatexOptions) =>
   `${HEAD}<w:settings ${W} ${M}><m:mathPr><m:mathFont m:val="${FONTS.math}"/><m:brkBin m:val="before"/>`
   + `<m:brkBinSub m:val="--"/><m:smallFrac m:val="0"/><m:dispDef/><m:lMargin m:val="0"/><m:rMargin m:val="0"/>`
-  + `<m:defJc m:val="${o.align === 'center' ? 'centerGroup' : 'left'}"/><m:wrapIndent m:val="${MATH_WRAP_INDENT}"/>`
+  + `<m:defJc m:val="${o.align === ALIGN.center ? 'centerGroup' : ALIGN.left}"/><m:wrapIndent m:val="${MATH_WRAP_INDENT}"/>`
   + '<m:intLim m:val="subSup"/><m:naryLim m:val="undOvr"/></m:mathPr></w:settings>'
 
 /** The document's properties: title, author and when it was made. */
@@ -517,9 +520,9 @@ function docxPackage(sheetBlocks: Block[], o: LatexOptions, today: Date, images:
   }
   const title: Item[] = o.title.trim() ? [
     { props: { style: 'Title' }, content: run(o.title.trim()) },
-    ...(o.author.trim() ? [{ props: { jc: 'center' as const, after: SPACING.author }, content: run(o.author.trim()) }] : []),
+    ...(o.author.trim() ? [{ props: { jc: ALIGN.center, after: SPACING.author }, content: run(o.author.trim()) }] : []),
     ...(o.date ? [{
-      props: { jc: 'center' as const, after: SPACING.date },
+      props: { jc: ALIGN.center, after: SPACING.date },
       content: run(today.toLocaleDateString(LANGUAGE, { day: 'numeric', month: 'long', year: 'numeric' })),
     }] : []),
   ] : []

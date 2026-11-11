@@ -3,7 +3,8 @@
  * engine's LaTeX into short readable text, so a test can say
  * `expect(value('F = 2.00 kg * 9.81 m/s^2')).toBe('19.6 N')`.
  */
-import { evaluateSheet, type Block, type Sheet } from '../lib/document.ts'
+import { evaluateSheet, type Sheet } from '../lib/document.ts'
+import { BLOCK_KIND, isContainer, type Block } from '../lib/blocks.ts'
 import type { CalcOptions } from '../lib/engine.ts'
 import type { PlotData } from '../lib/plot.ts'
 import { EXAMPLE_CALC_OPTIONS } from '../config.ts'
@@ -34,9 +35,9 @@ export function sheet(source: string, options: Partial<CalcOptions> = {}): Sheet
 export function lines(source: string, options: Partial<CalcOptions> = {}): Line[] {
   const out: Line[] = []
   const visit = (b: Block) => {
-    if (b.kind === 'calc') out.push(b)
-    else if (b.kind === 'constants') out.push(...b.entries)
-    else if (b.kind === 'group' || b.kind === 'layout') b.children.forEach(visit)
+    if (b.kind === BLOCK_KIND.calc) out.push(b)
+    else if (b.kind === BLOCK_KIND.constants) out.push(...b.entries)
+    else if (isContainer(b)) b.children.forEach(visit)
   }
   sheet(source, options).blocks.forEach(visit)
   return out

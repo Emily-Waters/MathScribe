@@ -25,7 +25,7 @@ import { Compartment, Prec, StateEffect, StateField, type EditorState, type Exte
 import { EditorView, hoverTooltip, keymap, type Command } from '@codemirror/view'
 import katex from 'katex'
 import { BUILTIN_CONSTANTS } from '../lib/constants.ts'
-import type { SheetSymbol } from '../lib/document.ts'
+import { SYMBOL_KIND, type SheetSymbol } from '../lib/document.ts'
 import { describeUnit, isUnitName, numberTex, symbolTex, unitNames, unitTex } from '../lib/engine.ts'
 import { STORAGE_KEYS } from '../config.ts'
 import { readStored, writeStored } from '../lib/storage.ts'
@@ -95,13 +95,13 @@ const where = (s: SheetSymbol) => `Defined on line ${s.line}`
 /** The information panel for a name the sheet defines. */
 function symbolInfo(s: SheetSymbol): HTMLElement {
   switch (s.kind) {
-    case 'variable':
+    case SYMBOL_KIND.variable:
       return infoNode(s.tex, s.tex ? `${where(s)}; value at the end of its scope` : where(s))
-    case 'parameter':
+    case SYMBOL_KIND.parameter:
       return infoNode(undefined, `Parameter of the function on line ${s.line}`)
-    case 'function':
+    case SYMBOL_KIND.function:
       return infoNode(s.tex, `${s.name}(${s.params ?? ''})`, `${where(s)}. Ctrl+Click a call to go there.`)
-    case 'constant':
+    case SYMBOL_KIND.constant:
       return infoNode(s.tex, `Your constant, ${where(s).toLowerCase()}`)
   }
 }
@@ -180,7 +180,7 @@ function nameOptions(visible: SheetSymbol[]): Completion[] {
   const series = new Map<string, { count: number; first: number; last: number }>()
   for (const s of visible) {
     const m = SERIES_MEMBER.exec(s.name)
-    if (s.kind !== 'variable' || !m) continue
+    if (s.kind !== SYMBOL_KIND.variable || !m) continue
     const n = Number(m[2])
     const known = series.get(m[1])
     series.set(m[1], known
@@ -193,12 +193,12 @@ function nameOptions(visible: SheetSymbol[]): Completion[] {
   // A series' members aren't listed one by one (an imported column can have
   // thousands); the series offers tₙ for them instead, below.
   const options: Completion[] = visible
-    .filter((s) => { const m = SERIES_MEMBER.exec(s.name); return !(s.kind === 'variable' && m && isSeries(m[1])) })
-    .map((s) => (s.kind === 'function'
+    .filter((s) => { const m = SERIES_MEMBER.exec(s.name); return !(s.kind === SYMBOL_KIND.variable && m && isSeries(m[1])) })
+    .map((s) => (s.kind === SYMBOL_KIND.function
       ? snippetCompletion(`${s.name}(\${})`, {
         label: s.name, type: 'function', detail: `(${s.params ?? ''})`, info: () => symbolInfo(s), boost: 2,
       })
-      : { label: s.name, type: 'variable', detail: s.kind === 'parameter' ? 'parameter' : undefined, info: () => symbolInfo(s), boost: 3 }))
+      : { label: s.name, type: 'variable', detail: s.kind === SYMBOL_KIND.parameter ? 'parameter' : undefined, info: () => symbolInfo(s), boost: 3 }))
 
   for (const [base, { count, first, last }] of series) {
     if (!isSeries(base)) continue
@@ -244,7 +244,7 @@ export function complete(ctx: CompletionContext): CompletionResult | null {
   // `@…`: constants.
   const at = /@\w*$/.exec(before)
   if (at) {
-    const custom = [...visibleAt(ctx.state, line.number).values()].filter((s) => s.kind === 'constant')
+    const custom = [...visibleAt(ctx.state, line.number).values()].filter((s) => s.kind === SYMBOL_KIND.constant)
     return {
       from: ctx.pos - at[0].length,
       options: [
@@ -284,7 +284,7 @@ export function complete(ctx: CompletionContext): CompletionResult | null {
     }
   }
 
-  const visible = [...visibleAt(ctx.state, line.number).values()].filter((s) => s.kind !== 'constant')
+  const visible = [...visibleAt(ctx.state, line.number).values()].filter((s) => s.kind !== SYMBOL_KIND.constant)
 
   // `a.`: a namespace's members (a slice's series, a named import's columns, a named plot's fit).
   const dotted = MEMBER_SO_FAR.exec(before)
@@ -380,7 +380,7 @@ function seriesMemberInfo(visible: Map<string, SheetSymbol>, name: string): HTML
   if (!numbered) return null
   const spellings = [seriesMemberName(numbered.base, numbered.n), `${numbered.base}${numbered.n}`]
   for (const s of visible.values()) {
-    if (s.kind !== 'variable' || !s.texOf || parseNumberedName(s.name)?.base !== numbered.base) continue
+    if (s.kind !== SYMBOL_KIND.variable || !s.texOf || parseNumberedName(s.name)?.base !== numbered.base) continue
     const tex = spellings.map((n) => s.texOf!(n)).find(Boolean)
     if (tex) return infoNode(tex, `${where(s)}; value at the end of its scope`)
   }

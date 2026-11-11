@@ -41,7 +41,23 @@ export const FN = {
   /** A number kept as typed, so 2.00 keeps its sig figs: lit("2.00") (the engine adds it). */
   literal: 'lit',
   tuple: 'tuple',
+  /** mathjs's own functions that solve(…) undoes, and the engine treats specially. */
+  sqrt: 'sqrt',
+  cbrt: 'cbrt',
+  exp: 'exp',
+  log: 'log',
+  log10: 'log10',
+  sin: 'sin',
+  cos: 'cos',
+  tan: 'tan',
+  asin: 'asin',
+  acos: 'acos',
+  atan: 'atan',
+  abs: 'abs',
 } as const
+
+/** mathjs's built-in constants the engine uses by name. */
+export const MATH_CONSTANT = { pi: 'pi', e: 'e' } as const
 
 /** mathjs's other word for a conversion, besides `to`: `2 m in cm`. */
 export const MATHJS_IN = 'in'

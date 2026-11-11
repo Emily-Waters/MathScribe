@@ -30,6 +30,8 @@ export const STORAGE_KEYS = {
   split: 'mathscribe:split',
   /** Which keys accept a suggestion in the editor. */
   acceptKeys: 'mathscribe:accept-keys',
+  /** The Create dialog's last choices: what to make, the request, the tickboxes. */
+  create: 'mathscribe:create',
 } as const
 
 // ---------------------------------------------------------------------------

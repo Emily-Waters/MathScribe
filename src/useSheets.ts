@@ -180,10 +180,16 @@ export function useSheets() {
     if (focus) setActiveId(focus)
   }, [activeId, update])
 
-  /** A new, empty sheet in its own tab. */
-  const newSheet = useCallback(() => {
-    const sheet = blank(uniqueName(SHEET_FILE.defaultName, latest.current.map((s) => s.name)))
-    setSheets((all) => [...all, sheet])
+  /**
+   * A new sheet in its own tab: empty, or with `text` (named `name`, made unique).
+   * A sheet with text replaces a lone empty, never-saved tab, as opening a file does.
+   */
+  const newSheet = useCallback((name: string = SHEET_FILE.defaultName, text = '') => {
+    const sheet = blank(uniqueName(name, latest.current.map((s) => s.name)), text)
+    setSheets((all) => {
+      const replace = text && all.length === 1 && !all[0].text.trim() && !all[0].handle
+      return replace ? [sheet] : [...all, sheet]
+    })
     setActiveId(sheet.id)
   }, [])
 

@@ -17,6 +17,7 @@ import { SuggestionOptions } from './components/SuggestionOptions.tsx'
 import { loadAcceptKeys, saveAcceptKeys, type AcceptKeys } from './editor/intellisense.ts'
 import { applyAppTheme, loadAppTheme, saveAppTheme, useAppearance, watchSystemTheme, type AppThemeId } from './appTheme.ts'
 import { ThemeMenu } from './components/ThemeMenu.tsx'
+import { CreateDialog } from './components/CreateDialog.tsx'
 import { DEFAULT_CALC_OPTIONS, EVALUATION } from './config.ts'
 import { useSettled } from './useSettled.ts'
 import './App.css'
@@ -91,6 +92,9 @@ export default function App() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [file])
+  // The Create dialog (a prompt for an AI to write a sheet, and its answer opened).
+  const [creating, setCreating] = useState(false)
+
   // The sheet, worked out on every keystroke if that's quick; if the last time
   // was slow, once typing pauses (see EVALUATION), so the editor never waits.
   const [slow, setSlow] = useState(false)
@@ -153,7 +157,10 @@ export default function App() {
             {linked || file.state === 'saved' ? SAVE_LABELS[file.state] : 'in this browser'}
             {linked && file.state !== 'error' && <span className="filebar__auto"> (auto-save on)</span>}
           </span>
-          <button onClick={file.newSheet} title="A new, empty sheet in its own tab">New</button>
+          <button onClick={() => file.newSheet()} title="A new, empty sheet in its own tab">New</button>
+          <button onClick={() => setCreating(true)} title="Have an AI write a test, assignment, worked examples or a lab write-up">
+            Create
+          </button>
           <button onClick={() => void file.open()} title="Open one or more sheets, each in its own tab (Ctrl+O)">Open</button>
           <button onClick={() => void file.save()} title={canLinkFiles ? 'Save (Ctrl+S)' : 'Download the sheet (Ctrl+S)'}>
             Save
@@ -162,6 +169,7 @@ export default function App() {
         </div>
         <ThemeMenu theme={appTheme} onChange={changeAppTheme} />
       </header>
+      <CreateDialog open={creating} onClose={() => setCreating(false)} onCreate={file.newSheet} />
       {error && <div className="app__error" role="alert">{error}</div>}
       {!file.draftKept && (
         <div className="app__error" role="alert">

@@ -176,6 +176,28 @@ sheet as a file instead, and the browser copy keeps your work safe in between.
 Nothing is sent anywhere and there's no sign-in: your sheets and settings stay in
 your browser and your own files.
 
+## Create with AI
+
+**Create** (in the top bar) has an AI model write a sheet for you: a test, an
+assignment, worked examples or a lab write-up.
+
+1. Choose what to make, describe it ("A midterm for PHYS 1100 covering work, energy
+   and momentum"), and tick what it should have: worked solutions (at the end of
+   the sheet, shown by default), hidden solutions for a copy to hand out, marks,
+   hints, a formula sheet, uncertainties, a graph, and so on.
+2. **Copy prompt** (or Ctrl+Enter) copies a prompt with your request and
+   MathScribe's rules for writing a sheet. Paste it into any AI: ChatGPT, Claude,
+   Gemini, …. **Show the whole prompt** shows exactly what's copied.
+3. Paste the AI's whole answer back into the dialog, and **Open as a new sheet**
+   takes the sheet out of its code block and opens it in a tab of its own, named
+   from its first heading.
+
+Nothing is sent from MathScribe: the prompt only goes to your clipboard. Errors in
+what the AI wrote are marked line by line, as in any sheet. In a test or
+assignment, the questions come first and each solution is a `{ }` block at the
+end, which starts by defining the question's values; add `#hide` to a solution
+block's first line to hide it. The dialog remembers your last choices.
+
 ## Syntax
 
 | Line | Meaning |
@@ -1118,6 +1140,9 @@ Roughly in priority order.
 - `src/lib/plot.ts`: the linear fit, axes, and drawing a plot as SVG;
   `src/lib/plotImage.ts`: plots as pictures for the Word export
 - `src/lib/brackets.ts`: choosing ( ), [ ] and { } by nesting in the output
+- `src/lib/aiPrompt.ts`: Create's prompt (what can be made, its tickboxes, and the
+  rules of writing a sheet, whose examples a test evaluates) and reading the AI's
+  answer back; `src/components/CreateDialog.tsx`: the dialog
 - `src/lib/document.ts`: line types and blocks (`{ }`, layout, `def`,
   `@constants`), sheet evaluation, diagnostics, definitions and symbols for the
   editor

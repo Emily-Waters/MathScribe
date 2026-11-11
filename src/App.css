@@ -1484,3 +1484,182 @@ body {
 .layout--text > .layout__body > .doc__text {
   margin: 0 0 10px;
 }
+
+/* Create (with AI): a dialog to make a prompt for an AI, and open its answer as a sheet */
+.create {
+  width: min(640px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  padding: 0;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 16px 48px rgb(0 0 0 / 0.28);
+  font-family: var(--sans);
+}
+
+.create::backdrop {
+  background: rgb(0 0 0 / 0.35);
+}
+
+.create__header {
+  position: sticky;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.create__header h2 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.create__close {
+  font-size: 20px;
+  line-height: 1;
+  padding: 2px 8px;
+  color: var(--muted);
+  background: none;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.create__close:hover {
+  color: var(--text);
+  background: var(--surface-2);
+}
+
+.create__step {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+.create__step:last-child {
+  border-bottom: none;
+}
+
+.create__step h3 {
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.create__kinds {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px;
+}
+
+.create__kind {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px;
+  text-align: left;
+  font: inherit;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.create__kind span {
+  font-size: 11.5px;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
+.create__kind:hover {
+  border-color: var(--accent);
+}
+
+.create__kind--chosen {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+}
+
+.create__text {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  resize: vertical;
+}
+
+.create__text:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.create__answer {
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.create__options {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 10px 0 12px;
+}
+
+.create__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.create__primary {
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 14px;
+  /* (The surface colour on the accent reads in both light and dark.) */
+  color: var(--surface);
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.create__primary:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.create__flash {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.create__preview summary {
+  font-size: 12px;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.create__preview pre {
+  max-height: 240px;
+  overflow: auto;
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  font-family: var(--mono);
+  font-size: 11px;
+  white-space: pre-wrap;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}

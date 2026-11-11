@@ -20,8 +20,17 @@ export const NAME_CHAR = String.raw`[\w${GREEK_CHARS}]`
 /** A name: a letter (Latin or Greek), then letters, digits or underscores (`m`, `v_0`, `E_k`, `ΔE`). */
 export const NAME = String.raw`[A-Za-z${GREEK_CHARS}]${NAME_CHAR}*`
 
-/** One display setting after a name, with its colon: `:3`, `:deg`, `:sci`. */
-export const SETTING = String.raw`:[^:=\s]+`
+/**
+ * One display setting after a name, with its colon: `:3`, `:deg`, `:sci`, or a
+ * display name in quotes, `:"Moles of {Na^+}"` (which can hold spaces and colons).
+ */
+export const SETTING = String.raw`:(?:"[^"]*"|[^:=\s"]+)`
+
+/** Each setting in a run of them (1: the setting, without its colon). */
+export const EACH_SETTING = /:("[^"]*"|[^:=\s"]+)/g
+
+/** Around a display name: `n_Na:"Moles of {Na^+}"`. */
+export const LABEL_QUOTE = '"'
 
 /** Any number of settings: `:3:deg`, or none. */
 export const SETTINGS = `(?:${SETTING})*`

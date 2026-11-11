@@ -6,6 +6,7 @@ import {
   type LayoutStyle, type Notation,
 } from './syntax.ts'
 import { parseCsv, type CsvData } from './csv.ts'
+import { REACTION_LINE, formulaTex, outsideMaths, withFormulas } from './chemistry.ts'
 import {
   BLOCK_KIND, isContainer, type Block, type Command, type ConstantsBlock, type GroupBlock, type ImportBlock,
   type LayoutBlock,
@@ -139,18 +140,19 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
   const add = (b: Block) => (open.at(-1)?.children ?? root).push(b)
   /**
    * Text with each `{{x}}` (outside `$…$`) as x's value at this point in the
-   * sheet, in inline maths; and what's wrong with the first that can't be worked out.
+   * sheet, and each formula `{Na^+}` as chemistry, in inline maths; and what's
+   * wrong with the first value that can't be worked out.
    */
   const withValues = (text: string): { text: string; error?: string } => {
-    if (!text.includes('{{')) return { text }
+    if (!text.includes('{')) return { text }
     let error: string | undefined
-    const filled = text.split(/(\$[^$]*\$)/).map((part, i) => (i % 2 ? part : part.replace(VALUE_IN_TEXT, (whole, source: string) => {
+    const filled = outsideMaths(text, (part) => part.replace(VALUE_IN_TEXT, (whole, source: string) => {
       const v = calc.inlineValue(source)
       if (v.tex !== undefined) return `$${v.tex}$`
       error ??= `${whole}: ${v.error}`
       return whole
-    }))).join('')
-    return { text: filled, error }
+    }))
+    return { text: withFormulas(filled), error }
   }
   const lastLine = (b: Block): number =>
     ('endLine' in b && b.endLine) || b.line
@@ -315,6 +317,13 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
     }
 
     const { body, note, command, multiline: ownMultiline, notation: ownNotation, layout } = splitNote(trimmed)
+
+    // `{OH^- + H3O^+ -> 2 H2O}`: a formula on its own, a reaction, displayed (not worked out).
+    const reaction = REACTION_LINE.exec(body)
+    if (reaction) {
+      add({ kind: BLOCK_KIND.latex, line, latex: formulaTex(reaction[1]) })
+      continue
+    }
     // A line's own command wins; otherwise the nearest enclosing block's.
     const inherited = [...open].reverse().find((g) => g.command)?.command
     const multiline = ownMultiline || open.some((g) => g.multiline)

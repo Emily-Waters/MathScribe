@@ -1,8 +1,19 @@
 import { describe, expect, it } from 'vitest'
 import {
   EXACT, countSigFigs, formatExact, formatSigFigs, formatWithUncertainty, hasAmbiguousZeros, isMeasuredLiteral,
-  lastPlace, sigFigsFromPlace, uncertaintySigFigs,
+  lastPlace, roundSig, sigFigsFromPlace, uncertaintySigFigs,
 } from './sigfigs.ts'
+
+describe('roundSig', () => {
+  it('rounds a decimal tie up, as its digits say, not as its binary value', () => {
+    // 0.1 × 16.95 is 1.695 exactly, held as 1.69499999…
+    expect(formatSigFigs(0.1 * 16.95, 3)).toBe('1.70')
+    expect(formatSigFigs(0.001695, 3)).toBe('0.00170')
+    expect(roundSig(0.235, 2)).toBe(0.24)
+    expect(roundSig(-1.2025, 4)).toBe(-1.203)
+    expect(roundSig(1.2024, 4)).toBe(1.202)
+  })
+})
 
 describe('countSigFigs', () => {
   it.each([

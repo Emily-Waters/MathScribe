@@ -8,6 +8,7 @@ import { STORAGE_KEYS } from '../config.ts'
 import { TITLE_SEGMENT, isOmitted, listItems, splitInlineMath, titleSegments } from './document.ts'
 import { BLOCK_KIND, isContainer, type Block } from './blocks.ts'
 import { ALIGN } from './alignment.ts'
+import { usesFormulas } from './chemistry.ts'
 import { LAYOUT_STYLE, LINE_COMMAND } from './syntax.ts'
 import { symbolTex, unitTex } from './engine.ts'
 import type { PlotData, PlotName } from './plot.ts'
@@ -287,13 +288,14 @@ const hasPlot = (blocks: Block[]): boolean => blocks.some((b) =>
 // ---------------------------------------------------------------------------
 
 /** The document's preamble: its class, packages and settings, from the Document options. */
-function preamble(o: LatexOptions, plots = false): string[] {
+function preamble(o: LatexOptions, plots = false, formulas = false): string[] {
   const left = o.align === ALIGN.left
   return [
     `\\documentclass[${[o.fontSize, o.paper, ...(left ? ['fleqn'] : [])].join(',')}]{article}`,
     `\\usepackage[margin=${MARGIN_CM[o.margins]}cm]{geometry}`,
     '\\usepackage{amsmath, amssymb}',
     ...(plots ? ['% Plots.', '\\usepackage{pgfplots}', '\\pgfplotsset{compat=1.18}'] : []),
+    ...(formulas ? ['% Chemical formulas, \\ce{…}.', '\\usepackage[version=4]{mhchem}'] : []),
     '% Long runs of equations may break across pages.',
     '\\allowdisplaybreaks',
     ...(o.compact ? [
@@ -335,14 +337,15 @@ function preamble(o: LatexOptions, plots = false): string[] {
 
 /** Full, compilable LaTeX source for the sheet. */
 export function toLatexDocument(blocks: Block[], options: LatexOptions = DEFAULT_LATEX_OPTIONS): string {
+  const body = joinBlocks(blocks, options)
   return [
     '% Made with MathScribe',
-    ...preamble(options, hasPlot(blocks)),
+    ...preamble(options, hasPlot(blocks), usesFormulas(body)),
     '',
     '\\begin{document}',
     ...(options.title.trim() ? ['\\maketitle'] : []),
     '',
-    joinBlocks(blocks, options),
+    body,
     '',
     '\\end{document}',
     '',

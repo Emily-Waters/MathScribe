@@ -7,7 +7,7 @@
  * roots, brackets, accents, sums, aligned rows, units in upright text), and
  * falls back to plain runs of text for anything else.
  */
-import katex from 'katex'
+import katex from './katex.ts'
 import { ALIGN } from './alignment.ts'
 
 // ---------------------------------------------------------------------------

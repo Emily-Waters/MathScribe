@@ -65,6 +65,8 @@ export function readable(tex: string): string {
     .replace(/\s*\\\\\s*/g, ' ')
     .replace(/&/g, '')
     .replace(/\\text\{\\AA\}/g, 'Å')
+    // A formula as typed: \ce{Ca^2+} → Ca^2+.
+    .replace(/\\ce\{([^{}]*)\}/g, '$1')
     .replace(/\\mathrm\{([^{}]*)\}/g, '$1')
     .replace(/\s*\\times\s*10\^\{(-?\d+)\}/g, 'e$1')
     .replace(/\^\{\\circ\}/g, '°')

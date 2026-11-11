@@ -100,6 +100,16 @@ export const defaultChoices = (kind: CreateKind): Record<string, boolean> =>
 export const SNIPPETS = {
   products: 'm = 2.00 kg\nv = 3.0 m/s\nK = 1/2 * m * v^2',
   valueInText: '// a comment\nT1 = 1.21 s\nT2 = 1.17 s\n> The mean period was {{T_avg}}.',
+  chemistry: [
+    'c_EDTA = 0.01000 M {EDTA}',
+    'V = 27.55 mL',
+    'n_EDTA:"Moles of EDTA" = c_EDTA * V',
+    'n_X = n_EDTA * (1 mol {X}) / (1 mol {EDTA})',
+    'm = 5.00 g {NaOH}',
+    'n_NaOH = m / (40.00 g/mol)',
+    '> The {Ca^2+} and {Mg^2+} came to {{n_X}}.',
+    '{Ca^2+ + EDTA^4- -> CaEDTA^2-}',
+  ].join('\n'),
   convert: 'v = 25.0 m/s\nv_kmh = v to km/h',
   angle: 'theta = asin(0.50) to deg',
   settings: 'phi:3:deg = atan(0.75)',
@@ -239,6 +249,18 @@ ${code(SNIPPETS.series)}
 ${code(SNIPPETS.plot)}
 - \`p = plot(x, y; fit linear)\` graphs y against x with a best-fit line; \`p.slope\`,
   \`p.intercept\` and \`p.r2\` are its results.
+
+## Chemistry
+${code(SNIPPETS.chemistry)}
+- A formula goes in single braces: \`{Na^+}\`, \`{Ca^2+}\`, \`{H3O^+(aq)}\`, \`{2 H2O(l)}\` (counts as
+  digits, a charge after \`^\`, a state in brackets). In prose and headings it's drawn as chemistry;
+  on a line of its own it's a reaction: \`{Na^+ + Cl^- -> NaCl}\`.
+- After a unit, a formula is the species: \`0.100 M {NaOH}\`, \`2.0 mol {EDTA}\`, \`5.00 g {NaOH}\`.
+  Species cancel like units, so a mole ratio is \`(1 mol {X}) / (1 mol {EDTA})\`, and amounts of
+  different species can't be added. A whole number of a species (\`1 mol {X}\`) is exact.
+- \`M\` is molarity (mol/L). Write a molar mass without a species: \`40.00 g/mol\`.
+- A display name goes on the name being assigned: \`n_Na:"Moles of {Na^+}" = …\` shows as
+  "Moles of Na⁺" wherever n_Na appears. It can hold values: \`"Moles in {{V}}"\`.
 
 ## Don't
 - Don't write LaTeX in calculation lines (\`\\frac\`, \`\\cdot\`); write plain maths.

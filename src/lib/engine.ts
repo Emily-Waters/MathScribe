@@ -37,7 +37,7 @@ import {
   ASSIGNMENT, ASSIGNMENT_WITH_VALUE, AXES, COMPONENTS_SETTING, CONSTANT_REF, DECLARED, EXACT_SETTING, IS_NAME,
   GREEK_BY_CHAR, GREEK_BY_NAME, GREEK_CHARS, LEADING_NAME, NAME, NAME_CHAR, NAME_WITH_SETTINGS, NOTATIONS, NUMBER, ONE_LINE_FUNCTION, PERCENT, SERIES_SUFFIXES,
   KEYWORD, PLOT_CALL, RETURN_LINE, SELECT_CALL, SOLVE_CALL, SUBSCRIPT, TABLE_CALL, UNCERTAINTY_WORDS, UNIT_VECTOR_SETTING, UNPACK, VECTOR_FUNCTION,
-  DISPLAY_MODE, LINE_COMMAND, SERIES_STAT,
+  DISPLAY_MODE, EACH_SETTING, LABEL_QUOTE, LINE_COMMAND, SERIES_STAT, VALUE_IN_TEXT,
   type DisplayMode, type LineCommand, type Notation, type Precision, type UncertaintyWord,
   type VectorStyle,
 } from './syntax.ts'
@@ -47,6 +47,9 @@ import {
   seriesMemberName, solvedName, uncertaintyName, unpackedColumnName, unpackedName,
 } from './names.ts'
 import { FN, MATHJS_IN, MATH_CONSTANT, OP, OP_SYMBOL, UNIT, UNIT_LOOKS, isOp } from './mathjsNames.ts'
+import {
+  SPECIES_AFTER_UNIT, formulaOf, formulaTex, isSpeciesUnit, outsideMaths, readableSpecies, speciesUnit, withFormulas,
+} from './chemistry.ts'
 import { POLYNOMIAL_KIND, Solver, contains, countOccurrences, matchingParen, splitArgs, splitEquation } from './solve.ts'
 import { nestBrackets } from './brackets.ts'
 import type { CsvColumn } from './csv.ts'
@@ -56,6 +59,19 @@ import { linearFit, type LinearFit, type PlotData, type PlotPoint, type PlotSeri
 
 /** Our own mathjs instance, with the functions below added or replaced. */
 const math = create(all)
+
+/** Molarity: `0.100 M` is 0.100 mol/L (and mM, µM). (M before another unit is still mega: MPa.) */
+math.createUnit(UNIT.molar, { definition: `1 ${UNIT.mole}/${UNIT.litre}`, prefixes: 'short' })
+
+/** A species' unit (see chemistry.ts), made in mathjs the first time it's used. */
+function speciesUnitName(formula: string): string {
+  const { name, isNew } = speciesUnit(formula)
+  if (isNew) math.createUnit(name)
+  return name
+}
+
+/** In unitTex: between an amount and its species (mol EDTA). */
+const SPECIES_GAP = '~'
 
 /**
  * `lit("2.00")` evaluates to 2 but keeps the number as typed. Numbers whose
@@ -252,6 +268,13 @@ for (const name of [FN.sin, FN.cos, FN.tan] as const) {
       // (mathjs's own message for this is about argument types.)
       if (typeof x === 'number' && math.isUnit(unit)) {
         throw new Error(`${x} has no unit, so it can't be converted to ${(unit as Unit).formatUnits()}: give it one (3.0 m to cm).`)
+      }
+      // An amount of a species keeps it: mol NaOH to mmol is mmol NaOH.
+      const species = math.isUnit(x) ? (x as Unit).units.filter((p) => isSpeciesUnit(p.unit.name)) : []
+      const target = unit as Unit
+      if (species.length && math.isUnit(unit) && !target.units.some((p) => isSpeciesUnit(p.unit.name))) {
+        const tag = species.map((p) => (p.power === 1 ? p.unit.name : `${p.unit.name}^${p.power}`)).join(' ')
+        return original(x, math.unit(`${target.formatUnits()} ${tag}`))
       }
       return original(x, unit)
     },
@@ -531,6 +554,12 @@ function readUnit(src: string, pos: number): { text: string; end: number } | nul
     end = NEXT_UNIT.lastIndex
     readPower()
   }
+  // The species it's an amount of: `mol {EDTA}`, `M {NaOH}`.
+  const species = SPECIES_AFTER_UNIT.exec(src.slice(end))
+  if (species) {
+    text += ` ${speciesUnitName(species[1])}`
+    end += species[0].length
+  }
   return { text, end }
 }
 
@@ -604,6 +633,12 @@ export function preprocess(src: string, isVariable: (id: string) => boolean): { 
 // ---------------------------------------------------------------------------
 
 // (Each delta F, @c and solved unknown is held in a hidden variable: see names.ts.)
+
+/** LaTeX's special characters, escaped for `\text{…}` (a display name's words). */
+const TEXT_ESCAPES: Readonly<Record<string, string>> = {
+  '\\': '\\textbackslash{}', '{': '\\{', '}': '\\}', $: '\\$', '&': '\\&', '#': '\\#', '%': '\\%', _: '\\_', '^': '\\^{}', '~': '\\~{}',
+}
+const escapeText = (s: string) => s.replace(/[\\{}$&#%_^~]/g, (c) => TEXT_ESCAPES[c])
 
 /** A value in text with settings on its name: `V:4 to mL` (1: the name, 2: the settings, 3: the rest). */
 const NAME_THEN_SETTINGS = new RegExp(String.raw`^(${NAME})((?::[^:\s]+)+)(.*)$`)
@@ -795,14 +830,22 @@ function hasMicroPrefix(name: string): boolean {
 
 export function unitTex(s: string): string {
   // Brackets matter in a denominator (J/(mol·K)), but not around a numerator.
-  const norm = s.trim()
+  let norm = s.trim()
     .replace(/\s*\/\s*/g, '/')
     .replace(/^\(([^()]*)\)\//, '$1/')
     .replace(/\(\s*/g, '(').replace(/\s*\)/g, ')')
     .replace(/\s*[*·]\s*|\s+/g, '*')
-  return norm.replace(/[A-Za-z]+|\^(-?[\d.]+)|\*/g, (tok, pow) => {
+  // A species goes after its amount with a space, not a dot: mol EDTA, M NaOH.
+  // A unit of species alone is a mole ratio, from mol X / mol EDTA: shown that way.
+  const words = norm.match(/[A-Za-z]+/g) ?? []
+  const onlySpecies = words.length > 0 && words.every(isSpeciesUnit)
+  norm = norm.replace(/\*(?=[a-z]+)/g, (star, at: number) => (isSpeciesUnit(/^[a-z]+/.exec(norm.slice(at + 1))![0]) ? SPECIES_GAP : star))
+  return norm.replace(/[A-Za-z]+|\^(-?[\d.]+)|\*|~/g, (tok, pow) => {
     if (tok === '*') return '\\cdot '
+    if (tok === SPECIES_GAP) return '\\,'
     if (pow !== undefined) return `^{${pow}}`
+    const formula = formulaOf(tok)
+    if (formula) return onlySpecies ? `\\mathrm{mol}\\,${formulaTex(formula)}` : formulaTex(formula)
     const look = UNIT_LOOKS[tok]
     if (look) return look.tex
     // The micro prefix, u in mathjs, as µ: um → µm.
@@ -832,6 +875,16 @@ const unitCallText = (n: FunctionNode) => String((n.args[0] as math.ConstantNode
 /** A number kept as typed: lit("2.00"). */
 const isLitCall = (n: MathNode | undefined): n is FunctionNode =>
   !!n && isFunctionNode(n) && n.fn.name === FN.literal && isConstantNode(n.args[0])
+
+/**
+ * A whole number of a species, written without a decimal point (`1 mol {X}`,
+ * `2 mol {H2O}`): a coefficient from a balanced equation, so exact.
+ */
+function isSpeciesCount(number: MathNode, unit: MathNode, literals: Map<number, string>): boolean {
+  if (!isConstantNode(number) || typeof number.value !== 'number' || !Number.isInteger(number.value)) return false
+  if (/[.eE]/.test(literals.get(number.value) ?? '')) return false
+  return isUnitCall(unit) && unitCallText(unit as FunctionNode).split(/[\s*/^]+/).some(isSpeciesUnit)
+}
 
 /** A node without any brackets around it. */
 function unwrap(n: MathNode): MathNode {
@@ -871,7 +924,7 @@ const isConversion = (n: MathNode) => isOp(n, OP.to)
 // ---------------------------------------------------------------------------
 
 /** Derived SI units preferred over base-unit combinations (kg m/s^2 → N). */
-const DERIVED_UNITS = ['N', 'J', 'W', 'Pa', 'C', 'V', 'ohm', 'F', 'T', 'Wb', 'H'].map((u) => math.unit(u))
+const DERIVED_UNITS = ['N', 'J', 'W', 'Pa', 'C', 'V', 'ohm', 'F', 'T', 'Wb', 'H', UNIT.molar].map((u) => math.unit(u))
 
 /** How many unit names a unit is written with (`kg m/s^2` → 3). */
 const unitTokens = (s: string) => (s.match(/[A-Za-z]+/g) ?? []).length
@@ -909,6 +962,25 @@ function mergeLikeUnits(u: Unit): Unit | null {
 function normalise(value: unknown, keepUnits: boolean): unknown {
   if (!math.isUnit(value)) return value
   const u = value as Unit
+  // Species (mol EDTA) aren't SI: set them aside, tidy the rest, and put them back.
+  // (Each species unit is worth exactly 1, so the number in the other units is the same.)
+  if (u.units.some((p) => isSpeciesUnit(p.unit.name))) {
+    const part = (p: Unit['units'][number]) =>
+      `${(p.prefix as unknown as { name?: string } | undefined)?.name ?? ''}${p.unit.name}${p.power === 1 ? '' : `^${p.power}`}`
+    // Each species once, its powers added up: mol EDTA × (mol X / mol EDTA) is mol X.
+    const powers = new Map<string, number>()
+    for (const p of u.units) if (isSpeciesUnit(p.unit.name)) powers.set(p.unit.name, (powers.get(p.unit.name) ?? 0) + p.power)
+    const species = [...powers].filter(([, power]) => power !== 0)
+      .map(([name, power]) => (power === 1 ? name : `${name}^${power}`)).join(' ')
+    const others = u.units.filter((p) => !isSpeciesUnit(p.unit.name)).map(part).join(' ')
+    const number = u.toNumber(u.formatUnits())
+    const tidy = others ? normalise(math.unit(number, others), keepUnits) : number
+    if (!species) return tidy
+    const result = math.multiply(tidy as MathType, math.unit(1, species)) as Unit
+    // (Shown as made: left to itself, mathjs would re-simplify it to SI when formatting.)
+    result.skipAutomaticSimplification = true
+    return result
+  }
   const units = u.formatUnits()
   if (keepUnits || unitTokens(units) <= 1) return u.clone()
   const merged = mergeLikeUnits(u)
@@ -1187,6 +1259,8 @@ interface Declaration {
   vector?: VectorStyle
   /** `F:xyz`: also store (and show) each component as a variable, F_x, F_y, F_z. */
   components?: boolean
+  /** `n_Na:"Moles of {Na^+}"`: shown as this instead of its name (as typed: text, {{values}}, {formulas}). */
+  label?: string
 }
 
 /** Whether a unit measures angles. */
@@ -1317,8 +1391,9 @@ function parseDeclaration(line: string): Declaration | { error: string } | null 
   const m = DECLARED.exec(line)
   if (!m) return null
   const out: Declaration = { name: m[1], length: m[0].length }
-  for (const spec of m[2].slice(1).split(':')) {
-    if (spec === EXACT_SETTING) out.sf = EXACT_SETTING
+  for (const [, spec] of m[2].matchAll(EACH_SETTING)) {
+    if (spec.startsWith(LABEL_QUOTE)) out.label = spec.slice(1, -1)
+    else if (spec === EXACT_SETTING) out.sf = EXACT_SETTING
     else if (isNotation(spec)) {
       if (out.notation && out.notation !== spec) return { error: `${m[1]} can't be both :${NOTATIONS[0]} and :${NOTATIONS[1]}.` }
       out.notation = spec
@@ -1377,6 +1452,8 @@ interface ParsedLine {
   notation?: Notation
   /** `F:ijk = …`: show the vector with unit vectors. */
   vector?: VectorStyle
+  /** `n_Na:"Moles of {Na^+}" = …`: its display name, as LaTeX. */
+  label?: string
 }
 
 /** `… to percent` at the end of a line. */
@@ -1608,9 +1685,10 @@ function readableUnitError(message: string): string {
     return `This is in ${conversion[2] || 'no unit'}, which can't be converted to ${conversion[1]}. Check the units of the values it uses.`
   }
   if (message === 'Units do not match') {
-    return 'The units don\'t match: values in different units (or one with a unit and one without) can\'t be added, subtracted or compared.'
+    return 'The units don\'t match: values in different units (or one with a unit and one without) can\'t be added, subtracted or compared. '
+      + 'That includes amounts of different species (mol {Na^+} and mol {Cl^-}).'
   }
-  return message
+  return readableSpecies(message)
 }
 
 /** Prefixes people expect to read: pico to tera, plus centi. */
@@ -1681,6 +1759,8 @@ interface StoredVariable {
   def?: MathNode
   /** The series statistic it stands for, if it's one (t_avg). */
   agg?: Aggregate
+  /** Its display name, as LaTeX (`n_Na:"Moles of {Na^+}"`), shown instead of its name. */
+  label?: string
 }
 
 /** An imported value, ready to store: its variable's name, value (with the column's unit) and sig figs. */
@@ -2136,7 +2216,16 @@ export class Calculator {
           const tex = a.toTex(options).trim()
           return needsBrackets(a, side, !this.options.productDots) ? `\\left(${tex}\\right)` : tex
         }
-        const separator = (l: MathNode, r: MathNode) => (this.options.productDots ? '\\cdot ' : productSeparator(l, r))
+        // A display name is words, so it's set apart from its neighbour with ×:
+        // Molarity of EDTA × Average volume of EDTA.
+        const labelled = (node: MathNode, side: Side): boolean => {
+          const e = unwrap(node)
+          if (isOp(e, OP.multiply)) return labelled(side === SIDE.right ? e.args[e.args.length - 1] : e.args[0], side)
+          return isSymbolNode(e) && this.vars.get(e.name)?.label !== undefined
+        }
+        const separator = (l: MathNode, r: MathNode) => (labelled(l, SIDE.right) || labelled(r, SIDE.left)
+          ? '\\times '
+          : this.options.productDots ? '\\cdot ' : productSeparator(l, r))
         return ` ${n.args.slice(1).reduce((out, a, i) => `${out}${separator(n.args[i], a)}${factor(a, SIDE.right)}`,
           factor(n.args[0], SIDE.left))}`
       }
@@ -2149,7 +2238,7 @@ export class Calculator {
       }
       if (isSymbolNode(n)) {
         if (n.name.startsWith(RAW)) return ` ${n.name.slice(1)}`
-        return ` ${symbolTex(n.name)}`
+        return ` ${this.nameTex(n.name)}`
       }
       if (isFunctionNode(n) && n.fn.name === FN.tuple) {
         return `\\left(${n.args.map((a) => a.toTex(options).trim()).join(', ')}\\right)`
@@ -2224,7 +2313,11 @@ export class Calculator {
       if (traced !== undefined) return traced
     }
     if (isOperatorNode(node)) {
-      if (node.fn === OP.multiply && isUnitCall(node.args[1])) return this.sigFigsOf(node.args[0], literals, true)
+      // A number with a unit is measured; but a whole number of a species (`1 mol {X}`,
+      // from a balanced equation) is a count, and exact.
+      if (node.fn === OP.multiply && isUnitCall(node.args[1])) {
+        return this.sigFigsOf(node.args[0], literals, !isSpeciesCount(node.args[0], node.args[1], literals))
+      }
       if (node.fn === OP.unaryMinus || node.fn === OP.unaryPlus) return this.sigFigsOf(node.args[0], literals, measured)
       if (node.fn === OP.add || node.fn === OP.subtract) {
         const terms = node.args.map((a) => ({ sf: this.sigFigsOf(a, literals, false), x: this.magnitude(a) }))
@@ -2663,6 +2756,35 @@ export class Calculator {
     } finally {
       this.forget(INLINE_VALUE_NAME)
     }
+  }
+
+  /**
+   * A display name as LaTeX: its text upright, each `{{x}}` as x's value now
+   * (so the name says what it was worked out from), each `{Na^+}` as chemistry.
+   */
+  private labelTex(label: string): { tex: string; error?: string } {
+    let error: string | undefined
+    const withValuesIn = outsideMaths(label, (part) => part.replace(VALUE_IN_TEXT, (whole, source: string) => {
+      const v = this.inlineValue(source)
+      if (v.tex !== undefined) return `$${v.tex}$`
+      error ??= `In its display name, ${whole}: ${v.error}`
+      return whole
+    }))
+    // (Spaces at the ends of the words are explicit spaces, outside \text, so they survive.)
+    const words = (part: string) => {
+      const [, before, inner, after] = /^(\s*)([\s\S]*?)(\s*)$/.exec(part)!
+      const space = (s: string) => (s ? '\\ ' : '')
+      return `${space(before)}${inner ? `\\text{${escapeText(inner)}}` : ''}${space(after)}`
+    }
+    const tex = withFormulas(withValuesIn).split(/(\$[^$]*\$)/)
+      .map((part, i) => (i % 2 ? part.slice(1, -1) : words(part)))
+      .join('')
+    return { tex, error }
+  }
+
+  /** How a variable's name is shown: its display name, if it has one. */
+  private nameTex(name: string): string {
+    return this.vars.get(name)?.label ?? symbolTex(name)
   }
 
   defineConstant(input: string): CalcResult {
@@ -3248,7 +3370,7 @@ export class Calculator {
     try {
       const { tex, error, warning, info, trace, returnNote, plot, defines } = this.evaluateLine(input, mode, explicit)
       // Messages name a namespace's members as typed, a.x_1 (not a__x_1).
-      const readable = (s: string | undefined) => (s?.includes(JOIN) ? fitHint(readableMembers(s)) : s)
+      const readable = (s: string | undefined) => (s === undefined ? s : readableSpecies(s.includes(JOIN) ? fitHint(readableMembers(s)) : s))
       // Brackets by nesting, ( ) inside [ ] inside { }, once each equation is finished.
       return {
         tex: nestBrackets(tex), error: readable(error), warning: readable(warning), info: readable(info), returnNote, plot, defines,
@@ -3799,6 +3921,9 @@ export class Calculator {
     // `m:3 = …`, `phi:3:deg = …` set how what's assigned is shown; take them off the name.
     const declaration = parseDeclaration(input.trim())
     if (declaration && 'error' in declaration) return { tex: '', error: declaration.error }
+    // A display name is worked out now, so values in it are the ones it was computed with.
+    const label = declaration?.label !== undefined ? this.labelTex(declaration.label) : undefined
+    if (label?.error) return { tex: '', error: label.error }
     const declaredSf = declaration?.sf
     const displayUnit = declaration?.unit === PERCENT ? undefined : declaration?.unit
     if (declaration) input = `${declaration.name} =${input.trim().slice(declaration.length)}`
@@ -3858,7 +3983,7 @@ export class Calculator {
 
     const result = this.evaluateParsed(node, {
       uncNode, percent, literals, warnings, mode: requestedMode, explicit, declaredSf, asPercent, displayUnit,
-      notation: declaration?.notation, vector: declaration?.vector,
+      notation: declaration?.notation, vector: declaration?.vector, label: label?.tex,
     })
     return declaration?.components && !result.error ? this.withComponents(declaration.name, result, requestedMode) : result
   }
@@ -3930,7 +4055,7 @@ export class Calculator {
     this.lhsOverride = undefined
     const unpackDeclaredSf = this.unpackDeclaredSf
     this.unpackDeclaredSf = undefined
-    const lhsTex = override ?? (assigned ? symbolTex(assigned) : ctx.lhs)
+    const lhsTex = override ?? (assigned ? (ctx.label ?? symbolTex(assigned)) : ctx.lhs)
     let exprTex = uncNode ? this.pmTex(shown, uncNode, percent, literals) : this.toTex(shown, literals)
     const bare = unwrap(shown)
     /** Intermediate steps between the expression and the result. */
@@ -4135,8 +4260,8 @@ export class Calculator {
       // symbol instead of the value. Otherwise, constant-only values stay symbolic.
       const keepSymbol = ctx.mode === DISPLAY_MODE.sym && explicit
       this.store(assigned, {
-        value, sf: shownSf, contributions, uncSf: declaredUncSf, declared: declaredSf !== undefined, notation: kept, vector,
-        shown: keepSymbol ? symbolTex(assigned) : this.constantForm(expr, literals),
+        value, sf: shownSf, contributions, uncSf: declaredUncSf, declared: declaredSf !== undefined, notation: kept, vector, label: ctx.label,
+        shown: keepSymbol ? (ctx.label ?? symbolTex(assigned)) : this.constantForm(expr, literals),
         def: isLiteral(expr) ? undefined : expr,
       })
     }
@@ -4240,7 +4365,7 @@ export class Calculator {
     // sheet with thousands of imported values would otherwise typeset them all
     // on every edit.
     const typeset = (name: string, v: StoredVariable) =>
-      `${symbolTex(name)} = ${this.valueTex(v.value, v.sf, this.total(v.contributions, v.value), v.uncSf, v.declared === true)}`
+      `${v.label ?? symbolTex(name)} = ${this.valueTex(v.value, v.sf, this.total(v.contributions, v.value), v.uncSf, v.declared === true)}`
     const listed = (name: string, v: StoredVariable): Variable => {
       let tex: string | undefined
       // (Not enumerable, so code that walks the list's properties doesn't typeset them all.)

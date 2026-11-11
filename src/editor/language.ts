@@ -10,6 +10,7 @@
 import { StreamLanguage, foldService, foldedRanges, indentService, type StringStream } from '@codemirror/language'
 import { tags } from '@lezer/highlight'
 import { closesVector, isUnitName } from '../lib/engine.ts'
+import { REACTION_LINE } from '../lib/chemistry.ts'
 import {
   CALL, COMMAND_NAMES, CONSTANT_TOKEN, DEF_START, FUNCTION_HEAD, GREEK_CHARS, IMPORT, INDENT_WIDTH, KEYWORD, NAME, NAME_CHAR,
   COMMENT_START, LAYOUT_STYLE, NUMBER, SETTINGS, UNPACK_SO_FAR, VALUE_IN_TEXT, commandPattern, indentOf, isComment,
@@ -27,6 +28,8 @@ const LINE_KIND = {
   /** An import's rows. */
   data: 'data',
   comment: 'comment',
+  /** A formula on its own: `{OH^- + H3O^+ -> 2 H2O}`. */
+  reaction: 'reaction',
 } as const
 type LineKind = (typeof LINE_KIND)[keyof typeof LINE_KIND]
 
@@ -43,6 +46,8 @@ const TOKEN = {
   note: 'note',
   comment: 'comment',
   value: 'value',
+  /** A chemical formula: `{Na^+}`. */
+  formula: 'formula',
   heading: 'heading',
   text: 'text',
   marker: 'marker',
@@ -103,6 +108,7 @@ function lineKind(line: string): LineKind {
   if (t.startsWith('$')) return LINE_KIND.latex
   if (DEF_START.test(t)) return LINE_KIND.def
   const body = bodyOf(t)
+  if (REACTION_LINE.test(body)) return LINE_KIND.reaction
   if (body.endsWith(':') || (body.endsWith('{') && !body.startsWith('@constants'))) return LINE_KIND.opener
   return LINE_KIND.calc
 }
@@ -150,6 +156,10 @@ function token(stream: StringStream, state: State): Token | null {
     case LINE_KIND.latex:
       stream.skipToEnd()
       return TOKEN.latex
+    case LINE_KIND.reaction:
+      if (stream.match(FORMULA_TOKEN)) return TOKEN.formula
+      stream.skipToEnd()
+      return TOKEN.note
     case LINE_KIND.data:
       // A file's rows: numbers, and the column names (with units) in the first row.
       if (stream.match(NUMBER_TOKEN)) return TOKEN.number
@@ -184,6 +194,8 @@ function token(stream: StringStream, state: State): Token | null {
     return TOKEN.number
   }
   if (stream.match(CONSTANT_TOKEN)) return TOKEN.constant
+  // A species after a unit: `mol {EDTA}`.
+  if (stream.match(FORMULA_TOKEN)) return TOKEN.formula
 
   // A unit continues with /unit, *unit or ^n right after it.
   if (state.inUnit) {
@@ -238,10 +250,13 @@ function token(stream: StringStream, state: State): Token | null {
   return null
 }
 
+/** A formula, `{Na^+}`, at the current position (not a value's `{{`). */
+const FORMULA_TOKEN = /^\{(?!\{)[^{}]+\}/
+
 /** A value in prose, `{{c_Na}}`, at the current position. */
 const VALUE_TOKEN = new RegExp(`^${VALUE_IN_TEXT.source}`)
-/** Prose up to the next maths or value. */
-const PROSE_RUN = /^(?:[^${]|\{(?!\{))+/
+/** Prose up to the next maths, value or formula. */
+const PROSE_RUN = /^[^${]+/
 
 /** `> prose with $inline maths$ and {{values}}`: the maths and values are set off from the prose. */
 function proseToken(stream: StringStream): Token {
@@ -251,6 +266,7 @@ function proseToken(stream: StringStream): Token {
   }
   if (stream.match(/\$[^$]*\$/)) return TOKEN.latex
   if (stream.match(VALUE_TOKEN)) return TOKEN.value
+  if (stream.match(FORMULA_TOKEN)) return TOKEN.formula
   if (!stream.match(PROSE_RUN)) stream.next()
   return TOKEN.text
 }
@@ -279,6 +295,7 @@ export const mathscribeLanguage = StreamLanguage.define<State>({
     [TOKEN.note]: tags.lineComment,
     [TOKEN.comment]: tags.comment,
     [TOKEN.value]: tags.special(tags.variableName),
+    [TOKEN.formula]: tags.atom,
     [TOKEN.heading]: tags.heading,
     [TOKEN.text]: tags.content,
     [TOKEN.marker]: tags.quote,

@@ -23,7 +23,7 @@ import {
 } from '@codemirror/autocomplete'
 import { Compartment, Prec, StateEffect, StateField, type EditorState, type Extension } from '@codemirror/state'
 import { EditorView, hoverTooltip, keymap, type Command } from '@codemirror/view'
-import katex from 'katex'
+import katex from '../lib/katex.ts'
 import { BUILTIN_CONSTANTS } from '../lib/constants.ts'
 import { SYMBOL_KIND, type SheetSymbol } from '../lib/document.ts'
 import { describeUnit, isUnitName, numberTex, symbolTex, unitNames, unitTex } from '../lib/engine.ts'

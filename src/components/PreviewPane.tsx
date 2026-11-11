@@ -1,4 +1,4 @@
-import katex from 'katex'
+import katex from '../lib/katex.ts'
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
 import {
   DIAGNOSTIC_KIND, TITLE_SEGMENT, lineNumbering, listItems, splitInlineMath, titleSegments, type DiagnosticKind, type Sheet,

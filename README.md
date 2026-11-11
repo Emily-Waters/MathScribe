@@ -824,6 +824,64 @@ P = @rho_w * @g * 0.250 m to kPa
   worked out before the rest of the sheet.
 - A constant of yours with the same name as a built-in takes its place.
 
+### Chemistry
+
+**Formulas** go in single braces, anywhere text is: in `>` lines, `#text` blocks,
+headings, block titles and display names. On a line of their own they're a
+reaction, displayed but not worked out:
+
+```
+> The {Na^+} concentration was {{c_Na}}.        → The Na⁺ concentration was 0.466 M.
+## Moles of {Ca^2+} and {Mg^2+}
+{OH^-(aq) + H3O^+(aq) -> 2 H2O(l)}              → OH⁻(aq) + H₃O⁺(aq) → 2 H₂O(l)
+```
+
+Inside the braces: counts as digits (`H2O`), a charge after `^` (`Ca^2+`, `OH^-`; `Na+`
+works too), a state in brackets (`(aq)`), a coefficient before the formula (`2 H2O`),
+arrows (`->`, `<=>`), and a hydrate's dot as `*` (`CuSO4*5H2O`). Two braces, `{{…}}`,
+is still a value. Formulas are drawn with mhchem, so the LaTeX export loads it
+(only when the sheet has formulas) and the Word export gets proper chemistry.
+
+**Molarity:** `M` is mol/L, with `mM` and `µM`: `c = 0.100 M`. A worked-out
+concentration is shown in M (0.200 M, not 200 mol/m³). `MPa` is still megapascals,
+and `M` is still free as a variable name (a molar mass), since a unit only counts
+right after a number.
+
+**Species:** after a unit, a formula is what the amount is of:
+
+```
+n_EDTA = 2.755e-4 mol {EDTA}
+r = (1 mol {X}) / (1 mol {EDTA})          # a mole ratio, from the reaction
+n_X = n_EDTA * r                          → 2.755 × 10⁻⁴ mol X   (EDTA cancels)
+c = 0.100 M {NaOH}
+n = c * 17.10 mL                          → 0.00171 mol NaOH
+m = 5.00 g {NaOH}
+n_2 = m / (40.00 g/mol)                   → 0.125 mol NaOH       (a molar mass needs no species)
+```
+
+- Each species is a unit of its own, so species cancel as units do, and amounts of
+  different species can't be added or compared (mol Na⁺ + mol Cl⁻ is an error, like
+  metres + seconds). `to` keeps the species: `n to mmol` is 1.71 mmol NaOH.
+- A whole number of a species, written without a decimal point (`1 mol {X}`,
+  `6 mol {X}`), is a coefficient from a balanced equation, so it's exact and never
+  limits the sig figs. `1.00 mol {Na}` is a measurement.
+- Values without a species work as before.
+
+**Display names:** a name can be shown as words instead, with a setting in quotes on
+the name being assigned:
+
+```
+V_s = 25.00 mL
+n_Na:"Moles of {Na^+}" = n_H3O - 2 * n_X
+n_Ca:"Moles of {Ca^2+} in {{V_s}}" = n_X / 6
+c_Ca:"[{Ca^2+}]" = n_Ca / V_s
+```
+
+It's shown that way wherever the variable is: on its own line, in later
+substitutions, and in both exports. It can hold formulas and values; a value in it is
+the one when the variable was defined, so the name always says what it was worked
+out from. It combines with the other settings (`n:3:"Moles":sci = …`).
+
 ### Solving equations
 
 `solve(equation, unknown)` rearranges an equation for the unknown and evaluates it:

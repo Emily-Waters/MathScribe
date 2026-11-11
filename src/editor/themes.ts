@@ -79,6 +79,8 @@ export const mathscribeHighlight = HighlightStyle.define([
   // A `//` comment line, in the note's colour; a `{{value}}` in prose, as a variable.
   { tag: tags.comment, color: v('note'), fontStyle: 'italic' },
   { tag: tags.special(tags.variableName), color: v('variable') },
+  // A chemical formula, `{Na^+}`, in the colour of LaTeX: it's typeset.
+  { tag: tags.atom, color: v('latex') },
   { tag: tags.heading, color: v('heading'), fontWeight: '700' },
   { tag: tags.content, color: v('text') },
   { tag: tags.quote, color: v('note') },

@@ -66,17 +66,35 @@ export function sigFigsFromPlace(x: number, place: number): number {
   return Math.floor(Math.log10(Math.abs(x))) - place + 1
 }
 
+/** Significant figures a double holds reliably: past them is binary noise (0.001695 is 0.00169499999…). */
+const RELIABLE_DIGITS = 15
+
+/**
+ * `x` rounded to `digits` sig figs as its decimal digits say, half away from
+ * zero: 0.001695 → 0.00170. (Rounding the double itself would see
+ * 0.0016949999… and give 0.00169.)
+ */
+export function roundSig(x: number, digits: number): number {
+  if (x === 0 || !Number.isFinite(x) || digits >= RELIABLE_DIGITS) return x
+  const [mantissa, exponent] = Math.abs(x).toExponential(RELIABLE_DIGITS - 1).split('e')
+  const all = mantissa.replace('.', '')
+  let kept = BigInt(all.slice(0, digits))
+  if (Number(all[digits]) >= 5) kept += 1n
+  return Math.sign(x) * Number(`${kept}e${Number(exponent) - digits + 1}`)
+}
+
 /**
  * Format to exactly `sf` significant figures, keeping trailing zeros ("2.0").
  * When plain digits would misstate the precision, a trailing decimal point marks
  * zeros that count (19.62 at 2 s.f. → "20.", 90 → "90."), and where that can't
  * (19620 at 3 s.f.), scientific notation does: "1.96e+4".
  */
-export function formatSigFigs(x: number, sf: number, notation?: Notation): string {
+export function formatSigFigs(value: number, sf: number, notation?: Notation): string {
   const digits = Math.min(Math.max(Math.round(sf), 1), MAX_DIGITS)
   // A zero's "sig figs" are its decimal places (see countSigFigs): 0.00 → 2 → "0.00".
-  if (x === 0) return digits === 1 ? '0' : (0).toFixed(digits)
-  if (!Number.isFinite(x)) return String(x)
+  if (value === 0) return digits === 1 ? '0' : (0).toFixed(digits)
+  if (!Number.isFinite(value)) return String(value)
+  const x = roundSig(value, digits)
   // (× 10⁰ goes without saying.)
   if (notation === 'sci') return x.toExponential(digits - 1).replace(/e\+0$/, '')
   if (notation === 'dec') return decimal(x, digits)

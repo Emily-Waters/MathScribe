@@ -66,6 +66,10 @@ export const MATHJS_IN = 'in'
 export const UNIT = {
   /** Angles are worked out in radians. */
   radian: 'rad',
+  mole: 'mol',
+  litre: 'L',
+  /** Molarity, mol/L: made by the engine (mathjs doesn't have it). */
+  molar: 'M',
 } as const
 
 /** Units with a look of their own, as LaTeX and as plain text (others are their name, upright). */

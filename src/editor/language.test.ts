@@ -16,7 +16,7 @@ const names = tagHighlighter([
   { tag: t.processingInstruction, class: 'cmd' }, { tag: t.lineComment, class: 'note' }, { tag: t.heading, class: 'head' },
   { tag: t.content, class: 'text' }, { tag: t.quote, class: 'quote' }, { tag: t.special(t.string), class: 'latex' },
   { tag: t.labelName, class: 'title' }, { tag: t.brace, class: 'brace' },
-  { tag: t.comment, class: 'comment' }, { tag: t.special(t.variableName), class: 'value' },
+  { tag: t.comment, class: 'comment' }, { tag: t.special(t.variableName), class: 'value' }, { tag: t.atom, class: 'formula' },
 ])
 
 /** The coloured tokens of a one-line sheet, as `text:kind` (operators and brackets left out). */
@@ -36,6 +36,12 @@ describe('comments and values in text', () => {
 
   it('sets a {{value}} off from the prose around it', () => {
     expect(tokens('> about {{c_Na:3}} in all')).toContain('{{c_Na:3}}:value')
+  })
+
+  it('colours a formula as chemistry: in prose, a species after a unit, and a reaction line', () => {
+    expect(tokens('> the {Na^+} ion')).toContain('{Na^+}:formula')
+    expect(tokens('n = 2.0 mol {EDTA}')).toEqual(['n:var', '2.0:num', 'mol:unit', '{EDTA}:formula'])
+    expect(tokens('{Na^+ + Cl^- -> NaCl}')).toEqual(['{Na^+ + Cl^- -> NaCl}:formula'])
   })
 })
 

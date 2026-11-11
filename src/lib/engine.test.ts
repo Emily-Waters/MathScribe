@@ -501,7 +501,7 @@ describe('table()', () => {
 
   it('works out a named column row by row, and makes it a series', () => {
     expect(rowsOf(last(`${data}table(t, x, v = x / t)`).tex)[0]).toBe('n & t [s] & x [m] & v [m/s]')
-    expect(rowsOf(last(`${data}table(t, x, v = x / t)`).tex)[2]).toBe('2 & 0.20 & 0.047 & 0.23')
+    expect(rowsOf(last(`${data}table(t, x, v = x / t)`).tex)[2]).toBe('2 & 0.20 & 0.047 & 0.24')
     expect(value(`${data}table(t, x, v = x / t)\nv_count`)).toBe('3')
     expect(value(`${data}table(t, x, v = x / t)\nw = v_3`)).toBe('0.35 m/s')
   })

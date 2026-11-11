@@ -88,7 +88,7 @@ export const BUILTIN_FUNCTIONS: { name: string; signature: string; description: 
   { name: CALL.table, signature: 'table(t, x, v = x / t)', description: 'Series side by side, one row per number; name = … works out a column row by row' },
   { name: CALL.plot, signature: 'p = plot(t, x; fit linear)', description: 'Graph series against another, with error bars; fit linear adds a best-fit line (p.slope, p.intercept)' },
   { name: CALL.select, signature: 'a = select(t, x; t from 0.2 to 0.8)', description: 'The rows where conditions hold, as new series a.t, a.x numbered from 1' },
-  { name: CALL.solve, signature: 'solve(equation, unknown, guess?)', description: 'Rearrange an equation for the unknown and evaluate it' },
+  { name: CALL.solve, signature: 'solve(equation, unknown, guess?)', description: 'Rearrange an equation for the unknown and evaluate it; tuple(x, y) = solve(eq, eq) solves a system' },
 ]
 
 /** Constants that are built into mathjs (no @), shown as symbols. */

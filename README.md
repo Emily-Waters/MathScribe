@@ -968,6 +968,26 @@ How it solves:
    `x = solve(x = cos(x), x, 0.5)`. The guess also sets the answer's units
    (`solve(…, T, 300 K)`). The uncertainty still propagates.
 
+**Several unknowns:** put the unknowns in a `tuple(…)` on the left and give as many
+equations:
+
+```
+tuple(v_1, v_2) = solve(m_1 * u = m_1 * v_1 + m_2 * v_2, u = v_2 - v_1)
+tuple(T, a) = solve(T - m_1 * @g = m_1 * a, m_2 * @g - T = m_2 * a)
+```
+
+- They're solved by substitution, as by hand: one equation is rearranged for one
+  unknown, which is put into the others, until one unknown is left in known values;
+  then each is worked out in turn. The working shows the equations, then each
+  unknown's formula, values and result, and the line ends with them all:
+  (v₁, v₂) = (−2.0 m/s, 4.00 m/s).
+- Each unknown is an ordinary variable afterwards, with its units, sig figs and
+  uncertainty. Settings go on the names, as when unpacking: `tuple(T:3, a:2) = …`.
+- Each step must be a rearrangement the single-equation solve can do (the unknown
+  appears once, or in a linear or quadratic way); of a quadratic's two solutions,
+  the first is used. Equations that contradict each other, or say the same thing
+  twice, have no single solution and give an error.
+
 When there's more than one solution (from x², √, sin, cos, |x| or a quadratic), the
 principal or positive one is used and the others are noted below the line. Give a
 guess (`solve(…, x, -1)`) to choose the solution nearest it.
@@ -1165,9 +1185,9 @@ what's here better.
 
 ### 1. Maths (the gap to Mathcad)
 
-- [ ] **Systems of equations**: `solve` for several unknowns at once
-      (`tuple(v_1, v_2) = solve(eq_1, eq_2; v_1, v_2)`), linear exactly and
-      non-linear numerically, with the working shown.
+- [ ] **Systems solved numerically**: non-linear systems that substitution can't
+      rearrange, from starting guesses (Newton's method), and a choice between a
+      quadratic's solutions.
 - [ ] **Numerical integrals and derivatives**: `integral(f(x), x, 0, 2)` and
       `derivative(f(x), x, 1.5)`, with units, sig figs and uncertainty carried
       through, typeset as ∫ and d/dx.
@@ -1257,6 +1277,8 @@ what's here better.
 
 ### Done
 
+- [x] **Systems of equations**: `tuple(x, y) = solve(eq, eq)`, solved by substitution
+      with the working shown.
 - [x] **Conditions**: `condition ? a : b` in a line, and `if` / `else if` / `else`
       in a function's body, with the comparisons shown in the working.
 - [x] **Chemistry notation**: formulas in braces (`{Ca^2+}`), reactions, molarity

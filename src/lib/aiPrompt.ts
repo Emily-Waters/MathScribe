@@ -130,6 +130,7 @@ export const SNIPPETS = {
     'F_s = F(0.120 m)',
     'F_f = friction(-1.5 m/s, 6.0 N)',
   ].join('\n'),
+  system: 'm_1 = 2.00 kg\nm_2 = 4.00 kg\nu = 6.00 m/s\ntuple(v_1, v_2) = solve(m_1 * u = m_1 * v_1 + m_2 * v_2, u = v_2 - v_1)',
   solve: 'v_0 = 0 m/s\nv_f = 5.86 m/s\na = 4.91 m/s^2\nd = solve(v_f^2 = v_0^2 + 2 * a * d, d)',
   series: 'T1 = 1.21 s\nT2 = 1.17 s\nT3 = 1.24 s\nT_avg\nT_std',
   plot: 'x1 = 0.10 m\nx2 = 0.20 m\nx3 = 0.30 m\nF1 = 0.52 N\nF2 = 0.98 N\nF3 = 1.51 N\np = plot(x, F; fit linear)\nk = p.slope',
@@ -256,6 +257,9 @@ ${code(SNIPPETS.conditions)}
 ${code(SNIPPETS.solve)}
 - \`solve(equation, unknown)\` rearranges and evaluates. Give a guess for hard ones:
   \`solve(x = cos(x), x, 0.5)\`.
+- Several unknowns: \`tuple(x, y) = solve(equation, equation)\`, with as many equations as
+  unknowns (linear ones, or ones easily rearranged).
+${code(SNIPPETS.system)}
 
 ## Series, tables and graphs
 ${code(SNIPPETS.series)}

@@ -328,6 +328,11 @@ export const REFERENCE: ReferenceSection[] = [
         source: 'v = 5.00 m/s\na = 2.00 m/s^2\nd = solve(v^2 = 2*a*d, d)',
         explain: 'solve(equation, unknown) rearranges for the unknown and evaluates it.',
       },
+      {
+        source: 'm_1 = 3.00 kg\nm_2 = 5.00 kg\ntuple(T, a) = solve(T - m_1 * @g = m_1 * a, m_2 * @g - T = m_2 * a)',
+        explain: 'Several unknowns: name them in tuple(…) on the left, and give as many equations. '
+          + 'They are solved by substitution, and the working shows each unknown in turn.',
+      },
     ],
   },
 ]

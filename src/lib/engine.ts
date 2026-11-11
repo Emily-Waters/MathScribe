@@ -36,7 +36,7 @@ import { BUILTIN_CONSTANTS, DEFAULT_CONSTANT_SIG_FIGS, suggestConstant } from '.
 import {
   ASSIGNMENT, ASSIGNMENT_WITH_VALUE, AXES, COMPONENTS_SETTING, CONSTANT_REF, DECLARED, EXACT_SETTING, IS_NAME,
   GREEK_BY_CHAR, GREEK_BY_NAME, GREEK_CHARS, LEADING_NAME, NAME, NAME_CHAR, NAME_WITH_SETTINGS, NOTATIONS, NUMBER, ONE_LINE_FUNCTION, PERCENT, SERIES_SUFFIXES,
-  ELSE_IF_LINE, ELSE_LINE, IF_LINE, KEYWORD, PLOT_CALL, RETURN_LINE, SELECT_CALL, SOLVE_CALL, SUBSCRIPT, TABLE_CALL, UNCERTAINTY_WORDS, UNIT_VECTOR_SETTING, UNPACK, VECTOR_FUNCTION,
+  CALL, ELSE_IF_LINE, ELSE_LINE, IF_LINE, KEYWORD, PLOT_CALL, RETURN_LINE, SOLVE_SYSTEM, SELECT_CALL, SOLVE_CALL, SUBSCRIPT, TABLE_CALL, UNCERTAINTY_WORDS, UNIT_VECTOR_SETTING, UNPACK, VECTOR_FUNCTION,
   DISPLAY_MODE, EACH_SETTING, LABEL_QUOTE, LINE_COMMAND, SERIES_STAT, VALUE_IN_TEXT,
   type DisplayMode, type LineCommand, type Notation, type Precision, type UncertaintyWord,
   type VectorStyle,
@@ -3417,6 +3417,118 @@ export class Calculator {
   }
 
   /**
+   * `tuple(x, y) = solve(eq_1, eq_2)`: a system of equations, solved for the
+   * names on the left by substitution, as by hand: one equation is rearranged
+   * for one unknown, which is put into the others, and so on until an unknown
+   * is left in terms of known values; then each is worked out in turn. Each
+   * step is an ordinary formula, so units, sig figs and uncertainty carry through.
+   * (Each rearrangement must be one the single-equation solve can do; of a
+   * quadratic's two solutions, the first is used.)
+   */
+  private evaluateSolveSystem(namesText: string, equationsText: string, mode: DisplayMode, explicit: boolean): LineResult {
+    const fail = (error: string, tex = '') => ({ tex, error })
+    const parsed = namesText.split(',').map((n) => n.trim()).map(parseTupleName)
+    const bad = parsed.find((p) => 'error' in p)
+    if (bad && 'error' in bad) return fail(bad.error)
+    const targets = parsed as TupleName[]
+    const names = targets.map((t) => t.name)
+    const twice = names.find((n, i) => names.indexOf(n) !== i)
+    if (twice) return fail(`${twice} is listed twice.`)
+
+    const constants = this.expandConstants(equationsText)
+    if (constants.error) return fail(constants.error)
+    const texts = splitArgs(constants.text)
+    if (texts.length !== names.length) {
+      return fail(`${names.length} unknowns need ${names.length} equations, but there ${texts.length === 1 ? 'is' : 'are'} ${texts.length}: `
+        + `tuple(${names.join(', ')}) = solve(${names.map((_, i) => `equation ${i + 1}`).join(', ')}).`)
+    }
+    const literals = new Map<number, string>()
+    for (const m of constants.text.matchAll(NUMBER_LITERAL)) addLiteral(literals, m[0])
+
+    let equations: { lhs: MathNode; rhs: MathNode }[]
+    try {
+      equations = texts.map((text) => {
+        const sides = splitEquation(text)
+        if (!sides) throw new Error(`"${text.trim()}" isn't an equation: each needs one =, like v^2 = 2*a*d.`)
+        return { lhs: math.parse(preprocess(sides[0], this.isVariable).text), rhs: math.parse(preprocess(sides[1], this.isVariable).text) }
+      })
+    } catch (e) {
+      return fail((e as Error).message)
+    }
+    const shownNames = names.map(symbolTex).join(', ')
+    const prelude: TraceLine[] = equations.map((e, i) => ({
+      tex: `${this.toTex(e.lhs, literals)} = ${this.toTex(e.rhs, literals)}`,
+      note: i === 0 ? `solving for ${names.join(', ')}` : undefined,
+    }))
+    const failTex = prelude.map((p) => p.tex).join(' \\\\ ')
+    const missing = names.find((x) => equations.every((e) => !contains(e.lhs, x) && !contains(e.rhs, x)))
+    if (missing) return fail(`${missing} doesn't appear in any of the equations.`, `\\begin{gathered}${failTex}\\end{gathered}`)
+
+    // Eliminate: rearrange one equation for one unknown, and put that into the rest.
+    const solver = new Solver(math)
+    const rearranged = (e: { lhs: MathNode; rhs: MathNode }, x: string): MathNode | null => {
+      const occurrences = countOccurrences(e.lhs, x) + countOccurrences(e.rhs, x)
+      if (!occurrences) return null
+      if (occurrences === 1) {
+        const isolated = contains(e.lhs, x) ? solver.isolate(e.lhs, e.rhs, x) : solver.isolate(e.rhs, e.lhs, x)
+        if (isolated?.length) return isolated[0]
+      }
+      const f = new math.OperatorNode(OP_SYMBOL.subtract, OP.subtract, [e.lhs, new math.ParenthesisNode(e.rhs)])
+      try {
+        return solver.polynomial(f, x)?.solutions[0] ?? null
+      } catch {
+        return null
+      }
+    }
+    const substitute = (node: MathNode, x: string, expr: MathNode) =>
+      node.transform((n) => (isSymbolNode(n) && n.name === x ? new math.ParenthesisNode(expr) : n))
+    const left = [...names]
+    const steps: { x: string; expr: MathNode }[] = []
+    while (left.length) {
+      // The simplest rearrangement going: an unknown that appears once in an equation, if there is one.
+      let found: { x: string; at: number; expr: MathNode; occurrences: number } | undefined
+      for (const x of left) {
+        for (const [at, e] of equations.entries()) {
+          const occurrences = countOccurrences(e.lhs, x) + countOccurrences(e.rhs, x)
+          if (!occurrences || (found && found.occurrences <= occurrences)) continue
+          const expr = rearranged(e, x)
+          if (expr) found = { x, at, expr, occurrences }
+        }
+      }
+      if (!found) {
+        return fail(`These equations can't be solved for ${left.join(', ')} by substitution. `
+          + 'Each step has to rearrange one equation for one unknown (one that appears once, or in a linear or quadratic way). '
+          + 'If they look solvable, check that two of them don\'t contradict each other or say the same thing.',
+        `\\begin{gathered}${failTex}\\end{gathered}`)
+      }
+      const { x, at, expr } = found
+      steps.push({ x, expr })
+      left.splice(left.indexOf(x), 1)
+      equations.splice(at, 1)
+      equations = equations.map((e) => ({ lhs: substitute(e.lhs, x, expr), rhs: substitute(e.rhs, x, expr) }))
+    }
+
+    // Work each out, last first: the last is in known values only, and each one before it uses those after.
+    const trace: TraceLine[] = [...prelude]
+    let warning: string | undefined
+    for (const { x, expr } of steps.reverse()) {
+      const target = targets[names.indexOf(x)]
+      const result = this.evaluateParsed(new math.AssignmentNode(new math.SymbolNode(x), expr), {
+        percent: false, literals, warnings: [], mode, explicit,
+        declaredSf: target.sf, displayUnit: target.unit, notation: target.notation,
+      })
+      trace.push(...(result.trace ?? []), { tex: result.tex })
+      warning ??= result.warning
+      if (result.error) return { tex: `\\left(${shownNames}\\right)`, error: `${x}: ${result.error}`, trace, warning }
+    }
+    const values = names.map((n) => {
+      const v = this.vars.get(n)!
+      return this.inNotation(v.notation, () => this.valueTex(v.value, v.sf, this.total(v.contributions, v.value), v.uncSf, v.declared === true))
+    })
+    return { tex: `\\left(${shownNames}\\right) = \\left(${values.join(',\\ ')}\\right)`, trace, warning }
+  }
+
+  /**
    * Solve lhs = rhs numerically from a guess (secant method on SI magnitudes).
    * The answer's uncertainty comes from implicit differentiation: for each
    * uncertainty source, δx = −δF / (∂F/∂x), where F = lhs − rhs.
@@ -4044,6 +4156,10 @@ export class Calculator {
     const select = SELECT_CALL.exec(input.trim())
     if (select) return this.evaluateSelect(select[1], select[2])
 
+    // `tuple(x, y) = solve(eq, eq)`: a system of equations, solved for the names on the left.
+    const system = SOLVE_SYSTEM.exec(input.trim())
+    if (system && !this.isUserFunction(CALL.solve)) return this.evaluateSolveSystem(system[1], system[2], requestedMode, explicit)
+
     // `tuple(a, b, c) = …` unpacks a tuple. (Before one-line functions: it looks like one.)
     const unpack = UNPACK.exec(input.trim())
     if (unpack) return this.evaluateUnpack(unpack[1], unpack[2], requestedMode, explicit)
@@ -4088,7 +4204,7 @@ export class Calculator {
 
     // `x = solve(lhs = rhs, x)`: the equation needs special parsing (its `=`).
     const solveCall = SOLVE_CALL.exec(line)
-    if (solveCall && !this.isUserFunction('solve')) {
+    if (solveCall && !this.isUserFunction(CALL.solve)) {
       return this.evaluateSolve(line, solveCall, literals, requestedMode, explicit, declaredSf, displayUnit, declaration?.notation)
     }
 

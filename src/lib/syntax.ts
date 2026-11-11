@@ -172,6 +172,13 @@ export const UNPACK = new RegExp(String.raw`^${CALL.tuple}\s*${PARAMETERS}${ASSI
 /** The start of an unpacking, up to the `=` (1: the names). */
 export const UNPACK_HEAD = new RegExp(String.raw`^${CALL.tuple}\s*${PARAMETERS}${ASSIGNS}`)
 
+/**
+ * A system of equations solved for the names on the left:
+ * `tuple(v_1, v_2) = solve(m_1*u = m_1*v_1 + m_2*v_2, u = v_2 - v_1)`
+ * (1: the unknowns, 2: the equations).
+ */
+export const SOLVE_SYSTEM = new RegExp(String.raw`^${CALL.tuple}\s*${PARAMETERS}${ASSIGNS}\s*${opening(CALL.solve)}(.*)\)$`)
+
 /** An unpacking being typed, before its `=`: `tuple(a, b` (for the editor). */
 export const UNPACK_SO_FAR = new RegExp(String.raw`^\s*${opening(CALL.tuple)}[^()=]*$`)
 

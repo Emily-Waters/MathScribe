@@ -136,14 +136,19 @@ export interface GroupBlock extends ContainerBlock {
 }
 
 /**
- * `Title:  #numbered` with indented lines under it: a block that only arranges
- * its lines (centered, or as a bulleted or numbered list). Unlike `{ }` blocks,
- * it doesn't scope variables. Indenting further inside a list makes a sub-list.
+ * `@layout.numbered Title { … }`: a block that only arranges its lines (centered,
+ * as a list, as prose, as a title page) or sets how they're shown (`@layout.val`,
+ * `@layout.hidden`). Unlike `{ }` blocks, it doesn't scope variables. Indenting
+ * further inside a list makes a sub-list.
  */
 export interface LayoutBlock extends ContainerBlock {
   kind: typeof BLOCK_KIND.layout
-  /** No style: just a titled, indented section. */
+  /** No style: the lines as they are, with only display settings (`@layout.val {`). */
   style?: LayoutStyle
+  /** Its members as written, `val`, `multiline` in `@layout.val.multiline` (for messages). */
+  members?: readonly string[]
+  /** Members that clash, such as .sym with .val. */
+  warning?: string
   /** A sub-list made by indenting further; it belongs to the item before it. */
   nested?: boolean
   /** Indentation of the opener; a line indented no further ends the block. */

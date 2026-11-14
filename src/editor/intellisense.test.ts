@@ -32,16 +32,17 @@ const SOURCE = [
   'n = 1e5', // 20
   'k = 2.0 kg   # mass in kil', // 21
   'm = @chem.N', // 22
-  '@nu', // 23
+  '@layout.nu', // 23
   'phi:3:de', // 24
   'Steps:', // 25
   'tuple(r:3, theta:de', // 26
   'ang(y, x):3:de', // 27
   'def polar(x, y):de', // 28
-  '@text Notes {', // 29
+  '@layout.text Notes {', // 29
   '    the mass ps', // 30
   '}', // 31
   'h = @n', // 32
+  '@layout.val.', // 33
 ].join('\n')
 
 /** The labels suggested at the end of line `n`, filtered by what's typed. */
@@ -74,8 +75,9 @@ describe('suggestions', () => {
     expect(suggestions(13)).toEqual(['@h', '@hbar'])
   })
 
-  it('offer the built-in blocks after @ at the start of a line, and not after it', () => {
-    expect(suggestions(23)).toEqual(['@numbered'])
+  it('offer the layouts and display settings after @layout. at the start of a line (not ones already chosen), and not @layout after it', () => {
+    expect(suggestions(23)).toEqual(['numbered'])
+    expect(suggestions(33)).toEqual(['text', 'list', 'numbered', 'center', 'titlepage', 'hidden', 'full', 'sym', 'multiline', 'sci', 'dec'])
     expect(suggestions(32)).toEqual(['@N_A'])
   })
 
@@ -112,6 +114,6 @@ describe('suggestions', () => {
     expect(suggestions(19)).toBeNull()
     expect(suggestions(20)).toBeNull()
     expect(suggestions(21)).toBeNull()
-    expect(suggestions(30)).toBeNull() // prose in an @text block
+    expect(suggestions(30)).toBeNull() // prose in an @layout.text block
   })
 })

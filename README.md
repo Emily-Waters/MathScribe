@@ -62,7 +62,7 @@ the browser.
     Document options, and with real Word equations you can edit (not pictures).
     Notes sit at the right margin beside their equation (under it, when the
     equation is too wide to share the line), blocks are cards with a shaded title,
-    `@list` / `@numbered` blocks are Word lists, and headings use Word's Heading
+    `@layout.list` / `@layout.numbered` blocks are Word lists, and headings use Word's Heading
     styles, so they appear in the navigation pane. For Google Docs, upload the
     file to Drive and open it with Google Docs; its equations become Google Docs
     equations.
@@ -109,7 +109,7 @@ amber one; hover the bar to read the message.
 | Ctrl+/ | Comment or uncomment the line (or selected lines) with `//` |
 | Ctrl+Z / Ctrl+Y | Undo / redo |
 
-On a Mac, use ⌘ for Ctrl. `def` bodies and `{ }` blocks (`@list { }` too) fold
+On a Mac, use ⌘ for Ctrl. `def` bodies and `{ }` blocks (`@layout.list { }` too) fold
 from the arrows in the gutter.
 
 The output follows as you type. A sheet that takes a while to work out (thousands
@@ -124,8 +124,9 @@ Accept suggestions with.
 | Typing | Suggests |
 | --- | --- |
 | a name | variables defined above and in scope (not another block's locals), with their value; a function's parameters inside its body; your functions with their parameters (accepting one puts the cursor between the brackets); series names like `t_avg` (once there are two or more `t_1`, `t_2`, …); built-in functions, `pi`/`e`, and keywords |
-| `@` | constants with their description and value, including your own `@constants`; `@chem`; and, at the start of a line, the built-in blocks (`@text`, `@list`, …) |
+| `@` | constants with their description and value, including your own `@constants`; `@chem`; and, at the start of a line, `@layout` and `@constants { }` |
 | `@chem.` | its elements, with their molar masses, and its functions `mm` and `total` |
+| `@layout.`, at the start of a line | the layouts (`text`, `list`, `numbered`, `center`, `titlepage`) and display settings (`hidden`, `sym`, `val`, …); after another dot, the ones not chosen yet |
 | a unit, after a number or `to` | units, with what they are in SI (`angstrom = 1e-10 m`); `percent` after `to` |
 | `#` after a line's text | display commands, with what each does |
 | `\` and a Greek letter's name | the letter: `\Delta` gives Δ (see Greek letters) |
@@ -246,16 +247,21 @@ block's first line to hide it. The dialog remembers your last choices.
 | `// a note to self` | a comment: never shown or worked out |
 | `$ \LaTeX` | raw LaTeX, displayed but not evaluated |
 | `Title {` … `}` | a block that scopes its variables |
-| `@numbered Title {` … `}` | a layout block: `@center`, `@list` or `@numbered` |
-| `@text Title {` … `}` | a block of prose: paragraphs, nothing calculated |
+| `@layout.numbered Title {` … `}` | a layout block: `@layout.center`, `@layout.list` or `@layout.numbered` |
+| `@layout.text Title {` … `}` | a block of prose: paragraphs, nothing calculated |
+| `@layout.titlepage {` … `}` | a title page of prose: the first line is the title, bold and larger |
+| `@layout.hidden {` … `}` | lines worked out but not shown |
+| `@layout.val.multiline {` … `}` | every line inside shown as `#val #multiline` would show it |
 | `@c`, `@a_0:3 to angstrom` | constants, and setting their precision and unit |
 | `@chem.Na`, `@chem.mm({H2O})` | an element's molar mass, and a compound's |
 
 **`@` is MathScribe's own:** everything built in rather than written in the sheet
-starts with `@`: constants (`@c`), the built-in blocks (`@text`, `@list`,
-`@numbered`, `@center`, `@constants`) and namespaces, whose members are written
-with a dot (`@chem.Na`, `@chem.mm(…)`). Your own constants are `@name` too, so
-they can't be called `text`, `chem` or another of these words.
+starts with `@`: constants (`@c`), the `@constants { }` block, and namespaces,
+whose members are written with a dot: `@layout` holds the layout blocks
+(`@layout.text`, `@layout.list`, `@layout.numbered`, `@layout.center`,
+`@layout.titlepage`) and `@chem` the chemistry (`@chem.Na`, `@chem.mm(…)`). Your
+own constants are `@name` too, so they can't be called `layout`, `chem` or
+`constants`.
 
 **Subscripts in headings and block titles:** as in variable names, `_` makes a
 subscript: `Hydrogen 2p_z orbital {` shows 2p with a subscript z, and `x_{max}`
@@ -263,7 +269,7 @@ takes a longer one. Write `\_` for a plain underscore. `$…$` adds inline maths
 as in `>` text: `## Energy $E_n = -13.6/n^2$ eV`. The LaTeX export uses
 `\textsubscript` and `$…$` to match.
 
-**Values in text:** `{{name}}` in a `>` line, an `@text` block, a heading or a
+**Values in text:** `{{name}}` in a `>` line, an `@layout.text` block, a heading or a
 block's title puts in the variable's value, as it is at that point in the sheet,
 with its unit, sig figs and any uncertainty. Numbers in your discussion then stay
 right when the data changes.
@@ -283,7 +289,7 @@ V2 = 27.10 mL
 - Typing `{{` suggests names, as in a calculation.
 
 **Comments:** a line starting with `//` is never shown or worked out, wherever it
-is: between calculations, inside a block or function, or in an `@text` block (where
+is: between calculations, inside a block or function, or in an `@layout.text` block (where
 it doesn't split a paragraph).
 Ctrl+/ comments or uncomments the selected lines.
 
@@ -330,7 +336,9 @@ F = m * a  #sym #multiline     (commands combine)
   formula (δF = √(…), t̄ = (1/n) Σ tᵢ) and `#val` shows the name and value.
 - On a block opener (`Working { #val`), the command applies to every line inside,
   including nested blocks, unless a line has its own (`#full` to show one in full).
-  `#hide` on a block hides the whole block.
+  `#hide` on a block hides the whole block. To set them for some lines without
+  scoping their variables, use an `@layout` block (`@layout.val {`, `@layout.hidden {`;
+  see Layout blocks).
 - Hidden lines and blocks are left out of the LaTeX export too, but their variables
   can still be used. If a hidden line has an error, it's shown anyway.
 - Only these exact words are commands; any other `#word` (like `#3`) stays part of
@@ -358,48 +366,96 @@ tuple's. What you type in the editor stays as you wrote it.
 
 ### Layout blocks
 
-A built-in block, `@name Title {` … `}`, arranges the lines inside it:
+A layout block, `@layout.name Title {` … `}`, arranges the lines inside it:
 
 ```
-@list Assumptions {
+@layout.list Assumptions {
     > The electron is confined to a 1-D box
     > The walls are infinitely high
         > so ψ = 0 at the walls          (indent further for a sub-list)
 }
 
-@numbered Steps {   # the 1s orbital
+@layout.numbered Steps {   # the 1s orbital
     sigma = Z*r/a_0
     psi = pi^(-0.5) * (Z/a_0)^(3/2) * e^(-sigma)
 }
 
-@center Key result {
+@layout.center Key result {
     P = 4 * pi * r^2 * psi^2
 }
 
 F = 2.00 kg * 9.81 m/s^2   #center        (a single calculation, centered)
 ```
 
-- `@list` makes bullets, `@numbered` a numbered list and `@center` centers the
+- `@layout.list` makes bullets, `@layout.numbered` a numbered list and `@layout.center` centers the
   lines. On a single calculation, `#list`, `#numbered` and `#center` do the same
   for that line.
-- `@text` makes a block of **prose**, for longer writing like a discussion or
+- `@layout.text` makes a block of **prose**, for longer writing like a discussion or
   conclusion. Nothing inside it is calculated, so lines don't need `>`, and a line
   that looks like a calculation or a heading is just text. Lines run together into
   paragraphs, a blank line starts a new one, and `$…$` is inline maths:
 
   ```
-  @text Discussion {
+  @layout.text Discussion {
       The measured acceleration is lower than g sin θ, because the
       ramp isn't frictionless: $\mu_k \approx 0.05$ would explain it.
 
       A blank line starts a new paragraph.
   }
   ```
+- `@layout.titlepage` makes a **title page**. Its lines are prose, as in
+  `@layout.text` (no `>` needed, nothing calculated, `{{values}}` and `$…$` work),
+  but each stays a line of its own rather than joining into a paragraph, and a
+  blank line leaves a gap. The first line is the title, bold and larger (17 pt over
+  11 pt text in Word, `\LARGE` in LaTeX, as a lab report's title usually is), and
+  the lines after it are centered:
+
+  ```
+  @layout.titlepage {
+      Lab 3: Motion on a ramp
+      Emily Waters
+      PHYS 101, Section B
+  }
+  ```
+
+  A title on the opener (`@layout.titlepage Lab 3 {`) is the title instead, and
+  then every line inside goes under it. In the exports a title page is a page of
+  its own (a `titlepage` in LaTeX; a page break after it in Word); in the Rendered
+  tab a dashed line marks where the page ends.
+- **Display settings** are members too, and set how every line inside is shown,
+  as the same `#command` would on each line:
+
+  | Member | Lines inside |
+  | --- | --- |
+  | `.hidden` | worked out but not shown (`#hide`); what they define is usable after the block |
+  | `.sym`, `.val`, `.full` | the equation only, the result only, everything |
+  | `.multiline` | each `=` on its own row |
+  | `.sci`, `.dec` | results in scientific notation, or plain digits |
+
+  ```
+  @layout.hidden {                  (givens, worked out but not shown)
+      m = 2.00 kg
+      g_0 = 9.81 m/s^2
+  }
+
+  @layout.numbered.val Results {    (a numbered list of results)
+      F = m * g_0
+      p = m * 3.00 m/s   #full      (a line's own command still wins)
+  }
+  ```
+
+  Members combine in any order: a layout with display settings
+  (`@layout.numbered.val`), or display settings alone (`@layout.val.multiline`),
+  whose lines are shown as they are, without a layout. Some combinations can't
+  both apply; these get a warning, and the block still works: with two layouts
+  (`.list.center`) the first is used; with two of `.sym`, `.val` and `.full`, or
+  `.sci` and `.dec`, the last; and on prose (`.text`, `.titlepage`) only `.hidden`
+  does anything. The members win over `#commands` on the opener.
 - The block ends at its `}`. Indenting the lines inside is for readability, except
   in a list, where indenting further makes a sub-list.
 - Layout blocks only arrange lines: variables assigned inside **stay available**
   afterwards (unlike `Title { }` blocks, which scope them).
-- The title is optional (`@numbered {` on its own). A note after the opener is
+- The title is optional (`@layout.numbered {` on its own). A note after the opener is
   shown beside the title, and display commands on the opener apply to the lines
   inside, as on `{ }` blocks.
 - In the LaTeX export, lists become `itemize` / `enumerate` (each calculation inline
@@ -564,7 +620,7 @@ a                   # still the outer value
 - Anything assigned inside a block is local to it and disappears at `}`. Assigning a
   name that already exists outside shadows it; the outer value is untouched.
 - Functions see the variables from where they were defined (lexical scope).
-- For arranging lines without scoping them, use a layout block (`@list Title {`) instead.
+- For arranging lines without scoping them, use a layout block (`@layout.list Title {`) instead.
 
 ### Greek letters
 
@@ -1306,7 +1362,7 @@ what's here better.
 - [ ] **Rename (F2)** a variable or function everywhere it's used, respecting scope.
 - [ ] **Go to definition for variables and constants** (`@rho_w` → its
       `@constants` entry).
-- [ ] **Snippets**: `def`, `@numbered { }` blocks, `@constants { }`.
+- [ ] **Snippets**: `def`, `@layout.numbered { }` blocks, `@constants { }`.
 
 ### 6. Sharing and the app
 
@@ -1322,10 +1378,10 @@ what's here better.
 
 ### Done
 
-- [x] **The `@` namespace**: built-in blocks written `@text Title { … }` (and `@list`,
-      `@numbered`, `@center`); `@chem.Na`
-      molar masses, `@chem.mm({formula})` with the sum as working, and
-      `@chem.total(…)` to add amounts of different species.
+- [x] **The `@` namespace**: `@layout` blocks (`@layout.text Title { … }`, and
+      `list`, `numbered`, `center`, `titlepage`, and display settings such as `.hidden` and `.val.multiline` that combine); `@chem.Na` molar masses,
+      `@chem.mm({formula})` with the sum as working, and `@chem.total(…)` to add
+      amounts of different species.
 - [x] **Systems of equations**: `tuple(x, y) = solve(eq, eq)`, solved by substitution
       with the working shown.
 - [x] **Conditions**: `condition ? a : b` in a line, and `if` / `else if` / `else`
@@ -1437,8 +1493,8 @@ renamed, change it there too.
 - `src/lib/aiPrompt.ts`: Create's prompt (what can be made, its tickboxes, and the
   rules of writing a sheet, whose examples a test evaluates) and reading the AI's
   answer back; `src/components/CreateDialog.tsx`: the dialog
-- `src/lib/document.ts`: line types and blocks (`{ }`, `@list { }` and the other
-  built-in blocks, `def`, `@constants`), sheet evaluation, diagnostics,
+- `src/lib/document.ts`: line types and blocks (`{ }`, `@layout.list { }` and the other
+  layouts, `def`, `@constants`), sheet evaluation, diagnostics,
   definitions and symbols for the editor
 - `src/lib/latex.ts`: the `.tex` export and its document options;
   `src/components/LatexOptionsMenu.tsx`: the LaTeX tab's Document menu (used by

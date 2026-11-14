@@ -39,7 +39,7 @@ import {
   GREEK_BY_CHAR, GREEK_BY_NAME, GREEK_CHARS, LEADING_NAME, NAME, NAME_CHAR, NAME_WITH_SETTINGS, NOTATIONS, NUMBER, ONE_LINE_FUNCTION, PERCENT, SERIES_SUFFIXES,
   CALL, ELSE_IF_LINE, ELSE_LINE, IF_LINE, KEYWORD, PLOT_CALL, RETURN_LINE, SOLVE_SYSTEM, SELECT_CALL, SOLVE_CALL, SUBSCRIPT, TABLE_CALL, UNCERTAINTY_WORDS, UNIT_VECTOR_SETTING, UNPACK, VECTOR_FUNCTION,
   DISPLAY_MODE, EACH_SETTING, LABEL_QUOTE, LINE_COMMAND, SERIES_STAT, VALUE_IN_TEXT,
-  BUILTIN_BLOCK, CHEM_FUNCTION, MEMBER_DOT, NAMESPACE, RESERVED_CONSTANT_NAMES, SIGIL,
+  CHEM_FUNCTION, CONSTANTS_BLOCK, MEMBER_DOT, NAMESPACE, RESERVED_CONSTANT_NAMES, SIGIL,
   type DisplayMode, type LineCommand, type Notation, type Precision, type UncertaintyWord,
   type VectorStyle,
 } from './syntax.ts'
@@ -98,8 +98,8 @@ function withoutSpecies(x: MathType): MathType {
 }
 math.import({ [ANY_SPECIES_FUNCTION]: withoutSpecies })
 
-/** `@chem.mm(` or `@chem.total(`: a call to a namespace's function, once dots are read or not (1: namespace, 2: function). */
-const NAMESPACE_CALL = new RegExp(String.raw`@(${Object.values(NAMESPACE).join('|')})(?:\.|${JOIN})(${NAME})\s*\(`, 'g')
+/** `@chem.mm(` or `@chem.total(`: a call to @chem's function, once dots are read or not (1: namespace, 2: function). */
+const NAMESPACE_CALL = new RegExp(String.raw`@(${NAMESPACE.chem})(?:\.|${JOIN})(${NAME})\s*\(`, 'g')
 
 /** A formula in braces, as the whole of an argument: `{CuSO4*5H2O}` (1: the formula). */
 const FORMULA_ARGUMENT = /^\{([^{}]+)\}$/
@@ -2930,9 +2930,9 @@ export class Calculator {
 
   defineConstant(input: string): CalcResult {
     const name = ASSIGNMENT.exec(input)?.[1]
-    if (!name) return { tex: '', error: `Inside ${SIGIL}${BUILTIN_BLOCK.constants}, each line is "name = value".` }
+    if (!name) return { tex: '', error: `Inside ${SIGIL}${CONSTANTS_BLOCK}, each line is "name = value".` }
     if (RESERVED_CONSTANT_NAMES.has(name)) {
-      return { tex: '', error: `${SIGIL}${name} is built in (a block or namespace), so a constant can't be called ${name}.` }
+      return { tex: '', error: `${SIGIL}${name} is built in (a namespace, or the constants block), so a constant can't be called ${name}.` }
     }
     this.pushScope()
     try {
@@ -2972,7 +2972,7 @@ export class Calculator {
         const known = [...BUILTIN_CONSTANT_KEYS, ...this.customConstants.keys()]
         const guess = suggestConstant(name, known)
         error ??= `Unknown constant ${SIGIL}${typedName(name)}.`
-          + (guess ? ` Did you mean ${SIGIL}${typedName(guess)}?` : ` Define it in an ${SIGIL}${BUILTIN_BLOCK.constants} { } block.`)
+          + (guess ? ` Did you mean ${SIGIL}${typedName(guess)}?` : ` Define it in an ${SIGIL}${CONSTANTS_BLOCK} { } block.`)
         return match
       }
       // Precedence: this use's own :n, then the sheet's declaration, then the default.

@@ -1192,7 +1192,7 @@ body {
   padding: 1px 4px;
 }
 
-/* ---------- Layout blocks (Title:  #center / #list / #numbered) ---------- */
+/* ---------- Layout blocks (@layout.center / .list / .numbered / .titlepage) ---------- */
 
 .layout {
   margin: 8px 0;
@@ -1210,13 +1210,28 @@ body {
   font-weight: 400;
 }
 
-.layout--plain > .layout__body {
-  padding-left: 20px;
-}
-
 .layout--center .calc .katex-display,
 .layout--center .calc .katex-display > .katex,
-.layout--center .doc__text {
+.layout--center .doc__text,
+.layout--titlepage .calc .katex-display,
+.layout--titlepage .calc .katex-display > .katex,
+.layout--titlepage .doc__text {
+  text-align: center;
+}
+
+/* A title page: the title large and centered, with a dashed line where the page ends. */
+.layout--titlepage {
+  padding: 48px 0 32px;
+  margin-bottom: 24px;
+  border-bottom: 1px dashed var(--border);
+}
+
+/* The title bold and about 1.6 times the text, as a lab report's title page usually has it. */
+.layout--titlepage > .layout__title {
+  justify-content: center;
+  margin-bottom: 20px;
+  font-size: 1.6em;
+  font-weight: 700;
   text-align: center;
 }
 

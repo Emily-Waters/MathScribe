@@ -2,15 +2,16 @@ import { Calculator, type CalcOptions, type FunctionLine, type Variable, symbolT
 import {
   ASSIGNMENT, CONSTANT_DECLARATION, EXACT_SETTING, DEF, DEF_HEAD, FUNCTION_HEAD, IMPORT, LEADING_NAME, LINE_COMMANDS,
   DISPLAY_MODE, LAYOUT_STYLE, LINE_COMMAND, MULTILINE, NAME_WITH_SETTINGS, NOTATIONS, PLOT_CALL, SELECT_CALL, UNPACK_HEAD, VALUE_IN_TEXT,
-  BLOCK_CLOSE, BLOCK_OPEN, BUILTIN_BLOCK, BUILTIN_BLOCK_OPENER, LINE_LAYOUTS, SIGIL, builtinOpenerText,
+  BLOCK_CLOSE, BLOCK_OPEN, CONSTANTS_BLOCK, CONSTANTS_OPENER, LAYOUT_OPENER, LINE_LAYOUTS, PROSE_LAYOUTS, SIGIL, layoutOpenerText,
+  DISPLAY_MODES, LAYOUT_MEMBERS, LAYOUT_MODIFIER, LAYOUT_MODIFIERS, LAYOUT_STYLES, MEMBER_DOT, NAMESPACE, layoutMembers, layoutName,
   commandPattern, indentOf, isComment,
-  type BuiltinBlock, type LayoutStyle, type LineLayout, type Notation,
+  type DisplayMode, type LayoutModifier, type LayoutStyle, type LineLayout, type Notation,
 } from './syntax.ts'
 import { constantKey } from './names.ts'
 import { parseCsv, type CsvData } from './csv.ts'
 import { REACTION_LINE, formulaTex, outsideMaths, withFormulas } from './chemistry.ts'
 import {
-  BLOCK_KIND, isContainer, type Block, type Command, type ConstantsBlock, type GroupBlock, type ImportBlock,
+  BLOCK_KIND, isContainer, type Block, type BlockSettings, type Command, type ConstantsBlock, type GroupBlock, type ImportBlock,
   type LayoutBlock,
 } from './blocks.ts'
 
@@ -54,11 +55,12 @@ function readCsv(rows: string[]): CsvData {
  * On a block opener, the command applies to every line inside unless a line
  * has its own.
  *
- * Built-in blocks start with @, and hold the lines up to their `}`:
- *   @numbered Steps {  → numbered list (@list: bullets, @center: centered)
- *       a = …            each line is an item; indent further for a sub-list
+ * Layout blocks are in @layout, and hold the lines up to their `}`:
+ *   @layout.numbered Steps {   → numbered list (list: bullets, center: centered)
+ *       a = …                     each line is an item; indent further for a sub-list
  *   }
- *   @text Discussion { → prose: lines run into paragraphs, nothing is worked out
+ *   @layout.text Discussion {  → prose: lines run into paragraphs, nothing is worked out
+ *   @layout.titlepage Lab 3 {  → a title page: the title, with the lines inside centered under it
  * They only arrange lines: variables assigned inside stay available afterwards.
  * `#center` (or #list/#numbered) on a single calculation lays out just that line.
  *
@@ -84,18 +86,67 @@ const NOTATION_COMMAND = commandPattern(NOTATIONS, 'gi')
 /** `#center`, `#list`, `#numbered`: how one line is laid out. */
 const LAYOUT = commandPattern(LINE_LAYOUTS, 'gi')
 
-/** A built-in block's opener, read: which block, its title (if any). */
-function builtinOpener(body: string): { block: BuiltinBlock; title: string } | null {
-  const m = BUILTIN_BLOCK_OPENER.exec(body)
-  return m ? { block: m[1] as BuiltinBlock, title: m[2] ?? '' } : null
+/** A layout block's opener, read: its members as written, the layout and settings they give, and its title. */
+interface LayoutOpener extends BlockSettings {
+  members: string[]
+  style?: LayoutStyle
+  title: string
+  /** A member @layout doesn't have. */
+  error?: string
+  /** Members that clash, such as .sym with .val: the block still works, as described. */
+  warning?: string
+}
+
+const isLayoutStyle = (m: string): m is LayoutStyle => (LAYOUT_STYLES as readonly string[]).includes(m)
+const isLayoutModifier = (m: string): m is LayoutModifier => (LAYOUT_MODIFIERS as readonly string[]).includes(m)
+
+/** The display modes a layout block's members can set, of which only one can apply: .full, .sym, .val. */
+const MODE_MODIFIERS: ReadonlySet<string> = new Set(DISPLAY_MODES)
+
+/** A member written as it is in a name, for messages: `.val`. */
+const asMember = (m: string) => `${MEMBER_DOT}${m}`
+
+/**
+ * A layout block's opener, `@layout.numbered.val Steps {`, read; null if the line
+ * isn't one. Members combine as written; where two can't both apply (two layouts,
+ * .sym with .val, .sci with .dec, a display setting on prose), there's a warning,
+ * and the first layout and the last of the others are used.
+ */
+function layoutOpener(body: string): LayoutOpener | null {
+  const m = LAYOUT_OPENER.exec(body)
+  if (!m) return null
+  const members = layoutMembers(m[1])
+  const opener: LayoutOpener = { members, title: m[2] ?? '' }
+  const unknown = members.find((x) => !isLayoutStyle(x) && !isLayoutModifier(x))
+  if (unknown) {
+    return { ...opener, error: `${SIGIL}${NAMESPACE.layout} has no ${unknown}; its members are ${LAYOUT_MEMBERS.join(', ')}.` }
+  }
+  const styles = members.filter(isLayoutStyle)
+  const modifiers = members.filter(isLayoutModifier)
+  const modes = modifiers.filter((x) => MODE_MODIFIERS.has(x)) as DisplayMode[]
+  const notations = modifiers.filter((x) => (NOTATIONS as readonly string[]).includes(x)) as Notation[]
+  opener.style = styles[0]
+  opener.command = modifiers.includes(LAYOUT_MODIFIER.hidden) ? LINE_COMMAND.hide : modes.at(-1)
+  opener.multiline = modifiers.includes(LAYOUT_MODIFIER.multiline) || undefined
+  opener.notation = notations.at(-1)
+  const name = layoutName(...members)
+  const shown = modifiers.filter((x) => x !== LAYOUT_MODIFIER.hidden)
+  const warnings = [
+    styles.length > 1 && `${name} has more than one layout; it's laid out as ${asMember(styles[0])}.`,
+    modes.length > 1 && `${name} has more than one of ${DISPLAY_MODES.map(asMember).join(', ')}; the last, ${asMember(modes.at(-1)!)}, is used.`,
+    notations.length > 1 && `${name} has both ${NOTATIONS.map(asMember).join(' and ')}; the last, ${asMember(notations.at(-1)!)}, is used.`,
+    opener.style && PROSE_LAYOUTS.has(opener.style) && shown.length > 0
+      && `Nothing in ${layoutName(opener.style)} is worked out, so ${shown.map(asMember).join(', ')} does nothing there.`,
+  ].filter((w): w is string => !!w)
+  if (warnings.length) opener.warning = warnings.join(' ')
+  return opener
 }
 
 /** Whether a line closes a block: `}`, with anything after it. */
 const closesBlock = (text: string) => text.trimStart().startsWith(BLOCK_CLOSE)
 
-
-/** A layout block's opener as written, for messages: `@list Steps {`. */
-const openerText = (b: LayoutBlock) => builtinOpenerText(b.style ?? LAYOUT_STYLE.list, b.title)
+/** A layout block's opener as written, for messages: `@layout.list Steps {`. */
+const openerText = (b: LayoutBlock) => layoutOpenerText(b.members ?? [b.style ?? LAYOUT_STYLE.list], b.title)
 
 /**
  * A line that sets a constant's precision and/or display unit sheet-wide: `@c:4`,
@@ -240,7 +291,7 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
   const constantBlocks = new Map<number, { end: number; block: ConstantsBlock }>()
   for (let i = 0; i < lines.length; i++) {
     const opener = splitNote(lines[i].trim())
-    if (builtinOpener(opener.body)?.block !== BUILTIN_BLOCK.constants) continue
+    if (!CONSTANTS_OPENER.test(opener.body)) continue
     const entries: ConstantsBlock['entries'] = []
     /** Precision declarations in the block, shown once all its constants exist. */
     const declarations: number[] = []
@@ -275,7 +326,7 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
       end,
       block: {
         kind: BLOCK_KIND.constants, line: i + 1, endLine: end + 1, note: opener.note, entries, hidden: opener.command === LINE_COMMAND.hide,
-        error: closed ? undefined : `The ${SIGIL}${BUILTIN_BLOCK.constants} block on line ${i + 1} is missing its closing ${BLOCK_CLOSE}.`,
+        error: closed ? undefined : `The ${SIGIL}${CONSTANTS_BLOCK} block on line ${i + 1} is missing its closing ${BLOCK_CLOSE}.`,
       },
     })
     i = end
@@ -418,9 +469,9 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
       continue
     }
 
-    const builtin = builtinOpener(body)
+    const layoutBlock = layoutOpener(body)
     if (body === BLOCK_CLOSE) {
-      // Sub-lists inside the block end with it; then the block itself, a `{ }` group or an `@list { }`.
+      // Sub-lists inside the block end with it; then the block itself, a `{ }` group or an `@layout.list { }`.
       while (inSubList()) closeLayout()
       const block = open.at(-1)
       if (block?.kind === BLOCK_KIND.layout) {
@@ -432,15 +483,24 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
       } else {
         add({ kind: BLOCK_KIND.calc, line, source: body, tex: '', error: `Unmatched ${BLOCK_CLOSE}: no block is open here.` })
       }
-    } else if (builtin?.block === BUILTIN_BLOCK.text) {
-      // `@text Title {`: the lines up to its `}` are prose, not calculations.
-      // Lines run together into paragraphs; a blank line starts a new one.
-      const title = withValues(builtin.title)
+    } else if (layoutBlock?.style && PROSE_LAYOUTS.has(layoutBlock.style)) {
+      // `@layout.text Title {` and `@layout.titlepage {`: the lines up to the `}` are
+      // prose, not calculations. In a text block, lines run together into paragraphs
+      // and a blank line starts a new one; on a title page each line stays a line of
+      // its own, a blank line leaves a gap, and the first line is the title (unless
+      // the opener has one).
+      const style = layoutBlock.style
+      const titlePage = style === LAYOUT_STYLE.titlepage
       const block: LayoutBlock = {
-        kind: BLOCK_KIND.layout, line, title: title.text, note, style: LAYOUT_STYLE.text, children: [], indent,
-        command: command ?? (inherited === LINE_COMMAND.hide ? LINE_COMMAND.hide : undefined), error: title.error,
+        kind: BLOCK_KIND.layout, line, title: '', note, style, members: layoutBlock.members, children: [], indent,
+        // (Prose only takes .hidden, or #hide.)
+        command: (layoutBlock.command === LINE_COMMAND.hide ? layoutBlock.command : undefined)
+          ?? command ?? (inherited === LINE_COMMAND.hide ? LINE_COMMAND.hide : undefined),
+        warning: layoutBlock.warning,
       }
+      let titleSource = layoutBlock.title
       let paragraph: { line: number; text: string[] } | null = null
+      let gap = false
       const endParagraph = () => {
         if (paragraph) block.children.push({ kind: BLOCK_KIND.text, line: paragraph.line, ...withValues(paragraph.text.join(' ')) })
         paragraph = null
@@ -456,26 +516,45 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
         if (isComment(text)) continue
         if (!text) {
           endParagraph()
+          gap = block.children.length > 0
           continue
         }
-        paragraph ??= { line: idx + 1, text: [] }
-        paragraph.text.push(text)
+        if (!titlePage) {
+          paragraph ??= { line: idx + 1, text: [] }
+          paragraph.text.push(text)
+          continue
+        }
+        if (!titleSource) {
+          titleSource = text
+          continue
+        }
+        if (gap) block.children.push({ kind: BLOCK_KIND.spacer, line: idx + 1 })
+        gap = false
+        block.children.push({ kind: BLOCK_KIND.text, line: idx + 1, ...withValues(text) })
       }
       endParagraph()
+      const title = withValues(titleSource)
+      block.title = title.text
+      block.error = title.error
       blankRun = 0
       block.endLine = idx + 1
       if (!closed) block.error = `${openerText(block)} is missing its closing ${BLOCK_CLOSE}.`
-      else if (!block.children.length) block.error = `${openerText(block)} is empty: put the text that belongs to it before its ${BLOCK_CLOSE}.`
+      else if (!block.children.length && !(titlePage && block.title)) {
+        block.error = `${openerText(block)} is empty: put the text that belongs to it before its ${BLOCK_CLOSE}.`
+      }
       add(block)
-    } else if (builtin) {
-      // `@numbered Title {`: the lines up to its `}` are laid out together (and stay in scope after it).
-      const title = withValues(builtin.title)
+    } else if (layoutBlock) {
+      // `@layout.numbered Title {`, `@layout.val.multiline {`: the lines up to its `}` are
+      // laid out together, shown as its members say (and stay in scope after it).
+      // Its members' settings win over the #commands on its opener.
+      const title = withValues(layoutBlock.title)
       const block: LayoutBlock = {
-        kind: BLOCK_KIND.layout, line, title: title.text, note, style: builtin.block as LayoutStyle, children: [], indent,
-        command: command ?? (inherited === LINE_COMMAND.hide ? LINE_COMMAND.hide : undefined),
-        multiline: ownMultiline || undefined,
-        notation: ownNotation,
-        error: title.error,
+        kind: BLOCK_KIND.layout, line, title: title.text, note, style: layoutBlock.style, members: layoutBlock.members, children: [], indent,
+        command: layoutBlock.command ?? command ?? (inherited === LINE_COMMAND.hide ? LINE_COMMAND.hide : undefined),
+        multiline: layoutBlock.multiline || ownMultiline || undefined,
+        notation: layoutBlock.notation ?? ownNotation,
+        error: layoutBlock.error ?? title.error,
+        warning: layoutBlock.warning,
       }
       add(block)
       open.push(block)
@@ -801,8 +880,12 @@ export function collectDiagnostics(blocks: Block[]): Map<number, Diagnostic> {
           put(e.line, DIAGNOSTIC_KIND.error, e.error)
         }
         break
-      case BLOCK_KIND.group:
       case BLOCK_KIND.layout:
+        put(b.line, DIAGNOSTIC_KIND.warning, b.warning)
+        put(b.line, DIAGNOSTIC_KIND.error, b.error)
+        b.children.forEach(visit)
+        break
+      case BLOCK_KIND.group:
         put(b.line, DIAGNOSTIC_KIND.error, b.error)
         b.children.forEach(visit)
         break

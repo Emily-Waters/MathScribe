@@ -33,8 +33,8 @@ describe('comments', () => {
     expect([...collectDiagnostics(sheet(source).blocks)]).toEqual([])
   })
 
-  it('don’t end an @text block or split its paragraph, even indented less', () => {
-    const texts = blocksOf('@text Discussion {\n    The first line\n// 1: connect the purpose to the results\n    and the second.\n}', BLOCK_KIND.text)
+  it('don’t end an @layout.text block or split its paragraph, even indented less', () => {
+    const texts = blocksOf('@layout.text Discussion {\n    The first line\n// 1: connect the purpose to the results\n    and the second.\n}', BLOCK_KIND.text)
     expect(texts.map((t) => t.text)).toEqual(['The first line and the second.'])
   })
 
@@ -56,9 +56,9 @@ describe('values in text', () => {
     expect(text.text).toBe('$27.6\\,\\mathrm{mL}$ or $0.02755\\,\\mathrm{L}$')
   })
 
-  it('work in headings, @text paragraphs and block titles', () => {
+  it('work in headings, @layout.text paragraphs and block titles', () => {
     expect(blocksOf(`${data}## Moles in {{V1}}`, BLOCK_KIND.heading)[0].text).toBe('Moles in $27.55\\,\\mathrm{mL}$')
-    expect(blocksOf(`${data}@text Discussion {\n    It took {{V2}}.\n}`, BLOCK_KIND.text)[0].text).toBe('It took $27.10\\,\\mathrm{mL}$.')
+    expect(blocksOf(`${data}@layout.text Discussion {\n    It took {{V2}}.\n}`, BLOCK_KIND.text)[0].text).toBe('It took $27.10\\,\\mathrm{mL}$.')
     expect(blocksOf(`${data}Flask 1, {{V1}} {\n    x = 1\n}`, BLOCK_KIND.group)[0].title).toBe('Flask 1, $27.55\\,\\mathrm{mL}$')
   })
 

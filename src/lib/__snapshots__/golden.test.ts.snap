@@ -366,16 +366,29 @@ exports[`the Reference tab’s examples > Functions: f(x) = 2 * x^2 + 1 1`] = `
 2: y = 2· 3.0^2+ 1 = 19"
 `;
 
-exports[`the Reference tab’s examples > Layout: @center Key result { 1`] = `"2: E = (2.00 kg) (3.00e8 m/s)^2 = 1.80e17 J"`;
+exports[`the Reference tab’s examples > Layout: @layout.center Key result { 1`] = `"2: E = (2.00 kg) (3.00e8 m/s)^2 = 1.80e17 J"`;
 
-exports[`the Reference tab’s examples > Layout: @list Assumptions { 1`] = `""`;
+exports[`the Reference tab’s examples > Layout: @layout.hidden { 1`] = `
+"2: m = 2.00 kg
+3: g_0 = 9.81 m/s^2
+5: F = m g_0 = (2.00 kg) (9.81 m/s^2) = 19.6 N"
+`;
 
-exports[`the Reference tab’s examples > Layout: @numbered Steps { 1`] = `
+exports[`the Reference tab’s examples > Layout: @layout.list Assumptions { 1`] = `""`;
+
+exports[`the Reference tab’s examples > Layout: @layout.numbered Steps { 1`] = `
 "2: m = 2.00 kg
 3: F = m (9.81 m/s^2) = (2.00 kg) (9.81 m/s^2) = 19.6 N"
 `;
 
-exports[`the Reference tab’s examples > Layout: @text Discussion { 1`] = `""`;
+exports[`the Reference tab’s examples > Layout: @layout.text Discussion { 1`] = `""`;
+
+exports[`the Reference tab’s examples > Layout: @layout.titlepage { 1`] = `""`;
+
+exports[`the Reference tab’s examples > Layout: @layout.val.multiline Results { 1`] = `
+"2: F = 19.6 N
+3: p = (2.00 kg) (3.00 m/s) = 6.00 kg· m/s"
+`;
 
 exports[`the Reference tab’s examples > Layout: F = 2.00 kg * 9.81 m/s^2   #center 1`] = `"1: F = (2.00 kg) (9.81 m/s^2) = 19.6 N"`;
 

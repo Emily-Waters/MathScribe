@@ -9,7 +9,7 @@ import { TITLE_SEGMENT, isOmitted, listItems, splitInlineMath, titleSegments } f
 import { BLOCK_KIND, isContainer, type Block } from './blocks.ts'
 import { ALIGN } from './alignment.ts'
 import { usesFormulas } from './chemistry.ts'
-import { LAYOUT_STYLE, LINE_COMMAND, builtinOpenerText } from './syntax.ts'
+import { LAYOUT_STYLE, LINE_COMMAND, layoutOpenerText } from './syntax.ts'
 import { symbolTex, unitTex } from './engine.ts'
 import type { PlotData, PlotName } from './plot.ts'
 import { readStoredJson, writeStoredJson } from './storage.ts'
@@ -108,6 +108,13 @@ function simpleEquation(b: Block): Equation | null {
 // Blocks
 // ---------------------------------------------------------------------------
 
+/**
+ * How an `@layout.titlepage` block is set: its environment, the title's size (\LARGE,
+ * bold: about 17 pt over 10 pt text, as a lab report's title usually is), and the
+ * space under the title.
+ */
+const TITLE_PAGE = { environment: 'titlepage', titleSize: '\\LARGE', gap: '2em' } as const
+
 /** A block with a title: a card (with cards on), else a paragraph heading and an indented body. */
 function titled(o: LatexOptions, title: string, body: string): string {
   if (o.cards) {
@@ -185,11 +192,24 @@ function blockToLatex(b: Block, o: LatexOptions): string {
       return titled(o, heading(`Function $${b.signature}$`, b.note), gather(b.body))
     }
     case BLOCK_KIND.layout: {
-      if (b.error && !b.children.length) return errorComment(b.line, builtinOpenerText(b.style ?? LAYOUT_STYLE.list, b.title), b.error)
+      if (b.error && !b.children.length) return errorComment(b.line, layoutOpenerText(b.members ?? [b.style ?? LAYOUT_STYLE.list], b.title), b.error)
       if (b.command === LINE_COMMAND.hide) return ''
       const title = heading(b.title && titleToLatex(b.title), b.note)
-      // A text block: its paragraphs, under the title.
-      if (b.style === LAYOUT_STYLE.text) {
+      // A title page: the title, large, and the lines inside centered under it, on a page of their own.
+      if (b.style === LAYOUT_STYLE.titlepage) {
+        return [
+          `\\begin{${TITLE_PAGE.environment}}`,
+          '\\centering',
+          '\\vspace*{\\fill}',
+          title ? `{${TITLE_PAGE.titleSize}\\bfseries ${title}\\par}` : '',
+          title && b.children.length ? `\\vspace{${TITLE_PAGE.gap}}` : '',
+          joinBlocks(b.children, o),
+          '\\vspace*{\\fill}',
+          `\\end{${TITLE_PAGE.environment}}`,
+        ].filter(Boolean).join('\n')
+      }
+      // A text block (its paragraphs), or a block with no layout (`@layout.val {`: its lines as they are), under the title.
+      if (b.style === LAYOUT_STYLE.text || !b.style) {
         return [title ? `\\paragraph{${title}}` : '', joinBlocks(b.children, o)].filter(Boolean).join('\n')
       }
       const env = b.style === LAYOUT_STYLE.center ? 'center' : b.style === LAYOUT_STYLE.list ? 'itemize' : b.style === LAYOUT_STYLE.numbered ? 'enumerate' : 'quote'

@@ -5,7 +5,7 @@
  */
 import {
   CALL, COMMAND_NAMES, COMPONENTS_SETTING, EXACT_SETTING, KEYWORD, NOTATIONS, PERCENT, UNCERTAINTY_WORDS, UNIT_VECTOR_SETTING,
-  VECTOR_FUNCTION, type BuiltinBlock, type ChemFunction, type CommandName, type Notation, type SeriesSuffix,
+  VECTOR_FUNCTION, type ChemFunction, type CommandName, type LayoutModifier, type LayoutStyle, type Namespace, type Notation, type SeriesSuffix,
 } from '../lib/syntax.ts'
 
 /** What each display command does. */
@@ -17,18 +17,38 @@ const COMMAND_DESCRIPTIONS: Record<CommandName, string> = {
   multiline: 'Each = on its own row, lined up',
   sci: 'Results in scientific notation (on a line, or every line in a block)',
   dec: 'Results in plain decimal digits, no powers of ten (on a line, or every line in a block)',
-  center: 'Center the line (for a block of lines: @center { })',
-  list: 'The line as a bullet (for a block of lines: @list { })',
-  numbered: 'The line as a numbered item (for a block of lines: @numbered { })',
+  center: 'Center the line (for a block of lines: @layout.center { })',
+  list: 'The line as a bullet (for a block of lines: @layout.list { })',
+  numbered: 'The line as a numbered item (for a block of lines: @layout.numbered { })',
 }
 
-/** What each built-in block does, `@list Title { … }`. */
-export const BUILTIN_BLOCK_DESCRIPTIONS: Record<BuiltinBlock, string> = {
+/** What each layout does, `@layout.list Title { … }`. */
+export const LAYOUT_DESCRIPTIONS: Record<LayoutStyle, string> = {
   text: 'Prose: lines join into paragraphs, nothing is calculated',
   list: 'The lines inside as a bulleted list (indent further for a sub-list)',
   numbered: 'The lines inside as a numbered list (indent further for a sub-list)',
   center: 'The lines inside, centered',
-  constants: 'Constants usable anywhere in the sheet as @name',
+  titlepage: 'A title page of prose: the first line is the title, bold and larger; each line after it centered, then a new page',
+}
+
+/** What each display setting a layout block can take does, `@layout.val.multiline { … }`. */
+export const LAYOUT_MODIFIER_DESCRIPTIONS: Record<LayoutModifier, string> = {
+  hidden: 'Work the lines inside out, but don’t show them (as #hide)',
+  full: 'Show every line inside in full (as #full)',
+  sym: 'Show every line inside as its equation only (as #sym)',
+  val: 'Show every line inside as its result only (as #val)',
+  multiline: 'Each = of every line inside on its own row (as #multiline)',
+  sci: 'Results inside in scientific notation (as #sci)',
+  dec: 'Results inside in plain decimal digits (as #dec)',
+}
+
+/** What the @constants block does. */
+export const CONSTANTS_BLOCK_DESCRIPTION = 'Constants usable anywhere in the sheet as @name'
+
+/** What each namespace holds, in a suggestion. */
+export const NAMESPACE_DESCRIPTIONS: Record<Namespace, string> = {
+  chem: 'The elements’ molar masses (@chem.Na), mm( ) and total( )',
+  layout: 'Blocks that arrange lines (text, list, numbered, center, titlepage) or set how they’re shown (hidden, sym, val, multiline, …)',
 }
 
 /** What each @chem function does. */

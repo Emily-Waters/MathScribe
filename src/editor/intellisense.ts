@@ -31,13 +31,14 @@ import { describeUnit, isUnitName, numberTex, symbolTex, unitNames, unitTex } fr
 import { STORAGE_KEYS } from '../config.ts'
 import { readStored, writeStored } from '../lib/storage.ts'
 import {
-  BUILTIN_BLOCKS, CALL, CHEM_FUNCTION, GREEK_CHARS, KEYWORD, MEMBER_DOT, NAME, NAME_CHAR, NAMESPACE, PERCENT, SETTINGS, SIGIL,
-  type BuiltinBlock, type ChemFunction, type Namespace,
+  CALL, CHEM_FUNCTION, CONSTANTS_BLOCK, GREEK_CHARS, KEYWORD, LAYOUT_MEMBERS, LAYOUT_MODIFIERS, LAYOUT_STYLES, MEMBER_DOT, NAME, NAME_CHAR, NAMESPACE, PERCENT,
+  SETTINGS, SIGIL, layoutMembers, layoutName,
+  type ChemFunction, type LayoutModifier, type LayoutStyle, type Namespace,
 } from '../lib/syntax.ts'
 import { memberName, parseMemberName, parseNumberedName, seriesMemberName } from '../lib/names.ts'
 import {
-  BUILTIN_BLOCK_DESCRIPTIONS, BUILTIN_FUNCTIONS, CHEM_FUNCTION_DESCRIPTIONS, COMMANDS, KEYWORDS, MATH_CONSTANTS, SERIES_SUFFIXES,
-  SETTING_WORDS,
+  BUILTIN_FUNCTIONS, CHEM_FUNCTION_DESCRIPTIONS, COMMANDS, CONSTANTS_BLOCK_DESCRIPTION, KEYWORDS, LAYOUT_DESCRIPTIONS, LAYOUT_MODIFIER_DESCRIPTIONS, MATH_CONSTANTS,
+  NAMESPACE_DESCRIPTIONS, SERIES_SUFFIXES, SETTING_WORDS,
 } from './vocabulary.ts'
 import { inDataBlock, inNote, inTextBlock, inValue, isProseLine } from './language.ts'
 import { greekCompletions, greekOnSpace } from './greek.ts'
@@ -106,23 +107,39 @@ const NAMESPACE_BEFORE = new RegExp(String.raw`@(${Object.values(NAMESPACE).join
 /** Whether a word is one of @chem's functions. */
 const isChemFunction = (name: string): name is ChemFunction => (Object.values(CHEM_FUNCTION) as string[]).includes(name)
 
-/** Whether a word is a built-in block. */
-const isBuiltinBlock = (name: string): name is BuiltinBlock => (BUILTIN_BLOCKS as readonly string[]).includes(name)
+/** Whether a word is a layout. */
+const isLayout = (name: string): name is LayoutStyle => (LAYOUT_STYLES as readonly string[]).includes(name)
 
-/** What's in @chem, for suggestions: its functions, then the elements in order. */
-const chemOptions: Completion[] = [
-  ...Object.values(CHEM_FUNCTION).map((f): Completion => snippetCompletion(`${f}(\${})`, {
-    label: f, type: 'function', detail: CHEM_FUNCTION_DESCRIPTIONS[f].description,
-  })),
-  ...(Object.keys(ELEMENTS) as ElementSymbol[]).map((symbol): Completion => {
-    const key = memberName(NAMESPACE.chem, symbol)
-    return { label: symbol, type: 'constant', detail: CHEM_CONSTANTS[key].description, info: () => infoNode(constantTex(key)) }
-  }),
-]
+/** Whether a word is one of a layout block's display settings. */
+const isLayoutModifier = (name: string): name is LayoutModifier => (LAYOUT_MODIFIERS as readonly string[]).includes(name)
 
-/** What a namespace is, in a suggestion. */
-const NAMESPACE_DESCRIPTIONS: Record<Namespace, string> = {
-  chem: 'The elements’ molar masses (@chem.Na), mm( ) and total( )',
+/** What a member of @layout does, layout or display setting. */
+const layoutMemberDescription = (name: string) =>
+  isLayout(name) ? LAYOUT_DESCRIPTIONS[name] : isLayoutModifier(name) ? LAYOUT_MODIFIER_DESCRIPTIONS[name] : undefined
+
+/**
+ * A layout block's name being typed at the start of a line, after any members
+ * already chosen: `@layout.val.mu` (1: the members so far, each after its dot; 2: what's typed of the next).
+ */
+const LAYOUT_MEMBER_SO_FAR = new RegExp(String.raw`^\s*@${NAMESPACE.layout}((?:\.\w+)*)\.(\w*)$`)
+
+/** A layout block's name, up to the dot before a member: the `@layout.val.` of `@layout.val.multiline`. */
+const LAYOUT_MEMBER_BEFORE = new RegExp(String.raw`@${NAMESPACE.layout}(?:\.\w+)*\.$`)
+
+/** What's in each namespace, for suggestions after its dot. */
+const NAMESPACE_OPTIONS: Record<Namespace, Completion[]> = {
+  // @chem: its functions, then the elements in order.
+  chem: [
+    ...Object.values(CHEM_FUNCTION).map((f): Completion => snippetCompletion(`${f}(\${})`, {
+      label: f, type: 'function', detail: CHEM_FUNCTION_DESCRIPTIONS[f].description,
+    })),
+    ...(Object.keys(ELEMENTS) as ElementSymbol[]).map((symbol): Completion => {
+      const key = memberName(NAMESPACE.chem, symbol)
+      return { label: symbol, type: 'constant', detail: CHEM_CONSTANTS[key].description, info: () => infoNode(constantTex(key)) }
+    }),
+  ],
+  // @layout: the layouts, then the display settings (more can follow, after another dot).
+  layout: LAYOUT_MEMBERS.map((m): Completion => ({ label: m, type: 'keyword', detail: layoutMemberDescription(m) })),
 }
 
 /** Where a name is defined, for its information panel. */
@@ -277,24 +294,41 @@ export function complete(ctx: CompletionContext): CompletionResult | null {
   const greek = greekCompletions(before, ctx.pos)
   if (greek) return greek
 
-  // `@chem.…`: a namespace's functions and constants.
-  const member = NAMESPACE_MEMBER_SO_FAR.exec(before)
-  if (member) return { from: ctx.pos - member[2].length, options: chemOptions, validFor: /^\w*$/ }
+  // `@layout.val.…` at the start of a line: the members not chosen yet.
+  const layoutSoFar = LAYOUT_MEMBER_SO_FAR.exec(before)
+  if (layoutSoFar) {
+    const chosen = new Set(layoutMembers(layoutSoFar[1]))
+    return {
+      from: ctx.pos - layoutSoFar[2].length,
+      options: NAMESPACE_OPTIONS.layout.filter((o) => !chosen.has(o.label)),
+      validFor: /^\w*$/,
+    }
+  }
 
-  // `@…`: constants, namespaces, and (at the start of a line) the built-in blocks.
+  // `@chem.…`, `@layout.…`: what's in the namespace (a layout only at the start of a line, where blocks open).
+  const member = NAMESPACE_MEMBER_SO_FAR.exec(before)
+  if (member) {
+    const ns = member[1] as Namespace
+    const lineStart = before.trim() === member[0]
+    if (ns === NAMESPACE.layout && !lineStart) return null
+    return { from: ctx.pos - member[2].length, options: NAMESPACE_OPTIONS[ns], validFor: /^\w*$/ }
+  }
+
+  // `@…`: constants and namespaces, and at the start of a line, the blocks (@layout, @constants).
   const at = /@\w*$/.exec(before)
   if (at) {
     const custom = [...visibleAt(ctx.state, line.number).values()].filter((s) => s.kind === SYMBOL_KIND.constant)
     const lineStart = before.trim() === at[0]
+    const namespaces = Object.values(NAMESPACE).filter((ns) => lineStart || ns !== NAMESPACE.layout)
     return {
       from: ctx.pos - at[0].length,
       options: [
         ...(lineStart
-          ? BUILTIN_BLOCKS.map((b): Completion => snippetCompletion(`${SIGIL}${b} \${} {`, {
-            label: `${SIGIL}${b}`, type: 'keyword', detail: BUILTIN_BLOCK_DESCRIPTIONS[b],
-          }))
+          ? [snippetCompletion(`${SIGIL}${CONSTANTS_BLOCK} {\n\t\${}\n}`, {
+            label: `${SIGIL}${CONSTANTS_BLOCK}`, type: 'keyword', detail: CONSTANTS_BLOCK_DESCRIPTION,
+          })]
           : []),
-        ...Object.values(NAMESPACE).map((ns): Completion => ({
+        ...namespaces.map((ns): Completion => ({
           label: `${SIGIL}${ns}`, apply: `${SIGIL}${ns}${MEMBER_DOT}`, type: 'namespace', detail: NAMESPACE_DESCRIPTIONS[ns],
         })),
         ...Object.entries(BUILTIN_CONSTANTS).map(([name, c]): Completion => ({
@@ -453,6 +487,11 @@ const hoverInfo = hoverTooltip((view, pos) => {
     const c = COMMANDS.find((x) => x.name === `#${name}`)
     return c ? show(word.from - 1, infoNode(undefined, c.name, c.description)) : null
   }
+  // `@layout.list`, `@layout.val.multiline`: what that member does.
+  if (LAYOUT_MEMBER_BEFORE.test(before)) {
+    const description = layoutMemberDescription(name)
+    return description ? show(word.from, infoNode(undefined, `${layoutName(name)} { }`, description)) : null
+  }
   // `@chem.Na`, `@chem.mm`
   const builtinNs = NAMESPACE_BEFORE.exec(before)
   if (builtinNs) {
@@ -465,12 +504,14 @@ const hoverInfo = hoverTooltip((view, pos) => {
     const key = memberName(builtinNs[1], name)
     return show(from, infoNode(constantTex(key), CHEM_CONSTANTS[key].description))
   }
-  // `@constant`, `@list`
+  // `@constant`, `@constants`, `@chem`
   if (before.endsWith(SIGIL)) {
     if (Object.hasOwn(BUILTIN_CONSTANTS, name)) {
       return show(word.from - 1, infoNode(constantTex(name), BUILTIN_CONSTANTS[name].description))
     }
-    if (isBuiltinBlock(name)) return show(word.from - 1, infoNode(undefined, `${SIGIL}${name} { }`, BUILTIN_BLOCK_DESCRIPTIONS[name]))
+    if (name === CONSTANTS_BLOCK) return show(word.from - 1, infoNode(undefined, `${SIGIL}${name} { }`, CONSTANTS_BLOCK_DESCRIPTION))
+    const namespace = Object.values(NAMESPACE).find((ns) => ns === name)
+    if (namespace) return show(word.from - 1, infoNode(undefined, `${SIGIL}${namespace}`, NAMESPACE_DESCRIPTIONS[namespace]))
     const own = visibleAt(state, line.number).get(`@${name}`)
     return own ? show(word.from - 1, symbolInfo(own)) : null
   }

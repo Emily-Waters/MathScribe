@@ -80,7 +80,7 @@ export const CREATE_KIND_INFO: Record<CreateKind, {
       { id: 'uncertainty', label: 'Uncertainties carried through', ticked: true, instruction: 'Give measured values uncertainties with `pm`, and show the uncertainty of the main result with a `delta` line.' },
       { id: 'repeats', label: 'Repeated measurements (mean and spread)', ticked: true, instruction: 'Include repeated measurements as a series (`T1`, `T2`, …) and use `T_avg` and `T_std`.' },
       { id: 'graph', label: 'A graph with a best-fit line', ticked: false, instruction: 'Include a data series plotted with `p = plot(x, y; fit linear)`, and use `p.slope`.' },
-      { id: 'discussion', label: 'Discussion and conclusion', ticked: true, instruction: 'End with `@text Discussion {` and `@text Conclusion {` blocks of prose, each closed by `}`.' },
+      { id: 'discussion', label: 'Discussion and conclusion', ticked: true, instruction: 'End with `@layout.text Discussion {` and `@layout.text Conclusion {` blocks of prose, each closed by `}`.' },
     ],
   },
 }
@@ -244,9 +244,14 @@ ${constantNames}. 3 sig figs by default; \`@c:5\` for 5, \`@c:exact\` for every 
 ## Blocks
 - \`Title {\` … \`}\` (lines inside indented 4 spaces): variables assigned inside are local to
   it, and it can read everything defined above it. \`Title {  #hide\` hides the whole block.
-- \`@numbered Title {\` … \`}\` (or \`@list\`, \`@center\`, \`@text\`; the title is optional) arranges
-  the lines inside without scoping them. An \`@text\` block is paragraphs of prose; nothing in it
+- \`@layout.numbered Title {\` … \`}\` (or \`@layout.list\`, \`@layout.center\`, \`@layout.text\`; the title is optional) arranges
+  the lines inside without scoping them. An \`@layout.text\` block is paragraphs of prose; nothing in it
   is calculated. Don't end a line with \`:\` to start a block.
+- \`@layout.titlepage {\` … \`}\` is a title page of prose (no \`>\`): its first line is the title,
+  and each line after it (author, course, date) is centered on its own.
+- \`@layout.hidden {\` … \`}\` works lines out without showing them (givens a solution uses).
+  \`@layout.val {\`, \`.sym\`, \`.multiline\`, \`.sci\` show every line inside as those commands do,
+  and combine: \`@layout.numbered.val Steps {\`.
 
 ## Functions and solving
 ${code(SNIPPETS.function)}

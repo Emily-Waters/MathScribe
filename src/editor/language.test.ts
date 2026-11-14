@@ -104,8 +104,8 @@ describe('highlighting', () => {
     expect(tokens('## Forces')).toEqual(['## Forces:head'])
     expect(tokens('> Prose with $E = mc^2$ inline')).toEqual(
       ['>:quote', 'Prose with :text', '$E = mc^2$:latex', 'inline:text'])
-    expect(tokens('@numbered Steps {  # the 1s orbital')).toEqual(
-      ['@numbered:kw', 'Steps:title', '{  :brace', '# the 1s orbital:note'])
+    expect(tokens('@layout.numbered Steps {  # the 1s orbital')).toEqual(
+      ['@layout.numbered:kw', 'Steps:title', '{  :brace', '# the 1s orbital:note'])
     expect(tokens('@constants {')).toEqual(['@constants:kw', '{:brace'])
     expect(tokens('What if {')).toEqual(['What if:title', '{:brace'])
   })
@@ -126,16 +126,30 @@ describe('text blocks', () => {
     return out
   }
 
-  it('colour the lines of an @text block as prose, up to its closing brace', () => {
-    const lines = tokensByLine('@text Notes {\n    m = 2 kg is prose here, with $x^2$\n\nResults:\n}\ny = 2.0 m')
-    expect(lines[0]).toEqual(['@text:kw', 'Notes:title', '{:brace'])
+  it('colour the lines of an @layout.text block as prose, up to its closing brace', () => {
+    const lines = tokensByLine('@layout.text Notes {\n    m = 2 kg is prose here, with $x^2$\n\nResults:\n}\ny = 2.0 m')
+    expect(lines[0]).toEqual(['@layout.text:kw', 'Notes:title', '{:brace'])
     expect(lines[1]).toEqual(['m = 2 kg is prose here, with :text', '$x^2$:latex'])
     expect(lines[3]).toEqual(['Results::text'])
     expect(lines[5]).toEqual(['y:var', '2.0:num', 'm:unit'])
   })
 
+  it('colour a chained opener as one name, and read its prose layout among the members', () => {
+    const lines = tokensByLine('@layout.hidden.text Notes {\n    m = 2 kg\n}\n@layout.val.multiline {\n    y = 2.0 m\n}')
+    expect(lines[0]).toEqual(['@layout.hidden.text:kw', 'Notes:title', '{:brace'])
+    expect(lines[1]).toEqual(['m = 2 kg:text'])
+    expect(lines[3]).toEqual(['@layout.val.multiline:kw', '{:brace'])
+    expect(lines[4]).toEqual(['y:var', '2.0:num', 'm:unit'])
+  })
+
+  it('colour a title page’s lines as prose too', () => {
+    const lines = tokensByLine('@layout.titlepage {\n    Lab 3: Motion on a ramp\n}\ny = 2.0 m')
+    expect(lines[1]).toEqual(['Lab 3: Motion on a ramp:text'])
+    expect(lines[3]).toEqual(['y:var', '2.0:num', 'm:unit'])
+  })
+
   it('are recognised for the editor’s suggestions', () => {
-    const doc = EditorState.create({ doc: '@text Notes {\n    prose\n\n    more\n}\nx = 1\n@numbered Steps {\n    a = 1\n}' }).doc
+    const doc = EditorState.create({ doc: '@layout.text Notes {\n    prose\n\n    more\n}\nx = 1\n@layout.numbered Steps {\n    a = 1\n}' }).doc
     expect([1, 2, 4, 5, 6, 8].map((n) => inTextBlock(doc, n))).toEqual([false, true, true, false, false, false])
   })
 })
@@ -148,7 +162,7 @@ describe('indentation', () => {
   }
 
   it('goes one level deeper after a block opener or def', () => {
-    expect(indentAfter('@numbered Steps {')).toBe(4)
+    expect(indentAfter('@layout.numbered Steps {')).toBe(4)
     expect(indentAfter('Steps:')).toBe(0)
     expect(indentAfter('What if {')).toBe(4)
     expect(indentAfter('def f(x)')).toBe(4)
@@ -171,7 +185,7 @@ describe('indentation', () => {
 
   it('indents when Enter is pressed after a block opener, and not after a line or an import’s rows', () => {
     expect(enter('x = 1\ndef f(x)')).toBe('\n    ')
-    expect(enter('@numbered Steps {  # note')).toBe('\n    ')
+    expect(enter('@layout.numbered Steps {  # note')).toBe('\n    ')
     expect(enter('a = 1\nBlock {')).toBe('\n    ')
     expect(enter('Block {\n    x = 1')).toBe('\n    ')
     expect(enter('x = 1')).toBe('\n')
@@ -217,7 +231,7 @@ describe('folding', () => {
 
   it('folds a { } block up to its closing brace, a built-in one too', () => {
     expect(foldsAt('W {\n  a = 1\n  b = 2\n}', 1)).toEqual([1, 3])
-    expect(foldsAt('@text Notes {\n    The {Na^+} ion.\n\n    More.\n}\nc = 3', 1)).toEqual([1, 4])
+    expect(foldsAt('@layout.text Notes {\n    The {Na^+} ion.\n\n    More.\n}\nc = 3', 1)).toEqual([1, 4])
   })
 
   it('doesn’t fold ordinary lines', () => {

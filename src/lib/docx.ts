@@ -78,11 +78,25 @@ const SPACING = {
   /** Between paragraphs, and the line height (240 = single spacing). */
   paragraph: { after: 100, line: 264 },
   pageHeader: 709,
+  /** Above a title page's title, to set it a way down the page (two inches). */
+  titlePage: 2880,
 }
+
+/** Word's style for a document's title. */
+const TITLE_STYLE = 'Title'
+
+/** A paragraph that starts a new page. */
+const PAGE_BREAK = '<w:p><w:r><w:br w:type="page"/></w:r></w:p>'
 
 /** Heading sizes, in half-points above the body text's (sections, subsections, the rest), and the title's. */
 const HEADING_SIZE_STEP = [10, 4, 0]
 const TITLE_SIZE_STEP = 18
+
+/**
+ * A title page's title, in half-points above the body text's: 6 pt larger (17 pt
+ * over 11 pt text), and bold, as a lab report's title usually is; LaTeX's \LARGE.
+ */
+const TITLE_PAGE_SIZE_STEP = 12
 
 /** A list level's indent, in twips: the marker's hanging width, and the gap before it. */
 const LIST_INDENT = { hanging: 360, gap: 60 }
@@ -381,10 +395,23 @@ function block(b: Block, ctx: Ctx): Item[] {
       const title: Item[] = b.title || b.note
         ? [{ props: { ...base, keepNext: true, ...SPACING.title }, content: heading(b.title, b.note) }]
         : []
+      // A title page: the title in Word's Title style, a way down the page, the lines inside centered, then a new page.
+      if (b.style === LAYOUT_STYLE.titlepage) {
+        return [
+          ...(b.title ? [{
+            props: { style: TITLE_STYLE, before: SPACING.titlePage },
+            content: titleRuns(b.title, { bold: true, size: fontSizeOf(ctx.o) + TITLE_PAGE_SIZE_STEP }),
+          }] : []),
+          ...(b.note ? [{ props: { jc: ALIGN.center, after: SPACING.author }, content: run(b.note) }] : []),
+          ...blocks(b.children, { ...ctx, center: true }),
+          { xml: PAGE_BREAK },
+        ]
+      }
       if (b.style === LAYOUT_STYLE.center) return [...title, ...blocks(b.children, { ...ctx, center: true })]
       if (b.style === LAYOUT_STYLE.text) return [...title, ...blocks(b.children, ctx)]
       if (b.style === LAYOUT_STYLE.list || b.style === LAYOUT_STYLE.numbered) return [...title, ...list(b, ctx, 0)]
-      return [...title, ...blocks(b.children, { ...ctx, indent: ctx.indent + INDENT })]
+      // No layout (`@layout.val {`): the lines as they are.
+      return [...title, ...blocks(b.children, ctx)]
     }
   }
 }
@@ -430,7 +457,7 @@ function stylesXml(o: LatexOptions): string {
     + `<w:pPrDefault><w:pPr><w:spacing w:after="${SPACING.paragraph.after}" w:line="${SPACING.paragraph.line}" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults>`
     + '<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style>'
     + [1, 2, 3].map((level, i) => heading(level, size + HEADING_SIZE_STEP[i], SPACING.heading.before[i])).join('')
-    + '<w:style w:type="paragraph" w:styleId="Title"><w:name w:val="Title"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:qFormat/>'
+    + `<w:style w:type="paragraph" w:styleId="${TITLE_STYLE}"><w:name w:val="${TITLE_STYLE}"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:qFormat/>`
     + `<w:pPr><w:jc w:val="center"/><w:spacing w:after="${SPACING.title.before}"/></w:pPr><w:rPr><w:sz w:val="${size + TITLE_SIZE_STEP}"/><w:szCs w:val="${size + TITLE_SIZE_STEP}"/></w:rPr></w:style>`
     + '<w:style w:type="paragraph" w:styleId="ListParagraph"><w:name w:val="List Paragraph"/><w:basedOn w:val="Normal"/></w:style>'
     + '</w:styles>'
@@ -519,7 +546,7 @@ function docxPackage(sheetBlocks: Block[], o: LatexOptions, today: Date, images:
     images, media: [],
   }
   const title: Item[] = o.title.trim() ? [
-    { props: { style: 'Title' }, content: run(o.title.trim()) },
+    { props: { style: TITLE_STYLE }, content: run(o.title.trim()) },
     ...(o.author.trim() ? [{ props: { jc: ALIGN.center, after: SPACING.author }, content: run(o.author.trim()) }] : []),
     ...(o.date ? [{
       props: { jc: ALIGN.center, after: SPACING.date },

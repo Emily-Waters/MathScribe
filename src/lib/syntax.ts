@@ -305,12 +305,13 @@ export type SeriesSuffix = keyof typeof SERIES_SUFFIXES
 
 /**
  * What starts everything built in rather than written in the sheet: constants
- * (`@c`), namespaces (`@chem.Na`, `@chem.mm(…)`) and blocks (`@text Title {`).
+ * (`@c`), namespaces (`@chem.Na`, `@chem.mm(…)`, `@layout.text Title {`) and
+ * the `@constants { }` block.
  */
 export const SIGIL = '@'
 
-/** Namespaces under @, whose members are written with a dot: `@chem.Na`. */
-export const NAMESPACE = { chem: 'chem' } as const
+/** Namespaces under @, whose members are written with a dot: `@chem.Na`, `@layout.list`. */
+export const NAMESPACE = { chem: 'chem', layout: 'layout' } as const
 export type Namespace = (typeof NAMESPACE)[keyof typeof NAMESPACE]
 
 /**
@@ -322,22 +323,34 @@ export const CHEM_FUNCTION = { molarMass: 'mm', total: 'total' } as const
 export type ChemFunction = (typeof CHEM_FUNCTION)[keyof typeof CHEM_FUNCTION]
 
 /**
- * Blocks built in, opened `@name Title {` (the title is optional) and closed by `}`.
- * They arrange lines without scoping them (unlike `Title { }`), except
- * `@constants`, whose lines are constants usable anywhere as `@name`.
+ * The layouts in @layout, each a block opened `@layout.list Title {` (the title
+ * is optional) and closed by `}`. They arrange lines without scoping them
+ * (unlike `Title { }`):
+ *   text        prose: lines join into paragraphs, nothing is worked out
+ *   list        a bulleted list (indent further for a sub-list)
+ *   numbered    a numbered list
+ *   center      centered lines
+ *   titlepage   a page of its own, of prose: the first line (or the opener's title) is the
+ *               title, bold and larger, and the lines under it are centered, each on its own
  */
-export const BUILTIN_BLOCK = {
+export const LAYOUT_STYLE = {
   text: 'text',
   list: 'list',
   numbered: 'numbered',
   center: 'center',
-  constants: 'constants',
+  titlepage: 'titlepage',
 } as const
-export type BuiltinBlock = (typeof BUILTIN_BLOCK)[keyof typeof BUILTIN_BLOCK]
-export const BUILTIN_BLOCKS: readonly BuiltinBlock[] = Object.values(BUILTIN_BLOCK)
+export type LayoutStyle = (typeof LAYOUT_STYLE)[keyof typeof LAYOUT_STYLE]
+export const LAYOUT_STYLES: readonly LayoutStyle[] = Object.values(LAYOUT_STYLE)
 
-/** Words of @ that a constant of your own can't be called: the blocks and namespaces. */
-export const RESERVED_CONSTANT_NAMES: ReadonlySet<string> = new Set<string>([...BUILTIN_BLOCKS, ...Object.values(NAMESPACE)])
+/** The layouts whose lines are prose rather than calculations: text blocks and title pages. */
+export const PROSE_LAYOUTS: ReadonlySet<LayoutStyle> = new Set([LAYOUT_STYLE.text, LAYOUT_STYLE.titlepage])
+
+/** `@constants { … }`: the block of your own constants, usable anywhere as `@name`. */
+export const CONSTANTS_BLOCK = 'constants'
+
+/** Words of @ that a constant of your own can't be called: the namespaces, and `constants`. */
+export const RESERVED_CONSTANT_NAMES: ReadonlySet<string> = new Set<string>([CONSTANTS_BLOCK, ...Object.values(NAMESPACE)])
 
 /** A block's closing brace, at the start of a line. */
 export const BLOCK_CLOSE = '}'
@@ -345,11 +358,35 @@ export const BLOCK_CLOSE = '}'
 /** A block's opening brace, at the end of its opener. */
 export const BLOCK_OPEN = '{'
 
-/** A built-in block's opener as written: `@list Steps {`, `@text {`. */
-export const builtinOpenerText = (block: BuiltinBlock, title = '') => `${SIGIL}${block}${title ? ` ${title}` : ''} ${BLOCK_OPEN}`
+/** A layout block's name as written, from its members: `@layout.list`, `@layout.val.multiline`. */
+export const layoutName = (...members: string[]) => [`${SIGIL}${NAMESPACE.layout}`, ...members].join(MEMBER_DOT)
 
-/** The opener of a built-in block: `@list Steps {`, `@text {` (1: the block, 2: the title, if any). */
-export const BUILTIN_BLOCK_OPENER = new RegExp(String.raw`^@(${BUILTIN_BLOCKS.join('|')})(?:\s+(.*?))?\s*\{$`)
+/** A layout block's opener as written: `@layout.list Steps {`, `@layout.text {`. */
+export const layoutOpenerText = (members: readonly string[], title = '') =>
+  `${layoutName(...members)}${title ? ` ${title}` : ''} ${BLOCK_OPEN}`
+
+/**
+ * A layout block's name at the start of some text, with any number of members:
+ * `@layout.list`, `@layout.val.multiline` (1: the members, each after its dot).
+ * Any name is read as a member, so one that isn't gets a message rather than
+ * being taken for something else.
+ */
+const LAYOUT_NAME = String.raw`@${NAMESPACE.layout}((?:\.${NAME})+)(?!${NAME_CHAR})`
+
+/** A layout block's name at the current position (for the editor's tokenizer). */
+export const LAYOUT_NAME_TOKEN = new RegExp(LAYOUT_NAME)
+
+/** The opener of a layout block: `@layout.list Steps {`, `@layout.val.multiline {` (1: the members, 2: the title, if any). */
+export const LAYOUT_OPENER = new RegExp(String.raw`^${LAYOUT_NAME}(?:\s+(.*?))?\s*\{$`)
+
+/** A layout block's members, as LAYOUT_OPENER reads them: `.val.multiline` → val, multiline. */
+export const layoutMembers = (chain: string) => chain.split(MEMBER_DOT).filter(Boolean)
+
+/** The opener of an `@constants { }` block. */
+export const CONSTANTS_OPENER = new RegExp(String.raw`^@${CONSTANTS_BLOCK}\s*\{$`)
+
+/** `@constants` at the current position (for the editor's tokenizer). */
+export const CONSTANTS_TOKEN = new RegExp(`@${CONSTANTS_BLOCK}(?!${NAME_CHAR})`)
 
 /** A constant's name, optionally a namespace's member: `c`, `chem.Na` (or chem__Na, once dots are read). */
 const CONSTANT_NAME = String.raw`${NAME}(?:\.${NAME})?`
@@ -397,16 +434,30 @@ export const LINE_COMMANDS: readonly LineCommand[] = Object.values(LINE_COMMAND)
 /** `#multiline`: one `=` per row; a layout, so it combines with the commands above. */
 export const MULTILINE = 'multiline'
 
-/** How a layout block (`@list Title { … }`), or one line, is arranged: the built-in blocks besides @constants. */
-export const LAYOUT_STYLE = {
-  center: BUILTIN_BLOCK.center, list: BUILTIN_BLOCK.list, numbered: BUILTIN_BLOCK.numbered, text: BUILTIN_BLOCK.text,
-} as const satisfies Partial<Record<BuiltinBlock, BuiltinBlock>>
-export type LayoutStyle = (typeof LAYOUT_STYLE)[keyof typeof LAYOUT_STYLE]
-export const LAYOUT_STYLES: readonly LayoutStyle[] = Object.values(LAYOUT_STYLE)
-
-/** The layouts a single line can take as a command: `F = m * a  #center`. (Prose, @text, is a block only.) */
+/** The layouts a single line can take as a command: `F = m * a  #center`. (Prose and title pages are blocks only.) */
 export const LINE_LAYOUTS = [LAYOUT_STYLE.center, LAYOUT_STYLE.list, LAYOUT_STYLE.numbered] as const
 export type LineLayout = (typeof LINE_LAYOUTS)[number]
+
+/**
+ * What a layout block can have besides its layout: the display settings the
+ * #commands give a line, for every line inside (`@layout.val.multiline {`), and
+ * `hidden`, which works the block out without showing it (#hide). They combine
+ * with each other and with a layout: `@layout.numbered.val {`.
+ */
+export const LAYOUT_MODIFIER = {
+  hidden: 'hidden',
+  full: DISPLAY_MODE.full,
+  sym: DISPLAY_MODE.sym,
+  val: DISPLAY_MODE.val,
+  multiline: MULTILINE,
+  sci: NOTATION.sci,
+  dec: NOTATION.dec,
+} as const
+export type LayoutModifier = (typeof LAYOUT_MODIFIER)[keyof typeof LAYOUT_MODIFIER]
+export const LAYOUT_MODIFIERS: readonly LayoutModifier[] = Object.values(LAYOUT_MODIFIER)
+
+/** Everything that can follow `@layout.`: the layouts, then the display settings. */
+export const LAYOUT_MEMBERS: readonly (LayoutStyle | LayoutModifier)[] = [...LAYOUT_STYLES, ...LAYOUT_MODIFIERS]
 
 /** Every display command, in the order the editor lists them. (`#sci` and `#dec` are the notations, NOTATIONS.) */
 export const COMMAND_NAMES = [...LINE_COMMANDS, MULTILINE, ...NOTATIONS, ...LINE_LAYOUTS] as const

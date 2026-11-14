@@ -259,7 +259,12 @@ export function RenderedBlock({ block }: { block: Block }) {
           {block.note && <span className="calc__note">{block.note}</span>}
         </p>
       )
-      const error = block.error && <LineMessage kind={DIAGNOSTIC_KIND.error} line={block.line} text={block.error} />
+      const error = (block.error || block.warning) && (
+        <>
+          {block.error && <LineMessage kind={DIAGNOSTIC_KIND.error} line={block.line} text={block.error} />}
+          {block.warning && <LineMessage kind={DIAGNOSTIC_KIND.warning} line={block.line} text={block.warning} />}
+        </>
+      )
       if (block.style === LAYOUT_STYLE.list || block.style === LAYOUT_STYLE.numbered) {
         const List = block.style === LAYOUT_STYLE.numbered ? 'ol' : 'ul'
         const items = listItems(block.children).map(({ item, subs }) => (

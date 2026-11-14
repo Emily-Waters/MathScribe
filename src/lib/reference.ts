@@ -315,28 +315,40 @@ export const REFERENCE: ReferenceSection[] = [
     title: 'Layout',
     examples: [
       {
-        source: '@list Assumptions {\n    > The box is one-dimensional\n    > The walls are infinitely high\n        > so ψ = 0 at the walls\n}',
-        explain: '@list makes the lines up to its } bullets; indent further for a sub-list. The title is optional.',
+        source: '@layout.list Assumptions {\n    > The box is one-dimensional\n    > The walls are infinitely high\n        > so ψ = 0 at the walls\n}',
+        explain: '@layout.list makes the lines up to its } bullets; indent further for a sub-list. The title is optional.',
       },
       {
-        source: '@numbered Steps {\n    m = 2.00 kg\n    F = m * 9.81 m/s^2\n}',
-        explain: '@numbered makes a numbered list. Variables assigned inside stay available afterwards (unlike Title { } blocks).',
+        source: '@layout.numbered Steps {\n    m = 2.00 kg\n    F = m * 9.81 m/s^2\n}',
+        explain: '@layout.numbered makes a numbered list. Variables assigned inside stay available afterwards (unlike Title { } blocks).',
       },
       {
-        source: '@center Key result {\n    E = 2.00 kg * (3.00e8 m/s)^2\n}',
-        explain: '@center centers the lines. The title is optional: “@center {” on its own works too.',
+        source: '@layout.center Key result {\n    E = 2.00 kg * (3.00e8 m/s)^2\n}',
+        explain: '@layout.center centers the lines. The title is optional: “@layout.center {” on its own works too.',
+      },
+      {
+        source: '@layout.titlepage {\n    Lab 3: Motion on a ramp\n    Emily Waters\n    PHYS 101, Section B\n}',
+        explain: '@layout.titlepage makes a title page of prose: the first line is the title, bold and larger; each line after it is centered on its own. The exports start a new page after it.',
+      },
+      {
+        source: '@layout.hidden {\n    m = 2.00 kg\n    g_0 = 9.81 m/s^2\n}\nF = m * g_0',
+        explain: '@layout.hidden works out the lines inside without showing them; what they define is usable after it.',
+      },
+      {
+        source: '@layout.val.multiline Results {\n    F = 2.00 kg * 9.81 m/s^2\n    p = 2.00 kg * 3.00 m/s   #full\n}',
+        explain: '.sym, .val, .full, .multiline, .sci and .dec set how every line inside is shown, as their #commands do on a line. Members combine (@layout.numbered.val); a line’s own command still wins.',
       },
       { source: 'F = 2.00 kg * 9.81 m/s^2   #center', explain: 'On a single line, #center centers just that line (#list and #numbered work too).' },
       {
         source: [
-          '@text Discussion {',
+          '@layout.text Discussion {',
           '    The measured acceleration is lower than g sin θ, because',
           '    the ramp isn’t frictionless: $\\mu_k \\approx 0.05$ would explain it.',
           '',
           '    A blank line starts a new paragraph.',
           '}',
         ].join('\n'),
-        explain: '@text makes a block of prose: lines join into paragraphs (a blank line starts a new one), $…$ is maths, and nothing is calculated.',
+        explain: '@layout.text makes a block of prose: lines join into paragraphs (a blank line starts a new one), $…$ is maths, and nothing is calculated.',
       },
     ],
   },

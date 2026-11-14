@@ -270,7 +270,7 @@ export const REFERENCE: ReferenceSection[] = [
     id: 'chemistry',
     title: 'Chemistry',
     examples: [
-      { source: 'M = @chem.Na', explain: '@chem.Na is an element’s molar mass, with the digits IUPAC gives (@chem.Na:3 for 3 sig figs).' },
+      { source: 'M = @chem.mm.Na', explain: '@chem.mm.Na is an element’s molar mass, with the digits IUPAC gives (@chem.mm.Na:3 for 3 sig figs).' },
       {
         source: 'M = @chem.mm({CuSO4*5H2O})',
         explain: '@chem.mm({formula}) adds up a compound’s molar mass: groups in brackets, a hydrate’s water after *. A charge or state is left out.',

@@ -285,7 +285,7 @@ ${code(SNIPPETS.chemistry)}
   Species cancel like units, so a mole ratio is \`(1 mol {X}) / (1 mol {EDTA})\`, and amounts of
   different species can't be added. A whole number of a species (\`1 mol {X}\`) is exact.
 - \`M\` is molarity (mol/L). A molar mass has no species: \`@chem.mm({NaOH})\` works one out from
-  the formula (brackets and a hydrate's \`*\` work, no coefficient), \`@chem.Na\` is an element's,
+  the formula (brackets and a hydrate's \`*\` work, no coefficient), \`@chem.mm.Na\` is an element's,
   or write it: \`40.00 g/mol\`.
 - \`@chem.total(n_Na, n_Cl)\` adds amounts of different species, as plain amounts.
 - A display name goes on the name being assigned: \`n_Na:"Moles of {Na^+}" = …\` shows as

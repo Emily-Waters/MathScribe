@@ -47,7 +47,7 @@ export const CONSTANTS_BLOCK_DESCRIPTION = 'Constants usable anywhere in the she
 
 /** What each namespace holds, in a suggestion. */
 export const NAMESPACE_DESCRIPTIONS: Record<Namespace, string> = {
-  chem: 'The elements’ molar masses (@chem.Na), mm( ) and total( )',
+  chem: 'The elements’ molar masses (@chem.mm.Na), mm( ) and total( )',
   layout: 'Blocks that arrange lines (text, list, numbered, center, titlepage) or set how they’re shown (hidden, sym, val, multiline, …)',
 }
 

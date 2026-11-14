@@ -3,12 +3,11 @@
  * (n sig figs) or `@name:exact` (full precision). Values are CODATA 2018; those
  * marked exact are exact by definition in the 2019 SI.
  *
- * Namespaces hold more, written with a dot: `@chem.Na` is sodium's molar mass
+ * Namespaces hold more, written with dots: `@chem.mm.Na` is sodium's molar mass
  * (elements.ts), and has the digits IUPAC gives unless written with `:n`.
  */
 import { ELEMENTS, MOLAR_MASS_UNIT, elementDescription, type ElementSymbol } from './elements.ts'
-import { memberName } from './names.ts'
-import { NAMESPACE } from './syntax.ts'
+import { molarMassKey } from './names.ts'
 export interface BuiltinConstant {
   value: number
   /** mathjs unit string; empty for dimensionless. */
@@ -47,16 +46,16 @@ export const BUILTIN_CONSTANTS: Record<string, BuiltinConstant> = {
 export const DEFAULT_CONSTANT_SIG_FIGS = 3
 
 /**
- * A constant in a namespace: `@chem.Na`. Its value as written (`22.990`) holds
+ * A constant in a namespace: `@chem.mm.Na`. Its value as written (`22.990`) holds
  * its sig figs, which a use without `:n` gets, rather than DEFAULT_CONSTANT_SIG_FIGS.
  */
 export interface NamespaceConstant extends BuiltinConstant {
   written: string
 }
 
-/** Each element's molar mass, `@chem.Na`, by its inside name (chem__Na; see names.ts). */
+/** Each element's molar mass, `@chem.mm.Na`, by its inside name (chem__mm__Na; see names.ts). */
 export const CHEM_CONSTANTS: Readonly<Record<string, NamespaceConstant>> = Object.fromEntries(
-  (Object.keys(ELEMENTS) as ElementSymbol[]).map((symbol) => [memberName(NAMESPACE.chem, symbol), {
+  (Object.keys(ELEMENTS) as ElementSymbol[]).map((symbol) => [molarMassKey(symbol), {
     value: Number(ELEMENTS[symbol].weight),
     written: ELEMENTS[symbol].weight,
     unit: MOLAR_MASS_UNIT,

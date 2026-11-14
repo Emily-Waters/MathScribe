@@ -150,7 +150,7 @@ const openerText = (b: LayoutBlock) => layoutOpenerText(b.members ?? [b.style ??
 
 /**
  * A line that sets a constant's precision and/or display unit sheet-wide: `@c:4`,
- * `@a_0:3 to angstrom`, `@chem.Na:3`. Its name as typed (chem.Na), and inside (chem__Na).
+ * `@a_0:3 to angstrom`, `@chem.mm.Na:3`. Its name as typed (chem.mm.Na), and inside (chem__mm__Na).
  */
 interface Declaration { name: string; key: string; precision?: string; unit?: string }
 

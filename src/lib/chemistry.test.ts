@@ -102,17 +102,17 @@ describe('display names', () => {
 
 describe('@chem: elements’ molar masses', () => {
   it('are in g/mol, with the digits IUPAC gives unless asked for others', () => {
-    expect(value('M = @chem.Na')).toBe('22.990 g/mol')
-    expect(value('M = @chem.Cl')).toBe('35.45 g/mol')
-    expect(value('M = @chem.Na:3')).toBe('23.0 g/mol')
+    expect(value('M = @chem.mm.Na')).toBe('22.990 g/mol')
+    expect(value('M = @chem.mm.Cl')).toBe('35.45 g/mol')
+    expect(value('M = @chem.mm.Na:3')).toBe('23.0 g/mol')
   })
 
   it('suggest the element meant, and keep symbols case-sensitive', () => {
-    expect(last('M = @chem.Xx').error).toMatch(/Unknown constant @chem\.Xx/)
+    expect(last('M = @chem.mm.Xx').error).toMatch(/Unknown constant @chem\.mm\.Xx/)
   })
 
   it('can be declared sheet-wide, as other constants can', () => {
-    expect(value('@chem.Na:3\nM = @chem.Na')).toBe('23.0 g/mol')
+    expect(value('@chem.mm.Na:3\nM = @chem.mm.Na')).toBe('23.0 g/mol')
   })
 })
 

@@ -44,7 +44,7 @@ import {
   type VectorStyle,
 } from './syntax.ts'
 import {
-  ANY_SPECIES_FUNCTION, FIT, INLINE_VALUE_NAME, JOIN, RESERVED_NAMESPACES, constantKey, constantRefName, expandDots, typedName, isHiddenName, isUncertaintyName, memberName,
+  ANY_SPECIES_FUNCTION, FIT, INLINE_VALUE_NAME, JOIN, RESERVED_NAMESPACES, constantKey, constantRefName, expandDots, typedConstant, isHiddenName, isUncertaintyName, memberName,
   parseConstantRefName, parseMemberName, parseNumberedName, parseSeriesStatName, parseSolvedName, parseUncertaintyName, readableMembers,
   seriesMemberName, solvedName, uncertaintyName, unpackedColumnName, unpackedName,
 } from './names.ts'
@@ -107,7 +107,7 @@ const FORMULA_ARGUMENT = /^\{([^{}]+)\}$/
 /**
  * A line with each call to a namespace's function written out as what it
  * stands for, for the engine to work out (innermost first):
- *   `@chem.mm({Ca(OH)2})`      → (@chem.Ca + 2 * @chem.O + 2 * @chem.H)
+ *   `@chem.mm({Ca(OH)2})`      → (@chem.mm.Ca + 2 * @chem.mm.O + 2 * @chem.mm.H)
  *   `@chem.total(n_Na, n_Cl)`  → (n_Na + n_Cl), each with its species taken off
  */
 export function expandNamespaceCalls(line: string): { text: string; error?: string } {
@@ -2959,24 +2959,24 @@ export class Calculator {
    * written with. `:exact` gives full precision and doesn't limit sig figs.
    */
   private expandConstants(line: string): { text: string; error?: string } {
-    // `@chem.mm({H2O})` is a sum of `@chem.H`s and `@chem.O`s, worked out below.
+    // `@chem.mm({H2O})` is a sum of `@chem.mm.H`s and `@chem.mm.O`s, worked out below.
     const calls = expandNamespaceCalls(line)
     if (calls.error) return calls
     let error: string | undefined
     const text = calls.text.replace(CONSTANT_REF, (match, typed: string, spec?: string) => {
-      // `@chem.Na` is chem__Na inside (with its dot read already, or not).
+      // `@chem.mm.Na` is chem__mm__Na inside (with its first dot read already, or not).
       const name = constantKey(typed)
       const custom = this.customConstants.get(name)
       const builtin = builtinConstant(name)
       if (!custom && !builtin) {
         const known = [...BUILTIN_CONSTANT_KEYS, ...this.customConstants.keys()]
         const guess = suggestConstant(name, known)
-        error ??= `Unknown constant ${SIGIL}${typedName(name)}.`
-          + (guess ? ` Did you mean ${SIGIL}${typedName(guess)}?` : ` Define it in an ${SIGIL}${CONSTANTS_BLOCK} { } block.`)
+        error ??= `Unknown constant ${SIGIL}${typedConstant(name)}.`
+          + (guess ? ` Did you mean ${SIGIL}${typedConstant(guess)}?` : ` Define it in an ${SIGIL}${CONSTANTS_BLOCK} { } block.`)
         return match
       }
       // Precedence: this use's own :n, then the sheet's declaration, then the default.
-      // A namespace's constant, `@chem.Na`, has the digits it's written with (22.990), unless asked for others.
+      // A namespace's constant, `@chem.mm.Na`, has the digits it's written with (22.990), unless asked for others.
       const writtenSf = builtin && isNamespaceConstant(builtin) ? countSigFigs(builtin.written) : undefined
       const digits: Precision = spec === EXACT_SETTING
         ? EXACT_SETTING
@@ -2984,7 +2984,7 @@ export class Calculator {
           ? Number(spec)
           : this.constantPrecision.get(name) ?? (custom ? custom.sf : writtenSf ?? DEFAULT_CONSTANT_SIG_FIGS)
       if (digits === 0) {
-        error ??= `${SIGIL}${typedName(name)}:0 isn't valid; use at least 1 sig fig, or :exact.`
+        error ??= `${SIGIL}${typedConstant(name)}:0 isn't valid; use at least 1 sig fig, or :exact.`
         return match
       }
       // Built-ins stay in their own unit (1.602e-19 C, not 160.2 zC).

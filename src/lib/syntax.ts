@@ -305,12 +305,12 @@ export type SeriesSuffix = keyof typeof SERIES_SUFFIXES
 
 /**
  * What starts everything built in rather than written in the sheet: constants
- * (`@c`), namespaces (`@chem.Na`, `@chem.mm(…)`, `@layout.text Title {`) and
+ * (`@c`), namespaces (`@chem.mm.Na`, `@chem.mm(…)`, `@layout.text Title {`) and
  * the `@constants { }` block.
  */
 export const SIGIL = '@'
 
-/** Namespaces under @, whose members are written with a dot: `@chem.Na`, `@layout.list`. */
+/** Namespaces under @, whose members are written with a dot: `@chem.mm.Na`, `@layout.list`. */
 export const NAMESPACE = { chem: 'chem', layout: 'layout' } as const
 export type Namespace = (typeof NAMESPACE)[keyof typeof NAMESPACE]
 
@@ -318,6 +318,7 @@ export type Namespace = (typeof NAMESPACE)[keyof typeof NAMESPACE]
  * The functions in @chem:
  *   `@chem.mm({CuSO4*5H2O})`     the molar mass of a compound, in g/mol
  *   `@chem.total(n_Na, n_Cl)`    the sum of amounts of different species, as plain amounts
+ * `mm` also holds each element's molar mass, as a constant: `@chem.mm.Na`.
  */
 export const CHEM_FUNCTION = { molarMass: 'mm', total: 'total' } as const
 export type ChemFunction = (typeof CHEM_FUNCTION)[keyof typeof CHEM_FUNCTION]
@@ -388,14 +389,14 @@ export const CONSTANTS_OPENER = new RegExp(String.raw`^@${CONSTANTS_BLOCK}\s*\{$
 /** `@constants` at the current position (for the editor's tokenizer). */
 export const CONSTANTS_TOKEN = new RegExp(`@${CONSTANTS_BLOCK}(?!${NAME_CHAR})`)
 
-/** A constant's name, optionally a namespace's member: `c`, `chem.Na` (or chem__Na, once dots are read). */
-const CONSTANT_NAME = String.raw`${NAME}(?:\.${NAME})?`
+/** A constant's name, optionally in namespaces: `c`, `chem.mm.Na` (or chem__mm.Na, once the first dot is read). */
+const CONSTANT_NAME = String.raw`${NAME}(?:\.${NAME})*`
 
 /** The precision written after a constant: `:4` or `:exact`. */
 const CONSTANT_PRECISION = String.raw`(?::(\d+|${EXACT_SETTING})\b)?`
 
 /**
- * Every constant in a line: `@c`, `@c:4`, `@c:exact`, `@chem.Na:5`
+ * Every constant in a line: `@c`, `@c:4`, `@c:exact`, `@chem.mm.Na:5`
  * (1: the name, with any namespace; 2: the precision). Not a call, `@chem.mm(…)`.
  */
 export const CONSTANT_REF = new RegExp(String.raw`@(${CONSTANT_NAME})(?!${NAME_CHAR}|\.|\s*\()${CONSTANT_PRECISION}`, 'g')
@@ -408,7 +409,7 @@ export const NAMESPACE_CALL_TOKEN = new RegExp(String.raw`@(${NAME})\.(${NAME})(
 
 /**
  * A line that only sets a constant sheet-wide: `@c:4`, `@a_0 to angstrom`,
- * `@a_0:3 to angstrom`, `@chem.Cl:3` (1: the name, 2: the precision, 3: the unit).
+ * `@a_0:3 to angstrom`, `@chem.mm.Cl:3` (1: the name, 2: the precision, 3: the unit).
  */
 export const CONSTANT_DECLARATION = new RegExp(String.raw`^@(${CONSTANT_NAME})(?::(\d+|${EXACT_SETTING}))?(?:\s+${KEYWORD.to}\s+(\S.*?))?\s*$`)
 

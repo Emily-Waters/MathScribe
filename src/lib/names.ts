@@ -15,7 +15,7 @@
  * p.r2 and p.chi2.
  */
 import {
-  DOT_ACCESS, EXACT_SETTING, IS_NAME, MEMBER_DOT, NAME, NAMESPACE, SERIES_SUFFIXES, SUBSCRIPT, UNCERTAINTY_WORDS,
+  CHEM_FUNCTION, DOT_ACCESS, EXACT_SETTING, IS_NAME, MEMBER_DOT, NAME, NAMESPACE, SERIES_SUFFIXES, SUBSCRIPT, UNCERTAINTY_WORDS,
   type Precision, type SeriesSuffix, type UncertaintyWord,
 } from './syntax.ts'
 
@@ -67,8 +67,17 @@ export const INLINE_VALUE_NAME = `${HIDDEN_PREFIX.inline}${JOIN}value`
 /** A namespace's member: `a.x_1` → a__x_1. */
 export const memberName = (namespace: string, member: string) => `${namespace}${JOIN}${member}`
 
-/** A constant's inside name, as typed with or without its namespace: `c` → c, `chem.Na` → chem__Na. */
-export const constantKey = (typed: string) => typed.replace(MEMBER_DOT, JOIN)
+/**
+ * A constant's inside name, as typed with or without its namespaces: `c` → c,
+ * `chem.mm.Na` → chem__mm__Na (`chem__mm.Na`, with its first dot read already, too).
+ */
+export const constantKey = (typed: string) => typed.replaceAll(MEMBER_DOT, JOIN)
+
+/** A constant's name as typed, from its inside name: chem__mm__Na → chem.mm.Na. */
+export const typedConstant = (key: string) => key.replaceAll(JOIN, MEMBER_DOT)
+
+/** An element's molar mass, `@chem.mm.Na`, by its inside name: chem__mm__Na. */
+export const molarMassKey = (symbol: string) => [NAMESPACE.chem, CHEM_FUNCTION.molarMass, symbol].join(JOIN)
 
 /**
  * The function `@chem.total(a, b)` puts around each amount, which takes its

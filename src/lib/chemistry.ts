@@ -20,10 +20,10 @@
  * to seconds is.
  *
  * A compound's molar mass is `@chem.mm({CuSO4*5H2O})` (see parseFormula), and
- * an element's `@chem.Na` (see elements.ts).
+ * an element's `@chem.mm.Na` (see elements.ts).
  */
 import { isElement, type ElementSymbol } from './elements.ts'
-import { MEMBER_DOT, NAMESPACE, SIGIL } from './syntax.ts'
+import { CHEM_FUNCTION, MEMBER_DOT, NAMESPACE, SIGIL } from './syntax.ts'
 
 /** A formula in text, `{Na^+}`: single braces, not a value's `{{…}}`, nor a subscript's `_{…}` (1: the formula). */
 export const FORMULA_IN_TEXT = /(?<![{_])\{([^{}]+)\}(?!\})/g
@@ -182,13 +182,13 @@ export function parseFormula(formula: string): AtomCounts | { error: string } {
 }
 
 /**
- * A compound's molar mass as a sum of its elements' (`@chem.Ca + 2 * @chem.O + 2 * @chem.H`),
+ * A compound's molar mass as a sum of its elements' (`@chem.mm.Ca + 2 * @chem.mm.O + 2 * @chem.mm.H`),
  * in brackets, for the engine to work out: so the sum is shown as working, and
  * the sig figs follow from the atomic weights by the addition rule.
  */
 export function molarMassSum(atoms: AtomCounts): string {
   const term = ([symbol, n]: [ElementSymbol, number]) => {
-    const element = `${SIGIL}${NAMESPACE.chem}${MEMBER_DOT}${symbol}`
+    const element = `${SIGIL}${[NAMESPACE.chem, CHEM_FUNCTION.molarMass, symbol].join(MEMBER_DOT)}`
     return n === 1 ? element : `${n} * ${element}`
   }
   return `(${[...atoms].map(term).join(' + ')})`

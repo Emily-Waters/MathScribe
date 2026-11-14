@@ -253,13 +253,13 @@ block's first line to hide it. The dialog remembers your last choices.
 | `@layout.hidden {` … `}` | lines worked out but not shown |
 | `@layout.val.multiline {` … `}` | every line inside shown as `#val #multiline` would show it |
 | `@c`, `@a_0:3 to angstrom` | constants, and setting their precision and unit |
-| `@chem.Na`, `@chem.mm({H2O})` | an element's molar mass, and a compound's |
+| `@chem.mm.Na`, `@chem.mm({H2O})` | an element's molar mass, and a compound's |
 
 **`@` is MathScribe's own:** everything built in rather than written in the sheet
 starts with `@`: constants (`@c`), the `@constants { }` block, and namespaces,
 whose members are written with a dot: `@layout` holds the layout blocks
 (`@layout.text`, `@layout.list`, `@layout.numbered`, `@layout.center`,
-`@layout.titlepage`) and `@chem` the chemistry (`@chem.Na`, `@chem.mm(…)`). Your
+`@layout.titlepage`) and `@chem` the chemistry (`@chem.mm.Na`, `@chem.mm(…)`). Your
 own constants are `@name` too, so they can't be called `layout`, `chem` or
 `constants`.
 
@@ -998,18 +998,19 @@ n_2 = m / (40.00 g/mol)                   → 0.125 mol NaOH       (a molar mass
   limits the sig figs. `1.00 mol {Na}` is a measurement.
 - Values without a species work as before.
 
-**Molar masses:** `@chem.Na` is an element's molar mass in g/mol, and
-`@chem.mm({formula})` a compound's, added up from its elements:
+**Molar masses:** `@chem.mm.Na` is an element's molar mass in g/mol, and
+`@chem.mm({formula})` a compound's, added up from its elements. Both are under `mm`:
+after it, a dot gives an element and brackets a formula.
 
 ```
-M_Na = @chem.Na                           → 22.990 g/mol
+M_Na = @chem.mm.Na                        → 22.990 g/mol
 M = @chem.mm({CuSO4*5H2O})                → M = M_Cu + M_S + 9M_O + 10M_H = … = 249.68 g/mol
 n = 5.00 g {NaOH} / @chem.mm({NaOH})      → 0.125 mol NaOH
 ```
 
 - Atomic weights are IUPAC's abridged standard atomic weights (2021), with the digits
-  IUPAC gives as their sig figs (Na 22.990, Cl 35.45); `@chem.Na:3` uses 3, and
-  `@chem.Cl:3` on a line of its own sets it for the whole sheet, as for other
+  IUPAC gives as their sig figs (Na 22.990, Cl 35.45); `@chem.mm.Na:3` uses 3, and
+  `@chem.mm.Cl:3` on a line of its own sets it for the whole sheet, as for other
   constants. An element with no stable isotope (Tc, Pm, Po, …) has the mass number of
   its longest-lived isotope.
 - A compound's sum is shown as working, and its sig figs follow the addition rule
@@ -1379,7 +1380,7 @@ what's here better.
 ### Done
 
 - [x] **The `@` namespace**: `@layout` blocks (`@layout.text Title { … }`, and
-      `list`, `numbered`, `center`, `titlepage`, and display settings such as `.hidden` and `.val.multiline` that combine); `@chem.Na` molar masses,
+      `list`, `numbered`, `center`, `titlepage`, and display settings such as `.hidden` and `.val.multiline` that combine); `@chem.mm.Na` molar masses,
       `@chem.mm({formula})` with the sum as working, and `@chem.total(…)` to add
       amounts of different species.
 - [x] **Systems of equations**: `tuple(x, y) = solve(eq, eq)`, solved by substitution
@@ -1503,7 +1504,7 @@ renamed, change it there too.
   equations (OMML), by way of KaTeX's MathML
 - `src/lib/sigfigs.ts`: counting, propagating and formatting significant figures
 - `src/lib/solve.ts`: `solve(…)`: rearranging, linear, quadratic and numeric solving
-- `src/lib/constants.ts`: the built-in `@` constants, the elements' (`@chem.Na`) too
+- `src/lib/constants.ts`: the built-in `@` constants, the elements' (`@chem.mm.Na`) too
 - `src/lib/library.ts`: the equations in the Library tab (each tested with its
   example); `src/components/LibraryPane.tsx`: the tab
 - `src/lib/reference.ts`: the examples shown in the Reference tab;

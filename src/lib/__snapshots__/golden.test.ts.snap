@@ -253,9 +253,9 @@ exports[`the Reference tab’s examples > Basics: m = 2.00 kg 1`] = `
 2: F = m (9.81 m/s^2) = (2.00 kg) (9.81 m/s^2) = 19.6 N"
 `;
 
-exports[`the Reference tab’s examples > Chemistry: M = @chem.Na 1`] = `"1: M = M_Na = 22.990 g/mol"`;
-
 exports[`the Reference tab’s examples > Chemistry: M = @chem.mm({CuSO4*5H2O}) 1`] = `"1: M = M_Cu+ M_S+ 9 M_O+ 10 M_H = 63.546 g/mol+ 32.06 g/mol+ 9 (15.999 g/mol)+ 10 (1.008 g/mol) = 249.68 g/mol"`;
+
+exports[`the Reference tab’s examples > Chemistry: M = @chem.mm.Na 1`] = `"1: M = M_Na = 22.990 g/mol"`;
 
 exports[`the Reference tab’s examples > Chemistry: m = 5.00 g {NaOH} 1`] = `
 "1: m = 5.00 g NaOH

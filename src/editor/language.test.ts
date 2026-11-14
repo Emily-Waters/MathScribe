@@ -111,7 +111,7 @@ describe('highlighting', () => {
   })
 
   it('colours @chem’s constants and functions', () => {
-    expect(tokens('M = @chem.Na:3')).toEqual(['M:var', '@chem.Na:3:const'])
+    expect(tokens('M = @chem.mm.Na:3')).toEqual(['M:var', '@chem.mm.Na:3:const'])
     expect(tokens('M = @chem.mm({H2O})')[1]).toBe('@chem.mm:fn')
   })
 })

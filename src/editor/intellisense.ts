@@ -18,7 +18,7 @@
  * by default Enter at the end of a line always starts a new one.
  */
 import {
-  acceptCompletion, autocompletion, completionKeymap, snippetCompletion,
+  acceptCompletion, autocompletion, completionKeymap, snippetCompletion, startCompletion,
   type Completion, type CompletionContext, type CompletionResult,
 } from '@codemirror/autocomplete'
 import { Compartment, Prec, StateEffect, StateField, type EditorState, type Extension } from '@codemirror/state'
@@ -35,7 +35,7 @@ import {
   SETTINGS, SIGIL, layoutMembers, layoutName,
   type ChemFunction, type LayoutModifier, type LayoutStyle, type Namespace,
 } from '../lib/syntax.ts'
-import { memberName, parseMemberName, parseNumberedName, seriesMemberName } from '../lib/names.ts'
+import { memberName, molarMassKey, parseMemberName, parseNumberedName, seriesMemberName } from '../lib/names.ts'
 import {
   BUILTIN_FUNCTIONS, CHEM_FUNCTION_DESCRIPTIONS, COMMANDS, CONSTANTS_BLOCK_DESCRIPTION, KEYWORDS, LAYOUT_DESCRIPTIONS, LAYOUT_MODIFIER_DESCRIPTIONS, MATH_CONSTANTS,
   NAMESPACE_DESCRIPTIONS, SERIES_SUFFIXES, SETTING_WORDS,
@@ -98,10 +98,10 @@ const constantTex = (name: string) => {
   return `${c.tex} = ${numberTex(digits)}${c.unit ? `\\,${unitTex(c.unit)}` : ''}`
 }
 
-/** A namespace and its dot, then what's typed of a member: `@chem.N` (1: the namespace, 2: the member so far). */
+/** A namespace and its dot, then what's typed of a member: `@chem.mm.N` (1: the namespace, 2: the member so far). */
 const NAMESPACE_MEMBER_SO_FAR = new RegExp(String.raw`@(${Object.values(NAMESPACE).join('|')})\.(\w*)$`)
 
-/** A namespace and its dot just before a word: the `@chem.` of `@chem.Na` (1: the namespace). */
+/** A namespace and its dot just before a word: the `@chem.` of `@chem.mm.Na` (1: the namespace). */
 const NAMESPACE_BEFORE = new RegExp(String.raw`@(${Object.values(NAMESPACE).join('|')})\.$`)
 
 /** Whether a word is one of @chem's functions. */
@@ -126,17 +126,33 @@ const LAYOUT_MEMBER_SO_FAR = new RegExp(String.raw`^\s*@${NAMESPACE.layout}((?:\
 /** A layout block's name, up to the dot before a member: the `@layout.val.` of `@layout.val.multiline`. */
 const LAYOUT_MEMBER_BEFORE = new RegExp(String.raw`@${NAMESPACE.layout}(?:\.\w+)*\.$`)
 
+/** `@chem.mm.` and what's typed of an element after it: `@chem.mm.N` (1: the element so far). */
+const MOLAR_MASS_SO_FAR = new RegExp(String.raw`@${NAMESPACE.chem}\.${CHEM_FUNCTION.molarMass}\.(\w*)$`)
+
+/** `@chem.mm.` just before a word: the element's molar mass is hovered. */
+const MOLAR_MASS_BEFORE = new RegExp(String.raw`@${NAMESPACE.chem}\.${CHEM_FUNCTION.molarMass}\.$`)
+
+/** Each element's molar mass, for suggestions after `@chem.mm.`, in order. */
+const ELEMENT_OPTIONS: Completion[] = (Object.keys(ELEMENTS) as ElementSymbol[]).map((symbol): Completion => {
+  const key = molarMassKey(symbol)
+  return { label: symbol, type: 'constant', detail: CHEM_CONSTANTS[key].description, info: () => infoNode(constantTex(key)) }
+})
+
 /** What's in each namespace, for suggestions after its dot. */
 const NAMESPACE_OPTIONS: Record<Namespace, Completion[]> = {
-  // @chem: its functions, then the elements in order.
+  // @chem: its functions; and mm again, as the elements' molar masses after another dot.
   chem: [
     ...Object.values(CHEM_FUNCTION).map((f): Completion => snippetCompletion(`${f}(\${})`, {
       label: f, type: 'function', detail: CHEM_FUNCTION_DESCRIPTIONS[f].description,
     })),
-    ...(Object.keys(ELEMENTS) as ElementSymbol[]).map((symbol): Completion => {
-      const key = memberName(NAMESPACE.chem, symbol)
-      return { label: symbol, type: 'constant', detail: CHEM_CONSTANTS[key].description, info: () => infoNode(constantTex(key)) }
-    }),
+    {
+      label: `${CHEM_FUNCTION.molarMass}${MEMBER_DOT}`, type: 'namespace', detail: 'An element’s molar mass: @chem.mm.Na',
+      // Its elements are suggested straight away.
+      apply: (view, _completion, from, to) => {
+        view.dispatch({ changes: { from, to, insert: `${CHEM_FUNCTION.molarMass}${MEMBER_DOT}` }, selection: { anchor: from + CHEM_FUNCTION.molarMass.length + 1 } })
+        startCompletion(view)
+      },
+    },
   ],
   // @layout: the layouts, then the display settings (more can follow, after another dot).
   layout: LAYOUT_MEMBERS.map((m): Completion => ({ label: m, type: 'keyword', detail: layoutMemberDescription(m) })),
@@ -304,6 +320,10 @@ export function complete(ctx: CompletionContext): CompletionResult | null {
       validFor: /^\w*$/,
     }
   }
+
+  // `@chem.mm.…`: the elements.
+  const element = MOLAR_MASS_SO_FAR.exec(before)
+  if (element) return { from: ctx.pos - element[1].length, options: ELEMENT_OPTIONS, validFor: /^\w*$/ }
 
   // `@chem.…`, `@layout.…`: what's in the namespace (a layout only at the start of a line, where blocks open).
   const member = NAMESPACE_MEMBER_SO_FAR.exec(before)
@@ -492,17 +512,19 @@ const hoverInfo = hoverTooltip((view, pos) => {
     const description = layoutMemberDescription(name)
     return description ? show(word.from, infoNode(undefined, `${layoutName(name)} { }`, description)) : null
   }
-  // `@chem.Na`, `@chem.mm`
+  // `@chem.mm.Na`: the element's molar mass.
+  const molarMass = MOLAR_MASS_BEFORE.exec(before)
+  if (molarMass) {
+    if (!isElement(name)) return null
+    const key = molarMassKey(name)
+    return show(word.from - molarMass[0].length, infoNode(constantTex(key), CHEM_CONSTANTS[key].description))
+  }
+  // `@chem.mm`, `@chem.total`
   const builtinNs = NAMESPACE_BEFORE.exec(before)
   if (builtinNs) {
-    const from = word.from - builtinNs[0].length
-    if (isChemFunction(name)) {
-      const f = CHEM_FUNCTION_DESCRIPTIONS[name]
-      return show(from, infoNode(undefined, `${SIGIL}${builtinNs[1]}${MEMBER_DOT}${f.signature}`, f.description))
-    }
-    if (!isElement(name)) return null
-    const key = memberName(builtinNs[1], name)
-    return show(from, infoNode(constantTex(key), CHEM_CONSTANTS[key].description))
+    if (!isChemFunction(name)) return null
+    const f = CHEM_FUNCTION_DESCRIPTIONS[name]
+    return show(word.from - builtinNs[0].length, infoNode(undefined, `${SIGIL}${builtinNs[1]}${MEMBER_DOT}${f.signature}`, f.description))
   }
   // `@constant`, `@constants`, `@chem`
   if (before.endsWith(SIGIL)) {

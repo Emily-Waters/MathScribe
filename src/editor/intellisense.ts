@@ -24,22 +24,17 @@ import {
 import { Compartment, Prec, StateEffect, StateField, type EditorState, type Extension } from '@codemirror/state'
 import { EditorView, hoverTooltip, keymap, type Command } from '@codemirror/view'
 import katex from '../lib/katex.ts'
-import { BUILTIN_CONSTANTS, CHEM_CONSTANTS, builtinConstant, isNamespaceConstant } from '../lib/constants.ts'
-import { ELEMENTS, isElement, type ElementSymbol } from '../lib/elements.ts'
+import { isNamespaceConstant, type BuiltinConstant, type NamespaceConstant } from '../lib/constants.ts'
+import {
+  BUILTINS, BlockMember, ConstantMember, FunctionMember, Namespace as BuiltinNamespace, type Member,
+} from '../lib/builtins.ts'
 import { SYMBOL_KIND, type SheetSymbol } from '../lib/document.ts'
 import { describeUnit, isUnitName, numberTex, symbolTex, unitNames, unitTex } from '../lib/engine.ts'
 import { STORAGE_KEYS } from '../config.ts'
 import { readStored, writeStored } from '../lib/storage.ts'
-import {
-  CALL, CHEM_FUNCTION, CONSTANTS_BLOCK, GREEK_CHARS, LATEX_BLOCK, KEYWORD, LAYOUT_MEMBERS, LAYOUT_MODIFIERS, LAYOUT_STYLES, MEMBER_DOT, NAME, NAME_CHAR, NAMESPACE, PERCENT,
-  SETTINGS, SIGIL, layoutMembers, layoutName,
-  type ChemFunction, type LayoutModifier, type LayoutStyle, type Namespace,
-} from '../lib/syntax.ts'
-import { memberName, molarMassKey, parseMemberName, parseNumberedName, seriesMemberName } from '../lib/names.ts'
-import {
-  BUILTIN_FUNCTIONS, CHEM_FUNCTION_DESCRIPTIONS, COMMANDS, CONSTANTS_BLOCK_DESCRIPTION, KEYWORDS, LATEX_BLOCK_DESCRIPTION, LAYOUT_DESCRIPTIONS, LAYOUT_MODIFIER_DESCRIPTIONS, MATH_CONSTANTS,
-  NAMESPACE_DESCRIPTIONS, SERIES_SUFFIXES, SETTING_WORDS,
-} from './vocabulary.ts'
+import { CALL, GREEK_CHARS, KEYWORD, MEMBER_DOT, NAME, NAME_CHAR, PERCENT, SETTINGS, SIGIL } from '../lib/syntax.ts'
+import { memberName, parseMemberName, parseNumberedName, seriesMemberName } from '../lib/names.ts'
+import { BUILTIN_FUNCTIONS, COMMANDS, KEYWORDS, MATH_CONSTANTS, SERIES_SUFFIXES, SETTING_WORDS } from './vocabulary.ts'
 import { inDataBlock, inNamelessBlock, inNote, inValue, isProseLine } from './language.ts'
 import { greekCompletions, greekOnSpace } from './greek.ts'
 
@@ -91,71 +86,80 @@ function infoNode(tex: string | undefined, ...lines: (string | undefined)[]): HT
   return el
 }
 
-/** A built-in constant's value, as LaTeX, by its inside name: c = 299792458 m/s, M_Na = 22.990 g/mol. */
-const constantTex = (name: string) => {
-  const c = builtinConstant(name)!
+// ---------------------------------------------------------------------------
+// Built-in members, `@…` (see builtins.ts): suggested and described from the tree
+// ---------------------------------------------------------------------------
+
+/** A built-in constant's value, as LaTeX: c = 299792458 m/s, M_Na = 22.990 g/mol. */
+const constantTex = (c: BuiltinConstant | NamespaceConstant) => {
   const digits = isNamespaceConstant(c) ? c.written : String(c.value).replace('e+', 'e')
   return `${c.tex} = ${numberTex(digits)}${c.unit ? `\\,${unitTex(c.unit)}` : ''}`
 }
 
-/** A namespace and its dot, then what's typed of a member: `@chem.mm.N` (1: the namespace, 2: the member so far). */
-const NAMESPACE_MEMBER_SO_FAR = new RegExp(String.raw`@(${Object.values(NAMESPACE).join('|')})\.(\w*)$`)
+/** `@` and any namespaces, each with its dot, then what's typed of the next member: `@chem.mm.N` (1: the namespaces and dots, 2: what's typed). */
+const BUILTIN_SO_FAR = /@((?:\w+\.)*)(\w*)$/
 
-/** A namespace and its dot just before a word: the `@chem.` of `@chem.mm.Na` (1: the namespace). */
-const NAMESPACE_BEFORE = new RegExp(String.raw`@(${Object.values(NAMESPACE).join('|')})\.$`)
+/** `@` and any namespaces with their dots, just before a word: the `@chem.mm.` of `@chem.mm.Na` (1: the namespaces and dots). */
+const BUILTIN_BEFORE = /@((?:\w+\.)*)$/
 
-/** Whether a word is one of @chem's functions. */
-const isChemFunction = (name: string): name is ChemFunction => (Object.values(CHEM_FUNCTION) as string[]).includes(name)
-
-/** Whether a word is a layout. */
-const isLayout = (name: string): name is LayoutStyle => (LAYOUT_STYLES as readonly string[]).includes(name)
-
-/** Whether a word is one of a layout block's display settings. */
-const isLayoutModifier = (name: string): name is LayoutModifier => (LAYOUT_MODIFIERS as readonly string[]).includes(name)
-
-/** What a member of @layout does, layout or display setting. */
-const layoutMemberDescription = (name: string) =>
-  isLayout(name) ? LAYOUT_DESCRIPTIONS[name] : isLayoutModifier(name) ? LAYOUT_MODIFIER_DESCRIPTIONS[name] : undefined
+/** Namespaces as typed, each with its dot, as a path of names: `chem.mm.` → chem, mm. */
+const pathOf = (dotted: string) => dotted.split(MEMBER_DOT).filter(Boolean)
 
 /**
- * A layout block's name being typed at the start of a line, after any members
- * already chosen: `@layout.val.mu` (1: the members so far, each after its dot; 2: what's typed of the next).
+ * The namespace whose members come after a path: chem, mm → @chem.mm. In a
+ * chained namespace, the members already chosen are part of the path:
+ * layout, val → @layout. Undefined if the path doesn't lead to one.
  */
-const LAYOUT_MEMBER_SO_FAR = new RegExp(String.raw`^\s*@${NAMESPACE.layout}((?:\.\w+)*)\.(\w*)$`)
+function namespaceAt(path: readonly string[]): BuiltinNamespace | undefined {
+  let ns = BUILTINS
+  for (const name of path) {
+    if (ns.chained) {
+      if (!ns.member(name)) return undefined
+      continue
+    }
+    const next = ns.member(name)
+    if (!(next instanceof BuiltinNamespace)) return undefined
+    ns = next
+  }
+  return ns
+}
 
-/** A layout block's name, up to the dot before a member: the `@layout.val.` of `@layout.val.multiline`. */
-const LAYOUT_MEMBER_BEFORE = new RegExp(String.raw`@${NAMESPACE.layout}(?:\.\w+)*\.$`)
-
-/** `@chem.mm.` and what's typed of an element after it: `@chem.mm.N` (1: the element so far). */
-const MOLAR_MASS_SO_FAR = new RegExp(String.raw`@${NAMESPACE.chem}\.${CHEM_FUNCTION.molarMass}\.(\w*)$`)
-
-/** `@chem.mm.` just before a word: the element's molar mass is hovered. */
-const MOLAR_MASS_BEFORE = new RegExp(String.raw`@${NAMESPACE.chem}\.${CHEM_FUNCTION.molarMass}\.$`)
-
-/** Each element's molar mass, for suggestions after `@chem.mm.`, in order. */
-const ELEMENT_OPTIONS: Completion[] = (Object.keys(ELEMENTS) as ElementSymbol[]).map((symbol): Completion => {
-  const key = molarMassKey(symbol)
-  return { label: symbol, type: 'constant', detail: CHEM_CONSTANTS[key].description, info: () => infoNode(constantTex(key)) }
+/** A suggestion that goes into a namespace: its name and dot, then its members are suggested straight away. */
+const enterNamespace = (label: string, ns: BuiltinNamespace): Completion => ({
+  label: `${label}${MEMBER_DOT}`, type: 'namespace', detail: ns.description,
+  apply: (view, _completion, from, to) => {
+    const insert = `${label}${MEMBER_DOT}`
+    view.dispatch({ changes: { from, to, insert }, selection: { anchor: from + insert.length } })
+    startCompletion(view)
+  },
 })
 
-/** What's in each namespace, for suggestions after its dot. */
-const NAMESPACE_OPTIONS: Record<Namespace, Completion[]> = {
-  // @chem: its functions; and mm again, as the elements' molar masses after another dot.
-  chem: [
-    ...Object.values(CHEM_FUNCTION).map((f): Completion => snippetCompletion(`${f}(\${})`, {
-      label: f, type: 'function', detail: CHEM_FUNCTION_DESCRIPTIONS[f].description,
-    })),
-    {
-      label: `${CHEM_FUNCTION.molarMass}${MEMBER_DOT}`, type: 'namespace', detail: 'An element’s molar mass: @chem.mm.Na',
-      // Its elements are suggested straight away.
-      apply: (view, _completion, from, to) => {
-        view.dispatch({ changes: { from, to, insert: `${CHEM_FUNCTION.molarMass}${MEMBER_DOT}` }, selection: { anchor: from + CHEM_FUNCTION.molarMass.length + 1 } })
-        startCompletion(view)
-      },
-    },
-  ],
-  // @layout: the layouts, then the display settings (more can follow, after another dot).
-  layout: LAYOUT_MEMBERS.map((m): Completion => ({ label: m, type: 'keyword', detail: layoutMemberDescription(m) })),
+/**
+ * A member as suggestions after its namespace's dot (at the top, after `@`,
+ * with `prefix` @): a function, called; a namespace, called (if it can be) and
+ * gone into; a constant, with its value; a block, with its braces; a layout or display setting.
+ */
+function memberOptions(m: Member, prefix: string): Completion[] {
+  const label = `${prefix}${m.name}`
+  const detail = m.description
+  if (m instanceof FunctionMember) return [snippetCompletion(`${label}(\${})`, { label, type: 'function', detail })]
+  if (m instanceof BuiltinNamespace) {
+    return [
+      ...(m.call ? [snippetCompletion(`${label}(\${})`, { label, type: 'function', detail: m.call.description })] : []),
+      enterNamespace(label, m),
+    ]
+  }
+  if (m instanceof ConstantMember) return [{ label, type: 'constant', detail, info: () => infoNode(constantTex(m.constant)) }]
+  if (m instanceof BlockMember) return [snippetCompletion(`${label} {\n\t\${}\n}`, { label, type: 'keyword', detail })]
+  return [{ label, type: 'keyword', detail }]
+}
+
+/** What a built-in member is, for its hover: a constant's value, a function's call, a block's braces. */
+function memberInfo(m: Member): HTMLElement {
+  if (m instanceof ConstantMember) return infoNode(constantTex(m.constant), m.description)
+  if (m instanceof FunctionMember) return infoNode(undefined, m.signature, m.description)
+  if (m instanceof BuiltinNamespace) return infoNode(undefined, m.typed, m.description, m.call && `${m.call.signature}: ${m.call.description}`)
+  return infoNode(undefined, `${m.typed} { }`, m.description)
 }
 
 /** Where a name is defined, for its information panel. */
@@ -310,58 +314,26 @@ export function complete(ctx: CompletionContext): CompletionResult | null {
   const greek = greekCompletions(before, ctx.pos)
   if (greek) return greek
 
-  // `@layout.val.…` at the start of a line: the members not chosen yet.
-  const layoutSoFar = LAYOUT_MEMBER_SO_FAR.exec(before)
-  if (layoutSoFar) {
-    const chosen = new Set(layoutMembers(layoutSoFar[1]))
+  // `@…`, `@chem.…`, `@layout.val.…`: the members of the namespace being typed in. Blocks, and
+  // anything in @layout, only at the start of a line, where blocks open; in a chained
+  // namespace, the members not chosen yet.
+  const typed = BUILTIN_SO_FAR.exec(before)
+  if (typed) {
+    const path = pathOf(typed[1])
+    const ns = namespaceAt(path)
+    const lineStart = before.trim() === typed[0]
+    if (!ns || (ns.atLineStart && !lineStart)) return null
+    const top = ns === BUILTINS
+    const chosen = new Set(path)
+    const members = ns.members.filter((m) => (lineStart || !m.atLineStart) && !(ns.chained && chosen.has(m.name)))
+    const custom = top ? [...visibleAt(ctx.state, line.number).values()].filter((s) => s.kind === SYMBOL_KIND.constant) : []
     return {
-      from: ctx.pos - layoutSoFar[2].length,
-      options: NAMESPACE_OPTIONS.layout.filter((o) => !chosen.has(o.label)),
-      validFor: /^\w*$/,
-    }
-  }
-
-  // `@chem.mm.…`: the elements.
-  const element = MOLAR_MASS_SO_FAR.exec(before)
-  if (element) return { from: ctx.pos - element[1].length, options: ELEMENT_OPTIONS, validFor: /^\w*$/ }
-
-  // `@chem.…`, `@layout.…`: what's in the namespace (a layout only at the start of a line, where blocks open).
-  const member = NAMESPACE_MEMBER_SO_FAR.exec(before)
-  if (member) {
-    const ns = member[1] as Namespace
-    const lineStart = before.trim() === member[0]
-    if (ns === NAMESPACE.layout && !lineStart) return null
-    return { from: ctx.pos - member[2].length, options: NAMESPACE_OPTIONS[ns], validFor: /^\w*$/ }
-  }
-
-  // `@…`: constants and namespaces, and at the start of a line, the blocks (@layout, @constants).
-  const at = /@\w*$/.exec(before)
-  if (at) {
-    const custom = [...visibleAt(ctx.state, line.number).values()].filter((s) => s.kind === SYMBOL_KIND.constant)
-    const lineStart = before.trim() === at[0]
-    const namespaces = Object.values(NAMESPACE).filter((ns) => lineStart || ns !== NAMESPACE.layout)
-    return {
-      from: ctx.pos - at[0].length,
+      from: ctx.pos - (top ? typed[0].length : typed[2].length),
       options: [
-        ...(lineStart
-          ? [
-            snippetCompletion(`${SIGIL}${CONSTANTS_BLOCK} {\n\t\${}\n}`, {
-              label: `${SIGIL}${CONSTANTS_BLOCK}`, type: 'keyword', detail: CONSTANTS_BLOCK_DESCRIPTION,
-            }),
-            snippetCompletion(`${SIGIL}${LATEX_BLOCK} {\n\t\${}\n}`, {
-              label: `${SIGIL}${LATEX_BLOCK}`, type: 'keyword', detail: LATEX_BLOCK_DESCRIPTION,
-            }),
-          ]
-          : []),
-        ...namespaces.map((ns): Completion => ({
-          label: `${SIGIL}${ns}`, apply: `${SIGIL}${ns}${MEMBER_DOT}`, type: 'namespace', detail: NAMESPACE_DESCRIPTIONS[ns],
-        })),
-        ...Object.entries(BUILTIN_CONSTANTS).map(([name, c]): Completion => ({
-          label: `${SIGIL}${name}`, type: 'constant', detail: c.description, info: () => infoNode(constantTex(name)),
-        })),
+        ...members.flatMap((m) => memberOptions(m, top ? SIGIL : '')),
         ...custom.map((s): Completion => ({ label: s.name, type: 'constant', detail: 'your constant', info: () => symbolInfo(s) })),
       ],
-      validFor: /^@\w*$/,
+      validFor: top ? /^@\w*$/ : /^\w*$/,
     }
   }
 
@@ -512,36 +484,16 @@ const hoverInfo = hoverTooltip((view, pos) => {
     const c = COMMANDS.find((x) => x.name === `#${name}`)
     return c ? show(word.from - 1, infoNode(undefined, c.name, c.description)) : null
   }
-  // `@layout.list`, `@layout.val.multiline`: what that member does.
-  if (LAYOUT_MEMBER_BEFORE.test(before)) {
-    const description = layoutMemberDescription(name)
-    return description ? show(word.from, infoNode(undefined, `${layoutName(name)} { }`, description)) : null
-  }
-  // `@chem.mm.Na`: the element's molar mass.
-  const molarMass = MOLAR_MASS_BEFORE.exec(before)
-  if (molarMass) {
-    if (!isElement(name)) return null
-    const key = molarMassKey(name)
-    return show(word.from - molarMass[0].length, infoNode(constantTex(key), CHEM_CONSTANTS[key].description))
-  }
-  // `@chem.mm`, `@chem.total`
-  const builtinNs = NAMESPACE_BEFORE.exec(before)
-  if (builtinNs) {
-    if (!isChemFunction(name)) return null
-    const f = CHEM_FUNCTION_DESCRIPTIONS[name]
-    return show(word.from - builtinNs[0].length, infoNode(undefined, `${SIGIL}${builtinNs[1]}${MEMBER_DOT}${f.signature}`, f.description))
-  }
-  // `@constant`, `@constants`, `@chem`
-  if (before.endsWith(SIGIL)) {
-    if (Object.hasOwn(BUILTIN_CONSTANTS, name)) {
-      return show(word.from - 1, infoNode(constantTex(name), BUILTIN_CONSTANTS[name].description))
-    }
-    if (name === CONSTANTS_BLOCK) return show(word.from - 1, infoNode(undefined, `${SIGIL}${name} { }`, CONSTANTS_BLOCK_DESCRIPTION))
-    if (name === LATEX_BLOCK) return show(word.from - 1, infoNode(undefined, `${SIGIL}${name} { }`, LATEX_BLOCK_DESCRIPTION))
-    const namespace = Object.values(NAMESPACE).find((ns) => ns === name)
-    if (namespace) return show(word.from - 1, infoNode(undefined, `${SIGIL}${namespace}`, NAMESPACE_DESCRIPTIONS[namespace]))
-    const own = visibleAt(state, line.number).get(`@${name}`)
-    return own ? show(word.from - 1, symbolInfo(own)) : null
+  // `@c`, `@chem.mm.Na`, `@layout.val.multiline`, `@constants`: what that built-in member is
+  // (or, at the top, a constant of your own).
+  const builtinPrefix = BUILTIN_BEFORE.exec(before)
+  if (builtinPrefix) {
+    const path = pathOf(builtinPrefix[1])
+    const member = namespaceAt(path)?.member(name)
+    const from = word.from - builtinPrefix[0].length
+    if (member) return show(from, memberInfo(member))
+    const own = path.length ? undefined : visibleAt(state, line.number).get(`${SIGIL}${name}`)
+    return own ? show(from, symbolInfo(own)) : null
   }
   // A unit: after a number or `to`, or inside a compound unit (m/s^2).
   const unitPlace = UNIT_PLACE.test(before)

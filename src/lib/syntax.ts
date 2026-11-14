@@ -390,8 +390,6 @@ export const CONSTANTS_BLOCK = 'constants'
  */
 export const LATEX_BLOCK = 'latex'
 
-/** Words of @ that a constant of your own can't be called: the namespaces, `constants` and `latex`. */
-export const RESERVED_CONSTANT_NAMES: ReadonlySet<string> = new Set<string>([CONSTANTS_BLOCK, LATEX_BLOCK, ...Object.values(NAMESPACE)])
 
 /** A block's closing brace, at the start of a line. */
 export const BLOCK_CLOSE = '}'

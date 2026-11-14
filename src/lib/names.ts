@@ -15,7 +15,7 @@
  * p.r2 and p.chi2.
  */
 import {
-  CHEM_FUNCTION, DOT_ACCESS, EXACT_SETTING, IS_NAME, MEMBER_DOT, NAME, NAMESPACE, SERIES_SUFFIXES, SUBSCRIPT, UNCERTAINTY_WORDS,
+  DOT_ACCESS, EXACT_SETTING, IS_NAME, MEMBER_DOT, NAME, NAMESPACE, SERIES_SUFFIXES, SUBSCRIPT, UNCERTAINTY_WORDS,
   type Precision, type SeriesSuffix, type UncertaintyWord,
 } from './syntax.ts'
 
@@ -76,8 +76,6 @@ export const constantKey = (typed: string) => typed.replaceAll(MEMBER_DOT, JOIN)
 /** A constant's name as typed, from its inside name: chem__mm__Na → chem.mm.Na. */
 export const typedConstant = (key: string) => key.replaceAll(JOIN, MEMBER_DOT)
 
-/** An element's molar mass, `@chem.mm.Na`, by its inside name: chem__mm__Na. */
-export const molarMassKey = (symbol: string) => [NAMESPACE.chem, CHEM_FUNCTION.molarMass, symbol].join(JOIN)
 
 /**
  * The function `@chem.total(a, b)` puts around each amount, which takes its

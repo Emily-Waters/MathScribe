@@ -1530,7 +1530,9 @@ renamed, change it there too.
   equations (OMML), by way of KaTeX's MathML
 - `src/lib/sigfigs.ts`: counting, propagating and formatting significant figures
 - `src/lib/solve.ts`: `solve(…)`: rearranging, linear, quadratic and numeric solving
-- `src/lib/constants.ts`: the built-in `@` constants, the elements' (`@chem.mm.Na`) too
+- `src/lib/builtins.ts`: everything built in under `@` as one tree of members
+  (constants, functions, blocks, namespaces), which the engine and the editor's
+  suggestions and hovers read; `src/lib/constants.ts`: the physics constants' values
 - `src/lib/library.ts`: the equations in the Library tab (each tested with its
   example); `src/components/LibraryPane.tsx`: the tab
 - `src/lib/reference.ts`: the examples shown in the Reference tab;

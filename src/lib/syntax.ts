@@ -21,13 +21,17 @@ export const NAME_CHAR = String.raw`[\w${GREEK_CHARS}]`
 export const NAME = String.raw`[A-Za-z${GREEK_CHARS}]${NAME_CHAR}*`
 
 /**
- * One display setting after a name, with its colon: `:3`, `:deg`, `:sci`, or a
- * display name in quotes, `:"Moles of {Na^+}"` (which can hold spaces and colons).
+ * What a display setting can be: a display name in quotes, `"Moles of {Na^+}"`
+ * (which can hold spaces and colons); a display-name template's use, `massName(H2O)`
+ * (whose brackets can hold spaces); or a word, `3`, `deg`, `sci`.
  */
-export const SETTING = String.raw`:(?:"[^"]*"|[^:=\s"]+)`
+const SETTING_VALUE = String.raw`"[^"]*"|${NAME}\([^()]*\)|[^:=\s"]+`
+
+/** One display setting after a name, with its colon: `:3`, `:deg`, `:"Moles"`, `:massName(H2O)`. */
+export const SETTING = String.raw`:(?:${SETTING_VALUE})`
 
 /** Each setting in a run of them (1: the setting, without its colon). */
-export const EACH_SETTING = /:("[^"]*"|[^:=\s"]+)/g
+export const EACH_SETTING = new RegExp(String.raw`:(${SETTING_VALUE})`, 'g')
 
 /** Around a display name: `n_Na:"Moles of {Na^+}"`. */
 export const LABEL_QUOTE = '"'
@@ -134,6 +138,16 @@ const NAMED = String.raw`(?:(${NAME})\s*=\s*)`
 /** The start of a one-line function: `f(x, y):3 =` (1: name, 2: parameters, 3: settings). */
 export const FUNCTION_HEAD = new RegExp(`^(${NAME})\\s*${PARAMETERS}(${SETTINGS})${ASSIGNS}`)
 
+/**
+ * A display-name template: a one-line function whose body is words in quotes,
+ * with `{{x}}` where each argument's text goes: `massName(x) = "m_{{x}}"`
+ * (1: name, 2: parameters, 3: the words).
+ */
+export const LABEL_TEMPLATE = new RegExp(String.raw`^(${NAME})\s*${PARAMETERS}${ASSIGNS}\s*${LABEL_QUOTE}([^"]*)${LABEL_QUOTE}\s*$`)
+
+/** A display name made with a template, as a setting: `massName(H2O)` (1: the template, 2: its arguments). */
+export const TEMPLATE_USE = new RegExp(String.raw`^(${NAME})${PARAMETERS}$`)
+
 /** A whole one-line function: `f(x) = x^2` (1–3 as FUNCTION_HEAD, 4: the body). */
 export const ONE_LINE_FUNCTION = new RegExp(`${FUNCTION_HEAD.source}\\s*(.+)$`)
 
@@ -226,6 +240,25 @@ export const COMMENT_START = '//'
 
 /** Whether a line (indentation and all) is a comment. */
 export const isComment = (line: string) => line.trimStart().startsWith(COMMENT_START)
+
+/**
+ * A subscript in words (headings, block titles, display names), as in names:
+ * `2p_z`, `m_ball`, `x_{max}`, after a letter or digit. `\_` is a plain
+ * underscore. (1: the subscript, braces and all.)
+ */
+export const TEXT_SUBSCRIPT = /(?<=[A-Za-z0-9])(?<!\\)_(\{[^{}]*\}|[A-Za-z0-9]+)/g
+
+/** The letters or digits a subscript in words is attached to, at the end of the text before it: the `m` of `Mass of m_ball`. */
+export const SUBSCRIPT_BASE = /[A-Za-z0-9]+$/
+
+/** A subscript as typed, without any braces: `{max}` → max. */
+export const subscriptOf = (typed: string) => typed.replace(/^\{|\}$/g, '')
+
+/** `\_`, written for a plain underscore in words. */
+const ESCAPED_UNDERSCORE = /\\_/g
+
+/** Words with each `\_` as the plain underscore it stands for. */
+export const unescapeUnderscores = (text: string) => text.replace(ESCAPED_UNDERSCORE, SUBSCRIPT)
 
 /** A value in text, `{{c_Na}}`, `{{V:4 to mL}}` (1: what's between the braces). */
 export const VALUE_IN_TEXT = /\{\{([^{}]+)\}\}/g
@@ -350,8 +383,15 @@ export const PROSE_LAYOUTS: ReadonlySet<LayoutStyle> = new Set([LAYOUT_STYLE.tex
 /** `@constants { … }`: the block of your own constants, usable anywhere as `@name`. */
 export const CONSTANTS_BLOCK = 'constants'
 
-/** Words of @ that a constant of your own can't be called: the namespaces, and `constants`. */
-export const RESERVED_CONSTANT_NAMES: ReadonlySet<string> = new Set<string>([CONSTANTS_BLOCK, ...Object.values(NAMESPACE)])
+/**
+ * `@latex { … }`: raw LaTeX, displayed but not worked out. Its lines go up to a
+ * `}` on its own line, so they can be several (`\begin{aligned} … \end{aligned}`);
+ * or it's all on one line, `@latex { \frac{a}{b} }`.
+ */
+export const LATEX_BLOCK = 'latex'
+
+/** Words of @ that a constant of your own can't be called: the namespaces, `constants` and `latex`. */
+export const RESERVED_CONSTANT_NAMES: ReadonlySet<string> = new Set<string>([CONSTANTS_BLOCK, LATEX_BLOCK, ...Object.values(NAMESPACE)])
 
 /** A block's closing brace, at the start of a line. */
 export const BLOCK_CLOSE = '}'
@@ -385,6 +425,15 @@ export const layoutMembers = (chain: string) => chain.split(MEMBER_DOT).filter(B
 
 /** The opener of an `@constants { }` block. */
 export const CONSTANTS_OPENER = new RegExp(String.raw`^@${CONSTANTS_BLOCK}\s*\{$`)
+
+/** The opener of an `@latex { }` block (1: anything after its brace, for one on a single line). */
+export const LATEX_OPENER = new RegExp(String.raw`^@${LATEX_BLOCK}\s*\{(.*)$`)
+
+/** `@latex` at the current position (for the editor's tokenizer). */
+export const LATEX_TOKEN = new RegExp(`@${LATEX_BLOCK}(?!${NAME_CHAR})`)
+
+/** Whether a line closes an `@latex { }` block: `}` on its own (a LaTeX line can start with one). */
+export const closesLatex = (line: string) => line.trim() === BLOCK_CLOSE
 
 /** `@constants` at the current position (for the editor's tokenizer). */
 export const CONSTANTS_TOKEN = new RegExp(`@${CONSTANTS_BLOCK}(?!${NAME_CHAR})`)

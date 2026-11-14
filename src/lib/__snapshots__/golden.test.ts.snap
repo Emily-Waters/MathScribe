@@ -236,9 +236,11 @@ Variables assigned inside a block are local to it, like a scoped block in code.
 
 exports[`the Reference tab’s examples > Basics: # Section 1`] = `""`;
 
-exports[`the Reference tab’s examples > Basics: $ \\int_0^\\infty e^{-x}\\,dx = 1 1`] = `""`;
-
 exports[`the Reference tab’s examples > Basics: > Prose, with inline maths like $E = mc^2$. 1`] = `""`;
+
+exports[`the Reference tab’s examples > Basics: @latex { \\int_0^\\infty e^{-x}\\,dx = 1 } 1`] = `""`;
+
+exports[`the Reference tab’s examples > Basics: @latex { 1`] = `""`;
 
 exports[`the Reference tab’s examples > Basics: g = 9.81 m/s^2 1`] = `
 "1: g = 9.81 m/s^2
@@ -260,6 +262,12 @@ exports[`the Reference tab’s examples > Chemistry: M = @chem.mm.Na 1`] = `"1: 
 exports[`the Reference tab’s examples > Chemistry: m = 5.00 g {NaOH} 1`] = `
 "1: m = 5.00 g NaOH
 2: n = \\fracmM_Na+ M_O+ M_H = \\frac5.00 g NaOH22.990 g/mol+ 15.999 g/mol+ 1.008 g/mol = 0.125 mol NaOH"
+`;
+
+exports[`the Reference tab’s examples > Chemistry: massName(x) = "m_{{x}}" 1`] = `
+"1: massName(x) = \\textm_\\textx
+2: \\textm_H2O = 18.02 g
+3: \\textm_NaCl = 5.85 g"
 `;
 
 exports[`the Reference tab’s examples > Chemistry: n_Na = 0.100 mol {Na^+} 1`] = `

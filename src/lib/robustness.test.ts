@@ -18,7 +18,7 @@ const AWKWARD = [
   'x = 1 pm', 'x = pm 1', 'x = 1 pm 1 pm 1', 'x = (1 pm) m', 'delta', 'delta x', 'x = 1/0', 'x = 0/0', 'x = sqrt(-1)',
   'x = <1, 2', 'x = <>', 'x = <1,>', 'tuple(a, b) = 3', 'tuple() = tuple()', 'x = solve()', 'x = solve(x = x, x)',
   'x = solve(1 = 2, y)', '@', '@nope', '@c:0', '@constants {', '@constants {\n  x = y\n}', 'T:  #text', 'T:  #list\n',
-  'T {\n  x = 1', 'x = 1  #nope #sym #val #hide #multiline', '// only a comment', '$', '$ \\frac{', '#', '####',
+  'T {\n  x = 1', 'x = 1  #nope #sym #val #hide #multiline', '// only a comment', '$', '$ \\frac{', '@latex {', '@latex { \\frac{', '@latex {\n  \\frac{a}{b}', '@latex {\n}', '#', '####',
   'x = "text"', 'x = [1, 2; 3]', 'x = 1e999', 'x = 1e-999 m', 'x_1 = 1\nx_2 = 2 m\nx_avg', 'e1 = 1\ne', 'π = 3',
   'x = 10^10^10', 'x = 5 %', 'x = 5 to percent', 'x = 1 m\ny = x to percent', 'Δ = 1\nΔ x', 'x = 1\n{{x}}',
 ]

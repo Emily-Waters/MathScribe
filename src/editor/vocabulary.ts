@@ -45,6 +45,9 @@ export const LAYOUT_MODIFIER_DESCRIPTIONS: Record<LayoutModifier, string> = {
 /** What the @constants block does. */
 export const CONSTANTS_BLOCK_DESCRIPTION = 'Constants usable anywhere in the sheet as @name'
 
+/** What the @latex block does. */
+export const LATEX_BLOCK_DESCRIPTION = 'Raw LaTeX, displayed but not worked out: the lines up to a } on its own, or @latex { … } on one line'
+
 /** What each namespace holds, in a suggestion. */
 export const NAMESPACE_DESCRIPTIONS: Record<Namespace, string> = {
   chem: 'The elements’ molar masses (@chem.mm.Na), mm( ) and total( )',

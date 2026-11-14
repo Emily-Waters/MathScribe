@@ -31,7 +31,11 @@ export const REFERENCE: ReferenceSection[] = [
           + 'a_b is a subscript (write \\_ for a plain underscore) and $…$ is maths.',
       },
       { source: '> Prose, with inline maths like $E = mc^2$.', explain: 'A line starting with > is a paragraph of text.' },
-      { source: '$ \\int_0^\\infty e^{-x}\\,dx = 1', explain: 'A line starting with $ is raw LaTeX, displayed but not calculated.' },
+      { source: '@latex { \\int_0^\\infty e^{-x}\\,dx = 1 }', explain: '@latex { … } is raw LaTeX, displayed but not calculated.' },
+      {
+        source: '@latex {\n    \\begin{aligned}\n      F &= ma \\\\\n        &= 19.6\\,\\mathrm{N}\n    \\end{aligned}\n}',
+        explain: 'Over several lines, it goes up to a } on its own line.',
+      },
       {
         source: 'g = 9.81 m/s^2\nSteeper ramp {\n  theta = 45.0 deg\n  a = g * sin(theta)\n}',
         explain: 'Title { … } is a block. Variables assigned inside are local to it.',
@@ -282,6 +286,10 @@ export const REFERENCE: ReferenceSection[] = [
       {
         source: 'n_Na = 0.100 mol {Na^+}\nn_Cl = 0.200 mol {Cl^-}\nn = @chem.total(n_Na, n_Cl)',
         explain: 'Amounts of different species can’t be added with +; @chem.total adds them as plain amounts.',
+      },
+      {
+        source: 'massName(x) = "m_{{x}}"\nm_w:massName(H2O) = 18.02 g\nm_s:massName(NaCl) = 5.85 g',
+        explain: 'A display-name template: words in quotes with {{x}} where each argument goes, used as a setting on a name. A subscript starting with a capital is drawn as a formula.',
       },
     ],
   },

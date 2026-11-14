@@ -28,7 +28,8 @@ describe('typing Greek letters', () => {
   it('leaves names that aren’t letters, and places that aren’t names', () => {
     expect(tabAtEnd('\\Deltas')).toBe('\\Deltas')
     expect(tabAtEnd('# Heading \\Delta')).toBe('# Heading \\Delta')
-    expect(tabAtEnd('$ \\Delta')).toBe('$ \\Delta')
+    expect(tabAtEnd('@latex { \\Delta')).toBe('@latex { \\Delta')
+    expect(tabAtEnd('@latex {\n    \\Delta')).toBe('@latex {\n    \\Delta')
     expect(tabAtEnd('x = 2   # note \\Delta')).toBe('x = 2   # note \\Delta')
     expect(tabAtEnd('Energy $\\Delta')).toBe('Energy $\\Delta') // inline maths in a title
   })

@@ -31,16 +31,16 @@ import { describeUnit, isUnitName, numberTex, symbolTex, unitNames, unitTex } fr
 import { STORAGE_KEYS } from '../config.ts'
 import { readStored, writeStored } from '../lib/storage.ts'
 import {
-  CALL, CHEM_FUNCTION, CONSTANTS_BLOCK, GREEK_CHARS, KEYWORD, LAYOUT_MEMBERS, LAYOUT_MODIFIERS, LAYOUT_STYLES, MEMBER_DOT, NAME, NAME_CHAR, NAMESPACE, PERCENT,
+  CALL, CHEM_FUNCTION, CONSTANTS_BLOCK, GREEK_CHARS, LATEX_BLOCK, KEYWORD, LAYOUT_MEMBERS, LAYOUT_MODIFIERS, LAYOUT_STYLES, MEMBER_DOT, NAME, NAME_CHAR, NAMESPACE, PERCENT,
   SETTINGS, SIGIL, layoutMembers, layoutName,
   type ChemFunction, type LayoutModifier, type LayoutStyle, type Namespace,
 } from '../lib/syntax.ts'
 import { memberName, molarMassKey, parseMemberName, parseNumberedName, seriesMemberName } from '../lib/names.ts'
 import {
-  BUILTIN_FUNCTIONS, CHEM_FUNCTION_DESCRIPTIONS, COMMANDS, CONSTANTS_BLOCK_DESCRIPTION, KEYWORDS, LAYOUT_DESCRIPTIONS, LAYOUT_MODIFIER_DESCRIPTIONS, MATH_CONSTANTS,
+  BUILTIN_FUNCTIONS, CHEM_FUNCTION_DESCRIPTIONS, COMMANDS, CONSTANTS_BLOCK_DESCRIPTION, KEYWORDS, LATEX_BLOCK_DESCRIPTION, LAYOUT_DESCRIPTIONS, LAYOUT_MODIFIER_DESCRIPTIONS, MATH_CONSTANTS,
   NAMESPACE_DESCRIPTIONS, SERIES_SUFFIXES, SETTING_WORDS,
 } from './vocabulary.ts'
-import { inDataBlock, inNote, inTextBlock, inValue, isProseLine } from './language.ts'
+import { inDataBlock, inNamelessBlock, inNote, inValue, isProseLine } from './language.ts'
 import { greekCompletions, greekOnSpace } from './greek.ts'
 
 // ---------------------------------------------------------------------------
@@ -293,7 +293,7 @@ export function complete(ctx: CompletionContext): CompletionResult | null {
   if (inDataBlock(ctx.state.doc, line.number)) return null
   // Prose has no names, except in a value being typed: `{{c_`.
   const value = inValue(before)
-  if (!value && (isProseLine(before) || inTextBlock(ctx.state.doc, line.number))) return null
+  if (!value && (isProseLine(before) || inNamelessBlock(ctx.state.doc, line.number))) return null
 
   // `#…` after the line's text: display commands.
   const command = /(?:^|\s)(#\w*)$/.exec(before)
@@ -344,9 +344,14 @@ export function complete(ctx: CompletionContext): CompletionResult | null {
       from: ctx.pos - at[0].length,
       options: [
         ...(lineStart
-          ? [snippetCompletion(`${SIGIL}${CONSTANTS_BLOCK} {\n\t\${}\n}`, {
-            label: `${SIGIL}${CONSTANTS_BLOCK}`, type: 'keyword', detail: CONSTANTS_BLOCK_DESCRIPTION,
-          })]
+          ? [
+            snippetCompletion(`${SIGIL}${CONSTANTS_BLOCK} {\n\t\${}\n}`, {
+              label: `${SIGIL}${CONSTANTS_BLOCK}`, type: 'keyword', detail: CONSTANTS_BLOCK_DESCRIPTION,
+            }),
+            snippetCompletion(`${SIGIL}${LATEX_BLOCK} {\n\t\${}\n}`, {
+              label: `${SIGIL}${LATEX_BLOCK}`, type: 'keyword', detail: LATEX_BLOCK_DESCRIPTION,
+            }),
+          ]
           : []),
         ...namespaces.map((ns): Completion => ({
           label: `${SIGIL}${ns}`, apply: `${SIGIL}${ns}${MEMBER_DOT}`, type: 'namespace', detail: NAMESPACE_DESCRIPTIONS[ns],
@@ -494,7 +499,7 @@ function seriesMemberInfo(visible: Map<string, SheetSymbol>, name: string): HTML
 const hoverInfo = hoverTooltip((view, pos) => {
   const { state } = view
   const line = state.doc.lineAt(pos)
-  if (isProseLine(line.text) || inTextBlock(state.doc, line.number) || inDataBlock(state.doc, line.number)) return null
+  if (isProseLine(line.text) || inNamelessBlock(state.doc, line.number) || inDataBlock(state.doc, line.number)) return null
   const word = state.wordAt(pos)
   if (!word) return null
   const before = line.text.slice(0, word.from - line.from)
@@ -532,6 +537,7 @@ const hoverInfo = hoverTooltip((view, pos) => {
       return show(word.from - 1, infoNode(constantTex(name), BUILTIN_CONSTANTS[name].description))
     }
     if (name === CONSTANTS_BLOCK) return show(word.from - 1, infoNode(undefined, `${SIGIL}${name} { }`, CONSTANTS_BLOCK_DESCRIPTION))
+    if (name === LATEX_BLOCK) return show(word.from - 1, infoNode(undefined, `${SIGIL}${name} { }`, LATEX_BLOCK_DESCRIPTION))
     const namespace = Object.values(NAMESPACE).find((ns) => ns === name)
     if (namespace) return show(word.from - 1, infoNode(undefined, `${SIGIL}${namespace}`, NAMESPACE_DESCRIPTIONS[namespace]))
     const own = visibleAt(state, line.number).get(`@${name}`)

@@ -4,7 +4,7 @@
  * the line it starts on (BlockBase); the rest is built from small shared parts,
  * so what's common is written once:
  *
- *   heading, text, latex, spacer      a line of the document
+ *   heading, text, latex, spacer      a line of the document (latex: an @latex block, or a reaction)
  *   calc                              a calculation
  *   group, layout                     blocks holding others (ContainerBlock)
  *   function, constants, import       blocks spanning several lines (Spans)
@@ -101,10 +101,12 @@ export interface TextBlock extends BlockBase, Faulted {
   text: string
 }
 
-/** `$ \LaTeX`: displayed, not worked out. */
-export interface LatexBlock extends BlockBase {
+/** `@latex { … }` (or a reaction, `{OH^- + H3O^+ -> 2 H2O}`): LaTeX displayed, not worked out. */
+export interface LatexBlock extends BlockBase, Faulted {
   kind: typeof BLOCK_KIND.latex
   latex: string
+  /** Its last line, for an `@latex { … }` block over several. */
+  endLine?: number
 }
 
 /** A gap of one empty line, from two or more blank lines in the input. */

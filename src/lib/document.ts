@@ -4,12 +4,12 @@ import {
   DISPLAY_MODE, LAYOUT_STYLE, LINE_COMMAND, MULTILINE, NAME_WITH_SETTINGS, NOTATIONS, PLOT_CALL, SELECT_CALL, UNPACK_HEAD, VALUE_IN_TEXT,
   BLOCK_CLOSE, BLOCK_OPEN, CONSTANTS_BLOCK, CONSTANTS_OPENER, LAYOUT_OPENER, LINE_LAYOUTS, PROSE_LAYOUTS, SIGIL, layoutOpenerText,
   DISPLAY_MODES, LAYOUT_MEMBERS, LAYOUT_MODIFIER, LAYOUT_MODIFIERS, LAYOUT_STYLES, MEMBER_DOT, NAMESPACE, layoutMembers, layoutName,
-  commandPattern, indentOf, isComment,
+  LATEX_BLOCK, LATEX_OPENER, TEXT_SUBSCRIPT, closesLatex, commandPattern, indentOf, isComment, subscriptOf, unescapeUnderscores,
   type DisplayMode, type LayoutModifier, type LayoutStyle, type LineLayout, type Notation,
 } from './syntax.ts'
 import { constantKey } from './names.ts'
 import { parseCsv, type CsvData } from './csv.ts'
-import { REACTION_LINE, formulaTex, outsideMaths, withFormulas } from './chemistry.ts'
+import { REACTION_LINE, formulaTex, isFormulaSubscript, outsideMaths, withFormulas } from './chemistry.ts'
 import {
   BLOCK_KIND, isContainer, type Block, type BlockSettings, type Command, type ConstantsBlock, type GroupBlock, type ImportBlock,
   type LayoutBlock,
@@ -37,7 +37,7 @@ function readCsv(rows: string[]): CsvData {
  * Line-based document model. Each non-empty line becomes one block:
  *   # / ## / ###     → numbered \section, numbered \subsection, \textbf heading (### or more)
  *   > Some prose       → paragraph (inline $latex$ allowed)
- *   $ \raw{latex}      → displayed LaTeX, not evaluated
+ *   @latex { \frac{a}{b} } → displayed LaTeX, not evaluated (or over several lines, up to a `}` alone)
  *   Title {            → opens a scoped block (title optional); `}` closes it
  *   m = 2.0 kg  # note → calculation; the text after # is shown as its description
  *   @constants {       → constants, usable anywhere as @name; `}` closes it
@@ -140,6 +140,18 @@ function layoutOpener(body: string): LayoutOpener | null {
   ].filter((w): w is string => !!w)
   if (warnings.length) opener.warning = warnings.join(' ')
   return opener
+}
+
+/** Whether LaTeX's braces balance, each `{` closed by a later `}` (escaped ones, `\{`, don't count). */
+function bracesBalance(latex: string): boolean {
+  let depth = 0
+  for (let i = 0; i < latex.length; i++) {
+    const c = latex[i]
+    if (c === '\\') i++
+    else if (c === BLOCK_OPEN) depth++
+    else if (c === BLOCK_CLOSE && --depth < 0) return false
+  }
+  return depth === 0
 }
 
 /** Whether a line closes a block: `}`, with anything after it. */
@@ -395,8 +407,36 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
       add({ kind: BLOCK_KIND.text, line, ...withValues(trimmed.slice(1).trim()) })
       continue
     }
-    if (trimmed.startsWith('$')) {
-      add({ kind: BLOCK_KIND.latex, line, latex: trimmed.replace(/^\$+|\$+$/g, '').trim() })
+    // `@latex { … }`: raw LaTeX, up to a `}` on its own line, or all on this one.
+    const latexOpener = LATEX_OPENER.exec(trimmed)
+    if (latexOpener) {
+      const rest = latexOpener[1].trim()
+      if (rest) {
+        // (Its `}` is the one after the LaTeX's own braces: `\frac{a}{b}` alone isn't closed.)
+        const closed = rest.endsWith(BLOCK_CLOSE) && bracesBalance(rest.slice(0, -BLOCK_CLOSE.length))
+        add({
+          kind: BLOCK_KIND.latex, line, latex: closed ? rest.slice(0, -BLOCK_CLOSE.length).trim() : rest,
+          error: closed ? undefined : `${SIGIL}${LATEX_BLOCK} on one line ends with its ${BLOCK_CLOSE}: ${SIGIL}${LATEX_BLOCK} ${BLOCK_OPEN} \\frac{a}{b} ${BLOCK_CLOSE}.`,
+        })
+        continue
+      }
+      const body: string[] = []
+      let closed = false
+      while (idx + 1 < lines.length) {
+        idx++
+        if (closesLatex(lines[idx])) {
+          closed = true
+          break
+        }
+        if (!isComment(lines[idx])) body.push(lines[idx].trim())
+      }
+      const latex = body.filter(Boolean).join('\n')
+      add({
+        kind: BLOCK_KIND.latex, line, endLine: idx + 1, latex,
+        error: !closed ? `The ${SIGIL}${LATEX_BLOCK} block on line ${line} is missing its closing ${BLOCK_CLOSE}.`
+          : !latex ? `The ${SIGIL}${LATEX_BLOCK} block on line ${line} is empty: put the LaTeX before its ${BLOCK_CLOSE}.` : undefined,
+      })
+      blankRun = 0
       continue
     }
 
@@ -631,17 +671,17 @@ export type TitleSegmentKind = (typeof TITLE_SEGMENT)[keyof typeof TITLE_SEGMENT
 
 export type TitleSegment = { kind: TitleSegmentKind; value: string }
 
-/** `p_z`, `E_k`, `x_{max}`: a subscript after a letter or digit. `\_` is a plain underscore. */
-const SUBSCRIPT = /(?<=[A-Za-z0-9])(?<!\\)_(\{[^{}]*\}|[A-Za-z0-9]+)/g
+/** In maths, nothing to put a subscript on: the text before it is its base. */
+const EMPTY_BASE = '{}'
 
 /**
  * Headings and block titles: `2p_z` shows its subscript (as variable names do),
- * and `$…$` is inline maths, as in `>` text.
+ * `m_{H2O}` a formula as its subscript, and `$…$` is inline maths, as in `>` text.
  */
 export function titleSegments(text: string): TitleSegment[] {
   const out: TitleSegment[] = []
   const plain = (s: string) => {
-    if (s) out.push({ kind: TITLE_SEGMENT.text, value: s.replace(/\\_/g, '_') })
+    if (s) out.push({ kind: TITLE_SEGMENT.text, value: unescapeUnderscores(s) })
   }
   for (const seg of splitInlineMath(text)) {
     if (seg.math) {
@@ -649,9 +689,13 @@ export function titleSegments(text: string): TitleSegment[] {
       continue
     }
     let last = 0
-    for (const m of seg.value.matchAll(SUBSCRIPT)) {
+    for (const m of seg.value.matchAll(TEXT_SUBSCRIPT)) {
       plain(seg.value.slice(last, m.index))
-      out.push({ kind: TITLE_SEGMENT.sub, value: m[1].replace(/^\{|\}$/g, '') })
+      const sub = subscriptOf(m[1])
+      // A formula (`m_{H2O}`) is chemistry, as a subscript in maths; anything else is a subscript of text.
+      out.push(isFormulaSubscript(sub)
+        ? { kind: TITLE_SEGMENT.math, value: `${EMPTY_BASE}_{${formulaTex(sub)}}` }
+        : { kind: TITLE_SEGMENT.sub, value: sub })
       last = m.index + m[0].length
     }
     plain(seg.value.slice(last))
@@ -871,6 +915,7 @@ export function collectDiagnostics(blocks: Block[]): Map<number, Diagnostic> {
       case BLOCK_KIND.import:
       case BLOCK_KIND.heading:
       case BLOCK_KIND.text:
+      case BLOCK_KIND.latex:
         put(b.line, DIAGNOSTIC_KIND.error, b.error)
         break
       case BLOCK_KIND.constants:

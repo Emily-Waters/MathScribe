@@ -37,6 +37,17 @@ export const SPECIES_AFTER_UNIT = /^[ \t]*\{([^{}]+)\}/
 /** A formula as LaTeX, drawn by mhchem: `Ca^2+` → \ce{Ca^2+}. */
 export const formulaTex = (formula: string) => `\\ce{${formula.trim()}}`
 
+/**
+ * A subscript in words that's a formula: it starts with a capital, as every
+ * element does (`m_{H2O}`, `c_{Na^+}`, `m_H2O`), so it's drawn as chemistry, H₂O.
+ * Subscripts of words (`x_{max}`, `F_net`) start with a small letter or a digit;
+ * a capitalised word with no digits or charge (`m_Ball`) looks the same either way.
+ */
+const FORMULA_SUBSCRIPT = /^[A-Z]/
+
+/** Whether a subscript in words is a formula (see FORMULA_SUBSCRIPT). */
+export const isFormulaSubscript = (subscript: string) => FORMULA_SUBSCRIPT.test(subscript.trim())
+
 /** Text with `fix` applied to its parts outside `$…$` (inline maths is left alone). */
 export const outsideMaths = (text: string, fix: (part: string) => string) =>
   text.split(/(\$[^$]*\$)/).map((part, i) => (i % 2 ? part : fix(part))).join('')

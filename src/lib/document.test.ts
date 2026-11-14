@@ -124,6 +124,28 @@ describe('layout blocks', () => {
   })
 })
 
+describe('@latex blocks', () => {
+  it('display raw LaTeX, on one line or up to a } on its own, without working it out', () => {
+    const s = sheet('@latex { \\frac{a}{b} }\n@latex {\n    \\begin{aligned}\n      F &= ma\n    \\end{aligned}\n}\nx = 1')
+    expect(s.blocks[0]).toMatchObject({ kind: BLOCK_KIND.latex, line: 1, latex: '\\frac{a}{b}' })
+    expect(s.blocks[1]).toMatchObject({
+      kind: BLOCK_KIND.latex, line: 2, endLine: 6, latex: '\\begin{aligned}\nF &= ma\n\\end{aligned}',
+    })
+    expect(outline(s.blocks).at(-1)).toBe('calc 7')
+    expect(toLatexDocument(s.blocks)).toContain('\\frac{a}{b}')
+  })
+
+  it('say when one is missing its closing brace, or is empty', () => {
+    expect(sheet('@latex { \\frac{a}{b}').blocks[0]).toMatchObject({ error: expect.stringMatching(/on one line ends with its }/) })
+    expect(sheet('@latex {\n    \\frac{a}{b}').blocks[0]).toMatchObject({ error: 'The @latex block on line 1 is missing its closing }.' })
+    expect(collectDiagnostics(sheet('@latex {\n}').blocks).get(1)?.message).toMatch(/is empty/)
+  })
+
+  it('replace the old $ line, which is no longer raw LaTeX', () => {
+    expect(sheet('$ \\frac{a}{b}').blocks[0].kind).toBe(BLOCK_KIND.calc)
+  })
+})
+
 describe('title pages', () => {
   const src = [
     '@layout.titlepage {', // 1

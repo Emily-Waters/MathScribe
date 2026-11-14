@@ -11,7 +11,7 @@ import type { Completion, CompletionResult } from '@codemirror/autocomplete'
 import type { EditorState } from '@codemirror/state'
 import { EditorView, type Command } from '@codemirror/view'
 import { GREEK_BY_NAME, GREEK_LETTERS } from '../lib/syntax.ts'
-import { inNote, inTextBlock, isProseLine } from './language.ts'
+import { inNamelessBlock, inNote, isProseLine } from './language.ts'
 
 /** A Greek letter's name being typed after a backslash (`\Del`). */
 const BEING_TYPED = /\\[A-Za-z]*$/
@@ -41,7 +41,7 @@ function greekBefore(state: EditorState, pos: number): { from: number; char: str
   const m = TYPED.exec(before)
   const char = m && GREEK_BY_NAME.get(m[1])
   if (!m || !char) return null
-  if (isProseLine(before) || inTextBlock(state.doc, line.number) || inNote(before) || inInlineMaths(before)) return null
+  if (isProseLine(before) || inNamelessBlock(state.doc, line.number) || inNote(before) || inInlineMaths(before)) return null
   return { from: pos - m[0].length, char }
 }
 

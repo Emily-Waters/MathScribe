@@ -164,7 +164,12 @@ export function RenderedBlock({ block }: { block: Block }) {
         </>
       )
     case BLOCK_KIND.latex:
-      return <div className="calc" {...link(block.line)}><Tex latex={block.latex} display /></div>
+      return (
+        <div className="calc" {...link(block.line)}>
+          {block.latex && <Tex latex={block.latex} display />}
+          {block.error && <LineMessage kind={DIAGNOSTIC_KIND.error} line={block.line} text={block.error} />}
+        </div>
+      )
     case BLOCK_KIND.spacer:
       return <div className="doc__spacer" aria-hidden="true" />
     case BLOCK_KIND.constants:

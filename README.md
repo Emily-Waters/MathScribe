@@ -131,7 +131,7 @@ Accept suggestions with.
 | `#` after a line's text | display commands, with what each does |
 | `\` and a Greek letter's name | the letter: `\Delta` gives Δ (see Greek letters) |
 
-Nothing is suggested in headings, `>` text, `$` lines or notes.
+Nothing is suggested in headings, `>` text, `@layout.text` blocks, `@latex` blocks or notes.
 
 **Hover over a name** to see what it is: a variable's value (typeset) and where
 it's defined, a function's signature, a constant's full value, a unit in SI, or
@@ -245,7 +245,7 @@ block's first line to hide it. The dialog remembers your last choices.
 | `> Some text` | paragraph; `$...$` for inline LaTeX |
 | `> It took {{V_avg}}.` | a variable's value in text (see Values in text) |
 | `// a note to self` | a comment: never shown or worked out |
-| `$ \LaTeX` | raw LaTeX, displayed but not evaluated |
+| `@latex { \frac{a}{b} }` | raw LaTeX, displayed but not evaluated; over several lines, up to a `}` on its own |
 | `Title {` … `}` | a block that scopes its variables |
 | `@layout.numbered Title {` … `}` | a layout block: `@layout.center`, `@layout.list` or `@layout.numbered` |
 | `@layout.text Title {` … `}` | a block of prose: paragraphs, nothing calculated |
@@ -639,7 +639,7 @@ the Greek letters themselves. A letter typed into a name stays part of it, so
   `\Delta E` types ΔE (type another space for a space). The suggestion list shows
   the letters as you type `\de…`. Every letter with a LaTeX name works (α to ω,
   and Γ, Δ, Θ, Λ, Ξ, Π, Σ, Υ, Φ, Ψ, Ω).
-- This happens where names are typed, not in headings, `>` text, `$` lines, notes
+- This happens where names are typed, not in headings, `>` text, `@latex` blocks, notes
   or `$…$` maths, where `\Delta` is LaTeX and stays as typed.
 - `ΔE` and `Delta E` (with a space) are different: the first is a variable, the
   second is E's uncertainty (see Uncertainty). Both are shown ΔE.
@@ -1039,6 +1039,29 @@ substitutions, and in both exports. It can hold formulas and values; a value in 
 the one when the variable was defined, so the name always says what it was worked
 out from. It combines with the other settings (`n:3:"Moles":sci = …`).
 
+Subscripts work as in names and headings: `m:"Mass of m_ball" = …` shows "Mass of
+m" with "ball" as a subscript; `x_{max}` takes a longer one, `F_net_x` shows net,x,
+and `\_` is a plain underscore. A subscript that starts with a capital letter is a
+formula, drawn as chemistry: `m_{H2O}` shows m with H₂O below, `c_{Na^+}` c with
+Na⁺ (the same in headings and block titles). `$…$` is inline maths, for anything more.
+
+**Display-name templates:** for display names that follow a pattern, define a
+template once, a one-line function whose body is words in quotes with `{{x}}`
+where each argument goes, and use it as the setting:
+
+```
+massName(x) = "m_{{x}}"
+m_w:massName(H2O) = 18.02 g          → m with H₂O below
+m_s:massName(NaCl) = 5.85 g          → m with NaCl below
+conc(ion) = "[{{{ion}}}]"            → braces around {{ion}} make it a formula
+c_Na:conc(Na^+) = 0.100 M            → [Na⁺]
+```
+
+- Arguments are text, taken as written, not worked out; separate them with commas.
+- A `{{name}}` that isn't a parameter is a value, as in any display name.
+- The template's own line shows its words with each parameter in its place.
+- It combines with the other settings (`m:3:massName(Na) = …`).
+
 ### Solving equations
 
 `solve(equation, unknown)` rearranges an equation for the unknown and evaluates it:
@@ -1381,8 +1404,11 @@ what's here better.
 
 - [x] **The `@` namespace**: `@layout` blocks (`@layout.text Title { … }`, and
       `list`, `numbered`, `center`, `titlepage`, and display settings such as `.hidden` and `.val.multiline` that combine); `@chem.mm.Na` molar masses,
-      `@chem.mm({formula})` with the sum as working, and `@chem.total(…)` to add
-      amounts of different species.
+      `@chem.mm({formula})` with the sum as working, `@chem.total(…)` to add
+      amounts of different species, and `@latex { … }` for raw LaTeX (over
+      several lines too).
+- [x] **Display names**: subscripts (`m_ball`, and `m_{H2O}` drawn as chemistry),
+      and templates, `massName(x) = "m_{{x}}"` used as `m_w:massName(H2O)`.
 - [x] **Systems of equations**: `tuple(x, y) = solve(eq, eq)`, solved by substitution
       with the working shown.
 - [x] **Conditions**: `condition ? a : b` in a line, and `if` / `else if` / `else`

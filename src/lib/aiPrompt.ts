@@ -45,7 +45,7 @@ export const CREATE_KIND_INFO: Record<CreateKind, {
       { id: 'solutions', label: 'Worked solutions (at the end)', ticked: true, instruction: 'Include a worked solution to every question, after all the questions (see "Questions and solutions").' },
       { id: 'hide', label: 'Hide the solutions (a copy to hand out)', ticked: false, instruction: 'Put `#hide` on each solution block\'s opening line, so the solutions are worked out but not shown.' },
       { id: 'marks', label: 'Marks for each question', ticked: true, instruction: 'Give each question a mark value in its heading, e.g. `## Question 1 (5 marks)`, and the total at the top.' },
-      { id: 'formulas', label: 'A formula sheet at the start', ticked: false, instruction: 'Start with a short formula sheet: a `## Formula sheet` section of `$ …` LaTeX lines (not calculations).' },
+      { id: 'formulas', label: 'A formula sheet at the start', ticked: false, instruction: 'Start with a short formula sheet: a `## Formula sheet` section of `@latex { … }` lines of LaTeX (not calculations).' },
     ],
   },
   assignment: {
@@ -189,7 +189,8 @@ uncertainties carried through automatically.
 - \`{{name}}\` in prose or a heading puts in a variable's value as worked out above it, with
   its unit and sig figs: \`> The mean was {{T_avg}}.\` Settings and \`to\` work: \`{{V:3 to L}}\`.
 ${code(SNIPPETS.valueInText)}
-- \`$ \\LaTeX\`: raw LaTeX, displayed but not evaluated.
+- \`@latex { \\frac{a}{b} }\`: raw LaTeX, displayed but not evaluated; over several lines, up to
+  a \`}\` on its own. (Don't start a line with \`$\`: \`$…$\` is inline maths, for prose.)
 - \`x = 3  # note\`: text after \` # \` on a calculation is its description.
 - \`// …\`: a comment, never shown. A line starting with \`#\` is ALWAYS a heading.
 - A blank line is just spacing; two blank lines leave a gap in the output.

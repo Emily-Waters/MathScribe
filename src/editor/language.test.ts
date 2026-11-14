@@ -7,7 +7,7 @@ import { EditorState } from '@codemirror/state'
 import { codeFolding, ensureSyntaxTree, foldEffect, foldable, getIndentation } from '@codemirror/language'
 import { insertNewlineAndIndent } from '@codemirror/commands'
 import { highlightTree, tagHighlighter, tags as t } from '@lezer/highlight'
-import { inTextBlock, mathscribeFolding, mathscribeIndent, mathscribeLanguage } from './language.ts'
+import { inLatexBlock, inTextBlock, mathscribeFolding, mathscribeIndent, mathscribeLanguage } from './language.ts'
 
 const names = tagHighlighter([
   { tag: t.number, class: 'num' }, { tag: t.unit, class: 'unit' }, { tag: t.variableName, class: 'var' },
@@ -140,6 +140,17 @@ describe('text blocks', () => {
     expect(lines[1]).toEqual(['m = 2 kg:text'])
     expect(lines[3]).toEqual(['@layout.val.multiline:kw', '{:brace'])
     expect(lines[4]).toEqual(['y:var', '2.0:num', 'm:unit'])
+  })
+
+  it('colour an @latex block’s lines as LaTeX, on one line or up to a } alone', () => {
+    const lines = tokensByLine('@latex { \\frac{a}{b} }\n@latex {\n    \\frac{\n    a}{b}\n}\ny = 2.0 m')
+    expect(lines[0]).toEqual(['@latex:kw', '{ \\frac{a}{b} }:latex'])
+    expect(lines[1]).toEqual(['@latex:kw', '{:brace'])
+    expect(lines[2]).toEqual(['\\frac{:latex'])
+    expect(lines[3]).toEqual(['a}{b}:latex'])
+    expect(lines[5]).toEqual(['y:var', '2.0:num', 'm:unit'])
+    const doc = EditorState.create({ doc: '@latex {\n    \\Delta\n}\nx = 1' }).doc
+    expect([2, 3, 4].map((n) => inLatexBlock(doc, n))).toEqual([true, false, false])
   })
 
   it('colour a title page’s lines as prose too', () => {

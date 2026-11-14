@@ -39,7 +39,9 @@ import {
   GREEK_BY_CHAR, GREEK_BY_NAME, GREEK_CHARS, LEADING_NAME, NAME, NAME_CHAR, NAME_WITH_SETTINGS, NOTATIONS, NUMBER, ONE_LINE_FUNCTION, PERCENT, SERIES_SUFFIXES,
   CALL, ELSE_IF_LINE, ELSE_LINE, IF_LINE, KEYWORD, PLOT_CALL, RETURN_LINE, SOLVE_SYSTEM, SELECT_CALL, SOLVE_CALL, SUBSCRIPT, TABLE_CALL, UNCERTAINTY_WORDS, UNIT_VECTOR_SETTING, UNPACK, VECTOR_FUNCTION,
   DISPLAY_MODE, EACH_SETTING, LABEL_QUOTE, LINE_COMMAND, SERIES_STAT, VALUE_IN_TEXT,
-  CHEM_FUNCTION, CONSTANTS_BLOCK, MEMBER_DOT, NAMESPACE, RESERVED_CONSTANT_NAMES, SIGIL,
+  CHEM_FUNCTION, CONSTANTS_BLOCK, LABEL_TEMPLATE, MEMBER_DOT, NAMESPACE, RESERVED_CONSTANT_NAMES, SIGIL, SUBSCRIPT_BASE, TEMPLATE_USE,
+  TEXT_SUBSCRIPT, subscriptOf,
+  unescapeUnderscores,
   type DisplayMode, type LineCommand, type Notation, type Precision, type UncertaintyWord,
   type VectorStyle,
 } from './syntax.ts'
@@ -50,7 +52,7 @@ import {
 } from './names.ts'
 import { COMPARISONS, FN, MATHJS_IN, MATH_CONSTANT, OP, OP_SYMBOL, UNIT, UNIT_LOOKS, isOp } from './mathjsNames.ts'
 import {
-  SPECIES_AFTER_UNIT, formulaOf, formulaTex, isSpeciesUnit, molarMassSum, outsideMaths, parseFormula, readableSpecies, speciesUnit,
+  SPECIES_AFTER_UNIT, formulaOf, formulaTex, isFormulaSubscript, isSpeciesUnit, molarMassSum, outsideMaths, parseFormula, readableSpecies, speciesUnit,
   withFormulas,
 } from './chemistry.ts'
 import { POLYNOMIAL_KIND, Solver, contains, countOccurrences, matchingParen, splitArgs, splitEquation } from './solve.ts'
@@ -75,6 +77,41 @@ function speciesUnitName(formula: string): string {
 
 /** In unitTex: between an amount and its species (mol EDTA). */
 const SPECIES_GAP = '~'
+
+/** Words as upright LaTeX text, `\_` as a plain underscore. */
+const plainTextTex = (text: string) => (text ? `\\text{${escapeText(unescapeUnderscores(text))}}` : '')
+
+/** A subscript in words as LaTeX: a formula (`H2O`) as chemistry, anything else as upright text. */
+const subscriptTex = (subscript: string) => (isFormulaSubscript(subscript) ? formulaTex(subscript) : plainTextTex(subscript))
+
+/**
+ * Words in a display name as LaTeX, with subscripts as in names and headings:
+ * `Mass of m_ball` → \text{Mass of }\text{m}_{\text{ball}}, `F_net_x` → F with
+ * net,x below (the subscript is attached to the letters right before it), and
+ * `m_{H2O}` → m with H₂O below, drawn as chemistry.
+ */
+export function wordsTex(text: string): string {
+  let out = ''
+  let last = 0
+  /** The subscripts of the word being written, joined with commas when there are several. */
+  let subs: string[] = []
+  const endSubs = () => {
+    if (subs.length) out += `_{${subs.map(subscriptTex).join(',')}}`
+    subs = []
+  }
+  for (const m of text.matchAll(TEXT_SUBSCRIPT)) {
+    const between = text.slice(last, m.index)
+    if (between || !subs.length) {
+      endSubs()
+      const base = SUBSCRIPT_BASE.exec(between)?.[0] ?? ''
+      out += plainTextTex(between.slice(0, between.length - base.length)) + plainTextTex(base)
+    }
+    subs.push(subscriptOf(m[1]))
+    last = m.index + m[0].length
+  }
+  endSubs()
+  return out + plainTextTex(text.slice(last))
+}
 
 /** A unit's part as mathjs reads it back: prefix, name and power (`mmol`, `L^-1`). */
 const unitPartText = (p: Unit['units'][number]) =>
@@ -1386,6 +1423,8 @@ interface Declaration {
   components?: boolean
   /** `n_Na:"Moles of {Na^+}"`: shown as this instead of its name (as typed: text, {{values}}, {formulas}). */
   label?: string
+  /** `m_w:massName(H2O)`: shown as the display name a template makes from these arguments. */
+  template?: { name: string; args: string[] }
 }
 
 /** Whether a unit measures angles. */
@@ -1517,7 +1556,9 @@ function parseDeclaration(line: string): Declaration | { error: string } | null 
   if (!m) return null
   const out: Declaration = { name: m[1], length: m[0].length }
   for (const [, spec] of m[2].matchAll(EACH_SETTING)) {
+    const template = TEMPLATE_USE.exec(spec)
     if (spec.startsWith(LABEL_QUOTE)) out.label = spec.slice(1, -1)
+    else if (template) out.template = { name: template[1], args: template[2].split(',').map((a) => a.trim()) }
     else if (spec === EXACT_SETTING) out.sf = EXACT_SETTING
     else if (isNotation(spec)) {
       if (out.notation && out.notation !== spec) return { error: `${m[1]} can't be both :${NOTATIONS[0]} and :${NOTATIONS[1]}.` }
@@ -2008,6 +2049,8 @@ export class Calculator {
   private nextSource = 0
   /** Constants from `@constants { }` blocks, available anywhere as `@name`. */
   private readonly customConstants = new Map<string, CustomConstant>()
+  /** Display-name templates, `massName(x) = "m_{{x}}"`, by name: their parameters, and their words. */
+  private readonly labelTemplates = new Map<string, { params: string[]; words: string }>()
   /** Sheet-wide precision from a line like `@c:4`, used wherever `@c` has no `:n` of its own. */
   private readonly constantPrecision = new Map<string, Precision>()
   /** Sheet-wide unit from a line like `@a_0 to angstrom`. */
@@ -2915,12 +2958,45 @@ export class Calculator {
     const words = (part: string) => {
       const [, before, inner, after] = /^(\s*)([\s\S]*?)(\s*)$/.exec(part)!
       const space = (s: string) => (s ? '\\ ' : '')
-      return `${space(before)}${inner ? `\\text{${escapeText(inner)}}` : ''}${space(after)}`
+      return `${space(before)}${inner ? wordsTex(inner) : ''}${space(after)}`
     }
     const tex = withFormulas(withValuesIn).split(/(\$[^$]*\$)/)
       .map((part, i) => (i % 2 ? part.slice(1, -1) : words(part)))
       .join('')
     return { tex, error }
+  }
+
+  /**
+   * Define a display-name template, `massName(x) = "m_{{x}}"`: words with `{{x}}`
+   * where each argument goes, used as a setting on a name, `m_w:massName(H2O) = …`.
+   * Its line shows the words with each parameter in its place.
+   */
+  private defineTemplate(name: string, paramList: string, words: string): LineResult {
+    const params = paramList.split(',').map((p) => p.trim()).filter(Boolean)
+    const bad = params.find((p) => !IS_NAME.test(p))
+    if (bad !== undefined) return { tex: '', error: `"${bad}" isn't a parameter name: write ${name}(x, y) = "…{{x}}…".` }
+    this.labelTemplates.set(name, { params, words })
+    const shown = this.labelTex(this.fillWords(words, params, params))
+    return { tex: `${symbolTex(name)}\\left(${params.map(symbolTex).join(', ')}\\right) = ${shown.tex}`, error: shown.error }
+  }
+
+  /** A template's words with each `{{parameter}}` as its argument's text (other `{{…}}`, values, are left for the display name). */
+  private fillWords(words: string, params: string[], args: string[]): string {
+    return words.replace(VALUE_IN_TEXT, (whole, inside: string) => {
+      const at = params.indexOf(inside.trim())
+      return at < 0 ? whole : args[at]
+    })
+  }
+
+  /** The display name a template makes from its arguments, `massName(H2O)` → "m_{H2O}", or what's wrong. */
+  private fillTemplate(name: string, args: string[]): { words: string } | { error: string } {
+    const template = this.labelTemplates.get(name)
+    if (!template) return { error: `${name}( ) isn't a display-name template: define one first, as ${name}(x) = "…{{x}}…".` }
+    if (args.length !== template.params.length) {
+      const count = template.params.length
+      return { error: `${name} takes ${count} argument${count === 1 ? '' : 's'} (${template.params.join(', ')}), not ${args.length}.` }
+    }
+    return { words: this.fillWords(template.words, template.params, args) }
   }
 
   /** How a variable's name is shown: its display name, if it has one. */
@@ -4254,6 +4330,10 @@ export class Calculator {
     const unpack = UNPACK.exec(input.trim())
     if (unpack) return this.evaluateUnpack(unpack[1], unpack[2], requestedMode, explicit)
 
+    // `massName(x) = "m_{{x}}"`: a display-name template. (Before one-line functions: it looks like one.)
+    const template = LABEL_TEMPLATE.exec(input.trim())
+    if (template) return this.defineTemplate(template[1], template[2], template[3])
+
     // `f(x, y) = …` is a one-line function, the same as a `def` whose body is just the return.
     const oneLiner = ONE_LINE_FUNCTION.exec(input.trim())
     const params = oneLiner?.[2].split(',').map((p) => p.trim()).filter(Boolean)
@@ -4271,7 +4351,11 @@ export class Calculator {
     const declaration = parseDeclaration(input.trim())
     if (declaration && 'error' in declaration) return { tex: '', error: declaration.error }
     // A display name is worked out now, so values in it are the ones it was computed with.
-    const label = declaration?.label !== undefined ? this.labelTex(declaration.label) : undefined
+    // (One made with a template, `m_w:massName(H2O)`, is its words with the arguments put in.)
+    const labelWords = declaration?.template ? this.fillTemplate(declaration.template.name, declaration.template.args) : undefined
+    if (labelWords && 'error' in labelWords) return { tex: '', error: labelWords.error }
+    const labelSource = declaration?.label ?? labelWords?.words
+    const label = labelSource !== undefined ? this.labelTex(labelSource) : undefined
     if (label?.error) return { tex: '', error: label.error }
     const declaredSf = declaration?.sf
     const displayUnit = declaration?.unit === PERCENT ? undefined : declaration?.unit

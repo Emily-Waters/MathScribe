@@ -176,6 +176,7 @@ function blockToLatex(b: Block, o: LatexOptions): string {
         .map((seg) => (seg.math ? `$${seg.value}$` : escapeTex(seg.value)))
         .join('')
     case BLOCK_KIND.latex:
+      if (b.error) return errorComment(b.line, b.latex, b.error)
       return gather([{ tex: b.latex }])
     case BLOCK_KIND.calc: {
       if (b.error) return errorComment(b.line, b.source, b.error)

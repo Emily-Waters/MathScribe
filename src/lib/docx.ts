@@ -363,7 +363,8 @@ function block(b: Block, ctx: Ctx): Item[] {
     case BLOCK_KIND.text:
       return [{ props: base, content: richText(b.text) }]
     case BLOCK_KIND.latex:
-      return [equation(ctx, b.latex)]
+      // (Errors stay out of the document, as for calculations.)
+      return b.error ? [] : [equation(ctx, b.latex)]
     case BLOCK_KIND.calc:
       // Errors stay out of the document, as in the LaTeX export.
       if (b.error || b.hidden) return []

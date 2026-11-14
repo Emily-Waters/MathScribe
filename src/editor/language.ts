@@ -15,7 +15,7 @@ import { closesVector, isUnitName } from '../lib/engine.ts'
 import { REACTION_LINE } from '../lib/chemistry.ts'
 import {
   BRANCH_START, CALL, COMMAND_NAMES, CONSTANT_TOKEN, DEF_START, FUNCTION_HEAD, GREEK_CHARS, IMPORT, INDENT_WIDTH, KEYWORD, NAME, NAME_CHAR,
-  BLOCK_CLOSE, BLOCK_OPEN, CONSTANTS_TOKEN, LAYOUT_NAME_TOKEN, LAYOUT_OPENER, LAYOUT_STYLES, PROSE_LAYOUTS, layoutMembers, COMMENT_START, NAMESPACE_CALL_TOKEN, NUMBER, SETTINGS,
+  BLOCK_CLOSE, BLOCK_OPEN, CONSTANTS_TOKEN, LATEX_OPENER, LATEX_TOKEN, closesLatex, LAYOUT_NAME_TOKEN, LAYOUT_OPENER, LAYOUT_STYLES, PROSE_LAYOUTS, layoutMembers, COMMENT_START, NAMESPACE_CALL_TOKEN, NUMBER, SETTINGS,
   UNPACK_SO_FAR, VALUE_IN_TEXT, indentOf, isComment,
 } from '../lib/syntax.ts'
 
@@ -33,6 +33,8 @@ const LINE_KIND = {
   comment: 'comment',
   /** A formula on its own: `{OH^- + H3O^+ -> 2 H2O}`. */
   reaction: 'reaction',
+  /** `@latex {`, or a whole `@latex { \frac{a}{b} }` on one line. */
+  latexOpener: 'latexOpener',
 } as const
 type LineKind = (typeof LINE_KIND)[keyof typeof LINE_KIND]
 
@@ -75,6 +77,8 @@ interface State {
   inTitle: boolean
   /** Inside an `@layout.text { }` block: every line up to its `}` is prose. */
   inText: boolean
+  /** Inside an `@latex { }` block: every line up to a `}` alone is LaTeX. */
+  inLatex: boolean
   /** Under an `import(…)` line: its indentation (lines indented further are the file's rows). */
   dataIndent: number | null
 }
@@ -116,7 +120,7 @@ function lineKind(line: string): LineKind {
   const t = line.trim()
   if (t.startsWith('#')) return LINE_KIND.heading
   if (t.startsWith('>')) return LINE_KIND.text
-  if (t.startsWith('$')) return LINE_KIND.latex
+  if (LATEX_OPENER.test(t)) return LINE_KIND.latexOpener
   if (DEF_START.test(t)) return LINE_KIND.def
   const body = bodyOf(t)
   if (REACTION_LINE.test(body)) return LINE_KIND.reaction
@@ -136,15 +140,23 @@ function token(stream: StringStream, state: State): Token | null {
     // A text block ends at its `}`; imported data at the first line indented no
     // further than its import, or a blank line (see blankLine below).
     if (state.inText && closesBlock(stream.string)) state.inText = false
+    const closingLatex = state.inLatex && closesLatex(stream.string)
+    if (closingLatex) state.inLatex = false
     if (state.dataIndent !== null && (indent <= state.dataIndent || !stream.string.trim())) state.dataIndent = null
     if (state.inText) {
       state.kind = LINE_KIND.text
+    } else if (state.inLatex) {
+      state.kind = LINE_KIND.latex
+    } else if (closingLatex) {
+      state.kind = LINE_KIND.calc
     } else if (state.dataIndent !== null) {
       state.kind = LINE_KIND.data
     } else {
       state.kind = lineKind(stream.string)
       // `@layout.text Title {`: the lines up to its `}` are prose.
       if (state.kind === LINE_KIND.opener && opensText(stream.string)) state.inText = true
+      // `@latex {` with nothing after it: the lines up to a `}` alone are LaTeX.
+      if (state.kind === LINE_KIND.latexOpener && !LATEX_OPENER.exec(stream.string.trim())![1].trim()) state.inLatex = true
       // `import("run1.csv")`: the lines indented under it are the file's rows.
       if (isImport(stream.string)) state.dataIndent = indent
     }
@@ -167,6 +179,12 @@ function token(stream: StringStream, state: State): Token | null {
     case LINE_KIND.text:
       return proseToken(stream)
     case LINE_KIND.latex:
+      stream.skipToEnd()
+      return TOKEN.latex
+    case LINE_KIND.latexOpener:
+      // `@latex`, its `{`, then (on one line) the LaTeX and its `}`.
+      if (stream.match(LATEX_TOKEN)) return TOKEN.keyword
+      if (stream.match(/^\{\s*$/)) return TOKEN.brace
       stream.skipToEnd()
       return TOKEN.latex
     case LINE_KIND.reaction:
@@ -291,7 +309,7 @@ function proseToken(stream: StringStream): Token {
 export const mathscribeLanguage = StreamLanguage.define<State>({
   name: 'mathscribe',
   startState: () => ({
-    kind: LINE_KIND.calc, afterNumber: false, inUnit: false, afterTo: false, inTitle: false, inText: false, dataIndent: null,
+    kind: LINE_KIND.calc, afterNumber: false, inUnit: false, afterTo: false, inTitle: false, inText: false, inLatex: false, dataIndent: null,
   }),
   copyState: (s) => ({ ...s }),
   // An empty line ends an import's rows.
@@ -454,7 +472,7 @@ export const mathscribeFolding = foldService.of((state, lineStart, lineEnd) => {
 })
 
 /** Whether a line (or the start of it) is a heading, prose, raw LaTeX or a comment, where there are no names. */
-export const isProseLine = (before: string) => /^\s*[#>$]/.test(before) || isComment(before)
+export const isProseLine = (before: string) => /^\s*[#>]/.test(before) || LATEX_OPENER.test(before.trim()) || isComment(before)
 
 /** Whether a value in text, `{{…`, is being typed here, where there are names after all. */
 export const inValue = (before: string) => /\{\{[^{}]*$/.test(before) && !isComment(before)
@@ -479,3 +497,21 @@ export function inTextBlock(doc: { line(n: number): { text: string } }, n: numbe
   }
   return false
 }
+
+/**
+ * Whether line `n` is LaTeX inside an `@latex { }` block: going up from it, an
+ * `@latex {` opener with nothing after it comes before any `}` on its own.
+ */
+export function inLatexBlock(doc: { line(n: number): { text: string } }, n: number): boolean {
+  if (closesLatex(doc.line(n).text)) return false
+  for (let i = n - 1; i >= 1; i--) {
+    const text = doc.line(i).text
+    if (closesLatex(text)) return false
+    const opener = LATEX_OPENER.exec(text.trim())
+    if (opener) return !opener[1].trim()
+  }
+  return false
+}
+
+/** Whether line `n` is one where there are no names (prose, LaTeX), so the editor's suggestions stay quiet. */
+export const inNamelessBlock = (doc: { line(n: number): { text: string } }, n: number) => inTextBlock(doc, n) || inLatexBlock(doc, n)

@@ -94,6 +94,47 @@ describe('display names', () => {
     expect(last(source).tex).toContain(label)
   })
 
+  it('can have subscripts, as names and headings do; \\_ is a plain underscore', () => {
+    expect(lines('m:"Mass of m_ball" = 0.50 kg')[0].tex).toMatch(/^\\text\{Mass of \}\\text\{m\}_\{\\text\{ball\}\} = /)
+    expect(lines('x:"Largest x_{max}" = 2 m')[0].tex).toMatch(/^\\text\{Largest \}\\text\{x\}_\{\\text\{max\}\} = /)
+    expect(lines('F:"Force F_net_x" = 2 N')[0].tex).toMatch(/^\\text\{Force \}\\text\{F\}_\{\\text\{net\},\\text\{x\}\} = /)
+    expect(lines('f:"file\\_name" = 2')[0].tex).toMatch(/^\\text\{file\\_name\} = /)
+    expect(lines('n:"Moles of {Na^+} in V_2" = 2 mol')[0].tex).toContain('\\ce{Na^+}')
+  })
+
+  it('draw a subscript that starts with a capital as a formula, braced or not', () => {
+    expect(lines('m:"Mass of m_{H2O}" = 18 g')[0].tex).toMatch(/^\\text\{Mass of \}\\text\{m\}_\{\\ce\{H2O\}\} = /)
+    expect(lines('c:"c_{Na^+}" = 0.10 M')[0].tex).toMatch(/^\\text\{c\}_\{\\ce\{Na\^\+\}\} = /)
+    expect(lines('m:"m_H2O" = 18 g')[0].tex).toContain('_{\\ce{H2O}}')
+    expect(lines('x:"x_{max}" = 2 m')[0].tex).toContain('_{\\text{max}}')
+  })
+
+  it('can come from a template: words with {{x}} where each argument goes', () => {
+    const source = 'massName(x) = "m_{{x}}"\nm_w:massName(H2O) = 18.02 g\nconc(ion, where) = "[{{{ion}}}] in {{where}}"\nc:conc(Na^+, the flask) = 0.10 M'
+    const [definition, mass, , concentration] = lines(source)
+    expect(definition.error).toBeUndefined()
+    expect(definition.tex).toMatch(/^\\mathrm\{massName\}\\left\(x\\right\) = \\text\{m\}_\{\\text\{x\}\}$/)
+    expect(mass.tex).toMatch(/^\\text\{m\}_\{\\ce\{H2O\}\} = /)
+    expect(concentration.tex).toMatch(/^\\text\{\[\}\\ce\{Na\^\+\}\\text\{\] in the flask\} = /)
+    expect(last(`${source}\ny = 2 * m_w`).tex).toContain('\\text{m}_{\\ce{H2O}}')
+  })
+
+  it('from a template, combine with other settings, and explain a missing template or a wrong count', () => {
+    expect(lines('massName(x) = "m_{{x}}"\nm:3:massName(Na) = 22.9898 g')[1].tex).toMatch(/= 23\.0\\,\\mathrm\{g\}$/)
+    expect(last('m:nope(H2O) = 1 g').error).toBe('nope( ) isn\'t a display-name template: define one first, as nope(x) = "…{{x}}…".')
+    expect(last('massName(x) = "m_{{x}}"\nm:massName(a, b) = 1 g').error).toBe('massName takes 1 argument (x), not 2.')
+  })
+
+  it('draw a formula subscript in headings and block titles too, in both exports', () => {
+    const source = '## Mass of m_{H2O}\nMoles of n_{Na^+} {\n    x = 1\n}'
+    const tex = toLatexDocument(sheet(source).blocks, DEFAULT_LATEX_OPTIONS)
+    expect(tex).toContain('Mass of m${}_{\\ce{H2O}}$')
+    expect(tex).toContain('\\usepackage[version=4]{mhchem}')
+    expect(tex).toContain('{}_{\\ce{Na^+}}')
+    const doc = docxParts(sheet(source).blocks, DEFAULT_LATEX_OPTIONS)['word/document.xml']
+    expect(doc).toMatch(/Mass of m.*<m:sSub>/)
+  })
+
   it('combine with other settings, and explain a value that can’t be worked out', () => {
     expect(readable(last('n:3:"Moles":sci = 2.0 mol').tex)).toContain('2.00')
     expect(last('n:"Moles in {{V_x}}" = 2.0 mol').error).toBe('In its display name, {{V_x}}: Undefined symbol V_x')

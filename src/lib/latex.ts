@@ -9,7 +9,7 @@ import { TITLE_SEGMENT, isOmitted, listItems, splitInlineMath, titleSegments } f
 import { BLOCK_KIND, isContainer, type Block } from './blocks.ts'
 import { ALIGN } from './alignment.ts'
 import { usesFormulas } from './chemistry.ts'
-import { LAYOUT_STYLE, LINE_COMMAND } from './syntax.ts'
+import { LAYOUT_STYLE, LINE_COMMAND, builtinOpenerText } from './syntax.ts'
 import { symbolTex, unitTex } from './engine.ts'
 import type { PlotData, PlotName } from './plot.ts'
 import { readStoredJson, writeStoredJson } from './storage.ts'
@@ -185,7 +185,7 @@ function blockToLatex(b: Block, o: LatexOptions): string {
       return titled(o, heading(`Function $${b.signature}$`, b.note), gather(b.body))
     }
     case BLOCK_KIND.layout: {
-      if (b.error && !b.children.length) return errorComment(b.line, `${b.title}:`, b.error)
+      if (b.error && !b.children.length) return errorComment(b.line, builtinOpenerText(b.style ?? LAYOUT_STYLE.list, b.title), b.error)
       if (b.command === LINE_COMMAND.hide) return ''
       const title = heading(b.title && titleToLatex(b.title), b.note)
       // A text block: its paragraphs, under the title.

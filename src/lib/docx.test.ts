@@ -106,7 +106,7 @@ describe('the Word export', () => {
   })
 
   it('in a list, keeps the note on the item’s line with a tab', () => {
-    const doc = exportOf('Steps:   #numbered\n    F = 2.0 N   # weight')['word/document.xml']
+    const doc = exportOf('@numbered Steps {\n    F = 2.0 N   # weight\n}')['word/document.xml']
     expect(doc).not.toContain('<w:tbl>')
     expect(doc).toMatch(/<w:numId w:val="1"\/>.*<w:tab w:val="right"/)
   })
@@ -131,7 +131,7 @@ describe('the Word export', () => {
   })
 
   it('makes lists Word lists, each numbered list starting at 1', () => {
-    const parts = exportOf('A:   #numbered\n    > one\n    > two\nB:   #list\n    > three\n        > four')
+    const parts = exportOf('@numbered A {\n    > one\n    > two\n}\n@list B {\n    > three\n        > four\n}')
     expect(parts['word/document.xml'].match(/<w:numId w:val="1"\/>/g)).toHaveLength(2)
     expect(parts['word/document.xml']).toContain('<w:ilvl w:val="1"/><w:numId w:val="3"/>')
     expect(parts['word/numbering.xml']).toContain('<w:num w:numId="3"><w:abstractNumId w:val="0"/>')

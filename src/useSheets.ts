@@ -5,7 +5,6 @@ import {
 } from './lib/files.ts'
 import { SHEET_FILE, TIMING } from './config.ts'
 import { SAMPLE } from './lib/sample.ts'
-
 /** Whether a sheet's latest text has been saved (to its file, or the browser). */
 export type SaveState = 'saved' | 'unsaved' | 'saving' | 'error'
 

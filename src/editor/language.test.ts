@@ -104,9 +104,15 @@ describe('highlighting', () => {
     expect(tokens('## Forces')).toEqual(['## Forces:head'])
     expect(tokens('> Prose with $E = mc^2$ inline')).toEqual(
       ['>:quote', 'Prose with :text', '$E = mc^2$:latex', 'inline:text'])
-    expect(tokens('Steps:   #numbered  # the 1s orbital')).toEqual(
-      ['Steps:title', ':   :brace', '#numbered:cmd', '# the 1s orbital:note'])
+    expect(tokens('@numbered Steps {  # the 1s orbital')).toEqual(
+      ['@numbered:kw', 'Steps:title', '{  :brace', '# the 1s orbital:note'])
+    expect(tokens('@constants {')).toEqual(['@constants:kw', '{:brace'])
     expect(tokens('What if {')).toEqual(['What if:title', '{:brace'])
+  })
+
+  it('colours @chem’s constants and functions', () => {
+    expect(tokens('M = @chem.Na:3')).toEqual(['M:var', '@chem.Na:3:const'])
+    expect(tokens('M = @chem.mm({H2O})')[1]).toBe('@chem.mm:fn')
   })
 })
 
@@ -120,17 +126,17 @@ describe('text blocks', () => {
     return out
   }
 
-  it('colour the lines under a #text opener as prose, until the indentation ends', () => {
-    const lines = tokensByLine('Notes:   #text\n    m = 2 kg is prose here, with $x^2$\n\n    more prose\ny = 2.0 m')
-    expect(lines[0]).toEqual(['Notes:title', ':   :brace', '#text:cmd'])
+  it('colour the lines of an @text block as prose, up to its closing brace', () => {
+    const lines = tokensByLine('@text Notes {\n    m = 2 kg is prose here, with $x^2$\n\nResults:\n}\ny = 2.0 m')
+    expect(lines[0]).toEqual(['@text:kw', 'Notes:title', '{:brace'])
     expect(lines[1]).toEqual(['m = 2 kg is prose here, with :text', '$x^2$:latex'])
-    expect(lines[3]).toEqual(['more prose:text'])
-    expect(lines[4]).toEqual(['y:var', '2.0:num', 'm:unit'])
+    expect(lines[3]).toEqual(['Results::text'])
+    expect(lines[5]).toEqual(['y:var', '2.0:num', 'm:unit'])
   })
 
   it('are recognised for the editor’s suggestions', () => {
-    const doc = EditorState.create({ doc: 'Notes:   #text\n    prose\n\n    more\nx = 1\nSteps:  #numbered\n    a = 1' }).doc
-    expect([1, 2, 4, 5, 7].map((n) => inTextBlock(doc, n))).toEqual([false, true, true, false, false])
+    const doc = EditorState.create({ doc: '@text Notes {\n    prose\n\n    more\n}\nx = 1\n@numbered Steps {\n    a = 1\n}' }).doc
+    expect([1, 2, 4, 5, 6, 8].map((n) => inTextBlock(doc, n))).toEqual([false, true, true, false, false, false])
   })
 })
 
@@ -142,7 +148,8 @@ describe('indentation', () => {
   }
 
   it('goes one level deeper after a block opener or def', () => {
-    expect(indentAfter('Steps:  #numbered')).toBe(4)
+    expect(indentAfter('@numbered Steps {')).toBe(4)
+    expect(indentAfter('Steps:')).toBe(0)
     expect(indentAfter('What if {')).toBe(4)
     expect(indentAfter('def f(x)')).toBe(4)
     expect(indentAfter('    x = 1')).toBe(4)
@@ -164,7 +171,7 @@ describe('indentation', () => {
 
   it('indents when Enter is pressed after a block opener, and not after a line or an import’s rows', () => {
     expect(enter('x = 1\ndef f(x)')).toBe('\n    ')
-    expect(enter('Steps:   #numbered')).toBe('\n    ')
+    expect(enter('@numbered Steps {  # note')).toBe('\n    ')
     expect(enter('a = 1\nBlock {')).toBe('\n    ')
     expect(enter('Block {\n    x = 1')).toBe('\n    ')
     expect(enter('x = 1')).toBe('\n')
@@ -204,13 +211,13 @@ describe('folding', () => {
     return range && [state.doc.lineAt(range.from).number, state.doc.lineAt(range.to).number]
   }
 
-  it('folds a def body or : block by indentation', () => {
+  it('folds a def body by indentation', () => {
     expect(foldsAt('def f(x)\n    y = x\n    return y\nz = 1', 1)).toEqual([1, 3])
-    expect(foldsAt('Steps:\n    a = 1\n\n    b = 2\nc = 3', 1)).toEqual([1, 4])
   })
 
-  it('folds a { } block up to its closing brace', () => {
+  it('folds a { } block up to its closing brace, a built-in one too', () => {
     expect(foldsAt('W {\n  a = 1\n  b = 2\n}', 1)).toEqual([1, 3])
+    expect(foldsAt('@text Notes {\n    The {Na^+} ion.\n\n    More.\n}\nc = 3', 1)).toEqual([1, 4])
   })
 
   it('doesn’t fold ordinary lines', () => {

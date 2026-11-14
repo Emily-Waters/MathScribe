@@ -267,6 +267,25 @@ export const REFERENCE: ReferenceSection[] = [
     ],
   },
   {
+    id: 'chemistry',
+    title: 'Chemistry',
+    examples: [
+      { source: 'M = @chem.Na', explain: '@chem.Na is an element’s molar mass, with the digits IUPAC gives (@chem.Na:3 for 3 sig figs).' },
+      {
+        source: 'M = @chem.mm({CuSO4*5H2O})',
+        explain: '@chem.mm({formula}) adds up a compound’s molar mass: groups in brackets, a hydrate’s water after *. A charge or state is left out.',
+      },
+      {
+        source: 'm = 5.00 g {NaOH}\nn = m / @chem.mm({NaOH})',
+        explain: 'After a unit, {formula} is the species an amount is of; a molar mass needs none.',
+      },
+      {
+        source: 'n_Na = 0.100 mol {Na^+}\nn_Cl = 0.200 mol {Cl^-}\nn = @chem.total(n_Na, n_Cl)',
+        explain: 'Amounts of different species can’t be added with +; @chem.total adds them as plain amounts.',
+      },
+    ],
+  },
+  {
     id: 'display',
     title: 'Display commands',
     examples: [
@@ -296,27 +315,28 @@ export const REFERENCE: ReferenceSection[] = [
     title: 'Layout',
     examples: [
       {
-        source: 'Assumptions:   #list\n    > The box is one-dimensional\n    > The walls are infinitely high\n        > so ψ = 0 at the walls',
-        explain: 'A line ending in : holds the lines indented under it. #list makes them bullets; indent further for a sub-list.',
+        source: '@list Assumptions {\n    > The box is one-dimensional\n    > The walls are infinitely high\n        > so ψ = 0 at the walls\n}',
+        explain: '@list makes the lines up to its } bullets; indent further for a sub-list. The title is optional.',
       },
       {
-        source: 'Steps:   #numbered\n    m = 2.00 kg\n    F = m * 9.81 m/s^2',
-        explain: '#numbered makes a numbered list. Variables assigned inside stay available afterwards (unlike { } blocks).',
+        source: '@numbered Steps {\n    m = 2.00 kg\n    F = m * 9.81 m/s^2\n}',
+        explain: '@numbered makes a numbered list. Variables assigned inside stay available afterwards (unlike Title { } blocks).',
       },
       {
-        source: 'Key result:   #center\n    E = 2.00 kg * (3.00e8 m/s)^2',
-        explain: '#center centers the lines. The title is optional: “:  #center” on its own works too.',
+        source: '@center Key result {\n    E = 2.00 kg * (3.00e8 m/s)^2\n}',
+        explain: '@center centers the lines. The title is optional: “@center {” on its own works too.',
       },
-      { source: 'F = 2.00 kg * 9.81 m/s^2   #center', explain: 'On a single line, #center centers just that line.' },
+      { source: 'F = 2.00 kg * 9.81 m/s^2   #center', explain: 'On a single line, #center centers just that line (#list and #numbered work too).' },
       {
         source: [
-          'Discussion:   #text',
+          '@text Discussion {',
           '    The measured acceleration is lower than g sin θ, because',
           '    the ramp isn’t frictionless: $\\mu_k \\approx 0.05$ would explain it.',
           '',
           '    A blank line starts a new paragraph.',
+          '}',
         ].join('\n'),
-        explain: '#text makes a block of prose: lines join into paragraphs (a blank line starts a new one), $…$ is maths, and nothing is calculated.',
+        explain: '@text makes a block of prose: lines join into paragraphs (a blank line starts a new one), $…$ is maths, and nothing is calculated.',
       },
     ],
   },

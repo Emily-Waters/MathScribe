@@ -48,21 +48,22 @@ describe('{ } blocks', () => {
 
 describe('layout blocks', () => {
   const src = [
-    'Assumptions:   #list',
-    '    > one',
-    '    > two',
-    '        > nested a',
-    '        > nested b',
-    '    > three',
-    '',
-    'Steps:   #numbered  # the 1s orbital',
-    '    Z = 1',
-    '    sigma = Z * 2',
-    '',
-    'after = sigma * 2',
-    'E = 2.00 kg * 9.81 m/s^2   #center',
-    'Empty:   #list',
-    'x = 1',
+    '@list Assumptions {', // 1
+    '    > one', // 2
+    '    > two', // 3
+    '        > nested a', // 4
+    '        > nested b', // 5
+    '    > three', // 6
+    '}', // 7
+    '@numbered Steps {  # the 1s orbital', // 8
+    '    Z = 1', // 9
+    '    sigma = Z * 2', // 10
+    '}', // 11
+    'after = sigma * 2', // 12
+    'E = 2.00 kg * 9.81 m/s^2   #center', // 13
+    '@list Empty {', // 14
+    '}', // 15
+    'x = 1', // 16
   ].join('\n')
 
   it('build lists, sub-lists and single centered lines', () => {
@@ -81,8 +82,24 @@ describe('layout blocks', () => {
       'layout center ""',
       '  calc 13',
       'layout list "Empty" ERROR',
-      'calc 15',
+      'calc 16',
     ])
+  })
+
+  it('end at their closing brace, a sub-list too', () => {
+    const s = sheet('@list {\n    > a\n        > b\n}\nx = 1')
+    expect(outline(s.blocks)).toEqual(['layout list ""', '  text 2', '  layout list "" nested', '    text 3', 'calc 5'])
+    expect((s.blocks[0] as LayoutBlock).endLine).toBe(4)
+  })
+
+  it('nest in a { } block, and close before it', () => {
+    expect(outline(sheet('Q1 {\n    @center {\n        y = 2\n    }\n    z = 3\n}').blocks))
+      .toEqual(['group "Q1" locals=y,z', '  layout center ""', '    calc 3', '  calc 5'])
+  })
+
+  it('say when one is missing its closing brace', () => {
+    expect(sheet('@numbered Steps {\n    a = 1').blocks[0])
+      .toMatchObject({ kind: BLOCK_KIND.layout, error: '@numbered Steps { on line 1 is missing its closing }.' })
   })
 
   it('don’t scope their variables', () => {
@@ -95,12 +112,12 @@ describe('layout blocks', () => {
     expect(tex).toContain('\\paragraph{Steps --- the 1s orbital}\n\\begin{enumerate}\n\\item $\\displaystyle Z = 1$')
     expect(tex).toContain('\\begin{center}')
     // An empty list would not compile, so it's left as a comment.
-    expect(tex).toMatch(/% Line 14: Empty:\n% Error: Nothing is indented/)
+    expect(tex).toMatch(/% Line 14: @list Empty \{\n% Error: @list Empty \{ is empty/)
     expect(tex).not.toMatch(/\\begin\{itemize\}\s*\\end\{itemize\}/)
   })
 
   it('leave hidden lines out of lists', () => {
-    const s = sheet('Results:   #numbered #val\n    F = 2.00 kg * 9.81 m/s^2\n    h = 5   #hide')
+    const s = sheet('@numbered Results {  #val\n    F = 2.00 kg * 9.81 m/s^2\n    h = 5   #hide\n}')
     const tex = toLatexDocument(s.blocks)
     expect(tex.match(/\\item/g)).toHaveLength(1)
     expect((s.blocks[0] as LayoutBlock).command).toBe('val')
@@ -110,29 +127,36 @@ describe('layout blocks', () => {
 describe('text blocks', () => {
   const src = [
     'x = 2', // 1
-    'Discussion:   #text', // 2
+    '@text Discussion {', // 2
     '    The result is lower than expected,', // 3
     '    because x = 5 isn’t calculated here.', // 4
     '', // 5
     '    # Not a heading, and $E = mc^2$ is maths.', // 6
-    'y = x * 3', // 7
-    ':   #text', // 8
-    'z = 1', // 9
+    'Results:', // 7 (prose, even ending in a colon, and not indented)
+    '}', // 8
+    'y = x * 3', // 9
+    '@text {', // 10
+    '}', // 11
+    'z = 1', // 12
   ].join('\n')
   const blocks = sheet(src).blocks
   const block = blocks[1] as LayoutBlock
 
   it('join lines into paragraphs, split by blank lines, without calculating anything', () => {
-    expect(block).toMatchObject({ kind: BLOCK_KIND.layout, style: LAYOUT_STYLE.text, title: 'Discussion', endLine: 6 })
+    expect(block).toMatchObject({ kind: BLOCK_KIND.layout, style: LAYOUT_STYLE.text, title: 'Discussion', endLine: 8 })
     expect(block.children).toEqual([
       { kind: BLOCK_KIND.text, line: 3, text: 'The result is lower than expected, because x = 5 isn’t calculated here.' },
-      { kind: BLOCK_KIND.text, line: 6, text: '# Not a heading, and $E = mc^2$ is maths.' },
+      { kind: BLOCK_KIND.text, line: 6, text: '# Not a heading, and $E = mc^2$ is maths. Results:' },
     ])
   })
 
-  it('end at the first line indented no further than the opener', () => {
-    expect(outline(blocks)).toEqual(['calc 1', 'layout text "Discussion"', '  text 3', '  text 6', 'calc 7', 'layout text "" ERROR', 'calc 9'])
+  it('end at their closing brace', () => {
+    expect(outline(blocks)).toEqual(['calc 1', 'layout text "Discussion"', '  text 3', '  text 6', 'calc 9', 'layout text "" ERROR', 'calc 12'])
     expect(lines(src).find((l) => l.line === 4)).toBeUndefined() // not evaluated
+  })
+
+  it('say when one is missing its closing brace', () => {
+    expect(sheet('@text Notes {\n    prose').blocks[0]).toMatchObject({ error: '@text Notes { is missing its closing }.' })
   })
 
   it('export as plain paragraphs under the title', () => {
@@ -178,20 +202,21 @@ describe('constant declarations', () => {
 describe('editor information', () => {
   const src = [
     'f(x) = x^2', // 1
-    'S:  #numbered', // 2
+    '@numbered S {', // 2
     '    g(t) = 2*t', // 3
-    'W {', // 4
-    '    def h(a, b to m)', // 5
-    '        return a', // 6
-    '    local = 3', // 7
-    '}', // 8
-    'f(x) = x^3', // 9
-    'y = 2.0 m', // 10
-    'z = undefined_thing', // 11
+    '}', // 4
+    'W {', // 5
+    '    def h(a, b to m)', // 6
+    '        return a', // 7
+    '    local = 3', // 8
+    '}', // 9
+    'f(x) = x^3', // 10
+    'y = 2.0 m', // 11
+    'z = undefined_thing', // 12
   ].join('\n')
 
   it('finds every function definition, in order', () => {
-    expect([...collectDefinitions(sheet(src).blocks)]).toEqual([['f', [1, 9]], ['g', [3]], ['h', [5]]])
+    expect([...collectDefinitions(sheet(src).blocks)]).toEqual([['f', [1, 10]], ['g', [3]], ['h', [6]]])
   })
 
   it('finds definitions with settings for the result', () => {
@@ -203,10 +228,10 @@ describe('editor information', () => {
   it('collects symbols with their scope', () => {
     const symbols = collectSymbols(sheet(src), src)
     const find = (name: string) => symbols.filter((s) => s.name === name)
-    expect(find('local')).toEqual([expect.objectContaining({ kind: SYMBOL_KIND.variable, line: 7, from: 8, to: 8 })])
-    expect(find('b')).toEqual([expect.objectContaining({ kind: SYMBOL_KIND.parameter, from: 6, to: 6 })])
-    expect(find('h')[0]).toMatchObject({ kind: SYMBOL_KIND.function, params: 'a, b to m', to: 8 })
-    expect(find('y')[0]).toMatchObject({ kind: SYMBOL_KIND.variable, from: 11, tex: expect.stringContaining('2.0') })
+    expect(find('local')).toEqual([expect.objectContaining({ kind: SYMBOL_KIND.variable, line: 8, from: 9, to: 9 })])
+    expect(find('b')).toEqual([expect.objectContaining({ kind: SYMBOL_KIND.parameter, from: 7, to: 7 })])
+    expect(find('h')[0]).toMatchObject({ kind: SYMBOL_KIND.function, params: 'a, b to m', to: 9 })
+    expect(find('y')[0]).toMatchObject({ kind: SYMBOL_KIND.variable, from: 12, tex: expect.stringContaining('2.0') })
   })
 
   it('collects the names a tuple is unpacked into', () => {
@@ -217,7 +242,7 @@ describe('editor information', () => {
 
   it('marks errors by line', () => {
     const d = collectDiagnostics(sheet(src).blocks)
-    expect(d.get(11)).toMatchObject({ kind: DIAGNOSTIC_KIND.error })
+    expect(d.get(12)).toMatchObject({ kind: DIAGNOSTIC_KIND.error })
     expect(d.size).toBe(1)
   })
 })

@@ -5,7 +5,7 @@
  */
 import {
   CALL, COMMAND_NAMES, COMPONENTS_SETTING, EXACT_SETTING, KEYWORD, NOTATIONS, PERCENT, UNCERTAINTY_WORDS, UNIT_VECTOR_SETTING,
-  VECTOR_FUNCTION, type CommandName, type Notation, type SeriesSuffix,
+  VECTOR_FUNCTION, type BuiltinBlock, type ChemFunction, type CommandName, type Notation, type SeriesSuffix,
 } from '../lib/syntax.ts'
 
 /** What each display command does. */
@@ -17,10 +17,24 @@ const COMMAND_DESCRIPTIONS: Record<CommandName, string> = {
   multiline: 'Each = on its own row, lined up',
   sci: 'Results in scientific notation (on a line, or every line in a block)',
   dec: 'Results in plain decimal digits, no powers of ten (on a line, or every line in a block)',
-  center: 'Center the line, or a : block’s lines',
-  list: 'A : block’s lines as a bulleted list',
-  numbered: 'A : block’s lines as a numbered list',
-  text: 'A : block of prose: lines join into paragraphs, nothing is calculated',
+  center: 'Center the line (for a block of lines: @center { })',
+  list: 'The line as a bullet (for a block of lines: @list { })',
+  numbered: 'The line as a numbered item (for a block of lines: @numbered { })',
+}
+
+/** What each built-in block does, `@list Title { … }`. */
+export const BUILTIN_BLOCK_DESCRIPTIONS: Record<BuiltinBlock, string> = {
+  text: 'Prose: lines join into paragraphs, nothing is calculated',
+  list: 'The lines inside as a bulleted list (indent further for a sub-list)',
+  numbered: 'The lines inside as a numbered list (indent further for a sub-list)',
+  center: 'The lines inside, centered',
+  constants: 'Constants usable anywhere in the sheet as @name',
+}
+
+/** What each @chem function does. */
+export const CHEM_FUNCTION_DESCRIPTIONS: Record<ChemFunction, { signature: string; description: string }> = {
+  mm: { signature: 'mm({formula})', description: 'Molar mass of a compound, in g/mol: @chem.mm({CuSO4*5H2O})' },
+  total: { signature: 'total(n_1, n_2, …)', description: 'Amounts of different species added, as plain amounts' },
 }
 
 /** Every display command, `#` and all, in the order they're suggested. */

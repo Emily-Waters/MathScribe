@@ -99,3 +99,67 @@ describe('display names', () => {
     expect(last('n:"Moles in {{V_x}}" = 2.0 mol').error).toBe('In its display name, {{V_x}}: Undefined symbol V_x')
   })
 })
+
+describe('@chem: elements’ molar masses', () => {
+  it('are in g/mol, with the digits IUPAC gives unless asked for others', () => {
+    expect(value('M = @chem.Na')).toBe('22.990 g/mol')
+    expect(value('M = @chem.Cl')).toBe('35.45 g/mol')
+    expect(value('M = @chem.Na:3')).toBe('23.0 g/mol')
+  })
+
+  it('suggest the element meant, and keep symbols case-sensitive', () => {
+    expect(last('M = @chem.Xx').error).toMatch(/Unknown constant @chem\.Xx/)
+  })
+
+  it('can be declared sheet-wide, as other constants can', () => {
+    expect(value('@chem.Na:3\nM = @chem.Na')).toBe('23.0 g/mol')
+  })
+})
+
+describe('@chem.mm: a compound’s molar mass', () => {
+  it('adds up its elements, groups and hydrates included, with sig figs by the addition rule', () => {
+    expect(value('M = @chem.mm({H2O})')).toBe('18.015 g/mol')
+    expect(value('M = @chem.mm({NaCl})')).toBe('58.44 g/mol')
+    expect(value('M = @chem.mm({Ca(OH)2})')).toBe('74.092 g/mol')
+    expect(value('M = @chem.mm({CuSO4*5H2O})')).toBe('249.68 g/mol')
+    expect(value('M = @chem.mm({K4[Fe(CN)6]})')).toBe('368.35 g/mol')
+  })
+
+  it('leaves out a charge and a state', () => {
+    expect(value('M = @chem.mm({SO4^2-})')).toBe(value('M = @chem.mm({SO4})'))
+    expect(value('M = @chem.mm({NaCl(aq)})')).toBe('58.44 g/mol')
+  })
+
+  it('shows the sum as working', () => {
+    expect(readable(last('M = @chem.mm({H2O})').tex)).toContain('M_H')
+  })
+
+  it('gives an amount of a species from its mass', () => {
+    expect(value('m = 5.00 g {NaOH}\nn = m / @chem.mm({NaOH})')).toBe('0.125 mol NaOH')
+  })
+
+  it('explains a coefficient, an unknown element, and a formula without braces', () => {
+    expect(last('M = @chem.mm({2 H2O})').error).toMatch(/coefficient/)
+    expect(last('M = @chem.mm({Xy2})').error).toMatch(/Xy, which isn't an element/)
+    expect(last('M = @chem.mm(H2O)').error).toMatch(/in braces/)
+    expect(last('M = @chem.mm({Ca(OH2})').error).toMatch(/missing/)
+    expect(last('M = @chem.foo(1)').error).toMatch(/@chem has no function foo/)
+  })
+})
+
+describe('@chem.total: amounts of different species', () => {
+  const data = 'n_Na = 0.100 mol {Na^+}\nn_Cl = 0.200 mol {Cl^-}\n'
+
+  it('adds them as plain amounts', () => {
+    expect(value(`${data}n = @chem.total(n_Na, n_Cl)`)).toBe('0.300 mol')
+    expect(value(`${data}n = @chem.total(n_Na, 50.0 mmol {K^+})`)).toBe('0.150 mol')
+  })
+
+  it('is written as a sum', () => {
+    expect(readable(last(`${data}n = @chem.total(n_Na, n_Cl)`).tex)).toBe('n = n_Na+ n_Cl = 0.100 mol Na^++ 0.200 mol Cl^- = 0.300 mol')
+  })
+
+  it('still won’t add an amount to a mass', () => {
+    expect(last(`${data}n = @chem.total(n_Na, 2.0 g)`).error).toBeDefined()
+  })
+})

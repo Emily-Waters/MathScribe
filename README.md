@@ -62,7 +62,7 @@ the browser.
     Document options, and with real Word equations you can edit (not pictures).
     Notes sit at the right margin beside their equation (under it, when the
     equation is too wide to share the line), blocks are cards with a shaded title,
-    `#list` / `#numbered` blocks are Word lists, and headings use Word's Heading
+    `@list` / `@numbered` blocks are Word lists, and headings use Word's Heading
     styles, so they appear in the navigation pane. For Google Docs, upload the
     file to Drive and open it with Google Docs; its equations become Google Docs
     equations.
@@ -99,7 +99,7 @@ amber one; hover the bar to read the message.
 | --- | --- |
 | Tab / Shift+Tab | Indent / dedent by one level (4 spaces) |
 | Backspace in the indentation | Removes a whole level |
-| Enter | Keeps the indentation; one level deeper after a line ending in `{` or `:`, or a `def` |
+| Enter | Keeps the indentation; one level deeper after a line ending in `{`, a `def`, or an `if` / `else` in one |
 | `}` | Dedents itself to match its block |
 | Ctrl+X / Ctrl+C, nothing selected | Cut / copy the whole line (pasting it puts it above the current line) |
 | Alt+↑ / Alt+↓ | Move the line (or selected lines) up / down |
@@ -109,7 +109,7 @@ amber one; hover the bar to read the message.
 | Ctrl+/ | Comment or uncomment the line (or selected lines) with `//` |
 | Ctrl+Z / Ctrl+Y | Undo / redo |
 
-On a Mac, use ⌘ for Ctrl. `def` bodies, `:` layout blocks and `{ }` blocks fold
+On a Mac, use ⌘ for Ctrl. `def` bodies and `{ }` blocks (`@list { }` too) fold
 from the arrows in the gutter.
 
 The output follows as you type. A sheet that takes a while to work out (thousands
@@ -124,7 +124,8 @@ Accept suggestions with.
 | Typing | Suggests |
 | --- | --- |
 | a name | variables defined above and in scope (not another block's locals), with their value; a function's parameters inside its body; your functions with their parameters (accepting one puts the cursor between the brackets); series names like `t_avg` (once there are two or more `t_1`, `t_2`, …); built-in functions, `pi`/`e`, and keywords |
-| `@` | constants with their description and value, including your own `@constants` |
+| `@` | constants with their description and value, including your own `@constants`; `@chem`; and, at the start of a line, the built-in blocks (`@text`, `@list`, …) |
+| `@chem.` | its elements, with their molar masses, and its functions `mm` and `total` |
 | a unit, after a number or `to` | units, with what they are in SI (`angstrom = 1e-10 m`); `percent` after `to` |
 | `#` after a line's text | display commands, with what each does |
 | `\` and a Greek letter's name | the letter: `\Delta` gives Δ (see Greek letters) |
@@ -245,9 +246,16 @@ block's first line to hide it. The dialog remembers your last choices.
 | `// a note to self` | a comment: never shown or worked out |
 | `$ \LaTeX` | raw LaTeX, displayed but not evaluated |
 | `Title {` … `}` | a block that scopes its variables |
-| `Title:  #numbered` + indented lines | a layout block: centered, bulleted or numbered |
-| `Title:  #text` + indented lines | a block of prose: paragraphs, nothing calculated |
+| `@numbered Title {` … `}` | a layout block: `@center`, `@list` or `@numbered` |
+| `@text Title {` … `}` | a block of prose: paragraphs, nothing calculated |
 | `@c`, `@a_0:3 to angstrom` | constants, and setting their precision and unit |
+| `@chem.Na`, `@chem.mm({H2O})` | an element's molar mass, and a compound's |
+
+**`@` is MathScribe's own:** everything built in rather than written in the sheet
+starts with `@`: constants (`@c`), the built-in blocks (`@text`, `@list`,
+`@numbered`, `@center`, `@constants`) and namespaces, whose members are written
+with a dot (`@chem.Na`, `@chem.mm(…)`). Your own constants are `@name` too, so
+they can't be called `text`, `chem` or another of these words.
 
 **Subscripts in headings and block titles:** as in variable names, `_` makes a
 subscript: `Hydrogen 2p_z orbital {` shows 2p with a subscript z, and `x_{max}`
@@ -255,7 +263,7 @@ takes a longer one. Write `\_` for a plain underscore. `$…$` adds inline maths
 as in `>` text: `## Energy $E_n = -13.6/n^2$ eV`. The LaTeX export uses
 `\textsubscript` and `$…$` to match.
 
-**Values in text:** `{{name}}` in a `>` line, a `#text` block, a heading or a
+**Values in text:** `{{name}}` in a `>` line, an `@text` block, a heading or a
 block's title puts in the variable's value, as it is at that point in the sheet,
 with its unit, sig figs and any uncertainty. Numbers in your discussion then stay
 right when the data changes.
@@ -275,8 +283,8 @@ V2 = 27.10 mL
 - Typing `{{` suggests names, as in a calculation.
 
 **Comments:** a line starting with `//` is never shown or worked out, wherever it
-is: between calculations, inside a block or function, or in a `#text` block (where
-it doesn't end the block or split a paragraph, even if it's indented less).
+is: between calculations, inside a block or function, or in an `@text` block (where
+it doesn't split a paragraph).
 Ctrl+/ comments or uncomments the selected lines.
 
 **Spacing:** one blank line between lines is just for readability in the input and
@@ -296,7 +304,7 @@ after the note:
 | `#hide` | nothing; the line is still calculated | |
 | `#multiline` | each `=` on its own row, lined up | F = m·a ⏎ = 2.0 kg · 9.81 m/s² ⏎ = (20 ± 1) N |
 | `#sci`, `#dec` | the result in scientific notation, or plain digits | ψ² = 5.000 × 10⁻³ Å⁻¹ |
-| `#center`, `#list`, `#numbered`, `#text` | layout (see Layout blocks) | |
+| `#center`, `#list`, `#numbered` | the line centered, as a bullet, or numbered (for several lines, see Layout blocks) | |
 
 ```
 F = m * a  #val  # weight
@@ -350,43 +358,48 @@ tuple's. What you type in the editor stays as you wrote it.
 
 ### Layout blocks
 
-A line ending in `:` holds the lines indented under it, and arranges them:
+A built-in block, `@name Title {` … `}`, arranges the lines inside it:
 
 ```
-Assumptions:   #list
+@list Assumptions {
     > The electron is confined to a 1-D box
     > The walls are infinitely high
         > so ψ = 0 at the walls          (indent further for a sub-list)
+}
 
-Steps:   #numbered   # the 1s orbital
+@numbered Steps {   # the 1s orbital
     sigma = Z*r/a_0
     psi = pi^(-0.5) * (Z/a_0)^(3/2) * e^(-sigma)
+}
 
-Key result:   #center
+@center Key result {
     P = 4 * pi * r^2 * psi^2
+}
 
 F = 2.00 kg * 9.81 m/s^2   #center        (a single calculation, centered)
 ```
 
-- `#list` makes bullets, `#numbered` a numbered list and `#center` centers the
-  lines. With none of them, `Title:` is just a titled, indented section.
-- `#text` makes a block of **prose**, for longer writing like a discussion or
+- `@list` makes bullets, `@numbered` a numbered list and `@center` centers the
+  lines. On a single calculation, `#list`, `#numbered` and `#center` do the same
+  for that line.
+- `@text` makes a block of **prose**, for longer writing like a discussion or
   conclusion. Nothing inside it is calculated, so lines don't need `>`, and a line
   that looks like a calculation or a heading is just text. Lines run together into
   paragraphs, a blank line starts a new one, and `$…$` is inline maths:
 
   ```
-  Discussion:   #text
+  @text Discussion {
       The measured acceleration is lower than g sin θ, because the
       ramp isn't frictionless: $\mu_k \approx 0.05$ would explain it.
 
       A blank line starts a new paragraph.
+  }
   ```
-- The block ends at the first line indented no further than its opener, like a
-  `def` body. Blank lines don't end it.
+- The block ends at its `}`. Indenting the lines inside is for readability, except
+  in a list, where indenting further makes a sub-list.
 - Layout blocks only arrange lines: variables assigned inside **stay available**
-  afterwards (unlike `{ }` blocks, which scope them).
-- The title is optional (`:  #numbered` on its own). A note after the opener is
+  afterwards (unlike `Title { }` blocks, which scope them).
+- The title is optional (`@numbered {` on its own). A note after the opener is
   shown beside the title, and display commands on the opener apply to the lines
   inside, as on `{ }` blocks.
 - In the LaTeX export, lists become `itemize` / `enumerate` (each calculation inline
@@ -551,7 +564,7 @@ a                   # still the outer value
 - Anything assigned inside a block is local to it and disappears at `}`. Assigning a
   name that already exists outside shadows it; the outer value is untouched.
 - Functions see the variables from where they were defined (lexical scope).
-- For arranging lines without scoping them, use a layout block (`Title:`) instead.
+- For arranging lines without scoping them, use a layout block (`@list Title {`) instead.
 
 ### Greek letters
 
@@ -811,7 +824,7 @@ accounts for the correlation.
 
 ### Constants
 
-Physical constants start with `@`:
+Physical constants start with `@` (the elements' molar masses are in `@chem`; see Chemistry):
 
 | Write | Value used | Sig figs |
 | --- | --- | --- |
@@ -914,10 +927,45 @@ n_2 = m / (40.00 g/mol)                   → 0.125 mol NaOH       (a molar mass
 - Each species is a unit of its own, so species cancel as units do, and amounts of
   different species can't be added or compared (mol Na⁺ + mol Cl⁻ is an error, like
   metres + seconds). `to` keeps the species: `n to mmol` is 1.71 mmol NaOH.
+- To add amounts of different species on purpose (the total moles of ions), use
+  `@chem.total`, which adds them as plain amounts:
+
+  ```
+  n_Na = 0.100 mol {Na^+}
+  n_Cl = 0.200 mol {Cl^-}
+  n = @chem.total(n_Na, n_Cl)             → n = n_Na + n_Cl = 0.100 mol Na⁺ + 0.200 mol Cl⁻ = 0.300 mol
+  ```
+
+  It still only adds amounts to amounts (or masses to masses): `@chem.total(n_Na, 2.0 g)` is an error.
 - A whole number of a species, written without a decimal point (`1 mol {X}`,
   `6 mol {X}`), is a coefficient from a balanced equation, so it's exact and never
   limits the sig figs. `1.00 mol {Na}` is a measurement.
 - Values without a species work as before.
+
+**Molar masses:** `@chem.Na` is an element's molar mass in g/mol, and
+`@chem.mm({formula})` a compound's, added up from its elements:
+
+```
+M_Na = @chem.Na                           → 22.990 g/mol
+M = @chem.mm({CuSO4*5H2O})                → M = M_Cu + M_S + 9M_O + 10M_H = … = 249.68 g/mol
+n = 5.00 g {NaOH} / @chem.mm({NaOH})      → 0.125 mol NaOH
+```
+
+- Atomic weights are IUPAC's abridged standard atomic weights (2021), with the digits
+  IUPAC gives as their sig figs (Na 22.990, Cl 35.45); `@chem.Na:3` uses 3, and
+  `@chem.Cl:3` on a line of its own sets it for the whole sheet, as for other
+  constants. An element with no stable isotope (Tc, Pm, Po, …) has the mass number of
+  its longest-lived isotope.
+- A compound's sum is shown as working, and its sig figs follow the addition rule
+  from the atomic weights. Write it on a line of its own (`M = @chem.mm({NaOH})`) to
+  keep the sum out of the lines that use it.
+- The formula is written as in the rest of the sheet: counts as digits, groups in
+  brackets (`Ca(OH)2`, `K4[Fe(CN)6]`), a hydrate's water after `*`. A charge or state
+  (`{SO4^2-}`, `{NaCl(aq)}`) is left out, since it doesn't change the molar mass.
+  Symbols are case-sensitive: `{Co}` is cobalt, `{CO}` carbon monoxide.
+- A coefficient (`{2 H2O}`) isn't one compound, so it's an error: multiply instead,
+  `2 * @chem.mm({H2O})`.
+- A molar mass stays in g/mol when worked out from others (not 0.018015 kg/mol).
 
 **Display names:** a name can be shown as words instead, with a setting in quotes on
 the name being assigned:
@@ -1239,9 +1287,6 @@ what's here better.
 
 ### 4. Chemistry
 
-- [ ] **Molar mass from a formula**: `M({H2O})` → 18.02 g/mol from a built-in table
-      of atomic weights, brackets and hydrates included, with the sum shown as
-      working and sig figs from the atomic weights.
 - [ ] **Balancing equations**: `balance({C3H8 + O2 -> CO2 + H2O})`, with the
       coefficients usable as mole ratios.
 - [ ] **Limiting reagent and yield**: which reactant runs out, theoretical and
@@ -1261,7 +1306,7 @@ what's here better.
 - [ ] **Rename (F2)** a variable or function everywhere it's used, respecting scope.
 - [ ] **Go to definition for variables and constants** (`@rho_w` → its
       `@constants` entry).
-- [ ] **Snippets**: `def`, `:  #numbered` blocks, `@constants { }`.
+- [ ] **Snippets**: `def`, `@numbered { }` blocks, `@constants { }`.
 
 ### 6. Sharing and the app
 
@@ -1277,6 +1322,10 @@ what's here better.
 
 ### Done
 
+- [x] **The `@` namespace**: built-in blocks written `@text Title { … }` (and `@list`,
+      `@numbered`, `@center`); `@chem.Na`
+      molar masses, `@chem.mm({formula})` with the sum as working, and
+      `@chem.total(…)` to add amounts of different species.
 - [x] **Systems of equations**: `tuple(x, y) = solve(eq, eq)`, solved by substitution
       with the working shown.
 - [x] **Conditions**: `condition ? a : b` in a line, and `if` / `else if` / `else`
@@ -1379,16 +1428,18 @@ renamed, change it there too.
 - `src/lib/plot.ts`: the linear fit, axes, and drawing a plot as SVG;
   `src/lib/plotImage.ts`: plots as pictures for the Word export
 - `src/lib/brackets.ts`: choosing ( ), [ ] and { } by nesting in the output
-- `src/lib/chemistry.ts`: formulas in braces, and species as units;
-  `src/lib/katex.ts`: KaTeX with mhchem, which everything that draws maths imports
+- `src/lib/chemistry.ts`: formulas in braces, species as units, and reading a
+  formula's atoms for `@chem.mm`; `src/lib/elements.ts`: the elements and their
+  atomic weights; `src/lib/katex.ts`: KaTeX with mhchem, which everything that
+  draws maths imports
 - `src/components/ErrorBoundary.tsx`: keeps a failure drawing the output from
   blanking the app
 - `src/lib/aiPrompt.ts`: Create's prompt (what can be made, its tickboxes, and the
   rules of writing a sheet, whose examples a test evaluates) and reading the AI's
   answer back; `src/components/CreateDialog.tsx`: the dialog
-- `src/lib/document.ts`: line types and blocks (`{ }`, layout, `def`,
-  `@constants`), sheet evaluation, diagnostics, definitions and symbols for the
-  editor
+- `src/lib/document.ts`: line types and blocks (`{ }`, `@list { }` and the other
+  built-in blocks, `def`, `@constants`), sheet evaluation, diagnostics,
+  definitions and symbols for the editor
 - `src/lib/latex.ts`: the `.tex` export and its document options;
   `src/components/LatexOptionsMenu.tsx`: the LaTeX tab's Document menu (used by
   both exports)
@@ -1396,7 +1447,7 @@ renamed, change it there too.
   equations (OMML), by way of KaTeX's MathML
 - `src/lib/sigfigs.ts`: counting, propagating and formatting significant figures
 - `src/lib/solve.ts`: `solve(…)`: rearranging, linear, quadratic and numeric solving
-- `src/lib/constants.ts`: the built-in `@` constants
+- `src/lib/constants.ts`: the built-in `@` constants, the elements' (`@chem.Na`) too
 - `src/lib/library.ts`: the equations in the Library tab (each tested with its
   example); `src/components/LibraryPane.tsx`: the tab
 - `src/lib/reference.ts`: the examples shown in the Reference tab;

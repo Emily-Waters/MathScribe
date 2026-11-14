@@ -32,23 +32,26 @@ import {
   lastPlace,
   sigFigsFromPlace,
 } from './sigfigs.ts'
-import { BUILTIN_CONSTANTS, DEFAULT_CONSTANT_SIG_FIGS, suggestConstant } from './constants.ts'
+import { MOLAR_MASS_UNIT } from './elements.ts'
+import { BUILTIN_CONSTANT_KEYS, DEFAULT_CONSTANT_SIG_FIGS, builtinConstant, isNamespaceConstant, suggestConstant } from './constants.ts'
 import {
   ASSIGNMENT, ASSIGNMENT_WITH_VALUE, AXES, COMPONENTS_SETTING, CONSTANT_REF, DECLARED, EXACT_SETTING, IS_NAME,
   GREEK_BY_CHAR, GREEK_BY_NAME, GREEK_CHARS, LEADING_NAME, NAME, NAME_CHAR, NAME_WITH_SETTINGS, NOTATIONS, NUMBER, ONE_LINE_FUNCTION, PERCENT, SERIES_SUFFIXES,
   CALL, ELSE_IF_LINE, ELSE_LINE, IF_LINE, KEYWORD, PLOT_CALL, RETURN_LINE, SOLVE_SYSTEM, SELECT_CALL, SOLVE_CALL, SUBSCRIPT, TABLE_CALL, UNCERTAINTY_WORDS, UNIT_VECTOR_SETTING, UNPACK, VECTOR_FUNCTION,
   DISPLAY_MODE, EACH_SETTING, LABEL_QUOTE, LINE_COMMAND, SERIES_STAT, VALUE_IN_TEXT,
+  BUILTIN_BLOCK, CHEM_FUNCTION, MEMBER_DOT, NAMESPACE, RESERVED_CONSTANT_NAMES, SIGIL,
   type DisplayMode, type LineCommand, type Notation, type Precision, type UncertaintyWord,
   type VectorStyle,
 } from './syntax.ts'
 import {
-  FIT, INLINE_VALUE_NAME, JOIN, RESERVED_NAMESPACES, constantRefName, expandDots, isHiddenName, isUncertaintyName, memberName,
+  ANY_SPECIES_FUNCTION, FIT, INLINE_VALUE_NAME, JOIN, RESERVED_NAMESPACES, constantKey, constantRefName, expandDots, typedName, isHiddenName, isUncertaintyName, memberName,
   parseConstantRefName, parseMemberName, parseNumberedName, parseSeriesStatName, parseSolvedName, parseUncertaintyName, readableMembers,
   seriesMemberName, solvedName, uncertaintyName, unpackedColumnName, unpackedName,
 } from './names.ts'
 import { COMPARISONS, FN, MATHJS_IN, MATH_CONSTANT, OP, OP_SYMBOL, UNIT, UNIT_LOOKS, isOp } from './mathjsNames.ts'
 import {
-  SPECIES_AFTER_UNIT, formulaOf, formulaTex, isSpeciesUnit, outsideMaths, readableSpecies, speciesUnit, withFormulas,
+  SPECIES_AFTER_UNIT, formulaOf, formulaTex, isSpeciesUnit, molarMassSum, outsideMaths, parseFormula, readableSpecies, speciesUnit,
+  withFormulas,
 } from './chemistry.ts'
 import { POLYNOMIAL_KIND, Solver, contains, countOccurrences, matchingParen, splitArgs, splitEquation } from './solve.ts'
 import { nestBrackets } from './brackets.ts'
@@ -72,6 +75,74 @@ function speciesUnitName(formula: string): string {
 
 /** In unitTex: between an amount and its species (mol EDTA). */
 const SPECIES_GAP = '~'
+
+/** A unit's part as mathjs reads it back: prefix, name and power (`mmol`, `L^-1`). */
+const unitPartText = (p: Unit['units'][number]) =>
+  // (mathjs's types call the prefix a string; it's an object with a name.)
+  `${(p.prefix as unknown as { name: string }).name}${p.unit.name}${p.power === 1 ? '' : `^${p.power}`}`
+
+/**
+ * A value with its species taken off: 0.100 mol Na⁺ → 0.100 mol, so amounts of
+ * different species add (`@chem.total(n_Na, n_Cl)` puts it around each one).
+ * A tuple has each of its values' taken off; anything without a species is as it was.
+ */
+function withoutSpecies(x: MathType): MathType {
+  if (math.isMatrix(x)) return math.map(x, (v: MathType) => withoutSpecies(v)) as MathType
+  if (!math.isUnit(x)) return x
+  const u = x as Unit
+  if (!u.units.some((p) => isSpeciesUnit(p.unit.name))) return u
+  const rest = u.units.filter((p) => !isSpeciesUnit(p.unit.name)).map(unitPartText).join(' ')
+  // (A species unit has no prefix and a factor of 1, so the value in the rest of the units is the same.)
+  const value = u.toNumber()
+  return rest ? math.unit(value, rest) : value
+}
+math.import({ [ANY_SPECIES_FUNCTION]: withoutSpecies })
+
+/** `@chem.mm(` or `@chem.total(`: a call to a namespace's function, once dots are read or not (1: namespace, 2: function). */
+const NAMESPACE_CALL = new RegExp(String.raw`@(${Object.values(NAMESPACE).join('|')})(?:\.|${JOIN})(${NAME})\s*\(`, 'g')
+
+/** A formula in braces, as the whole of an argument: `{CuSO4*5H2O}` (1: the formula). */
+const FORMULA_ARGUMENT = /^\{([^{}]+)\}$/
+
+/**
+ * A line with each call to a namespace's function written out as what it
+ * stands for, for the engine to work out (innermost first):
+ *   `@chem.mm({Ca(OH)2})`      → (@chem.Ca + 2 * @chem.O + 2 * @chem.H)
+ *   `@chem.total(n_Na, n_Cl)`  → (n_Na + n_Cl), each with its species taken off
+ */
+export function expandNamespaceCalls(line: string): { text: string; error?: string } {
+  NAMESPACE_CALL.lastIndex = 0
+  const m = NAMESPACE_CALL.exec(line)
+  if (!m) return { text: line }
+  const open = m.index + m[0].length - 1
+  const close = matchingParen(line, open)
+  const typed = `${SIGIL}${m[1]}${MEMBER_DOT}${m[2]}`
+  if (close < 0) return { text: line, error: `${typed}( is missing its closing ).` }
+  const inside = expandNamespaceCalls(line.slice(open + 1, close))
+  if (inside.error) return inside
+  let call: string
+  switch (m[2]) {
+    case CHEM_FUNCTION.molarMass: {
+      const formula = FORMULA_ARGUMENT.exec(inside.text.trim())
+      if (!formula) return { text: line, error: `${typed} takes one formula, in braces: ${typed}({CuSO4*5H2O}).` }
+      const atoms = parseFormula(formula[1])
+      if ('error' in atoms) return { text: line, error: atoms.error }
+      call = molarMassSum(atoms)
+      break
+    }
+    case CHEM_FUNCTION.total: {
+      const amounts = splitArgs(inside.text).filter(Boolean)
+      if (!amounts.length) return { text: line, error: `${typed} needs the amounts to add: ${typed}(n_Na, n_Cl).` }
+      call = `(${amounts.map((a) => `${ANY_SPECIES_FUNCTION}(${a})`).join(' + ')})`
+      break
+    }
+    default: {
+      const known = Object.values(CHEM_FUNCTION).map((f) => `${SIGIL}${m[1]}${MEMBER_DOT}${f}`).join(' and ')
+      return { text: line, error: `${SIGIL}${m[1]} has no function ${m[2]}; it has ${known}.` }
+    }
+  }
+  return expandNamespaceCalls(line.slice(0, m.index) + call + line.slice(close + 1))
+}
 
 /**
  * `lit("2.00")` evaluates to 2 but keeps the number as typed. Numbers whose
@@ -756,7 +827,7 @@ export function symbolTex(name: string): string {
   const unc = parseUncertaintyName(name)
   if (unc) return `\\${unc.letter} ${symbolTex(unc.of)}`
   const constant = parseConstantRefName(name)
-  if (constant) return BUILTIN_CONSTANTS[constant]?.tex ?? symbolTex(constant)
+  if (constant) return builtinConstant(constant)?.tex ?? symbolTex(constant)
   const solved = parseSolvedName(name)
   if (solved) return symbolTex(solved)
   // Statistics of a series: a_avg → ā, a_std → σ_a, a_sem → σ_ā, a_count → n_a
@@ -932,6 +1003,13 @@ const isConversion = (n: MathNode) => isOp(n, OP.to)
 /** Derived SI units preferred over base-unit combinations (kg m/s^2 → N). */
 const DERIVED_UNITS = ['N', 'J', 'W', 'Pa', 'C', 'V', 'ohm', 'F', 'T', 'Wb', 'H', UNIT.molar].map((u) => math.unit(u))
 
+/**
+ * Units of more than one name that are kept as they are rather than turned into
+ * SI, because they're how the quantity is always written: a molar mass in g/mol
+ * (not 0.018015 kg/mol).
+ */
+const CONVENTIONAL_UNITS: ReadonlySet<string> = new Set([MOLAR_MASS_UNIT].map((u) => math.unit(u).formatUnits()))
+
 /** How many unit names a unit is written with (`kg m/s^2` → 3). */
 const unitTokens = (s: string) => (s.match(/[A-Za-z]+/g) ?? []).length
 
@@ -988,7 +1066,7 @@ function normalise(value: unknown, keepUnits: boolean): unknown {
     return result
   }
   const units = u.formatUnits()
-  if (keepUnits || unitTokens(units) <= 1) return u.clone()
+  if (keepUnits || unitTokens(units) <= 1 || CONVENTIONAL_UNITS.has(units)) return u.clone()
   const merged = mergeLikeUnits(u)
   if (merged) return merged
   const si = u.toSI()
@@ -2290,6 +2368,8 @@ export class Calculator {
       if (isFunctionNode(n) && n.fn.name === FN.tuple) {
         return `\\left(${n.args.map((a) => a.toTex(options).trim()).join(', ')}\\right)`
       }
+      // Taking a species off (in `@chem.total(…)`) isn't written: n_Na + n_Cl.
+      if (isFunctionNode(n) && n.fn.name === ANY_SPECIES_FUNCTION) return ` ${n.args[0].toTex(options).trim()}`
       if (isFunctionNode(n) && n.fn.name === VECTOR_FUNCTION) {
         return `\\left\\langle ${n.args.map((a) => a.toTex(options).trim()).join(', ')}\\right\\rangle`
       }
@@ -2850,7 +2930,10 @@ export class Calculator {
 
   defineConstant(input: string): CalcResult {
     const name = ASSIGNMENT.exec(input)?.[1]
-    if (!name) return { tex: '', error: 'Inside @constants, each line is "name = value".' }
+    if (!name) return { tex: '', error: `Inside ${SIGIL}${BUILTIN_BLOCK.constants}, each line is "name = value".` }
+    if (RESERVED_CONSTANT_NAMES.has(name)) {
+      return { tex: '', error: `${SIGIL}${name} is built in (a block or namespace), so a constant can't be called ${name}.` }
+    }
     this.pushScope()
     try {
       const result = this.evaluate(input)
@@ -2876,31 +2959,38 @@ export class Calculator {
    * written with. `:exact` gives full precision and doesn't limit sig figs.
    */
   private expandConstants(line: string): { text: string; error?: string } {
+    // `@chem.mm({H2O})` is a sum of `@chem.H`s and `@chem.O`s, worked out below.
+    const calls = expandNamespaceCalls(line)
+    if (calls.error) return calls
     let error: string | undefined
-    const text = line.replace(CONSTANT_REF, (match, name: string, spec?: string) => {
+    const text = calls.text.replace(CONSTANT_REF, (match, typed: string, spec?: string) => {
+      // `@chem.Na` is chem__Na inside (with its dot read already, or not).
+      const name = constantKey(typed)
       const custom = this.customConstants.get(name)
-      const builtin = BUILTIN_CONSTANTS[name]
+      const builtin = builtinConstant(name)
       if (!custom && !builtin) {
-        const known = [...Object.keys(BUILTIN_CONSTANTS), ...this.customConstants.keys()]
+        const known = [...BUILTIN_CONSTANT_KEYS, ...this.customConstants.keys()]
         const guess = suggestConstant(name, known)
-        error ??= `Unknown constant @${name}.`
-          + (guess ? ` Did you mean @${guess}?` : ' Define it in an @constants { } block.')
+        error ??= `Unknown constant ${SIGIL}${typedName(name)}.`
+          + (guess ? ` Did you mean ${SIGIL}${typedName(guess)}?` : ` Define it in an ${SIGIL}${BUILTIN_BLOCK.constants} { } block.`)
         return match
       }
       // Precedence: this use's own :n, then the sheet's declaration, then the default.
+      // A namespace's constant, `@chem.Na`, has the digits it's written with (22.990), unless asked for others.
+      const writtenSf = builtin && isNamespaceConstant(builtin) ? countSigFigs(builtin.written) : undefined
       const digits: Precision = spec === EXACT_SETTING
         ? EXACT_SETTING
         : spec !== undefined
           ? Number(spec)
-          : this.constantPrecision.get(name) ?? (custom ? custom.sf : DEFAULT_CONSTANT_SIG_FIGS)
+          : this.constantPrecision.get(name) ?? (custom ? custom.sf : writtenSf ?? DEFAULT_CONSTANT_SIG_FIGS)
       if (digits === 0) {
-        error ??= `@${name}:0 isn't valid; use at least 1 sig fig, or :exact.`
+        error ??= `${SIGIL}${typedName(name)}:0 isn't valid; use at least 1 sig fig, or :exact.`
         return match
       }
       // Built-ins stay in their own unit (1.602e-19 C, not 160.2 zC).
       let full = custom
         ? custom.value
-        : builtin.unit ? math.unit(builtin.value, builtin.unit).to(builtin.unit) : builtin.value
+        : builtin!.unit ? math.unit(builtin!.value, builtin!.unit).to(builtin!.unit) : builtin!.value
       // A sheet-wide `@name to unit` converts before rounding, so `@a_0:3 to angstrom` is 0.529 Å.
       // (If the unit doesn't fit, the declaration line itself reports the error.)
       const unit = this.constantUnit.get(name)
@@ -2913,7 +3003,7 @@ export class Calculator {
       const hidden = constantRefName(name, exact ? EXACT_SETTING : digits)
       // `:exact` shows every digit of the value; that many sig figs is more than any
       // measurement has, so it never limits a result.
-      const allDigits = custom ? custom.sf : countSigFigs(String(builtin.value))
+      const allDigits = custom ? custom.sf : writtenSf ?? countSigFigs(String(builtin!.value))
       this.store(hidden, {
         value: exact ? full : this.roundTo(full, digits),
         sf: exact ? allDigits : digits,

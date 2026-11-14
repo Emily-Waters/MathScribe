@@ -15,7 +15,7 @@
  * p.r2 and p.chi2.
  */
 import {
-  DOT_ACCESS, EXACT_SETTING, IS_NAME, MEMBER_DOT, NAME, SERIES_SUFFIXES, SUBSCRIPT, UNCERTAINTY_WORDS,
+  DOT_ACCESS, EXACT_SETTING, IS_NAME, MEMBER_DOT, NAME, NAMESPACE, SERIES_SUFFIXES, SUBSCRIPT, UNCERTAINTY_WORDS,
   type Precision, type SeriesSuffix, type UncertaintyWord,
 } from './syntax.ts'
 
@@ -66,6 +66,16 @@ export const INLINE_VALUE_NAME = `${HIDDEN_PREFIX.inline}${JOIN}value`
 
 /** A namespace's member: `a.x_1` → a__x_1. */
 export const memberName = (namespace: string, member: string) => `${namespace}${JOIN}${member}`
+
+/** A constant's inside name, as typed with or without its namespace: `c` → c, `chem.Na` → chem__Na. */
+export const constantKey = (typed: string) => typed.replace(MEMBER_DOT, JOIN)
+
+/**
+ * The function `@chem.total(a, b)` puts around each amount, which takes its
+ * species off (mol Na⁺ → mol), so amounts of different species add. It's
+ * shown as just its argument.
+ */
+export const ANY_SPECIES_FUNCTION = memberName(NAMESPACE.chem, 'anySpecies')
 
 /** Member `n` of a series: t, 3 → t_3. */
 export const seriesMemberName = (base: string, n: number) => `${base}${SUBSCRIPT}${n}`

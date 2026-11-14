@@ -1,10 +1,12 @@
 import { Calculator, type CalcOptions, type FunctionLine, type Variable, symbolTex, unexpectedError } from './engine.ts'
 import {
-  ASSIGNMENT, CONSTANT_DECLARATION, EXACT_SETTING, DEF, DEF_HEAD, FUNCTION_HEAD, IMPORT, LAYOUT_STYLES, LEADING_NAME, LINE_COMMANDS,
+  ASSIGNMENT, CONSTANT_DECLARATION, EXACT_SETTING, DEF, DEF_HEAD, FUNCTION_HEAD, IMPORT, LEADING_NAME, LINE_COMMANDS,
   DISPLAY_MODE, LAYOUT_STYLE, LINE_COMMAND, MULTILINE, NAME_WITH_SETTINGS, NOTATIONS, PLOT_CALL, SELECT_CALL, UNPACK_HEAD, VALUE_IN_TEXT,
+  BLOCK_CLOSE, BLOCK_OPEN, BUILTIN_BLOCK, BUILTIN_BLOCK_OPENER, LINE_LAYOUTS, SIGIL, builtinOpenerText,
   commandPattern, indentOf, isComment,
-  type LayoutStyle, type Notation,
+  type BuiltinBlock, type LayoutStyle, type LineLayout, type Notation,
 } from './syntax.ts'
+import { constantKey } from './names.ts'
 import { parseCsv, type CsvData } from './csv.ts'
 import { REACTION_LINE, formulaTex, outsideMaths, withFormulas } from './chemistry.ts'
 import {
@@ -52,9 +54,11 @@ function readCsv(rows: string[]): CsvData {
  * On a block opener, the command applies to every line inside unless a line
  * has its own.
  *
- * Layout blocks end with `:`, and hold the lines indented under them:
- *   Steps:  #numbered  → numbered list (#list: bullets, #center: centered)
+ * Built-in blocks start with @, and hold the lines up to their `}`:
+ *   @numbered Steps {  → numbered list (@list: bullets, @center: centered)
  *       a = …            each line is an item; indent further for a sub-list
+ *   }
+ *   @text Discussion { → prose: lines run into paragraphs, nothing is worked out
  * They only arrange lines: variables assigned inside stay available afterwards.
  * `#center` (or #list/#numbered) on a single calculation lays out just that line.
  *
@@ -77,17 +81,33 @@ const COMMAND = commandPattern(LINE_COMMANDS, 'gi')
 const MULTILINE_COMMAND = commandPattern([MULTILINE], 'gi')
 /** `#sci`, `#dec`: the notation results are shown in, which combines with the others too. */
 const NOTATION_COMMAND = commandPattern(NOTATIONS, 'gi')
-/** `#center`, `#list`, `#numbered`, `#text`: how a layout block (or one line) is arranged. */
-const LAYOUT = commandPattern(LAYOUT_STYLES, 'gi')
+/** `#center`, `#list`, `#numbered`: how one line is laid out. */
+const LAYOUT = commandPattern(LINE_LAYOUTS, 'gi')
 
-/** A line that sets a constant's precision and/or display unit sheet-wide: `@c:4`, `@a_0:3 to angstrom`. */
-interface Declaration { name: string; precision?: string; unit?: string }
+/** A built-in block's opener, read: which block, its title (if any). */
+function builtinOpener(body: string): { block: BuiltinBlock; title: string } | null {
+  const m = BUILTIN_BLOCK_OPENER.exec(body)
+  return m ? { block: m[1] as BuiltinBlock, title: m[2] ?? '' } : null
+}
+
+/** Whether a line closes a block: `}`, with anything after it. */
+const closesBlock = (text: string) => text.trimStart().startsWith(BLOCK_CLOSE)
+
+
+/** A layout block's opener as written, for messages: `@list Steps {`. */
+const openerText = (b: LayoutBlock) => builtinOpenerText(b.style ?? LAYOUT_STYLE.list, b.title)
+
+/**
+ * A line that sets a constant's precision and/or display unit sheet-wide: `@c:4`,
+ * `@a_0:3 to angstrom`, `@chem.Na:3`. Its name as typed (chem.Na), and inside (chem__Na).
+ */
+interface Declaration { name: string; key: string; precision?: string; unit?: string }
 
 /** A constant declaration's parts, or null if the line isn't one (`@c` alone isn't). */
 function parseDeclaration(body: string): Declaration | null {
   const m = CONSTANT_DECLARATION.exec(body)
   if (!m || (m[2] === undefined && m[3] === undefined)) return null
-  return { name: m[1], precision: m[2], unit: m[3] }
+  return { name: m[1], key: constantKey(m[1]), precision: m[2], unit: m[3] }
 }
 
 /**
@@ -96,15 +116,15 @@ function parseDeclaration(body: string): Declaration | null {
  * Only the known commands are taken; any other `#word` stays in the note.
  */
 function splitNote(text: string): {
-  body: string; note?: string; command?: Command; multiline: boolean; notation?: Notation; layout?: LayoutStyle
+  body: string; note?: string; command?: Command; multiline: boolean; notation?: Notation; layout?: LineLayout
 } {
   let command: Command | undefined
   let multiline = false
   let notation: Notation | undefined
-  let layout: LayoutStyle | undefined
+  let layout: LineLayout | undefined
   const rest = text
     .replace(LAYOUT, (_m, space: string, style: string) => {
-      layout = style.toLowerCase() as LayoutStyle
+      layout = style.toLowerCase() as LineLayout
       return space
     })
     .replace(COMMAND, (_m, space: string, cmd: string) => {
@@ -146,7 +166,7 @@ export function evaluateSheetSafely(source: string, options: CalcOptions): Sheet
 export function evaluateSheet(source: string, options: CalcOptions): Sheet {
   const calc = new Calculator(options)
   const root: Block[] = []
-  /** Blocks currently open: `{ }` groups, and indentation-based layout blocks. */
+  /** Blocks currently open: `{ }` groups, `@list { }` layout blocks, and the sub-lists indented inside lists. */
   const open: (GroupBlock | LayoutBlock)[] = []
   const add = (b: Block) => (open.at(-1)?.children ?? root).push(b)
   /**
@@ -167,12 +187,14 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
   }
   const lastLine = (b: Block): number =>
     ('endLine' in b && b.endLine) || b.line
-  /** Close the innermost layout block, at its last line. */
-  const closeLayout = () => {
+  /** Whether the innermost open block is a sub-list (which ends where its indentation does). */
+  const inSubList = () => open.at(-1)?.kind === BLOCK_KIND.layout && !!(open.at(-1) as LayoutBlock).nested
+  /** Close the innermost layout block: at its `}` line, or for a sub-list, at its last line. */
+  const closeLayout = (closingLine?: number) => {
     const layout = open.pop() as LayoutBlock
-    layout.endLine = layout.children.length ? lastLine(layout.children.at(-1)!) : layout.line
+    layout.endLine = closingLine ?? (layout.children.length ? lastLine(layout.children.at(-1)!) : layout.line)
     if (!layout.children.length && !layout.nested) {
-      layout.error = `Nothing is indented under "${layout.title || ':'}". Indent the lines that belong to it.`
+      layout.error = `${openerText(layout)} is empty: put the lines that belong to it before its ${BLOCK_CLOSE}.`
     }
   }
   let section = 0
@@ -187,30 +209,30 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
   const duplicateDeclarations = new Map<number, string>()
   lines.forEach((text, i) => {
     // (Only a line starting with @ can be one; most lines, such as imported data, can be passed over quickly.)
-    if (!text.trimStart().startsWith('@')) return
+    if (!text.trimStart().startsWith(SIGIL)) return
     const d = parseDeclaration(splitNote(text.trim()).body)
     if (!d || d.precision === '0') return
-    const first = declaredAt.get(d.name)
+    const first = declaredAt.get(d.key)
     if (first !== undefined) {
-      duplicateDeclarations.set(i + 1, `@${d.name} is already declared on line ${first}; this line doesn't change it.`)
+      duplicateDeclarations.set(i + 1, `${SIGIL}${d.name} is already declared on line ${first}; this line doesn't change it.`)
       return
     }
-    declaredAt.set(d.name, i + 1)
+    declaredAt.set(d.key, i + 1)
     if (d.precision !== undefined) {
-      calc.declareConstantPrecision(d.name, d.precision === EXACT_SETTING ? EXACT_SETTING : Number(d.precision))
+      calc.declareConstantPrecision(d.key, d.precision === EXACT_SETTING ? EXACT_SETTING : Number(d.precision))
     }
-    if (d.unit !== undefined) calc.declareConstantUnit(d.name, d.unit)
+    if (d.unit !== undefined) calc.declareConstantUnit(d.key, d.unit)
   })
   /** Note shown on a declaration line. */
   const declarationInfo = (body: string, line: number) => {
     const d = parseDeclaration(body)
-    if (!d || declaredAt.get(d.name) !== line) return undefined
+    if (!d || declaredAt.get(d.key) !== line) return undefined
     const parts = [
       d.precision === undefined ? '' : d.precision === EXACT_SETTING ? 'at full precision' : `to ${d.precision} sig figs`,
       d.unit === undefined ? '' : `in ${d.unit}`,
     ].filter(Boolean).join(', ')
     const unless = d.precision === undefined ? '' : ', unless written with its own :n'
-    return `Every @${d.name} in this sheet uses this value, ${parts}${unless}.`
+    return `Every ${SIGIL}${d.name} in this sheet uses this value, ${parts}${unless}.`
   }
 
   // Define every `@constants { }` block's constants, so `@name` works anywhere
@@ -218,7 +240,7 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
   const constantBlocks = new Map<number, { end: number; block: ConstantsBlock }>()
   for (let i = 0; i < lines.length; i++) {
     const opener = splitNote(lines[i].trim())
-    if (!/^@constants\s*\{$/.test(opener.body)) continue
+    if (builtinOpener(opener.body)?.block !== BUILTIN_BLOCK.constants) continue
     const entries: ConstantsBlock['entries'] = []
     /** Precision declarations in the block, shown once all its constants exist. */
     const declarations: number[] = []
@@ -226,7 +248,7 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
     let closed = false
     for (let j = i + 1; j < lines.length; j++) {
       const text = lines[j].trim()
-      if (text.startsWith('}')) {
+      if (closesBlock(text)) {
         end = j
         closed = true
         break
@@ -253,7 +275,7 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
       end,
       block: {
         kind: BLOCK_KIND.constants, line: i + 1, endLine: end + 1, note: opener.note, entries, hidden: opener.command === LINE_COMMAND.hide,
-        error: closed ? undefined : `The @constants block on line ${i + 1} is missing its closing }.`,
+        error: closed ? undefined : `The ${SIGIL}${BUILTIN_BLOCK.constants} block on line ${i + 1} is missing its closing ${BLOCK_CLOSE}.`,
       },
     })
     i = end
@@ -271,12 +293,12 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
     }
     // A comment is as if it weren't there: it doesn't end a block, or break up blank lines.
     if (isComment(trimmed)) continue
-    // Layout blocks end at the first line indented no further than their opener.
+    // A sub-list ends at the first line indented no further than the items it's under.
     const indent = indentOf(raw)
-    while (open.at(-1)?.kind === BLOCK_KIND.layout && indent <= (open.at(-1) as LayoutBlock).indent) closeLayout()
+    while (inSubList() && indent <= (open.at(-1) as LayoutBlock).indent) closeLayout()
     // In a list, a line indented further than the items starts a sub-list.
     const top = open.at(-1)
-    if (top?.kind === BLOCK_KIND.layout) {
+    if (top?.kind === BLOCK_KIND.layout && !closesBlock(trimmed)) {
       top.itemIndent ??= indent
       if (indent > top.itemIndent && (top.style === LAYOUT_STYLE.list || top.style === LAYOUT_STYLE.numbered) && top.children.length) {
         const sub: LayoutBlock = {
@@ -293,7 +315,7 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
     const parent = open.at(-1)
     const container = parent?.children ?? root
     const inList = parent?.kind === BLOCK_KIND.layout && (parent.style === LAYOUT_STYLE.list || parent.style === LAYOUT_STYLE.numbered)
-    if (blankRun >= 2 && container.length && !trimmed.startsWith('}') && !inList) add({ kind: BLOCK_KIND.spacer, line })
+    if (blankRun >= 2 && container.length && !closesBlock(trimmed) && !inList) add({ kind: BLOCK_KIND.spacer, line })
     blankRun = 0
 
     // Already evaluated in the first pass; just place the block.
@@ -396,55 +418,60 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
       continue
     }
 
-    if (body === '}') {
-      // Layout blocks inside the group end with it.
-      while (open.at(-1)?.kind === BLOCK_KIND.layout) closeLayout()
-      const group = open.pop() as GroupBlock | undefined
-      if (group) {
-        group.locals = calc.popScope()
-        group.endLine = line
+    const builtin = builtinOpener(body)
+    if (body === BLOCK_CLOSE) {
+      // Sub-lists inside the block end with it; then the block itself, a `{ }` group or an `@list { }`.
+      while (inSubList()) closeLayout()
+      const block = open.at(-1)
+      if (block?.kind === BLOCK_KIND.layout) {
+        closeLayout(line)
+      } else if (block) {
+        open.pop()
+        block.locals = calc.popScope()
+        block.endLine = line
+      } else {
+        add({ kind: BLOCK_KIND.calc, line, source: body, tex: '', error: `Unmatched ${BLOCK_CLOSE}: no block is open here.` })
       }
-      else add({ kind: BLOCK_KIND.calc, line, source: body, tex: '', error: 'Unmatched }: no block is open here.' })
-    } else if (body.endsWith(':') && layout === LAYOUT_STYLE.text) {
-      // `Title:  #text`: the lines indented under it are prose, not calculations.
+    } else if (builtin?.block === BUILTIN_BLOCK.text) {
+      // `@text Title {`: the lines up to its `}` are prose, not calculations.
       // Lines run together into paragraphs; a blank line starts a new one.
-      const title = withValues(body.slice(0, -1).trim())
+      const title = withValues(builtin.title)
       const block: LayoutBlock = {
         kind: BLOCK_KIND.layout, line, title: title.text, note, style: LAYOUT_STYLE.text, children: [], indent,
         command: command ?? (inherited === LINE_COMMAND.hide ? LINE_COMMAND.hide : undefined), error: title.error,
       }
       let paragraph: { line: number; text: string[] } | null = null
-      let lastText = line
       const endParagraph = () => {
         if (paragraph) block.children.push({ kind: BLOCK_KIND.text, line: paragraph.line, ...withValues(paragraph.text.join(' ')) })
         paragraph = null
       }
-      // (A comment, even one indented less, doesn't end the block.)
-      while (idx + 1 < lines.length && (!lines[idx + 1].trim() || indentOf(lines[idx + 1]) > indent || isComment(lines[idx + 1]))) {
+      let closed = false
+      while (idx + 1 < lines.length) {
         idx++
         const text = lines[idx].trim()
+        if (closesBlock(text)) {
+          closed = true
+          break
+        }
         if (isComment(text)) continue
-        // Blank lines at the end of the block count toward the gap after it.
-        blankRun = text ? 0 : blankRun + 1
         if (!text) {
           endParagraph()
           continue
         }
         paragraph ??= { line: idx + 1, text: [] }
         paragraph.text.push(text)
-        lastText = idx + 1
       }
       endParagraph()
-      block.endLine = lastText
-      if (!block.children.length) {
-        block.error = `Nothing is indented under "${block.title || ':'}". Indent the text that belongs to it.`
-      }
+      blankRun = 0
+      block.endLine = idx + 1
+      if (!closed) block.error = `${openerText(block)} is missing its closing ${BLOCK_CLOSE}.`
+      else if (!block.children.length) block.error = `${openerText(block)} is empty: put the text that belongs to it before its ${BLOCK_CLOSE}.`
       add(block)
-    } else if (body.endsWith(':')) {
-      // `Title:  #numbered`: the lines indented under it are laid out together.
-      const title = withValues(body.slice(0, -1).trim())
+    } else if (builtin) {
+      // `@numbered Title {`: the lines up to its `}` are laid out together (and stay in scope after it).
+      const title = withValues(builtin.title)
       const block: LayoutBlock = {
-        kind: BLOCK_KIND.layout, line, title: title.text, note, style: layout, children: [], indent,
+        kind: BLOCK_KIND.layout, line, title: title.text, note, style: builtin.block as LayoutStyle, children: [], indent,
         command: command ?? (inherited === LINE_COMMAND.hide ? LINE_COMMAND.hide : undefined),
         multiline: ownMultiline || undefined,
         notation: ownNotation,
@@ -452,7 +479,7 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
       }
       add(block)
       open.push(block)
-    } else if (body.endsWith('{')) {
+    } else if (body.endsWith(BLOCK_OPEN)) {
       // (Values in its title are the ones from before the block.)
       const title = withValues(body.slice(0, -1).trim())
       const group: GroupBlock = {
@@ -470,8 +497,8 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
       const mode = effective === LINE_COMMAND.hide ? DISPLAY_MODE.full : effective
       const result = calc.evaluate(body, mode, (command ?? inherited) !== undefined, multiline, { own: ownNotation, block: blockNotation })
       // `#center` (or another layout) on a single line: lay out just that line.
-      const own: LayoutBlock | undefined = layout && layout !== LAYOUT_STYLE.text
-        ? { kind: BLOCK_KIND.layout, line, endLine: line, title: '', style: layout, children: [], indent }
+      const own: LayoutBlock | undefined = layout
+        ?{ kind: BLOCK_KIND.layout, line, endLine: line, title: '', style: layout, children: [], indent }
         : undefined
       if (own) add(own)
       // A line that's just a function call can take its note from the return line.
@@ -486,14 +513,17 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
 
   // Close anything left open so its locals don't leak into the top level.
   while (open.length) {
-    if (open.at(-1)!.kind === BLOCK_KIND.layout) {
-      closeLayout()
+    const block = open.at(-1)!
+    if (block.kind === BLOCK_KIND.layout) {
+      const subList = !!block.nested
+      closeLayout(subList ? undefined : lines.length)
+      block.error ??= subList ? undefined : `${openerText(block)} on line ${block.line} is missing its closing ${BLOCK_CLOSE}.`
       continue
     }
-    const group = open.pop() as GroupBlock
-    group.locals = calc.popScope()
-    group.endLine = lines.length
-    group.error = `Block opened on line ${group.line} is missing its closing }.`
+    open.pop()
+    block.locals = calc.popScope()
+    block.endLine = lines.length
+    block.error = `Block opened on line ${block.line} is missing its closing ${BLOCK_CLOSE}.`
   }
 
   // The variables are listed when first asked for (for hover information): with

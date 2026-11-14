@@ -5,7 +5,9 @@
  * The tokenizer reads lines the way the engine does (document.ts / engine.ts):
  * a line's first character decides what kind of line it is, a unit name right
  * after a number is a unit (`9.81 m/s^2`), and `#` starts either a display
- * command (`#sym`, `#numbered`, …) or a note.
+ * command (`#sym`, `#numbered`, …) or a note. A line ending in `{` opens a
+ * block: `Title {`, or a built-in one, `@list Title {`; inside `@text { }`,
+ * every line up to the `}` is prose.
  */
 import { StreamLanguage, foldService, foldedRanges, indentService, type StringStream } from '@codemirror/language'
 import { tags } from '@lezer/highlight'
@@ -13,7 +15,8 @@ import { closesVector, isUnitName } from '../lib/engine.ts'
 import { REACTION_LINE } from '../lib/chemistry.ts'
 import {
   BRANCH_START, CALL, COMMAND_NAMES, CONSTANT_TOKEN, DEF_START, FUNCTION_HEAD, GREEK_CHARS, IMPORT, INDENT_WIDTH, KEYWORD, NAME, NAME_CHAR,
-  COMMENT_START, LAYOUT_STYLE, NUMBER, SETTINGS, UNPACK_SO_FAR, VALUE_IN_TEXT, commandPattern, indentOf, isComment,
+  BLOCK_CLOSE, BLOCK_OPEN, BUILTIN_BLOCK, BUILTIN_BLOCKS, BUILTIN_BLOCK_OPENER, COMMENT_START, NAMESPACE_CALL_TOKEN, NUMBER, SETTINGS,
+  UNPACK_SO_FAR, VALUE_IN_TEXT, indentOf, isComment,
 } from '../lib/syntax.ts'
 
 /** What a line is, from how it starts and ends (as document.ts reads it). */
@@ -22,7 +25,7 @@ const LINE_KIND = {
   heading: 'heading',
   text: 'text',
   latex: 'latex',
-  /** A block's first line: `Title:` or `Title {`. */
+  /** A block's first line: `Title {`, or a built-in block's, `@list Title {`. */
   opener: 'opener',
   def: 'def',
   /** An import's rows. */
@@ -68,18 +71,24 @@ interface State {
   inUnit: boolean
   /** After `to`: what follows is a unit. */
   afterTo: boolean
-  /** On an opener line, before its `:` or `{`: words are the block's title. */
+  /** On an opener line, before its `{`: words are the block's title. */
   inTitle: boolean
-  /** Inside a `Title:  #text` block: the opener's indentation (lines indented further are prose). */
-  textIndent: number | null
+  /** Inside an `@text { }` block: every line up to its `}` is prose. */
+  inText: boolean
   /** Under an `import(…)` line: its indentation (lines indented further are the file's rows). */
   dataIndent: number | null
 }
 
 /** A display command at the current position: `#sym`, `#numbered`, … */
 const COMMAND = new RegExp(String.raw`#(?:${COMMAND_NAMES.join('|')})(?=\s|$)`)
-/** `#text` on an opener: the lines indented under it are prose. */
-const TEXT_COMMAND = commandPattern([LAYOUT_STYLE.text])
+/** A built-in block's name at the start of its opener: `@list`. */
+const BUILTIN_BLOCK_TOKEN = new RegExp(String.raw`@(?:${BUILTIN_BLOCKS.join('|')})(?!${NAME_CHAR})`)
+
+/** Whether a line opens an `@text { }` block, whose lines are prose. */
+const opensText = (line: string) => BUILTIN_BLOCK_OPENER.exec(bodyOf(line.trim()))?.[1] === BUILTIN_BLOCK.text
+
+/** Whether a line closes a block: it starts with `}`. */
+const closesBlock = (line: string) => line.trimStart().startsWith(BLOCK_CLOSE)
 /** A word at the current position: a name (Greek letters included), keyword or unit (µm starts with the micro sign). */
 const WORD = new RegExp(`[A-Za-z_µ${GREEK_CHARS}]${NAME_CHAR}*`)
 /** A number at the current position. */
@@ -111,7 +120,7 @@ function lineKind(line: string): LineKind {
   if (REACTION_LINE.test(body)) return LINE_KIND.reaction
   // `if v > 0:` in a function's body is a branch, not a block's title.
   if (BRANCH_START.test(t)) return LINE_KIND.calc
-  if (body.endsWith(':') || (body.endsWith('{') && !body.startsWith('@constants'))) return LINE_KIND.opener
+  if (body.endsWith(BLOCK_OPEN)) return LINE_KIND.opener
   return LINE_KIND.calc
 }
 
@@ -122,18 +131,18 @@ function token(stream: StringStream, state: State): Token | null {
     state.kind = LINE_KIND.comment
   } else if (stream.sol()) {
     const indent = indentOf(stream.string)
-    // A text block, or imported data, ends at the first line indented no further than its opener.
-    // (Imported data also ends at a blank line; see blankLine below.)
-    if (state.textIndent !== null && indent <= state.textIndent) state.textIndent = null
+    // A text block ends at its `}`; imported data at the first line indented no
+    // further than its import, or a blank line (see blankLine below).
+    if (state.inText && closesBlock(stream.string)) state.inText = false
     if (state.dataIndent !== null && (indent <= state.dataIndent || !stream.string.trim())) state.dataIndent = null
-    if (state.textIndent !== null) {
+    if (state.inText) {
       state.kind = LINE_KIND.text
     } else if (state.dataIndent !== null) {
       state.kind = LINE_KIND.data
     } else {
       state.kind = lineKind(stream.string)
-      // `Title:  #text`: the lines indented under it are prose.
-      if (state.kind === LINE_KIND.opener && TEXT_COMMAND.test(stream.string)) state.textIndent = indent
+      // `@text Title {`: the lines up to its `}` are prose.
+      if (state.kind === LINE_KIND.opener && opensText(stream.string)) state.inText = true
       // `import("run1.csv")`: the lines indented under it are the file's rows.
       if (isImport(stream.string)) state.dataIndent = indent
     }
@@ -177,13 +186,14 @@ function token(stream: StringStream, state: State): Token | null {
     return TOKEN.note
   }
 
-  // An opener's title, up to its `:` or `{`.
+  // An opener's title, up to its `{` (after a built-in block's name, `@list`).
   if (state.inTitle) {
-    if (stream.match(/[:{]\s*(?=#|$)/)) {
+    if (stream.match(BUILTIN_BLOCK_TOKEN)) return TOKEN.keyword
+    if (stream.match(/\{\s*(?=#|$)/)) {
       state.inTitle = false
       return TOKEN.brace
     }
-    if (!stream.match(/[^#:{]+?(?=\s*[:{]\s*(?:#|$))/)) stream.next()
+    if (!stream.match(/[^#]+?(?=\s*\{\s*(?:#|$))/)) stream.next()
     return TOKEN.title
   }
 
@@ -195,6 +205,8 @@ function token(stream: StringStream, state: State): Token | null {
     state.inUnit = false
     return TOKEN.number
   }
+  // `@chem.mm(…)`: a namespace's function (before constants, which `@chem.mm` would also look like).
+  if (stream.match(NAMESPACE_CALL_TOKEN)) return TOKEN.function
   if (stream.match(CONSTANT_TOKEN)) return TOKEN.constant
   // A species after a unit: `mol {EDTA}`.
   if (stream.match(FORMULA_TOKEN)) return TOKEN.formula
@@ -277,7 +289,7 @@ function proseToken(stream: StringStream): Token {
 export const mathscribeLanguage = StreamLanguage.define<State>({
   name: 'mathscribe',
   startState: () => ({
-    kind: LINE_KIND.calc, afterNumber: false, inUnit: false, afterTo: false, inTitle: false, textIndent: null, dataIndent: null,
+    kind: LINE_KIND.calc, afterNumber: false, inUnit: false, afterTo: false, inTitle: false, inText: false, dataIndent: null,
   }),
   copyState: (s) => ({ ...s }),
   // An empty line ends an import's rows.
@@ -315,10 +327,10 @@ export const mathscribeLanguage = StreamLanguage.define<State>({
   },
 })
 
-/** Whether a line opens an indented block: `Title:`, `name {`, or a `def`. */
+/** Whether a line opens an indented block: `Title {`, `@list Title {`, a `def`, or an if / else in one. */
 const opensBlock = (text: string) => {
   const t = text.trim()
-  return DEF_START.test(t) || BRANCH_START.test(t) || /[:{]$/.test(bodyOf(t))
+  return DEF_START.test(t) || BRANCH_START.test(t) || bodyOf(t).endsWith(BLOCK_OPEN)
 }
 
 /**
@@ -401,7 +413,7 @@ export const mathscribeIndent = indentService.of((cx, pos) => {
 })
 
 /**
- * Folding: a `def`, `Title:` or `import(…)` folds its indented lines; a `{` block folds to
+ * Folding: a `def` or `import(…)` folds its indented lines; a `{` block folds to
  * its matching `}`.
  */
 export const mathscribeFolding = foldService.of((state, lineStart, lineEnd) => {
@@ -409,7 +421,7 @@ export const mathscribeFolding = foldService.of((state, lineStart, lineEnd) => {
   const first = doc.lineAt(lineStart)
   if (!opensBlock(first.text) && !isImport(first.text)) return null
   let last = first.number
-  if (bodyOf(first.text).endsWith('{') && !/^def\s/.test(first.text.trim())) {
+  if (bodyOf(first.text).endsWith(BLOCK_OPEN) && !DEF_START.test(first.text.trim())) {
     let depth = 0
     for (let n = first.number; n <= doc.lines; n++) {
       const body = bodyOf(doc.line(n).text)
@@ -452,18 +464,16 @@ const TYPED_COMMAND = new RegExp(String.raw`(?:^|\s)#(?:${COMMAND_NAMES.join('|'
 export const inNote = (before: string) => /(?:^|\s)#/.test(before.replace(TYPED_COMMAND, ' '))
 
 /**
- * Whether line `n` is prose inside a `Title:  #text` block: the nearest line
- * above it that's indented less is a `#text` opener. (For the editor's
- * suggestions, which stay quiet in prose.)
+ * Whether line `n` is prose inside an `@text { }` block: going up from it, an
+ * `@text … {` opener comes before any line closing a block (prose never starts
+ * with `}`). (For the editor's suggestions, which stay quiet in prose.)
  */
 export function inTextBlock(doc: { line(n: number): { text: string } }, n: number): boolean {
-  const own = doc.line(n).text
-  const indent = indentOf(own)
-  if (!own.trim() || indent === 0) return false
+  if (closesBlock(doc.line(n).text)) return false
   for (let i = n - 1; i >= 1; i--) {
     const text = doc.line(i).text
-    if (!text.trim() || indentOf(text) >= indent) continue
-    return TEXT_COMMAND.test(text) && bodyOf(text).endsWith(':')
+    if (closesBlock(text)) return false
+    if (opensText(text)) return true
   }
   return false
 }

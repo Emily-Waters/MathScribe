@@ -24,14 +24,21 @@ import {
 import { Compartment, Prec, StateEffect, StateField, type EditorState, type Extension } from '@codemirror/state'
 import { EditorView, hoverTooltip, keymap, type Command } from '@codemirror/view'
 import katex from '../lib/katex.ts'
-import { BUILTIN_CONSTANTS } from '../lib/constants.ts'
+import { BUILTIN_CONSTANTS, CHEM_CONSTANTS, builtinConstant, isNamespaceConstant } from '../lib/constants.ts'
+import { ELEMENTS, isElement, type ElementSymbol } from '../lib/elements.ts'
 import { SYMBOL_KIND, type SheetSymbol } from '../lib/document.ts'
 import { describeUnit, isUnitName, numberTex, symbolTex, unitNames, unitTex } from '../lib/engine.ts'
 import { STORAGE_KEYS } from '../config.ts'
 import { readStored, writeStored } from '../lib/storage.ts'
-import { CALL, GREEK_CHARS, KEYWORD, NAME, NAME_CHAR, PERCENT, SETTINGS } from '../lib/syntax.ts'
+import {
+  BUILTIN_BLOCKS, CALL, CHEM_FUNCTION, GREEK_CHARS, KEYWORD, MEMBER_DOT, NAME, NAME_CHAR, NAMESPACE, PERCENT, SETTINGS, SIGIL,
+  type BuiltinBlock, type ChemFunction, type Namespace,
+} from '../lib/syntax.ts'
 import { memberName, parseMemberName, parseNumberedName, seriesMemberName } from '../lib/names.ts'
-import { BUILTIN_FUNCTIONS, COMMANDS, KEYWORDS, MATH_CONSTANTS, SERIES_SUFFIXES, SETTING_WORDS } from './vocabulary.ts'
+import {
+  BUILTIN_BLOCK_DESCRIPTIONS, BUILTIN_FUNCTIONS, CHEM_FUNCTION_DESCRIPTIONS, COMMANDS, KEYWORDS, MATH_CONSTANTS, SERIES_SUFFIXES,
+  SETTING_WORDS,
+} from './vocabulary.ts'
 import { inDataBlock, inNote, inTextBlock, inValue, isProseLine } from './language.ts'
 import { greekCompletions, greekOnSpace } from './greek.ts'
 
@@ -83,10 +90,39 @@ function infoNode(tex: string | undefined, ...lines: (string | undefined)[]): HT
   return el
 }
 
-/** A built-in constant's value, as LaTeX: c = 299792458 m/s. */
+/** A built-in constant's value, as LaTeX, by its inside name: c = 299792458 m/s, M_Na = 22.990 g/mol. */
 const constantTex = (name: string) => {
-  const c = BUILTIN_CONSTANTS[name]
-  return `${c.tex} = ${numberTex(String(c.value).replace('e+', 'e'))}${c.unit ? `\\,${unitTex(c.unit)}` : ''}`
+  const c = builtinConstant(name)!
+  const digits = isNamespaceConstant(c) ? c.written : String(c.value).replace('e+', 'e')
+  return `${c.tex} = ${numberTex(digits)}${c.unit ? `\\,${unitTex(c.unit)}` : ''}`
+}
+
+/** A namespace and its dot, then what's typed of a member: `@chem.N` (1: the namespace, 2: the member so far). */
+const NAMESPACE_MEMBER_SO_FAR = new RegExp(String.raw`@(${Object.values(NAMESPACE).join('|')})\.(\w*)$`)
+
+/** A namespace and its dot just before a word: the `@chem.` of `@chem.Na` (1: the namespace). */
+const NAMESPACE_BEFORE = new RegExp(String.raw`@(${Object.values(NAMESPACE).join('|')})\.$`)
+
+/** Whether a word is one of @chem's functions. */
+const isChemFunction = (name: string): name is ChemFunction => (Object.values(CHEM_FUNCTION) as string[]).includes(name)
+
+/** Whether a word is a built-in block. */
+const isBuiltinBlock = (name: string): name is BuiltinBlock => (BUILTIN_BLOCKS as readonly string[]).includes(name)
+
+/** What's in @chem, for suggestions: its functions, then the elements in order. */
+const chemOptions: Completion[] = [
+  ...Object.values(CHEM_FUNCTION).map((f): Completion => snippetCompletion(`${f}(\${})`, {
+    label: f, type: 'function', detail: CHEM_FUNCTION_DESCRIPTIONS[f].description,
+  })),
+  ...(Object.keys(ELEMENTS) as ElementSymbol[]).map((symbol): Completion => {
+    const key = memberName(NAMESPACE.chem, symbol)
+    return { label: symbol, type: 'constant', detail: CHEM_CONSTANTS[key].description, info: () => infoNode(constantTex(key)) }
+  }),
+]
+
+/** What a namespace is, in a suggestion. */
+const NAMESPACE_DESCRIPTIONS: Record<Namespace, string> = {
+  chem: 'The elements’ molar masses (@chem.Na), mm( ) and total( )',
 }
 
 /** Where a name is defined, for its information panel. */
@@ -241,15 +277,28 @@ export function complete(ctx: CompletionContext): CompletionResult | null {
   const greek = greekCompletions(before, ctx.pos)
   if (greek) return greek
 
-  // `@…`: constants.
+  // `@chem.…`: a namespace's functions and constants.
+  const member = NAMESPACE_MEMBER_SO_FAR.exec(before)
+  if (member) return { from: ctx.pos - member[2].length, options: chemOptions, validFor: /^\w*$/ }
+
+  // `@…`: constants, namespaces, and (at the start of a line) the built-in blocks.
   const at = /@\w*$/.exec(before)
   if (at) {
     const custom = [...visibleAt(ctx.state, line.number).values()].filter((s) => s.kind === SYMBOL_KIND.constant)
+    const lineStart = before.trim() === at[0]
     return {
       from: ctx.pos - at[0].length,
       options: [
+        ...(lineStart
+          ? BUILTIN_BLOCKS.map((b): Completion => snippetCompletion(`${SIGIL}${b} \${} {`, {
+            label: `${SIGIL}${b}`, type: 'keyword', detail: BUILTIN_BLOCK_DESCRIPTIONS[b],
+          }))
+          : []),
+        ...Object.values(NAMESPACE).map((ns): Completion => ({
+          label: `${SIGIL}${ns}`, apply: `${SIGIL}${ns}${MEMBER_DOT}`, type: 'namespace', detail: NAMESPACE_DESCRIPTIONS[ns],
+        })),
         ...Object.entries(BUILTIN_CONSTANTS).map(([name, c]): Completion => ({
-          label: `@${name}`, type: 'constant', detail: c.description, info: () => infoNode(constantTex(name)),
+          label: `${SIGIL}${name}`, type: 'constant', detail: c.description, info: () => infoNode(constantTex(name)),
         })),
         ...custom.map((s): Completion => ({ label: s.name, type: 'constant', detail: 'your constant', info: () => symbolInfo(s) })),
       ],
@@ -404,11 +453,24 @@ const hoverInfo = hoverTooltip((view, pos) => {
     const c = COMMANDS.find((x) => x.name === `#${name}`)
     return c ? show(word.from - 1, infoNode(undefined, c.name, c.description)) : null
   }
-  // `@constant`
-  if (before.endsWith('@')) {
-    if (BUILTIN_CONSTANTS[name]) {
+  // `@chem.Na`, `@chem.mm`
+  const builtinNs = NAMESPACE_BEFORE.exec(before)
+  if (builtinNs) {
+    const from = word.from - builtinNs[0].length
+    if (isChemFunction(name)) {
+      const f = CHEM_FUNCTION_DESCRIPTIONS[name]
+      return show(from, infoNode(undefined, `${SIGIL}${builtinNs[1]}${MEMBER_DOT}${f.signature}`, f.description))
+    }
+    if (!isElement(name)) return null
+    const key = memberName(builtinNs[1], name)
+    return show(from, infoNode(constantTex(key), CHEM_CONSTANTS[key].description))
+  }
+  // `@constant`, `@list`
+  if (before.endsWith(SIGIL)) {
+    if (Object.hasOwn(BUILTIN_CONSTANTS, name)) {
       return show(word.from - 1, infoNode(constantTex(name), BUILTIN_CONSTANTS[name].description))
     }
+    if (isBuiltinBlock(name)) return show(word.from - 1, infoNode(undefined, `${SIGIL}${name} { }`, BUILTIN_BLOCK_DESCRIPTIONS[name]))
     const own = visibleAt(state, line.number).get(`@${name}`)
     return own ? show(word.from - 1, symbolInfo(own)) : null
   }

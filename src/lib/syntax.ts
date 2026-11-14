@@ -300,23 +300,80 @@ export const SERIES_STAT = { mean: 'mean', std: 'std', sem: 'sem', count: 'count
 export type SeriesSuffix = keyof typeof SERIES_SUFFIXES
 
 // ---------------------------------------------------------------------------
-// Constants
+// The @ namespace: built-in constants, namespaces and blocks
 // ---------------------------------------------------------------------------
+
+/**
+ * What starts everything built in rather than written in the sheet: constants
+ * (`@c`), namespaces (`@chem.Na`, `@chem.mm(…)`) and blocks (`@text Title {`).
+ */
+export const SIGIL = '@'
+
+/** Namespaces under @, whose members are written with a dot: `@chem.Na`. */
+export const NAMESPACE = { chem: 'chem' } as const
+export type Namespace = (typeof NAMESPACE)[keyof typeof NAMESPACE]
+
+/**
+ * The functions in @chem:
+ *   `@chem.mm({CuSO4*5H2O})`     the molar mass of a compound, in g/mol
+ *   `@chem.total(n_Na, n_Cl)`    the sum of amounts of different species, as plain amounts
+ */
+export const CHEM_FUNCTION = { molarMass: 'mm', total: 'total' } as const
+export type ChemFunction = (typeof CHEM_FUNCTION)[keyof typeof CHEM_FUNCTION]
+
+/**
+ * Blocks built in, opened `@name Title {` (the title is optional) and closed by `}`.
+ * They arrange lines without scoping them (unlike `Title { }`), except
+ * `@constants`, whose lines are constants usable anywhere as `@name`.
+ */
+export const BUILTIN_BLOCK = {
+  text: 'text',
+  list: 'list',
+  numbered: 'numbered',
+  center: 'center',
+  constants: 'constants',
+} as const
+export type BuiltinBlock = (typeof BUILTIN_BLOCK)[keyof typeof BUILTIN_BLOCK]
+export const BUILTIN_BLOCKS: readonly BuiltinBlock[] = Object.values(BUILTIN_BLOCK)
+
+/** Words of @ that a constant of your own can't be called: the blocks and namespaces. */
+export const RESERVED_CONSTANT_NAMES: ReadonlySet<string> = new Set<string>([...BUILTIN_BLOCKS, ...Object.values(NAMESPACE)])
+
+/** A block's closing brace, at the start of a line. */
+export const BLOCK_CLOSE = '}'
+
+/** A block's opening brace, at the end of its opener. */
+export const BLOCK_OPEN = '{'
+
+/** A built-in block's opener as written: `@list Steps {`, `@text {`. */
+export const builtinOpenerText = (block: BuiltinBlock, title = '') => `${SIGIL}${block}${title ? ` ${title}` : ''} ${BLOCK_OPEN}`
+
+/** The opener of a built-in block: `@list Steps {`, `@text {` (1: the block, 2: the title, if any). */
+export const BUILTIN_BLOCK_OPENER = new RegExp(String.raw`^@(${BUILTIN_BLOCKS.join('|')})(?:\s+(.*?))?\s*\{$`)
+
+/** A constant's name, optionally a namespace's member: `c`, `chem.Na` (or chem__Na, once dots are read). */
+const CONSTANT_NAME = String.raw`${NAME}(?:\.${NAME})?`
 
 /** The precision written after a constant: `:4` or `:exact`. */
 const CONSTANT_PRECISION = String.raw`(?::(\d+|${EXACT_SETTING})\b)?`
 
-/** Every constant in a line: `@c`, `@c:4`, `@c:exact` (1: the name, 2: the precision). */
-export const CONSTANT_REF = new RegExp(`@(${NAME})${CONSTANT_PRECISION}`, 'g')
+/**
+ * Every constant in a line: `@c`, `@c:4`, `@c:exact`, `@chem.Na:5`
+ * (1: the name, with any namespace; 2: the precision). Not a call, `@chem.mm(…)`.
+ */
+export const CONSTANT_REF = new RegExp(String.raw`@(${CONSTANT_NAME})(?!${NAME_CHAR}|\.|\s*\()${CONSTANT_PRECISION}`, 'g')
 
 /** One constant at the current position (for the editor's tokenizer). */
-export const CONSTANT_TOKEN = new RegExp(`@${NAME}${CONSTANT_PRECISION}`)
+export const CONSTANT_TOKEN = new RegExp(`@${CONSTANT_NAME}${CONSTANT_PRECISION}`)
+
+/** A call to a namespace's function at the current position: `@chem.mm(` (for the editor; 1: the namespace, 2: the function). */
+export const NAMESPACE_CALL_TOKEN = new RegExp(String.raw`@(${NAME})\.(${NAME})(?=\s*\()`)
 
 /**
  * A line that only sets a constant sheet-wide: `@c:4`, `@a_0 to angstrom`,
- * `@a_0:3 to angstrom` (1: the name, 2: the precision, 3: the unit).
+ * `@a_0:3 to angstrom`, `@chem.Cl:3` (1: the name, 2: the precision, 3: the unit).
  */
-export const CONSTANT_DECLARATION = new RegExp(String.raw`^@(${NAME})(?::(\d+|${EXACT_SETTING}))?(?:\s+${KEYWORD.to}\s+(\S.*?))?\s*$`)
+export const CONSTANT_DECLARATION = new RegExp(String.raw`^@(${CONSTANT_NAME})(?::(\d+|${EXACT_SETTING}))?(?:\s+${KEYWORD.to}\s+(\S.*?))?\s*$`)
 
 // ---------------------------------------------------------------------------
 // Display commands: `#sym`, `#val`, … after a line or a block's opener
@@ -340,14 +397,20 @@ export const LINE_COMMANDS: readonly LineCommand[] = Object.values(LINE_COMMAND)
 /** `#multiline`: one `=` per row; a layout, so it combines with the commands above. */
 export const MULTILINE = 'multiline'
 
-/** How a layout block (`Title:` with lines indented under it), or one line, is arranged. */
-export const LAYOUT_STYLE = { center: 'center', list: 'list', numbered: 'numbered', text: 'text' } as const
+/** How a layout block (`@list Title { … }`), or one line, is arranged: the built-in blocks besides @constants. */
+export const LAYOUT_STYLE = {
+  center: BUILTIN_BLOCK.center, list: BUILTIN_BLOCK.list, numbered: BUILTIN_BLOCK.numbered, text: BUILTIN_BLOCK.text,
+} as const satisfies Partial<Record<BuiltinBlock, BuiltinBlock>>
 export type LayoutStyle = (typeof LAYOUT_STYLE)[keyof typeof LAYOUT_STYLE]
 export const LAYOUT_STYLES: readonly LayoutStyle[] = Object.values(LAYOUT_STYLE)
 
+/** The layouts a single line can take as a command: `F = m * a  #center`. (Prose, @text, is a block only.) */
+export const LINE_LAYOUTS = [LAYOUT_STYLE.center, LAYOUT_STYLE.list, LAYOUT_STYLE.numbered] as const
+export type LineLayout = (typeof LINE_LAYOUTS)[number]
+
 /** Every display command, in the order the editor lists them. (`#sci` and `#dec` are the notations, NOTATIONS.) */
-export const COMMAND_NAMES = [...LINE_COMMANDS, MULTILINE, ...NOTATIONS, ...LAYOUT_STYLES] as const
-export type CommandName = LineCommand | typeof MULTILINE | Notation | LayoutStyle
+export const COMMAND_NAMES = [...LINE_COMMANDS, MULTILINE, ...NOTATIONS, ...LINE_LAYOUTS] as const
+export type CommandName = LineCommand | typeof MULTILINE | Notation | LineLayout
 
 /**
  * One of `names` written as a command: `#name` on its own, not inside a word

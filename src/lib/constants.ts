@@ -2,7 +2,13 @@
  * Built-in physical constants, referenced as `@name` (3 sig figs), `@name:n`
  * (n sig figs) or `@name:exact` (full precision). Values are CODATA 2018; those
  * marked exact are exact by definition in the 2019 SI.
+ *
+ * Namespaces hold more, written with a dot: `@chem.Na` is sodium's molar mass
+ * (elements.ts), and has the digits IUPAC gives unless written with `:n`.
  */
+import { ELEMENTS, MOLAR_MASS_UNIT, elementDescription, type ElementSymbol } from './elements.ts'
+import { memberName } from './names.ts'
+import { NAMESPACE } from './syntax.ts'
 export interface BuiltinConstant {
   value: number
   /** mathjs unit string; empty for dimensionless. */
@@ -39,6 +45,36 @@ export const BUILTIN_CONSTANTS: Record<string, BuiltinConstant> = {
 
 /** Sig figs used for a built-in constant written without `:n`. */
 export const DEFAULT_CONSTANT_SIG_FIGS = 3
+
+/**
+ * A constant in a namespace: `@chem.Na`. Its value as written (`22.990`) holds
+ * its sig figs, which a use without `:n` gets, rather than DEFAULT_CONSTANT_SIG_FIGS.
+ */
+export interface NamespaceConstant extends BuiltinConstant {
+  written: string
+}
+
+/** Each element's molar mass, `@chem.Na`, by its inside name (chem__Na; see names.ts). */
+export const CHEM_CONSTANTS: Readonly<Record<string, NamespaceConstant>> = Object.fromEntries(
+  (Object.keys(ELEMENTS) as ElementSymbol[]).map((symbol) => [memberName(NAMESPACE.chem, symbol), {
+    value: Number(ELEMENTS[symbol].weight),
+    written: ELEMENTS[symbol].weight,
+    unit: MOLAR_MASS_UNIT,
+    tex: `M_{\\mathrm{${symbol}}}`,
+    description: elementDescription(symbol),
+  }]),
+)
+
+/** A built-in constant by its inside name (`c`, `chem__Na`), or undefined if there's none. */
+export const builtinConstant = (name: string): BuiltinConstant | NamespaceConstant | undefined =>
+  (Object.hasOwn(BUILTIN_CONSTANTS, name) ? BUILTIN_CONSTANTS[name] : undefined)
+  ?? (Object.hasOwn(CHEM_CONSTANTS, name) ? CHEM_CONSTANTS[name] : undefined)
+
+/** Whether a built-in constant is a namespace's, with its value as written. */
+export const isNamespaceConstant = (c: BuiltinConstant): c is NamespaceConstant => 'written' in c
+
+/** Every built-in constant's inside name, the namespaces' too. */
+export const BUILTIN_CONSTANT_KEYS: readonly string[] = [...Object.keys(BUILTIN_CONSTANTS), ...Object.keys(CHEM_CONSTANTS)]
 
 /** How many single-letter edits turn `a` into `b` (Levenshtein distance), for suggesting a constant. */
 function editDistance(a: string, b: string): number {

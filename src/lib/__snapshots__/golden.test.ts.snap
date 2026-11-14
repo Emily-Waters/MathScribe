@@ -253,6 +253,21 @@ exports[`the Reference tab’s examples > Basics: m = 2.00 kg 1`] = `
 2: F = m (9.81 m/s^2) = (2.00 kg) (9.81 m/s^2) = 19.6 N"
 `;
 
+exports[`the Reference tab’s examples > Chemistry: M = @chem.Na 1`] = `"1: M = M_Na = 22.990 g/mol"`;
+
+exports[`the Reference tab’s examples > Chemistry: M = @chem.mm({CuSO4*5H2O}) 1`] = `"1: M = M_Cu+ M_S+ 9 M_O+ 10 M_H = 63.546 g/mol+ 32.06 g/mol+ 9 (15.999 g/mol)+ 10 (1.008 g/mol) = 249.68 g/mol"`;
+
+exports[`the Reference tab’s examples > Chemistry: m = 5.00 g {NaOH} 1`] = `
+"1: m = 5.00 g NaOH
+2: n = \\fracmM_Na+ M_O+ M_H = \\frac5.00 g NaOH22.990 g/mol+ 15.999 g/mol+ 1.008 g/mol = 0.125 mol NaOH"
+`;
+
+exports[`the Reference tab’s examples > Chemistry: n_Na = 0.100 mol {Na^+} 1`] = `
+"1: n_Na = 0.100 mol Na^+
+2: n_Cl = 0.200 mol Cl^-
+3: n = n_Na+ n_Cl = 0.100 mol Na^++ 0.200 mol Cl^- = 0.300 mol"
+`;
+
 exports[`the Reference tab’s examples > Constants: @a_0:3 to angstrom 1`] = `
 "1: a_0 = 0.529 Å
      INFO Every @a_0 in this sheet uses this value, to 3 sig figs, in angstrom, unless written with its own :n.
@@ -351,18 +366,18 @@ exports[`the Reference tab’s examples > Functions: f(x) = 2 * x^2 + 1 1`] = `
 2: y = 2· 3.0^2+ 1 = 19"
 `;
 
-exports[`the Reference tab’s examples > Layout: Assumptions:   #list 1`] = `""`;
+exports[`the Reference tab’s examples > Layout: @center Key result { 1`] = `"2: E = (2.00 kg) (3.00e8 m/s)^2 = 1.80e17 J"`;
 
-exports[`the Reference tab’s examples > Layout: Discussion:   #text 1`] = `""`;
+exports[`the Reference tab’s examples > Layout: @list Assumptions { 1`] = `""`;
 
-exports[`the Reference tab’s examples > Layout: F = 2.00 kg * 9.81 m/s^2   #center 1`] = `"1: F = (2.00 kg) (9.81 m/s^2) = 19.6 N"`;
-
-exports[`the Reference tab’s examples > Layout: Key result:   #center 1`] = `"2: E = (2.00 kg) (3.00e8 m/s)^2 = 1.80e17 J"`;
-
-exports[`the Reference tab’s examples > Layout: Steps:   #numbered 1`] = `
+exports[`the Reference tab’s examples > Layout: @numbered Steps { 1`] = `
 "2: m = 2.00 kg
 3: F = m (9.81 m/s^2) = (2.00 kg) (9.81 m/s^2) = 19.6 N"
 `;
+
+exports[`the Reference tab’s examples > Layout: @text Discussion { 1`] = `""`;
+
+exports[`the Reference tab’s examples > Layout: F = 2.00 kg * 9.81 m/s^2   #center 1`] = `"1: F = (2.00 kg) (9.81 m/s^2) = 19.6 N"`;
 
 exports[`the Reference tab’s examples > Repeated measurements: import("ramp.csv") 1`] = `
 "6: \\bart = \\frac13\\sum_i=1^3 t_i = \\fract_1 + t_2 + t_33 = \\frac1.21 s + 1.17 s + 1.24 s3 = (1.21 ± 0.02) s

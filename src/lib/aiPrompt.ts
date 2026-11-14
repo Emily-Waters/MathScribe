@@ -80,7 +80,7 @@ export const CREATE_KIND_INFO: Record<CreateKind, {
       { id: 'uncertainty', label: 'Uncertainties carried through', ticked: true, instruction: 'Give measured values uncertainties with `pm`, and show the uncertainty of the main result with a `delta` line.' },
       { id: 'repeats', label: 'Repeated measurements (mean and spread)', ticked: true, instruction: 'Include repeated measurements as a series (`T1`, `T2`, …) and use `T_avg` and `T_std`.' },
       { id: 'graph', label: 'A graph with a best-fit line', ticked: false, instruction: 'Include a data series plotted with `p = plot(x, y; fit linear)`, and use `p.slope`.' },
-      { id: 'discussion', label: 'Discussion and conclusion', ticked: true, instruction: 'End with `Discussion:  #text` and `Conclusion:  #text` blocks of prose.' },
+      { id: 'discussion', label: 'Discussion and conclusion', ticked: true, instruction: 'End with `@text Discussion {` and `@text Conclusion {` blocks of prose, each closed by `}`.' },
     ],
   },
 }
@@ -106,7 +106,7 @@ export const SNIPPETS = {
     'n_EDTA:"Moles of EDTA" = c_EDTA * V',
     'n_X = n_EDTA * (1 mol {X}) / (1 mol {EDTA})',
     'm = 5.00 g {NaOH}',
-    'n_NaOH = m / (40.00 g/mol)',
+    'n_NaOH = m / @chem.mm({NaOH})',
     '> The {Ca^2+} and {Mg^2+} came to {{n_X}}.',
     '{Ca^2+ + EDTA^4- -> CaEDTA^2-}',
   ].join('\n'),
@@ -244,8 +244,9 @@ ${constantNames}. 3 sig figs by default; \`@c:5\` for 5, \`@c:exact\` for every 
 ## Blocks
 - \`Title {\` … \`}\` (lines inside indented 4 spaces): variables assigned inside are local to
   it, and it can read everything defined above it. \`Title {  #hide\` hides the whole block.
-- \`Title:  #numbered\` (or \`#list\`, \`#center\`, \`#text\`) with indented lines under it arranges
-  them without scoping. A \`#text\` block is paragraphs of prose; nothing in it is calculated.
+- \`@numbered Title {\` … \`}\` (or \`@list\`, \`@center\`, \`@text\`; the title is optional) arranges
+  the lines inside without scoping them. An \`@text\` block is paragraphs of prose; nothing in it
+  is calculated. Don't end a line with \`:\` to start a block.
 
 ## Functions and solving
 ${code(SNIPPETS.function)}
@@ -278,7 +279,10 @@ ${code(SNIPPETS.chemistry)}
 - After a unit, a formula is the species: \`0.100 M {NaOH}\`, \`2.0 mol {EDTA}\`, \`5.00 g {NaOH}\`.
   Species cancel like units, so a mole ratio is \`(1 mol {X}) / (1 mol {EDTA})\`, and amounts of
   different species can't be added. A whole number of a species (\`1 mol {X}\`) is exact.
-- \`M\` is molarity (mol/L). Write a molar mass without a species: \`40.00 g/mol\`.
+- \`M\` is molarity (mol/L). A molar mass has no species: \`@chem.mm({NaOH})\` works one out from
+  the formula (brackets and a hydrate's \`*\` work, no coefficient), \`@chem.Na\` is an element's,
+  or write it: \`40.00 g/mol\`.
+- \`@chem.total(n_Na, n_Cl)\` adds amounts of different species, as plain amounts.
 - A display name goes on the name being assigned: \`n_Na:"Moles of {Na^+}" = …\` shows as
   "Moles of Na⁺" wherever n_Na appears. It can hold values: \`"Moles in {{V}}"\`.
 

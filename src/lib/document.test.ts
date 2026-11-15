@@ -135,6 +135,10 @@ describe('@latex blocks', () => {
     expect(toLatexDocument(s.blocks)).toContain('\\frac{a}{b}')
   })
 
+  it('with an error, are a comment in the LaTeX export, not maths', () => {
+    expect(toLatexDocument(sheet('@latex { \\frac{a}{b}').blocks)).toMatch(/% Line 1: \\frac\{a\}\{b\}\n% Error: /)
+  })
+
   it('say when one is missing its closing brace, or is empty', () => {
     expect(sheet('@latex { \\frac{a}{b}').blocks[0]).toMatchObject({ error: expect.stringMatching(/on one line ends with its }/) })
     expect(sheet('@latex {\n    \\frac{a}{b}').blocks[0]).toMatchObject({ error: 'The @latex block on line 1 is missing its closing }.' })

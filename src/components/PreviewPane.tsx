@@ -1,9 +1,12 @@
 import katex from '../lib/katex.ts'
-import { createContext, useContext, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react'
 import {
   DIAGNOSTIC_KIND, TITLE_SEGMENT, lineNumbering, listItems, splitInlineMath, titleSegments, type DiagnosticKind, type Sheet,
 } from '../lib/document.ts'
-import { BLOCK_KIND, isContainer, type Block, type ImportBlock } from '../lib/blocks.ts'
+import {
+  BLOCK_KIND, isContainer, type Block, type BlockKind, type CalcBlock, type ConstantsBlock, type FunctionBlock, type GroupBlock,
+  type HeadingBlock, type ImportBlock, type LatexBlock, type LayoutBlock, type TextBlock,
+} from '../lib/blocks.ts'
 import { LAYOUT_STYLE, LINE_COMMAND } from '../lib/syntax.ts'
 import { loadLatexOptions, saveLatexOptions, toLatexDocument, type LatexOptions } from '../lib/latex.ts'
 import { symbolTex, unitTex, type CalcOptions } from '../lib/engine.ts'
@@ -139,174 +142,231 @@ function useLineLink() {
   })
 }
 
-/** One block of the sheet as it appears in the Rendered tab. */
-export function RenderedBlock({ block }: { block: Block }) {
+// ---------------------------------------------------------------------------
+// Each kind of block as it appears in the Rendered tab: one component per kind,
+// found by its kind in BLOCK_VIEWS (the preview's side of the constructs in lib/constructs)
+// ---------------------------------------------------------------------------
+
+/** A block's error and warning, under it. */
+function BlockMessages({ line, error, warning }: { line: number; error?: string; warning?: string }) {
+  return (
+    <>
+      {error && <LineMessage kind={DIAGNOSTIC_KIND.error} line={line} text={error} />}
+      {warning && <LineMessage kind={DIAGNOSTIC_KIND.warning} line={line} text={warning} />}
+    </>
+  )
+}
+
+/** `# Title`: a section, subsection or bold heading, numbered as in the exports. */
+function HeadingView({ block }: { block: HeadingBlock }) {
   const link = useLineLink()
-  switch (block.kind) {
-    case BLOCK_KIND.heading: {
-      const number = block.number && <span className="doc__heading-number">{block.number}</span>
-      const text = <Title text={block.text} />
-      // (A value in it that couldn't be worked out is explained under it.)
-      const error = block.error && <LineMessage kind={DIAGNOSTIC_KIND.error} line={block.line} text={block.error} />
-      if (block.level === 1) return <>{<h3 className="doc__heading doc__heading--section" {...link(block.line)}>{number}{text}</h3>}{error}</>
-      if (block.level === 2) return <>{<h4 className="doc__heading doc__heading--subsection" {...link(block.line)}>{number}{text}</h4>}{error}</>
-      return <><p className="doc__heading doc__heading--bold" {...link(block.line)}>{text}</p>{error}</>
-    }
-    case BLOCK_KIND.text:
-      return (
-        <>
-          <p className="doc__text" {...link(block.line)}>
-            {splitInlineMath(block.text).map((seg, i) =>
-              seg.math ? <Tex key={i} latex={seg.value} /> : <span key={i}>{seg.value}</span>,
-            )}
-          </p>
-          {block.error && <LineMessage kind={DIAGNOSTIC_KIND.error} line={block.line} text={block.error} />}
-        </>
-      )
-    case BLOCK_KIND.latex:
-      return (
-        <div className="calc" {...link(block.line)}>
-          {block.latex && <Tex latex={block.latex} display />}
-          {block.error && <LineMessage kind={DIAGNOSTIC_KIND.error} line={block.line} text={block.error} />}
-        </div>
-      )
-    case BLOCK_KIND.spacer:
-      return <div className="doc__spacer" aria-hidden="true" />
-    case BLOCK_KIND.constants:
-      if (block.hidden && !hasError(block)) return null
-      return (
-        <section className={`group group--constants${hasError(block) ? ' group--error' : ''}`}>
-          <header className="group__header" {...link(block.line)}>
-            <span className="group__title"><span className="group__kind">Constants</span></span>
-            {block.note && <span className="calc__note">{block.note}</span>}
-          </header>
-          <div className="group__body">
-            {block.entries.map((e) => (
-              <div className={`calc${e.error ? ' calc--error' : ''}`} key={e.line} {...link(e.line)}>
-                <div className="calc__row">
-                  {e.tex ? <Tex latex={e.tex} display /> : <code className="calc__source">{e.source}</code>}
-                  {e.note && <span className="calc__note">{e.note}</span>}
-                </div>
-                {e.error && <LineMessage kind={DIAGNOSTIC_KIND.error} line={e.line} text={e.error} />}
-                {e.warning && <LineMessage kind={DIAGNOSTIC_KIND.warning} line={e.line} text={e.warning} />}
-                {e.info && <p className="calc__msg calc__msg--info">{e.info}</p>}
-              </div>
-            ))}
-          </div>
-          {block.error && <p className="calc__msg calc__msg--error">{block.error}</p>}
-        </section>
-      )
-    case BLOCK_KIND.import:
-      if (block.hidden && !block.error) return null
-      return <ImportSummary block={block} />
-    case BLOCK_KIND.calc:
-      // `#hide` lines stay hidden unless something went wrong.
-      if (block.hidden && !block.error) return null
-      return (
-        <div className={`calc${block.error ? ' calc--error' : ''}`} {...link(block.line)}>
-          {block.trace && (
-            <div className="calc__trace" title="Working inside the function">
-              {block.trace.map((t, i) => (
-                <div className="calc__row" key={i}>
-                  <Tex latex={t.tex} display />
-                  {t.note && <span className="calc__note">{t.note}</span>}
-                </div>
-              ))}
-            </div>
-          )}
-          {block.plot && <PlotView plot={block.plot} />}
-          {(block.tex || !block.plot) && (
+  const number = block.number && <span className="doc__heading-number">{block.number}</span>
+  const text = <Title text={block.text} />
+  // (A value in it that couldn't be worked out is explained under it.)
+  const error = <BlockMessages line={block.line} error={block.error} />
+  if (block.level === 1) return <><h3 className="doc__heading doc__heading--section" {...link(block.line)}>{number}{text}</h3>{error}</>
+  if (block.level === 2) return <><h4 className="doc__heading doc__heading--subsection" {...link(block.line)}>{number}{text}</h4>{error}</>
+  return <><p className="doc__heading doc__heading--bold" {...link(block.line)}>{text}</p>{error}</>
+}
+
+/** Prose, with `$…$` maths. */
+function TextView({ block }: { block: TextBlock }) {
+  const link = useLineLink()
+  return (
+    <>
+      <p className="doc__text" {...link(block.line)}>
+        {splitInlineMath(block.text).map((seg, i) =>
+          seg.math ? <Tex key={i} latex={seg.value} /> : <span key={i}>{seg.value}</span>,
+        )}
+      </p>
+      <BlockMessages line={block.line} error={block.error} />
+    </>
+  )
+}
+
+/** `@latex { … }`, or a reaction: displayed LaTeX. */
+function LatexView({ block }: { block: LatexBlock }) {
+  const link = useLineLink()
+  return (
+    <div className="calc" {...link(block.line)}>
+      {block.latex && <Tex latex={block.latex} display />}
+      <BlockMessages line={block.line} error={block.error} />
+    </div>
+  )
+}
+
+/** A gap of one line. */
+function SpacerView() {
+  return <div className="doc__spacer" aria-hidden="true" />
+}
+
+/** `@constants { … }`: a card of constants. */
+function ConstantsView({ block }: { block: ConstantsBlock }) {
+  const link = useLineLink()
+  if (block.hidden && !hasError(block)) return null
+  return (
+    <section className={`group group--constants${hasError(block) ? ' group--error' : ''}`}>
+      <header className="group__header" {...link(block.line)}>
+        <span className="group__title"><span className="group__kind">Constants</span></span>
+        {block.note && <span className="calc__note">{block.note}</span>}
+      </header>
+      <div className="group__body">
+        {block.entries.map((e) => (
+          <div className={`calc${e.error ? ' calc--error' : ''}`} key={e.line} {...link(e.line)}>
             <div className="calc__row">
-              {block.tex
-                ? <Tex latex={block.tex} display />
-                : <code className="calc__source">{block.source}</code>}
-              {block.note && <span className="calc__note">{block.note}</span>}
+              {e.tex ? <Tex latex={e.tex} display /> : <code className="calc__source">{e.source}</code>}
+              {e.note && <span className="calc__note">{e.note}</span>}
             </div>
-          )}
-          {block.error && <LineMessage kind={DIAGNOSTIC_KIND.error} line={block.line} text={block.error} />}
-          {block.warning && <LineMessage kind={DIAGNOSTIC_KIND.warning} line={block.line} text={block.warning} />}
-          {block.info && (
-            <p className="calc__msg calc__msg--info">
-              {splitInlineMath(block.info).map((seg, i) =>
-                seg.math ? <Tex key={i} latex={seg.value} /> : <span key={i}>{seg.value}</span>)}
-            </p>
-          )}
-        </div>
-      )
-    case BLOCK_KIND.function:
-      if (block.hidden && !block.error) return null
-      return (
-        <section className={`group group--function${block.error ? ' group--error' : ''}`}>
-          <header className="group__header" {...link(block.line)}>
-            <span className="group__title">
-              <span className="group__kind">Function</span> <Tex latex={block.signature} />
-            </span>
-            {block.note && <span className="calc__note">{block.note}</span>}
-          </header>
-          <div className="group__body">
-            {block.body.map((s, i) => (
-              <div className="calc" key={i} {...link(s.line)}>
-                <div className="calc__row">
-                  <Tex latex={s.tex} display />
-                  {s.note && <span className="calc__note">{s.note}</span>}
-                </div>
-              </div>
-            ))}
+            <BlockMessages line={e.line} error={e.error} warning={e.warning} />
+            {e.info && <p className="calc__msg calc__msg--info">{e.info}</p>}
           </div>
-          {block.error && <LineMessage kind={DIAGNOSTIC_KIND.error} line={block.line} text={block.error} />}
-        </section>
-      )
-    case BLOCK_KIND.layout: {
-      if (block.command === LINE_COMMAND.hide && !hasError(block)) return null
-      const title = (block.title || block.note) && (
-        <p className="layout__title" {...link(block.line)}>
-          <Title text={block.title} />
+        ))}
+      </div>
+      {block.error && <p className="calc__msg calc__msg--error">{block.error}</p>}
+    </section>
+  )
+}
+
+/** Imported data: a summary of its columns, in place of its rows. */
+function ImportView({ block }: { block: ImportBlock }) {
+  if (block.hidden && !block.error) return null
+  return <ImportSummary block={block} />
+}
+
+/** A calculation: the working inside function calls, a plot, its equation, and anything to say about it. */
+function CalcView({ block }: { block: CalcBlock }) {
+  const link = useLineLink()
+  // `#hide` lines stay hidden unless something went wrong.
+  if (block.hidden && !block.error) return null
+  return (
+    <div className={`calc${block.error ? ' calc--error' : ''}`} {...link(block.line)}>
+      {block.trace && (
+        <div className="calc__trace" title="Working inside the function">
+          {block.trace.map((t, i) => (
+            <div className="calc__row" key={i}>
+              <Tex latex={t.tex} display />
+              {t.note && <span className="calc__note">{t.note}</span>}
+            </div>
+          ))}
+        </div>
+      )}
+      {block.plot && <PlotView plot={block.plot} />}
+      {(block.tex || !block.plot) && (
+        <div className="calc__row">
+          {block.tex
+            ? <Tex latex={block.tex} display />
+            : <code className="calc__source">{block.source}</code>}
           {block.note && <span className="calc__note">{block.note}</span>}
-        </p>
-      )
-      const error = (block.error || block.warning) && (
-        <>
-          {block.error && <LineMessage kind={DIAGNOSTIC_KIND.error} line={block.line} text={block.error} />}
-          {block.warning && <LineMessage kind={DIAGNOSTIC_KIND.warning} line={block.line} text={block.warning} />}
-        </>
-      )
-      if (block.style === LAYOUT_STYLE.list || block.style === LAYOUT_STYLE.numbered) {
-        const List = block.style === LAYOUT_STYLE.numbered ? 'ol' : 'ul'
-        const items = listItems(block.children).map(({ item, subs }) => (
-          <li key={`${item.line}-${item.kind}`}>
-            <RenderedBlock block={item} />
-            {subs.map((s) => <RenderedBlock key={`${s.line}-sub`} block={s} />)}
-          </li>
-        ))
-        // A sub-list is just the list, inside its parent's item.
-        if (block.nested) return <List className="layout__list">{items}</List>
-        return <div className="layout">{title}<List className="layout__list">{items}</List>{error}</div>
-      }
-      return (
-        <div className={`layout layout--${block.style ?? 'plain'}`}>
-          {title}
-          <div className="layout__body">
-            {block.children.map((b) => <RenderedBlock key={`${b.line}-${b.kind}`} block={b} />)}
-          </div>
-          {error}
         </div>
-      )
-    }
-    case BLOCK_KIND.group:
-      if (block.command === LINE_COMMAND.hide && !hasError(block)) return null
-      return (
-        <section className={`group${block.error ? ' group--error' : ''}`}>
-          <header className="group__header" {...link(block.line)}>
-            <span className="group__title">{block.title ? <Title text={block.title} /> : 'Block'}</span>
-            {block.note && <span className="calc__note">{block.note}</span>}
-          </header>
-          <div className="group__body">
-            {block.children.map((b) => <RenderedBlock key={`${b.line}-${b.kind}`} block={b} />)}
+      )}
+      <BlockMessages line={block.line} error={block.error} warning={block.warning} />
+      {block.info && (
+        <p className="calc__msg calc__msg--info">
+          {splitInlineMath(block.info).map((seg, i) =>
+            seg.math ? <Tex key={i} latex={seg.value} /> : <span key={i}>{seg.value}</span>)}
+        </p>
+      )}
+    </div>
+  )
+}
+
+/** `def f(a, b)`: a card of its working, titled with its signature. */
+function FunctionView({ block }: { block: FunctionBlock }) {
+  const link = useLineLink()
+  if (block.hidden && !block.error) return null
+  return (
+    <section className={`group group--function${block.error ? ' group--error' : ''}`}>
+      <header className="group__header" {...link(block.line)}>
+        <span className="group__title">
+          <span className="group__kind">Function</span> <Tex latex={block.signature} />
+        </span>
+        {block.note && <span className="calc__note">{block.note}</span>}
+      </header>
+      <div className="group__body">
+        {block.body.map((s, i) => (
+          <div className="calc" key={i} {...link(s.line)}>
+            <div className="calc__row">
+              <Tex latex={s.tex} display />
+              {s.note && <span className="calc__note">{s.note}</span>}
+            </div>
           </div>
-          {block.error && <p className="calc__msg calc__msg--error">{block.error}</p>}
-        </section>
-      )
+        ))}
+      </div>
+      <BlockMessages line={block.line} error={block.error} />
+    </section>
+  )
+}
+
+/** `@layout.…`: a list (with sub-lists), or its lines arranged as its layout says. */
+function LayoutView({ block }: { block: LayoutBlock }) {
+  const link = useLineLink()
+  if (block.command === LINE_COMMAND.hide && !hasError(block)) return null
+  const title = (block.title || block.note) && (
+    <p className="layout__title" {...link(block.line)}>
+      <Title text={block.title} />
+      {block.note && <span className="calc__note">{block.note}</span>}
+    </p>
+  )
+  const messages = <BlockMessages line={block.line} error={block.error} warning={block.warning} />
+  if (block.style === LAYOUT_STYLE.list || block.style === LAYOUT_STYLE.numbered) {
+    const List = block.style === LAYOUT_STYLE.numbered ? 'ol' : 'ul'
+    const items = listItems(block.children).map(({ item, subs }) => (
+      <li key={`${item.line}-${item.kind}`}>
+        <RenderedBlock block={item} />
+        {subs.map((s) => <RenderedBlock key={`${s.line}-sub`} block={s} />)}
+      </li>
+    ))
+    // A sub-list is just the list, inside its parent's item.
+    if (block.nested) return <List className="layout__list">{items}</List>
+    return <div className="layout">{title}<List className="layout__list">{items}</List>{messages}</div>
   }
+  return (
+    <div className={`layout layout--${block.style ?? 'plain'}`}>
+      {title}
+      <div className="layout__body">
+        {block.children.map((b) => <RenderedBlock key={`${b.line}-${b.kind}`} block={b} />)}
+      </div>
+      {messages}
+    </div>
+  )
+}
+
+/** `Title { … }`: a card, its variables scoped to it. */
+function GroupView({ block }: { block: GroupBlock }) {
+  const link = useLineLink()
+  if (block.command === LINE_COMMAND.hide && !hasError(block)) return null
+  return (
+    <section className={`group${block.error ? ' group--error' : ''}`}>
+      <header className="group__header" {...link(block.line)}>
+        <span className="group__title">{block.title ? <Title text={block.title} /> : 'Block'}</span>
+        {block.note && <span className="calc__note">{block.note}</span>}
+      </header>
+      <div className="group__body">
+        {block.children.map((b) => <RenderedBlock key={`${b.line}-${b.kind}`} block={b} />)}
+      </div>
+      {block.error && <p className="calc__msg calc__msg--error">{block.error}</p>}
+    </section>
+  )
+}
+
+/** Each kind of block's component; TypeScript checks every kind has one. */
+const BLOCK_VIEWS: { readonly [K in BlockKind]: (props: { block: Extract<Block, { kind: K }> }) => ReactNode } = {
+  heading: HeadingView,
+  text: TextView,
+  latex: LatexView,
+  spacer: SpacerView,
+  calc: CalcView,
+  group: GroupView,
+  layout: LayoutView,
+  function: FunctionView,
+  constants: ConstantsView,
+  import: ImportView,
+}
+
+/** One block of the sheet as it appears in the Rendered tab, as its kind's component draws it. */
+export function RenderedBlock({ block }: { block: Block }) {
+  const View = BLOCK_VIEWS[block.kind] as (props: { block: Block }) => ReactNode
+  return <View block={block} />
 }
 
 /** The Output pane’s tabs. */

@@ -1523,11 +1523,17 @@ renamed, change it there too.
 - `src/lib/document.ts`: line types and blocks (`{ }`, `@layout.list { }` and the other
   layouts, `def`, `@constants`), sheet evaluation, diagnostics,
   definitions and symbols for the editor
-- `src/lib/latex.ts`: the `.tex` export and its document options;
+- `src/lib/constructs/`: one class per kind of block (a heading, a calculation,
+  an `@layout` block, …) that writes its blocks to each export; `layout.ts` has a
+  class per layout. The exports ask each block's construct to write it, and the
+  Rendered tab has a component per kind (`BLOCK_VIEWS` in `PreviewPane.tsx`)
+- `src/lib/latex.ts`: the `.tex` export and its document options, joining up
+  what the constructs write; `src/lib/latexKit.ts`: the pieces they write with;
   `src/components/LatexOptionsMenu.tsx`: the LaTeX tab's Document menu (used by
   both exports)
-- `src/lib/docx.ts`: the `.docx` (Word) export; `src/lib/omml.ts`: LaTeX → Word
-  equations (OMML), by way of KaTeX's MathML
+- `src/lib/docx.ts`: the `.docx` (Word) export's package; `src/lib/docxKit.ts`:
+  its look, paragraphs, equations and cards, which the constructs write with;
+  `src/lib/omml.ts`: LaTeX → Word equations (OMML), by way of KaTeX's MathML
 - `src/lib/sigfigs.ts`: counting, propagating and formatting significant figures
 - `src/lib/solve.ts`: `solve(…)`: rearranging, linear, quadratic and numeric solving
 - `src/lib/builtins.ts`: everything built in under `@` as one tree of members

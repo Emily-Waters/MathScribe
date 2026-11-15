@@ -143,6 +143,10 @@ describe('the Word export', () => {
     expect(doc).toMatch(/<w:pStyle w:val="Title"\/>.*<w:b\/><w:sz w:val="34"\/>.*Lab 3.*<w:jc w:val="center"\/>.*Emily Waters.*<w:br w:type="page"\/>.*Method/)
   })
 
+  it('sets the body text’s font by name', () => {
+    expect(exportOf('x = 1')['word/styles.xml']).toContain('<w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"')
+  })
+
   it('follows the page, font and title options', () => {
     const parts = exportOf('x = 1', { paper: 'letterpaper', margins: 'narrow', fontSize: '12pt', title: 'Lab 3', author: 'Emily' })
     expect(parts['word/document.xml']).toContain('<w:pgSz w:w="12240" w:h="15840"/>')

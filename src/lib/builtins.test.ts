@@ -1,11 +1,13 @@
 /** The tree of everything built in under `@`: where each member is, what it's called, and what it does. */
 import { describe, expect, it } from 'vitest'
 import {
-  BUILTINS, BUILTIN_CONSTANT_KEYS, BlockMember, ConstantMember, FunctionMember, LayoutMember, MEMBER_KIND, ModifierMember, Namespace,
-  RESERVED_CONSTANT_NAMES, builtinAt, builtinConstant, builtinFunction,
+  BUILTINS, BlockMember, ConstantMember, FunctionMember, LayoutMember, MEMBER_KIND, ModifierMember, Namespace,
+  builtinAt, builtinConstant, builtinConstantKeys, builtinFunction, isReservedConstantName,
 } from './builtins.ts'
 import { BUILTIN_CONSTANTS } from './constants.ts'
-import { ELEMENTS } from './elements.ts'
+import { ELEMENTS } from './engine/modules/chemistry/elements.ts'
+// (The engine installs its modules' members, @chem among them, when it's loaded.)
+import './engine/index.ts'
 
 describe('the tree', () => {
   it('names each member by its path: as typed, and inside', () => {
@@ -20,7 +22,7 @@ describe('the tree', () => {
   it('holds every physics constant at the top, and every element under @chem.mm', () => {
     for (const name of Object.keys(BUILTIN_CONSTANTS)) expect(builtinConstant(name)).toBe(BUILTIN_CONSTANTS[name])
     for (const symbol of Object.keys(ELEMENTS)) expect(builtinConstant(`chem__mm__${symbol}`)).toHaveProperty('written')
-    expect(BUILTIN_CONSTANT_KEYS).toHaveLength(Object.keys(BUILTIN_CONSTANTS).length + Object.keys(ELEMENTS).length)
+    expect(builtinConstantKeys()).toHaveLength(Object.keys(BUILTIN_CONSTANTS).length + Object.keys(ELEMENTS).length)
   })
 
   it('gives each member its kind', () => {
@@ -46,7 +48,8 @@ describe('the tree', () => {
   })
 
   it('reserves the names at the top that aren’t constants', () => {
-    expect([...RESERVED_CONSTANT_NAMES].sort()).toEqual(['chem', 'constants', 'latex', 'layout'])
+    expect(BUILTINS.members.map((m) => m.name).filter(isReservedConstantName).sort()).toEqual(['chem', 'constants', 'latex', 'layout'])
+    expect(isReservedConstantName('c')).toBe(false)
   })
 
   it('walks every member, at any depth', () => {

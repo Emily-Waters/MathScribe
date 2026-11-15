@@ -7,7 +7,7 @@ import { isAssignmentNode, isConstantNode, isFunctionAssignmentNode, isFunctionN
 import { EXACT, MAX_DIGITS, countSigFigs, formatExact, formatSigFigs, formatWithUncertainty, uncertaintySigFigs, hasAmbiguousZeros, isMeasuredLiteral, lastPlace, sigFigsFromPlace } from '../../sigfigs.ts'
 import { AGGREGATE_KIND, Variable, type Aggregate, type Contributions, type VariableFields, type VariableSummary } from '../../values.ts'
 import { DEFAULT_CONSTANT_SIG_FIGS, isNamespaceConstant, suggestConstant } from '../../constants.ts'
-import { BUILTIN_CONSTANT_KEYS, RESERVED_CONSTANT_NAMES, builtinConstant } from '../../builtins.ts'
+import { builtinConstant, builtinConstantKeys, isReservedConstantName } from '../../builtins.ts'
 import { ASSIGNMENT, ASSIGNMENT_WITH_VALUE, COMPONENTS_SETTING, CONSTANT_REF, EXACT_SETTING, IS_NAME, LEADING_NAME, ONE_LINE_FUNCTION, PERCENT, CALL, ELSE_IF_LINE, ELSE_LINE, IF_LINE, KEYWORD, PLOT_CALL, RETURN_LINE, SOLVE_SYSTEM, SELECT_CALL, SOLVE_CALL, SUBSCRIPT, TABLE_CALL, UNIT_VECTOR_SETTING, UNPACK, VECTOR_FUNCTION, DISPLAY_MODE, LINE_COMMAND, VALUE_IN_TEXT, CONSTANTS_BLOCK, LABEL_TEMPLATE, SIGIL, type DisplayMode, type Notation, type Precision, type UncertaintyWord, type VectorStyle } from '../../syntax.ts'
 import { FIT, INLINE_VALUE_NAME, JOIN, RESERVED_NAMESPACES, constantKey, constantRefName, expandDots, typedConstant, isHiddenName, isUncertaintyName, memberName, parseMemberName, parseNumberedName, parseUncertaintyName, readableMembers, seriesMemberName, solvedName, uncertaintyName, unpackedColumnName, unpackedName } from '../../names.ts'
 import { COMPARISONS, FN, OP, OP_SYMBOL, UNIT, isOp } from '../../mathjsNames.ts'
@@ -1040,7 +1040,7 @@ export class Calculator {
   defineConstant(input: string): CalcResult {
     const name = ASSIGNMENT.exec(input)?.[1]
     if (!name) return { tex: '', error: `Inside ${SIGIL}${CONSTANTS_BLOCK}, each line is "name = value".` }
-    if (RESERVED_CONSTANT_NAMES.has(name)) {
+    if (isReservedConstantName(name)) {
       return { tex: '', error: `${SIGIL}${name} is built in (a namespace, or the constants block), so a constant can't be called ${name}.` }
     }
     this.pushScope()
@@ -1078,7 +1078,7 @@ export class Calculator {
       const custom = this.customConstants.get(name)
       const builtin = builtinConstant(name)
       if (!custom && !builtin) {
-        const known = [...BUILTIN_CONSTANT_KEYS, ...this.customConstants.keys()]
+        const known = [...builtinConstantKeys(), ...this.customConstants.keys()]
         const guess = suggestConstant(name, known)
         error ??= `Unknown constant ${SIGIL}${typedConstant(name)}.`
           + (guess ? ` Did you mean ${SIGIL}${typedConstant(guess)}?` : ` Define it in an ${SIGIL}${CONSTANTS_BLOCK} { } block.`)

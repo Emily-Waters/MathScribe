@@ -1,6 +1,5 @@
 /** Units tidied after a calculation, and quantities shown in them. */
 import { type MathType, type Unit } from 'mathjs'
-import { MOLAR_MASS_UNIT } from '../../elements.ts'
 import { UNIT } from '../../mathjsNames.ts'
 import { math } from './math.ts'
 import { isLabelUnit } from './module.ts'
@@ -18,7 +17,7 @@ export const DERIVED_UNITS = ['N', 'J', 'W', 'Pa', 'C', 'V', 'ohm', 'F', 'T', 'W
  * SI, because they're how the quantity is always written: a molar mass in g/mol
  * (not 0.018015 kg/mol).
  */
-export const CONVENTIONAL_UNITS: ReadonlySet<string> = new Set([MOLAR_MASS_UNIT].map((u) => math.unit(u).formatUnits()))
+export const CONVENTIONAL_UNITS: ReadonlySet<string> = new Set([`${UNIT.gram}/${UNIT.mole}`].map((u) => math.unit(u).formatUnits()))
 
 /** How many unit names a unit is written with (`kg m/s^2` → 3). */
 export const unitTokens = (s: string) => (s.match(/[A-Za-z]+/g) ?? []).length

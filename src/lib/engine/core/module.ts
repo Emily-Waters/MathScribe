@@ -7,12 +7,14 @@
  * Two kinds of hook:
  *  - A Calculator's own (the "Per calculator" ones): called by the Calculator
  *    it was given to, with its own state (a sheet's species names).
- *  - Shared ones (the "Shared" ones): every Calculator uses one mathjs instance,
- *    so units and the text that's read into them work the same everywhere. These
- *    are installed the first time a Calculator is given a module of the class,
- *    and must not depend on the instance's own state.
+ *  - Shared ones (the "Shared" ones): every Calculator uses one mathjs instance
+ *    and one `@` tree, so units, the text that's read into them and `@` members
+ *    work the same everywhere (the editor's suggestions too). These are
+ *    installed once per class, by installModule (engine/index.ts installs
+ *    MathScribe's when it's loaded), and must not depend on the instance's own state.
  */
 import type { FunctionNode, MathNode } from 'mathjs'
+import { BUILTINS, type Namespace } from '../../builtins.ts'
 import type { BuiltinConstant, NamespaceConstant } from '../../constants.ts'
 import type { VariableFields } from '../../values.ts'
 import type { LineResult } from './results.ts'
@@ -39,6 +41,11 @@ export abstract class EngineModule {
 
   /** Add its functions to mathjs: called once, when the first module of its class is installed. */
   install(): void {}
+
+  /** Its own namespace in the `@` tree (`@chem`), made fresh: put in @ when it's installed. */
+  namespace(): Namespace | undefined {
+    return undefined
+  }
 
   /**
    * Whether a unit labels a quantity rather than measuring it, as a species
@@ -146,6 +153,8 @@ export function installModule(module: EngineModule): void {
   if (installed.has(kind)) return
   installed.set(kind, module)
   module.install()
+  const namespace = module.namespace()
+  if (namespace) BUILTINS.add(namespace)
 }
 
 const shared = (): EngineModule[] => [...installed.values()]

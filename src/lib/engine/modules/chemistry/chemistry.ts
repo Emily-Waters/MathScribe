@@ -22,7 +22,7 @@
  * A compound's molar mass is `@chem.mm({CuSO4*5H2O})` (see parseFormula), and
  * an element's `@chem.mm.Na` (see elements.ts).
  */
-import { isElement, type ElementSymbol } from '../../../elements.ts'
+import { isElement, type ElementSymbol } from './elements.ts'
 import { CHEM_FUNCTION, MEMBER_DOT, NAMESPACE, SIGIL } from '../../../syntax.ts'
 import { SPECIES_FUNCTION } from '../../../names.ts'
 import { ExplainedError } from '../../core/results.ts'

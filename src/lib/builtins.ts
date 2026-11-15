@@ -4,27 +4,22 @@
  *
  *   @                     the root
  *   ├─ c, h, e, …         physics constants (constants.ts)
- *   ├─ chem               chemistry
- *   │  ├─ mm              a compound's molar mass, @chem.mm({H2O}); and a namespace:
- *   │  │  └─ H, He, …     each element's molar mass, @chem.mm.Na
- *   │  └─ total           amounts of different species added, @chem.total(n_Na, n_Cl)
  *   ├─ layout             layout blocks, @layout.list { }, whose members chain: @layout.numbered.val
  *   │  ├─ text, list, …   the layouts
  *   │  └─ hidden, sym, …  the display settings
  *   ├─ constants          the @constants { } block
- *   └─ latex              the @latex { } block
+ *   ├─ latex              the @latex { } block
+ *   └─ chem, …            an engine module's own namespace, added when it's installed
+ *                         (EngineModule.namespace; @chem is the chemistry module's)
  *
  * The engine (constants and calls), the sheet (reserved names) and the editor
  * (suggestions and hovers after any dot) all read this tree, so a new member is
- * added here, once, and each of them knows about it.
+ * added once, and each of them knows about it.
  */
 import { BUILTIN_CONSTANTS, type BuiltinConstant, type NamespaceConstant } from './constants.ts'
-import { ELEMENTS, MOLAR_MASS_UNIT, elementDescription, type ElementSymbol } from './elements.ts'
-import { molarMassSum, parseFormula, speciesKey, splitCoefficient } from './engine/modules/chemistry/chemistry.ts'
-import { ANY_SPECIES_FUNCTION, JOIN, SPECIES_FUNCTION } from './names.ts'
-import { splitArgs } from './solve.ts'
+import { JOIN } from './names.ts'
 import {
-  CHEM_FUNCTION, CONSTANTS_BLOCK, LATEX_BLOCK, LAYOUT_MODIFIER, LAYOUT_STYLE, MEMBER_DOT, NAMESPACE, SIGIL, SPECIES_BLOCK,
+  CONSTANTS_BLOCK, LATEX_BLOCK, LAYOUT_MODIFIER, LAYOUT_STYLE, MEMBER_DOT, NAMESPACE, SIGIL,
   type LayoutModifier, type LayoutStyle,
 } from './syntax.ts'
 
@@ -173,8 +168,9 @@ export class Namespace extends Member {
     if (this.call) this.call.callOf = this
   }
 
-  /** Put a member in the namespace. */
-  private add(member: Member): void {
+  /** Put a member in the namespace (an engine module's own namespace goes in @ this way). */
+  add(member: Member): void {
+    if (this.byName.has(member.name)) throw new Error(`${this.typed}${this.parent ? MEMBER_DOT : ''}${member.name} is built in already.`)
     member.parent = this
     this.byName.set(member.name, member)
   }
@@ -222,77 +218,6 @@ export class Namespace extends Member {
 }
 
 // ---------------------------------------------------------------------------
-// @chem's functions
-// ---------------------------------------------------------------------------
-
-/** A formula in braces, as the whole of an argument: `{CuSO4*5H2O}` (1: the formula). */
-const FORMULA_ARGUMENT = /^\{([^{}]+)\}$/
-
-/** `@chem.mm({CuSO4*5H2O})`: a compound's molar mass, as the sum of its elements' (`@chem.mm.Cu + …`). */
-class MolarMassFunction extends FunctionMember {
-  readonly parameters = '{formula}'
-
-  constructor() {
-    super(CHEM_FUNCTION.molarMass, 'Molar mass of a compound, in g/mol: @chem.mm({CuSO4*5H2O})')
-  }
-
-  expand(args: string): Expansion {
-    const formula = FORMULA_ARGUMENT.exec(args.trim())
-    if (!formula) return { error: `${this.typed} takes one formula, in braces: ${this.typed}({CuSO4*5H2O}).` }
-    // A coefficient, as in a balanced equation (`2 H2O`, `1/2 O2`), multiplies the compound's molar mass.
-    const { coefficient, compound } = splitCoefficient(formula[1])
-    const atoms = parseFormula(compound)
-    if ('error' in atoms) return atoms
-    const sum = molarMassSum(atoms)
-    // It's a molar mass of the compound: a mass of it per amount of it, g H2O / mol H2O.
-    const total = coefficient ? `(${coefficient}) * ${sum}` : sum
-    return { text: `${SPECIES_FUNCTION.quiet}(${total}, "${speciesKey(compound)}")` }
-  }
-}
-
-/** `@chem.total(n_Na, n_Cl)`: amounts of different species added, each with its species taken off. */
-class TotalFunction extends FunctionMember {
-  readonly parameters = 'n_1, n_2, …'
-
-  constructor() {
-    super(CHEM_FUNCTION.total, 'Amounts of different species added, as plain amounts')
-  }
-
-  expand(args: string): Expansion {
-    const amounts = splitArgs(args).filter(Boolean)
-    if (!amounts.length) return { error: `${this.typed} needs the amounts to add: ${this.typed}(n_Na, n_Cl).` }
-    return { text: `(${amounts.map((a) => `${ANY_SPECIES_FUNCTION}(${a})`).join(' + ')})` }
-  }
-}
-
-/**
- * `r = @chem.reaction({2 H2 + O2 -> 2 H2O})`: a balanced reaction, whose
- * coefficients are its members as amounts (r.H2O is 2 mol H2O), for mole ratios.
- * It's a line of its own (the engine reads it whole), so as part of an expression it's explained.
- */
-class ReactionFunction extends FunctionMember {
-  readonly parameters = '{reaction}'
-
-  constructor() {
-    super(CHEM_FUNCTION.reaction, 'A balanced reaction, named: r = @chem.reaction({2 H2 + O2 -> 2 H2O}); r.H2O / r.H2 is a mole ratio')
-  }
-
-  expand(): Expansion {
-    return { error: `${this.typed}({…}) is written on a line of its own, with a name: r = ${this.typed}({2 H2 + O2 -> 2 H2O}). Then r.H2O / r.H2 is a mole ratio.` }
-  }
-}
-
-/** Each element's molar mass, `@chem.mm.Na`: its weight as IUPAC writes it, in g/mol. */
-const elementMembers = (Object.keys(ELEMENTS) as ElementSymbol[]).map((symbol) => new ConstantMember(symbol, {
-  value: Number(ELEMENTS[symbol].weight),
-  written: ELEMENTS[symbol].weight,
-  unit: MOLAR_MASS_UNIT,
-  tex: `M_{\\mathrm{${symbol}}}`,
-  description: elementDescription(symbol),
-  species: symbol,
-}))
-
-// ---------------------------------------------------------------------------
 // @layout's members
 // ---------------------------------------------------------------------------
 
@@ -323,12 +248,6 @@ const LAYOUT_MODIFIER_DESCRIPTIONS: Record<LayoutModifier, string> = {
 /** `@`: everything built in. */
 export const BUILTINS = new Namespace('', 'Built in', [
   ...Object.entries(BUILTIN_CONSTANTS).map(([name, c]) => new ConstantMember(name, c)),
-  new Namespace(NAMESPACE.chem, 'The elements’ molar masses (@chem.mm.Na), mm( ) and total( )', [
-    new Namespace(CHEM_FUNCTION.molarMass, 'An element’s molar mass: @chem.mm.Na', elementMembers, { call: new MolarMassFunction() }),
-    new TotalFunction(),
-    new ReactionFunction(),
-    new BlockMember(SPECIES_BLOCK, 'Names for species, usable wherever braces take a formula: dietzeite = {7Ca(IO3)2*8CaCrO4}, then {dietzeite}'),
-  ]),
   new Namespace(NAMESPACE.layout, 'Blocks that arrange lines (text, list, numbered, center, titlepage) or set how they’re shown (hidden, sym, val, multiline, …)', [
     ...Object.values(LAYOUT_STYLE).map((style) => new LayoutMember(style, LAYOUT_DESCRIPTIONS[style])),
     ...Object.values(LAYOUT_MODIFIER).map((modifier) => new ModifierMember(modifier, LAYOUT_MODIFIER_DESCRIPTIONS[modifier])),
@@ -347,13 +266,14 @@ export const builtinConstant = (key: string): BuiltinConstant | NamespaceConstan
   return member instanceof ConstantMember ? member.constant : undefined
 }
 
-/** Every built-in constant's inside name, the namespaces' too. */
-export const BUILTIN_CONSTANT_KEYS: readonly string[] = [...BUILTINS.walk()].filter((m) => m instanceof ConstantMember).map((m) => m.key)
+/** Every built-in constant's inside name, the namespaces' too (the modules' included, so asked for when needed). */
+export const builtinConstantKeys = (): string[] => [...BUILTINS.walk()].filter((m) => m instanceof ConstantMember).map((m) => m.key)
 
-/** Words of @ that a constant of your own can't be called: everything at the top that isn't a constant (namespaces, blocks). */
-export const RESERVED_CONSTANT_NAMES: ReadonlySet<string> = new Set(
-  BUILTINS.members.filter((m) => !(m instanceof ConstantMember)).map((m) => m.name),
-)
+/** Whether a constant of your own can't have this name: it's at the top of @ and isn't a constant (a namespace, a block). */
+export const isReservedConstantName = (name: string): boolean => {
+  const member = BUILTINS.member(name)
+  return member !== undefined && !(member instanceof ConstantMember)
+}
 
 /**
  * The function a call's path names: chem, total → @chem.total; chem, mm →

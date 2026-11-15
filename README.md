@@ -1588,9 +1588,9 @@ renamed, change it there too.
 - `src/lib/engine/modules/chemistry/`: the chemistry module. `chemistry.ts`:
   formulas in braces, species as units, reading a formula's atoms for `@chem.mm`,
   reactions and species names; `species.ts`: giving values their species and the
-  strict rules; `module.ts`: `ChemistryModule`, where the engine's hooks meet
-  them. `src/lib/elements.ts`: the elements and their
-  atomic weights; `src/lib/katex.ts`: KaTeX with mhchem, which everything that
+  strict rules; `namespace.ts`: its `@chem` members; `elements.ts`: the elements
+  and their atomic weights; `module.ts`: `ChemistryModule`, where the engine's
+  hooks meet them. `src/lib/katex.ts`: KaTeX with mhchem, which everything that
   draws maths imports
 - `src/components/ErrorBoundary.tsx`: keeps a failure drawing the output from
   blanking the app
@@ -1615,7 +1615,9 @@ renamed, change it there too.
 - `src/lib/solve.ts`: `solve(…)`: rearranging, linear, quadratic and numeric solving
 - `src/lib/builtins.ts`: everything built in under `@` as one tree of members
   (constants, functions, blocks, namespaces), which the engine and the editor's
-  suggestions and hovers read; `src/lib/constants.ts`: the physics constants' values
+  suggestions and hovers read. An engine module adds its own namespace (`@chem`)
+  when it's installed (`src/lib/engine/index.ts` installs MathScribe's as it
+  loads); `src/lib/constants.ts`: the physics constants' values
 - `src/lib/library.ts`: the equations in the Library tab (each tested with its
   example); `src/components/LibraryPane.tsx`: the tab
 - `src/lib/reference.ts`: the examples shown in the Reference tab;

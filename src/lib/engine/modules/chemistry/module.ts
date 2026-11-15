@@ -5,6 +5,7 @@
  * meets it, through EngineModule's hooks.
  */
 import { isConstantNode, isSymbolNode, type FunctionNode, type MathNode, type MathType, type Unit } from 'mathjs'
+import type { Namespace } from '../../../builtins.ts'
 import type { BuiltinConstant, NamespaceConstant } from '../../../constants.ts'
 import { REACTION_DEFINITION } from '../../../syntax.ts'
 import { ANY_SPECIES_FUNCTION, SPECIES_FUNCTION, memberName } from '../../../names.ts'
@@ -24,6 +25,7 @@ import {
   SPECIES_RATIO_UNIT, expandSpeciesAfterValues, isOneMole, isSpeciesCount, speciesOfConstant, speciesProblem,
   speciesUnitName, speciesUnits, withSpecies, withoutSpecies, withoutSpeciesUnits,
 } from './species.ts'
+import { chemNamespace } from './namespace.ts'
 
 /** Whether a setting on an assigned name says how its line's named species are shown (`m:formula`). */
 const isSpeciesDisplay = (setting: string): setting is SpeciesDisplay => (SPECIES_DISPLAYS as readonly string[]).includes(setting)
@@ -45,6 +47,11 @@ export class ChemistryModule extends EngineModule {
       [ANY_SPECIES_FUNCTION]: withoutSpecies,
       [SPECIES_FUNCTION.plain]: withoutSpecies,
     })
+  }
+
+  /** `@chem`: molar masses, @chem.total, @chem.reaction and the @chem.species block. */
+  override namespace(): Namespace {
+    return chemNamespace()
   }
 
   override isLabelUnit(unitName: string): boolean {

@@ -6,7 +6,7 @@
 import type { Block, BlockKind } from '../blocks.ts'
 import type { Construct } from './construct.ts'
 import { CalcConstruct, HeadingConstruct, LatexConstruct, SpacerConstruct, TextConstruct } from './lines.ts'
-import { ConstantsConstruct, FunctionConstruct, GroupConstruct, ImportConstruct } from './blocks.ts'
+import { ConstantsConstruct, FunctionConstruct, GroupConstruct, ImportConstruct, SpeciesConstruct } from './blocks.ts'
 import { LayoutConstruct } from './layout.ts'
 
 /** Each kind's construct, for the blocks of that kind. */
@@ -23,6 +23,7 @@ const CONSTRUCTS: Constructs = {
   layout: new LayoutConstruct(),
   function: new FunctionConstruct(),
   constants: new ConstantsConstruct(),
+  species: new SpeciesConstruct(),
   import: new ImportConstruct(),
 }
 

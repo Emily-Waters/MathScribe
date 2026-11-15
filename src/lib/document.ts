@@ -1,18 +1,22 @@
-import { Calculator, type CalcOptions, type FunctionLine, type Variable, symbolTex, unexpectedError } from './engine.ts'
+import { Calculator, type CalcOptions, type FunctionLine, symbolTex, unexpectedError } from './engine.ts'
+import type { VariableSummary } from './values.ts'
 import {
   ASSIGNMENT, CONSTANT_DECLARATION, EXACT_SETTING, DEF, DEF_HEAD, FUNCTION_HEAD, IMPORT, LEADING_NAME, LINE_COMMANDS,
   DISPLAY_MODE, LAYOUT_STYLE, LINE_COMMAND, MULTILINE, NAME_WITH_SETTINGS, NOTATIONS, PLOT_CALL, SELECT_CALL, UNPACK_HEAD, VALUE_IN_TEXT,
   BLOCK_CLOSE, BLOCK_OPEN, CONSTANTS_BLOCK, CONSTANTS_OPENER, LAYOUT_OPENER, LINE_LAYOUTS, PROSE_LAYOUTS, SIGIL, layoutOpenerText,
   DISPLAY_MODES, LAYOUT_MEMBERS, LAYOUT_MODIFIER, LAYOUT_MODIFIERS, LAYOUT_STYLES, MEMBER_DOT, NAMESPACE, layoutMembers, layoutName,
   LATEX_BLOCK, LATEX_OPENER, TEXT_SUBSCRIPT, closesLatex, commandPattern, indentOf, isComment, subscriptOf, unescapeUnderscores,
+  SPECIES_BLOCK, SPECIES_ENTRY, SPECIES_LINE, SPECIES_OPENER,
   type DisplayMode, type LayoutModifier, type LayoutStyle, type LineLayout, type Notation,
 } from './syntax.ts'
 import { constantKey } from './names.ts'
 import { parseCsv, type CsvData } from './csv.ts'
-import { REACTION_LINE, formulaTex, isFormulaSubscript, outsideMaths, withFormulas } from './chemistry.ts'
+import {
+  REACTION_LINE, SPECIES_DISPLAY, formulaTex, isFormulaSubscript, outsideMaths, setSpeciesNames, withFormulas, type SpeciesDisplay,
+} from './chemistry.ts'
 import {
   BLOCK_KIND, isContainer, type Block, type BlockSettings, type Command, type ConstantsBlock, type GroupBlock, type ImportBlock,
-  type LayoutBlock,
+  type LayoutBlock, type SpeciesBlock, type SpeciesEntry,
 } from './blocks.ts'
 
 /**
@@ -74,7 +78,7 @@ function readCsv(rows: string[]): CsvData {
 /** A whole sheet, evaluated: its blocks, and the variables it ends with. */
 export interface Sheet {
   blocks: Block[]
-  variables: Variable[]
+  variables: VariableSummary[]
 }
 
 /** `#sym`, `#val`, `#full`, `#hide` in a line. */
@@ -265,6 +269,55 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
 
   const lines = source.split(/\r?\n/)
 
+  // Species' names (`@chem.species { dietzeite = {…} }`, or one on a line of its
+  // own) apply to the whole sheet, so they're read first: `{dietzeite}` then works
+  // anywhere braces take a formula, above the block too.
+  setSpeciesNames(calc.speciesNames)
+  const speciesBlocks = new Map<number, { end: number; block: SpeciesBlock }>()
+  const nameSpecies = (line: number, written: string, name: string, display: string | undefined, formula: string): SpeciesEntry => {
+    const { note } = splitNote(written)
+    const shownAs = (display as SpeciesDisplay | undefined) ?? SPECIES_DISPLAY.name
+    return { line, name, formula, display: shownAs, note, error: calc.speciesNames.define(name, formula, shownAs) }
+  }
+  for (let i = 0; i < lines.length; i++) {
+    const opener = splitNote(lines[i].trim())
+    const single = SPECIES_LINE.exec(opener.body)
+    if (single) {
+      const entry = nameSpecies(i + 1, lines[i].trim(), single[1], single[2], single[3])
+      speciesBlocks.set(i, {
+        end: i,
+        block: { kind: BLOCK_KIND.species, line: i + 1, endLine: i + 1, entries: [entry], single: true, hidden: opener.command === LINE_COMMAND.hide },
+      })
+      continue
+    }
+    if (!SPECIES_OPENER.test(opener.body)) continue
+    const entries: SpeciesEntry[] = []
+    let end = lines.length - 1
+    let closed = false
+    for (let j = i + 1; j < lines.length; j++) {
+      const text = lines[j].trim()
+      if (closesBlock(text)) {
+        end = j
+        closed = true
+        break
+      }
+      if (!text || isComment(text)) continue
+      const m = SPECIES_ENTRY.exec(splitNote(text).body)
+      entries.push(m
+        ? nameSpecies(j + 1, text, m[1], m[2], m[3])
+        : { line: j + 1, name: splitNote(text).body, formula: '', display: SPECIES_DISPLAY.name, error: `Inside ${SIGIL}${NAMESPACE.chem}.${SPECIES_BLOCK}, each line names a species: dietzeite = {7Ca(IO3)2*8CaCrO4}.` })
+    }
+    speciesBlocks.set(i, {
+      end,
+      block: {
+        kind: BLOCK_KIND.species, line: i + 1, endLine: end + 1, note: opener.note, entries, single: false,
+        hidden: opener.command === LINE_COMMAND.hide,
+        error: closed ? undefined : `The ${SIGIL}${NAMESPACE.chem}.${SPECIES_BLOCK} block on line ${i + 1} is missing its closing ${BLOCK_CLOSE}.`,
+      },
+    })
+    i = end
+  }
+
   // Declarations (`@c:4` or `@a_0:3 to angstrom` on its own line) apply to the
   // whole sheet, including constants defined from them, so they're read before
   // anything else. The first declaration for a constant wins; later ones get a warning.
@@ -382,7 +435,7 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
     blankRun = 0
 
     // Already evaluated in the first pass; just place the block.
-    const constants = constantBlocks.get(idx)
+    const constants = constantBlocks.get(idx) ?? speciesBlocks.get(idx)
     if (constants) {
       add(constants.block)
       idx = constants.end
@@ -445,7 +498,8 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
     // `{OH^- + H3O^+ -> 2 H2O}`: a formula on its own, a reaction, displayed (not worked out).
     const reaction = REACTION_LINE.exec(body)
     if (reaction) {
-      add({ kind: BLOCK_KIND.latex, line, latex: formulaTex(reaction[1]) })
+      // (A species' name in it is its formula: a reaction is drawn atom by atom.)
+      add({ kind: BLOCK_KIND.latex, line, latex: formulaTex(calc.speciesNames.expandFormula(reaction[1])) })
       continue
     }
     // A line's own command wins; otherwise the nearest enclosing block's.
@@ -648,7 +702,7 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
   // The variables are listed when first asked for (for hover information): with
   // imported data there can be thousands, and most edits never need them. (Not
   // enumerable, so code that walks the sheet's properties doesn't list them all.)
-  let variables: Variable[] | undefined
+  let variables: VariableSummary[] | undefined
   return Object.defineProperty({ blocks: root }, 'variables', {
     get: () => (variables ??= calc.variables()), enumerable: false,
   }) as Sheet
@@ -707,7 +761,9 @@ export function titleSegments(text: string): TitleSegment[] {
 export function isOmitted(b: Block): boolean {
   // Spacers, and imported data, which only defines variables.
   if (b.kind === BLOCK_KIND.spacer || b.kind === BLOCK_KIND.import) return true
-  if (b.kind === BLOCK_KIND.calc || b.kind === BLOCK_KIND.function || b.kind === BLOCK_KIND.constants) return !!b.hidden && !b.error
+  if (b.kind === BLOCK_KIND.calc || b.kind === BLOCK_KIND.function || b.kind === BLOCK_KIND.constants || b.kind === BLOCK_KIND.species) {
+    return !!b.hidden && !b.error
+  }
   if (isContainer(b)) return b.command === LINE_COMMAND.hide && !b.error
   return false
 }
@@ -743,7 +799,7 @@ export function collectDefinitions(blocks: Block[]): Map<string, number[]> {
 }
 
 /** Each kind of name the editor knows. */
-export const SYMBOL_KIND = { variable: 'variable', parameter: 'parameter', function: 'function', constant: 'constant' } as const
+export const SYMBOL_KIND = { variable: 'variable', parameter: 'parameter', function: 'function', constant: 'constant', species: 'species' } as const
 export type SymbolKind = (typeof SYMBOL_KIND)[keyof typeof SYMBOL_KIND]
 
 /** A name the editor can suggest or describe, and where it's visible. */
@@ -781,14 +837,14 @@ export function collectSymbols(sheet: Sheet, source: string): SheetSymbol[] {
   const lines = source.split(/\r?\n/)
   const out: SheetSymbol[] = []
   // Each scope's variables by name (a sheet can have thousands, from imported data).
-  const byName = new WeakMap<() => Variable[], Map<string, Variable>>()
-  const lookup = (scope: () => Variable[]) => {
+  const byName = new WeakMap<() => VariableSummary[], Map<string, VariableSummary>>()
+  const lookup = (scope: () => VariableSummary[]) => {
     let map = byName.get(scope)
     if (!map) byName.set(scope, map = new Map(scope().map((v) => [v.name, v])))
     return map
   }
   /** A variable's symbol, with its value's TeX worked out only when it's shown. */
-  const variable = (name: string, line: number, from: number, to: number, scope: () => Variable[], members?: number): SheetSymbol =>
+  const variable = (name: string, line: number, from: number, to: number, scope: () => VariableSummary[], members?: number): SheetSymbol =>
     Object.defineProperties({ name, kind: SYMBOL_KIND.variable, line, from, to, members }, {
       tex: { get: () => lookup(scope).get(name)?.tex, enumerable: false },
       texOf: { value: (other: string) => lookup(scope).get(other)?.tex, enumerable: false },
@@ -796,7 +852,7 @@ export function collectSymbols(sheet: Sheet, source: string): SheetSymbol[] {
 
   /** `to`: the last line of the innermost `{ }` block (or the sheet), where its names stop being visible;
    * `scope`: that block's variables (worked out when first needed), for their values. */
-  const visit = (blocks: Block[], to: number, scope: () => Variable[]) => {
+  const visit = (blocks: Block[], to: number, scope: () => VariableSummary[]) => {
     for (const b of blocks) {
       switch (b.kind) {
         case BLOCK_KIND.calc: {
@@ -842,6 +898,10 @@ export function collectSymbols(sheet: Sheet, source: string): SheetSymbol[] {
             const name = ASSIGNMENT.exec(e.source)?.[1]
             if (name) out.push({ name: `@${name}`, kind: SYMBOL_KIND.constant, line: e.line, from: 1, to: lines.length, tex: e.tex })
           }
+          break
+        case BLOCK_KIND.species:
+          // A species' name is usable everywhere: in braces, `{dietzeite}`.
+          for (const e of b.entries) if (!e.error) out.push({ name: e.name, kind: SYMBOL_KIND.species, line: e.line, from: 1, to: lines.length, tex: formulaTex(e.formula) })
           break
         case BLOCK_KIND.import:
           // Each value is a variable, t_1, t_2, …: listed by the first and last (a
@@ -924,6 +984,10 @@ export function collectDiagnostics(blocks: Block[]): Map<number, Diagnostic> {
           put(e.line, DIAGNOSTIC_KIND.warning, e.warning)
           put(e.line, DIAGNOSTIC_KIND.error, e.error)
         }
+        break
+      case BLOCK_KIND.species:
+        put(b.line, DIAGNOSTIC_KIND.error, b.error)
+        for (const e of b.entries) put(e.line, DIAGNOSTIC_KIND.error, e.error)
         break
       case BLOCK_KIND.layout:
         put(b.line, DIAGNOSTIC_KIND.warning, b.warning)

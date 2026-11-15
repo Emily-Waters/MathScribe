@@ -64,13 +64,13 @@ describe('built-in functions', () => {
   })
 
   it('say which functions a namespace has, when it hasn’t the one asked for', () => {
-    expect(builtinFunction(['chem', 'foo'])).toEqual({ error: '@chem has no function foo; it has @chem.mm and @chem.total.' })
+    expect(builtinFunction(['chem', 'foo'])).toEqual({ error: '@chem has no function foo; it has @chem.mm, @chem.total and @chem.reaction.' })
     expect(builtinFunction(['nope', 'foo'])).toEqual({ error: '@nope.foo isn\'t a built-in function.' })
   })
 
   it('write their call out as what it stands for', () => {
     const mm = builtinFunction(['chem', 'mm']) as FunctionMember
-    expect(mm.expand('{H2O}')).toEqual({ text: '(2 * @chem.mm.H + @chem.mm.O)' })
+    expect(mm.expand('{H2O}')).toEqual({ text: 'chem__ofCompound((chem__plain(2 * @chem.mm.H) + chem__plain(@chem.mm.O)), "H2O")' })
     expect(mm.expand('H2O')).toEqual({ error: '@chem.mm takes one formula, in braces: @chem.mm({CuSO4*5H2O}).' })
   })
 })

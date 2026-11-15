@@ -353,7 +353,7 @@ export type Namespace = (typeof NAMESPACE)[keyof typeof NAMESPACE]
  *   `@chem.total(n_Na, n_Cl)`    the sum of amounts of different species, as plain amounts
  * `mm` also holds each element's molar mass, as a constant: `@chem.mm.Na`.
  */
-export const CHEM_FUNCTION = { molarMass: 'mm', total: 'total' } as const
+export const CHEM_FUNCTION = { molarMass: 'mm', total: 'total', reaction: 'reaction' } as const
 export type ChemFunction = (typeof CHEM_FUNCTION)[keyof typeof CHEM_FUNCTION]
 
 /**
@@ -390,6 +390,32 @@ export const CONSTANTS_BLOCK = 'constants'
  */
 export const LATEX_BLOCK = 'latex'
 
+
+/**
+ * A reaction, named, on a line of its own: `r = @chem.reaction({2 H2 + O2 -> 2 H2O})`.
+ * Its species' coefficients are its members, as amounts: r.H2O is 2 mol H2O
+ * (1: the name, 2: the reaction).
+ */
+export const REACTION_DEFINITION = new RegExp(
+  String.raw`^(${NAME})\s*=\s*@${NAMESPACE.chem}\.${CHEM_FUNCTION.reaction}\(\s*\{(.+)\}\s*\)\s*$`)
+
+/** The block in @chem that names species: `@chem.species { dietzeite = {7Ca(IO3)2*8CaCrO4} }`. */
+export const SPECIES_BLOCK = 'species'
+
+/** How a species name is shown, as a setting on it or on a line: `dietzeite:formula = {…}`, `m:name = …`. */
+const SPECIES_DISPLAY_SETTING = String.raw`(?::(name|formula))?`
+
+/** A species' name, as declared: `dietzeite = {7Ca(IO3)2*8CaCrO4}`, `edta:formula = {EDTA^4-}` (1: name, 2: how it's shown, 3: the formula). */
+export const SPECIES_ENTRY = new RegExp(String.raw`^(${NAME})${SPECIES_DISPLAY_SETTING}\s*=\s*\{([^{}]+)\}\s*$`)
+
+/** The opener of an `@chem.species { }` block. */
+export const SPECIES_OPENER = new RegExp(String.raw`^@${NAMESPACE.chem}\.${SPECIES_BLOCK}\s*\{$`)
+
+/** One species named on a line of its own: `@chem.species dietzeite = {7Ca(IO3)2*8CaCrO4}` (1–3 as SPECIES_ENTRY). */
+export const SPECIES_LINE = new RegExp(String.raw`^@${NAMESPACE.chem}\.${SPECIES_BLOCK}\s+(${NAME})${SPECIES_DISPLAY_SETTING}\s*=\s*\{([^{}]+)\}\s*$`)
+
+/** `@chem.species` at the current position (for the editor's tokenizer). */
+export const SPECIES_TOKEN = new RegExp(String.raw`@${NAMESPACE.chem}\.${SPECIES_BLOCK}(?!${NAME_CHAR})`)
 
 /** A block's closing brace, at the start of a line. */
 export const BLOCK_CLOSE = '}'

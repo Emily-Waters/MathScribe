@@ -162,6 +162,15 @@ function memberInfo(m: Member): HTMLElement {
   return infoNode(undefined, `${m.typed} { }`, m.description)
 }
 
+/**
+ * In single braces, where a formula starts (just after the brace, or after a
+ * space or coefficient), what's typed of a name: `{dietz`, `{2 dietz` (1: what's typed).
+ */
+const SPECIES_SO_FAR = /(?<!\{)\{(?:[^{}]*[\s\d])?([a-z]\w*|)$/
+
+/** A species' name in braces just before a word, for its hover: the `{` of `{dietzeite}`. */
+const IN_BRACES = /(?<!\{)\{(?:[^{}]*[\s\d])?$/
+
 /** Where a name is defined, for its information panel. */
 const where = (s: SheetSymbol) => `Defined on line ${s.line}`
 
@@ -176,6 +185,8 @@ function symbolInfo(s: SheetSymbol): HTMLElement {
       return infoNode(s.tex, `${s.name}(${s.params ?? ''})`, `${where(s)}. Ctrl+Click a call to go there.`)
     case SYMBOL_KIND.constant:
       return infoNode(s.tex, `Your constant, ${where(s).toLowerCase()}`)
+    case SYMBOL_KIND.species:
+      return infoNode(s.tex, `Your species ${s.name}, named on line ${s.line}: {${s.name}} is this formula`)
   }
 }
 
@@ -297,6 +308,18 @@ export function complete(ctx: CompletionContext): CompletionResult | null {
   if (inDataBlock(ctx.state.doc, line.number)) return null
   // Prose has no names, except in a value being typed: `{{c_`.
   const value = inValue(before)
+  // `{dietz…`: the species the sheet names, where a formula starts in braces (in prose too).
+  const speciesSoFar = SPECIES_SO_FAR.exec(before)
+  if (speciesSoFar) {
+    const named = [...visibleAt(ctx.state, line.number).values()].filter((s) => s.kind === SYMBOL_KIND.species)
+    if (named.length) {
+      return {
+        from: ctx.pos - speciesSoFar[1].length,
+        options: named.map((s): Completion => ({ label: s.name, type: 'variable', detail: 'your species', info: () => symbolInfo(s) })),
+        validFor: /^\w*$/,
+      }
+    }
+  }
   if (!value && (isProseLine(before) || inNamelessBlock(ctx.state.doc, line.number))) return null
 
   // `#…` after the line's text: display commands.
@@ -364,7 +387,8 @@ export function complete(ctx: CompletionContext): CompletionResult | null {
     }
   }
 
-  const visible = [...visibleAt(ctx.state, line.number).values()].filter((s) => s.kind !== SYMBOL_KIND.constant)
+  // (Constants are suggested after @, and species in braces.)
+  const visible = [...visibleAt(ctx.state, line.number).values()].filter((s) => s.kind !== SYMBOL_KIND.constant && s.kind !== SYMBOL_KIND.species)
 
   // `a.`: a namespace's members (a slice's series, a named import's columns, a named plot's fit).
   const dotted = MEMBER_SO_FAR.exec(before)
@@ -471,6 +495,12 @@ function seriesMemberInfo(visible: Map<string, SheetSymbol>, name: string): HTML
 const hoverInfo = hoverTooltip((view, pos) => {
   const { state } = view
   const line = state.doc.lineAt(pos)
+  // `{dietzeite}`: a species' name, in braces anywhere (prose too), is its formula.
+  const braced = state.wordAt(pos)
+  if (braced && IN_BRACES.test(line.text.slice(0, braced.from - line.from))) {
+    const named = visibleAt(state, line.number).get(state.sliceDoc(braced.from, braced.to))
+    if (named?.kind === SYMBOL_KIND.species) return { pos: braced.from, end: braced.to, above: true, create: () => ({ dom: symbolInfo(named) }) }
+  }
   if (isProseLine(line.text) || inNamelessBlock(state.doc, line.number) || inDataBlock(state.doc, line.number)) return null
   const word = state.wordAt(pos)
   if (!word) return null

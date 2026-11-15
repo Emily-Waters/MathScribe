@@ -84,6 +84,19 @@ export const typedConstant = (key: string) => key.replaceAll(JOIN, MEMBER_DOT)
  */
 export const ANY_SPECIES_FUNCTION = memberName(NAMESPACE.chem, 'anySpecies')
 
+/**
+ * The functions a value's species is given with, when `{X}` follows something
+ * other than a unit: `(18.02 g / 1 mol) {H2O}`, `n_1 {H2O}`. `shown` is written
+ * as the value then its formula; `quiet` (how @chem.mm gives a compound's molar
+ * mass its species) is written as just the value, as the species shows in its unit.
+ */
+export const SPECIES_FUNCTION = {
+  shown: memberName(NAMESPACE.chem, 'of'),
+  quiet: memberName(NAMESPACE.chem, 'ofCompound'),
+  /** Takes a value's species off and shows it without them: each element's term in a compound's molar mass. */
+  plain: memberName(NAMESPACE.chem, 'plain'),
+} as const
+
 /** Member `n` of a series: t, 3 → t_3. */
 export const seriesMemberName = (base: string, n: number) => `${base}${SUBSCRIPT}${n}`
 

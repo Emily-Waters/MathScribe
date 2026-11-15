@@ -7,10 +7,12 @@
  *   heading, text, latex, spacer      a line of the document (latex: an @latex block, or a reaction)
  *   calc                              a calculation
  *   group, layout                     blocks holding others (ContainerBlock)
- *   function, constants, import       blocks spanning several lines (Spans)
+ *   function, constants, species, import   blocks spanning several lines (Spans)
  */
-import type { DataColumn, Definition, FunctionResult, TraceLine, Variable } from './engine.ts'
+import type { DataColumn, Definition, FunctionResult, TraceLine } from './engine.ts'
+import type { VariableSummary } from './values.ts'
 import type { LayoutStyle, LineCommand, Notation } from './syntax.ts'
+import type { SpeciesDisplay } from './chemistry.ts'
 import type { PlotData } from './plot.ts'
 
 /** Each kind of block. */
@@ -24,6 +26,7 @@ export const BLOCK_KIND = {
   layout: 'layout',
   function: 'function',
   constants: 'constants',
+  species: 'species',
   import: 'import',
 } as const
 export type BlockKind = (typeof BLOCK_KIND)[keyof typeof BLOCK_KIND]
@@ -134,7 +137,7 @@ export interface CalcBlock extends BlockBase, Noted, Faulted, Hideable {
 export interface GroupBlock extends ContainerBlock {
   kind: typeof BLOCK_KIND.group
   /** Variables defined inside this block (not visible after it). */
-  locals: Variable[]
+  locals: VariableSummary[]
 }
 
 /**
@@ -180,6 +183,27 @@ export interface ConstantsBlock extends BlockBase, Spans, Noted, Faulted, Hideab
   entries: ConstantEntry[]
 }
 
+/** One species named in an `@chem.species { … }` block: `dietzeite = {7Ca(IO3)2*8CaCrO4}`. */
+export interface SpeciesEntry extends Noted, Faulted {
+  line: number
+  name: string
+  /** Its formula, as written. */
+  formula: string
+  /** Whether it's shown by its name or its formula, unless a line says otherwise. */
+  display: SpeciesDisplay
+}
+
+/**
+ * `@chem.species { … }` (or one on a line of its own, `@chem.species dietzeite = {…}`):
+ * names for species, usable anywhere in the sheet where braces take a formula.
+ */
+export interface SpeciesBlock extends BlockBase, Spans, Noted, Faulted, Hideable {
+  kind: typeof BLOCK_KIND.species
+  entries: SpeciesEntry[]
+  /** Named on a line of its own, not in a block. */
+  single: boolean
+}
+
 /**
  * `import("run1.csv")` with the file's rows indented under it: data whose
  * values become variables (t_1, t_2, …). Only a summary is shown, not the rows.
@@ -206,6 +230,7 @@ export type Block =
   | LayoutBlock
   | FunctionBlock
   | ConstantsBlock
+  | SpeciesBlock
   | ImportBlock
 
 /** Whether a block holds others (a `{ }` block or a layout block). */

@@ -4,8 +4,10 @@
  * `Title { }` block.
  */
 import {
-  BLOCK_KIND, type Block, type ConstantsBlock, type FunctionBlock, type GroupBlock, type ImportBlock,
+  BLOCK_KIND, type Block, type ConstantsBlock, type FunctionBlock, type GroupBlock, type ImportBlock, type SpeciesBlock,
+  type SpeciesEntry,
 } from '../blocks.ts'
+import { formulaTex } from '../chemistry.ts'
 import { LINE_COMMAND } from '../syntax.ts'
 import { errorComment, gather, heading as latexHeading, titleToLatex, titled as latexTitled } from '../latexKit.ts'
 import { equation, heading as docxHeading, run, titled as docxTitled, type Ctx, type Item } from '../docxKit.ts'
@@ -59,6 +61,37 @@ export class FunctionConstruct extends Construct<FunctionBlock> {
 
   notes(b: FunctionBlock): string[] {
     return b.body.map((l) => l.note).filter((n): n is string => !!n)
+  }
+}
+
+/** The title of an `@chem.species { }` block, in the exports. */
+const SPECIES_TITLE = 'Species'
+
+/** A species' name and its formula, as LaTeX: dietzeite = 7Ca(IO₃)₂·8CaCrO₄. */
+export const speciesEntryTex = (e: SpeciesEntry) => `\\mathrm{${e.name}} = ${formulaTex(e.formula)}`
+
+/** `@chem.species { … }`: names for species, as a card of name = formula (one on its own line, as an equation). */
+export class SpeciesConstruct extends Construct<SpeciesBlock> {
+  readonly kind = BLOCK_KIND.species
+
+  latex(b: SpeciesBlock, out: LatexOut): string {
+    if (b.hidden && !b.error && !b.entries.some((e) => e.error)) return ''
+    const shown = b.entries.filter((e) => !e.error).map((e) => ({ tex: speciesEntryTex(e), note: e.note }))
+    const errors = b.entries.filter((e) => e.error).map((e) => errorComment(e.line, e.name, e.error!))
+    const body = [...errors, ...(shown.length ? [gather(shown)] : [])].join('\n')
+    return b.single ? body : latexTitled(out.o, latexHeading(SPECIES_TITLE, b.note), body)
+  }
+
+  docx(b: SpeciesBlock, ctx: Ctx): Item[] {
+    if (b.hidden && !b.error) return []
+    const shown = b.entries.filter((e) => !e.error)
+    if (!shown.length) return []
+    const equations = (inner: Ctx) => shown.map((e) => equation(inner, speciesEntryTex(e), e.note))
+    return b.single ? equations(ctx) : docxTitled(ctx, docxHeading(SPECIES_TITLE, b.note), equations)
+  }
+
+  notes(b: SpeciesBlock): string[] {
+    return b.entries.map((e) => e.note).filter((n): n is string => !!n)
   }
 }
 

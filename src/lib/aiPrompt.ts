@@ -107,6 +107,9 @@ export const SNIPPETS = {
     'n_X = n_EDTA * (1 mol {X}) / (1 mol {EDTA})',
     'm = 5.00 g {NaOH}',
     'n_NaOH = m / @chem.mm({NaOH})',
+    'r = @chem.reaction({2 H2 + O2 -> 2 H2O})',
+    'n_H2 = 4.00 g {H2} / @chem.mm({H2})',
+    'm_H2O = n_H2 * r.H2O / r.H2 * @chem.mm({H2O})',
     '> The {Ca^2+} and {Mg^2+} came to {{n_X}}.',
     '{Ca^2+ + EDTA^4- -> CaEDTA^2-}',
   ].join('\n'),
@@ -285,10 +288,16 @@ ${code(SNIPPETS.chemistry)}
 - After a unit, a formula is the species: \`0.100 M {NaOH}\`, \`2.0 mol {EDTA}\`, \`5.00 g {NaOH}\`.
   Species cancel like units, so a mole ratio is \`(1 mol {X}) / (1 mol {EDTA})\`, and amounts of
   different species can't be added. A whole number of a species (\`1 mol {X}\`) is exact.
-- \`M\` is molarity (mol/L). A molar mass has no species: \`@chem.mm({NaOH})\` works one out from
+- \`M\` is molarity (mol/L). A molar mass is of a species: \`@chem.mm({NaOH})\` works one out from
   the formula (brackets, a hydrate's \`*\` and a coefficient, \`{2 H2O}\`, work), \`@chem.mm.Na\` is an element's,
-  or write it: \`40.00 g/mol\`.
+  or write it with its species: \`40.00 g/mol {NaOH}\`.
+- Species are strict: once a calculation has species, give every mass, amount and molar mass in it
+  its species, or it's an error. Go from one species to another only with a mole ratio.
+- Stoichiometry: \`r = @chem.reaction({2 H2 + O2 -> 2 H2O})\` on a line of its own checks the reaction
+  balances; then \`r.H2O / r.H2\` is the mole ratio (each member is its coefficient, as an amount).
 - \`@chem.total(n_Na, n_Cl)\` adds amounts of different species, as plain amounts.
+- A long formula can be named once, \`@chem.species { dietzeite = {7Ca(IO3)2*8CaCrO4} }\`, then written
+  \`{dietzeite}\` anywhere braces take a formula. A name can't itself be a formula.
 - A display name goes on the name being assigned: \`n_Na:"Moles of {Na^+}" = …\` shows as
   "Moles of Na⁺" wherever n_Na appears. It can hold values: \`"Moles in {{V}}"\`.
 

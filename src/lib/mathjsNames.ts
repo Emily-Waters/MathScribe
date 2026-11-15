@@ -70,10 +70,14 @@ export const UNIT = {
   /** Angles are worked out in radians. */
   radian: 'rad',
   mole: 'mol',
+  gram: 'g',
   litre: 'L',
   /** Molarity, mol/L: made by the engine (mathjs doesn't have it). */
   molar: 'M',
 } as const
+
+/** mathjs's names for the base dimensions the engine reads (Unit.BASE_DIMENSIONS). */
+export const BASE_DIMENSION = { mass: 'MASS', amount: 'AMOUNT_OF_SUBSTANCE' } as const
 
 /** Units with a look of their own, as LaTeX and as plain text (others are their name, upright). */
 export const UNIT_LOOKS: Readonly<Record<string, { tex: string; text: string }>> = {

@@ -15,7 +15,7 @@ import { closesVector, isUnitName } from '../lib/engine.ts'
 import { REACTION_LINE } from '../lib/chemistry.ts'
 import {
   BRANCH_START, CALL, COMMAND_NAMES, CONSTANT_TOKEN, DEF_START, FUNCTION_HEAD, GREEK_CHARS, IMPORT, INDENT_WIDTH, KEYWORD, NAME, NAME_CHAR,
-  BLOCK_CLOSE, BLOCK_OPEN, CONSTANTS_TOKEN, LATEX_OPENER, LATEX_TOKEN, closesLatex, LAYOUT_NAME_TOKEN, LAYOUT_OPENER, LAYOUT_STYLES, PROSE_LAYOUTS, layoutMembers, COMMENT_START, NAMESPACE_CALL_TOKEN, NUMBER, SETTINGS,
+  BLOCK_CLOSE, BLOCK_OPEN, CONSTANTS_TOKEN, SPECIES_TOKEN, LATEX_OPENER, LATEX_TOKEN, closesLatex, LAYOUT_NAME_TOKEN, LAYOUT_OPENER, LAYOUT_STYLES, PROSE_LAYOUTS, layoutMembers, COMMENT_START, NAMESPACE_CALL_TOKEN, NUMBER, SETTINGS,
   UNPACK_SO_FAR, VALUE_IN_TEXT, indentOf, isComment,
 } from '../lib/syntax.ts'
 
@@ -208,7 +208,7 @@ function token(stream: StringStream, state: State): Token | null {
 
   // An opener's title, up to its `{` (after a layout's name, `@layout.list`, or `@constants`).
   if (state.inTitle) {
-    if (stream.match(LAYOUT_NAME_TOKEN) || stream.match(CONSTANTS_TOKEN)) return TOKEN.keyword
+    if (stream.match(LAYOUT_NAME_TOKEN) || stream.match(CONSTANTS_TOKEN) || stream.match(SPECIES_TOKEN)) return TOKEN.keyword
     if (stream.match(/\{\s*(?=#|$)/)) {
       state.inTitle = false
       return TOKEN.brace
@@ -227,6 +227,8 @@ function token(stream: StringStream, state: State): Token | null {
   }
   // `@chem.mm(…)`: a namespace's function (before constants, which `@chem.mm` would also look like).
   if (stream.match(NAMESPACE_CALL_TOKEN)) return TOKEN.function
+  // `@chem.species name = {…}`: naming a species, on a line of its own.
+  if (stream.match(SPECIES_TOKEN)) return TOKEN.keyword
   if (stream.match(CONSTANT_TOKEN)) return TOKEN.constant
   // A species after a unit: `mol {EDTA}`.
   if (stream.match(FORMULA_TOKEN)) return TOKEN.formula

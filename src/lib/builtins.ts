@@ -20,11 +20,11 @@
  */
 import { BUILTIN_CONSTANTS, type BuiltinConstant, type NamespaceConstant } from './constants.ts'
 import { ELEMENTS, MOLAR_MASS_UNIT, elementDescription, type ElementSymbol } from './elements.ts'
-import { molarMassSum, parseFormula, splitCoefficient } from './chemistry.ts'
-import { ANY_SPECIES_FUNCTION, JOIN } from './names.ts'
+import { molarMassSum, parseFormula, speciesKey, splitCoefficient } from './chemistry.ts'
+import { ANY_SPECIES_FUNCTION, JOIN, SPECIES_FUNCTION } from './names.ts'
 import { splitArgs } from './solve.ts'
 import {
-  CHEM_FUNCTION, CONSTANTS_BLOCK, LATEX_BLOCK, LAYOUT_MODIFIER, LAYOUT_STYLE, MEMBER_DOT, NAMESPACE, SIGIL,
+  CHEM_FUNCTION, CONSTANTS_BLOCK, LATEX_BLOCK, LAYOUT_MODIFIER, LAYOUT_STYLE, MEMBER_DOT, NAMESPACE, SIGIL, SPECIES_BLOCK,
   type LayoutModifier, type LayoutStyle,
 } from './syntax.ts'
 
@@ -244,7 +244,9 @@ class MolarMassFunction extends FunctionMember {
     const atoms = parseFormula(compound)
     if ('error' in atoms) return atoms
     const sum = molarMassSum(atoms)
-    return { text: coefficient ? `(${coefficient}) * ${sum}` : sum }
+    // It's a molar mass of the compound: a mass of it per amount of it, g H2O / mol H2O.
+    const total = coefficient ? `(${coefficient}) * ${sum}` : sum
+    return { text: `${SPECIES_FUNCTION.quiet}(${total}, "${speciesKey(compound)}")` }
   }
 }
 
@@ -263,6 +265,23 @@ class TotalFunction extends FunctionMember {
   }
 }
 
+/**
+ * `r = @chem.reaction({2 H2 + O2 -> 2 H2O})`: a balanced reaction, whose
+ * coefficients are its members as amounts (r.H2O is 2 mol H2O), for mole ratios.
+ * It's a line of its own (the engine reads it whole), so as part of an expression it's explained.
+ */
+class ReactionFunction extends FunctionMember {
+  readonly parameters = '{reaction}'
+
+  constructor() {
+    super(CHEM_FUNCTION.reaction, 'A balanced reaction, named: r = @chem.reaction({2 H2 + O2 -> 2 H2O}); r.H2O / r.H2 is a mole ratio')
+  }
+
+  expand(): Expansion {
+    return { error: `${this.typed}({…}) is written on a line of its own, with a name: r = ${this.typed}({2 H2 + O2 -> 2 H2O}). Then r.H2O / r.H2 is a mole ratio.` }
+  }
+}
+
 /** Each element's molar mass, `@chem.mm.Na`: its weight as IUPAC writes it, in g/mol. */
 const elementMembers = (Object.keys(ELEMENTS) as ElementSymbol[]).map((symbol) => new ConstantMember(symbol, {
   value: Number(ELEMENTS[symbol].weight),
@@ -270,6 +289,7 @@ const elementMembers = (Object.keys(ELEMENTS) as ElementSymbol[]).map((symbol) =
   unit: MOLAR_MASS_UNIT,
   tex: `M_{\\mathrm{${symbol}}}`,
   description: elementDescription(symbol),
+  species: symbol,
 }))
 
 // ---------------------------------------------------------------------------
@@ -306,6 +326,8 @@ export const BUILTINS = new Namespace('', 'Built in', [
   new Namespace(NAMESPACE.chem, 'The elements’ molar masses (@chem.mm.Na), mm( ) and total( )', [
     new Namespace(CHEM_FUNCTION.molarMass, 'An element’s molar mass: @chem.mm.Na', elementMembers, { call: new MolarMassFunction() }),
     new TotalFunction(),
+    new ReactionFunction(),
+    new BlockMember(SPECIES_BLOCK, 'Names for species, usable wherever braces take a formula: dietzeite = {7Ca(IO3)2*8CaCrO4}, then {dietzeite}'),
   ]),
   new Namespace(NAMESPACE.layout, 'Blocks that arrange lines (text, list, numbered, center, titlepage) or set how they’re shown (hidden, sym, val, multiline, …)', [
     ...Object.values(LAYOUT_STYLE).map((style) => new LayoutMember(style, LAYOUT_DESCRIPTIONS[style])),
@@ -344,7 +366,8 @@ export function builtinFunction(path: readonly string[]): FunctionMember | { err
   if (member instanceof Namespace && member.call) return member.call
   const parent = builtinAt(path.slice(0, -1))
   const where = parent instanceof Namespace && parent !== BUILTINS ? parent : undefined
-  const known = where?.functions.map((f) => f.typed).join(' and ')
+  const names = where?.functions.map((f) => f.typed) ?? []
+  const known = names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : names[0]
   return {
     error: where
       ? `${where.typed} has no function ${path.at(-1)}${known ? `; it has ${known}` : ''}.`

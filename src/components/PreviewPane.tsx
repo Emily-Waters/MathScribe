@@ -5,8 +5,9 @@ import {
 } from '../lib/document.ts'
 import {
   BLOCK_KIND, isContainer, type Block, type BlockKind, type CalcBlock, type ConstantsBlock, type FunctionBlock, type GroupBlock,
-  type HeadingBlock, type ImportBlock, type LatexBlock, type LayoutBlock, type TextBlock,
+  type HeadingBlock, type ImportBlock, type LatexBlock, type LayoutBlock, type SpeciesBlock, type TextBlock,
 } from '../lib/blocks.ts'
+import { speciesEntryTex } from '../lib/constructs/blocks.ts'
 import { LAYOUT_STYLE, LINE_COMMAND } from '../lib/syntax.ts'
 import { loadLatexOptions, saveLatexOptions, toLatexDocument, type LatexOptions } from '../lib/latex.ts'
 import { symbolTex, unitTex, type CalcOptions } from '../lib/engine.ts'
@@ -44,7 +45,7 @@ function Title({ text }: { text: string }) {
 /** Whether a block or anything inside it has an error (so a hidden block still shows it). */
 const hasError = (b: Block): boolean =>
   ((b.kind === BLOCK_KIND.calc || b.kind === BLOCK_KIND.function || b.kind === BLOCK_KIND.import) && !!b.error)
-  || (b.kind === BLOCK_KIND.constants && (!!b.error || b.entries.some((e) => e.error)))
+  || ((b.kind === BLOCK_KIND.constants || b.kind === BLOCK_KIND.species) && (!!b.error || b.entries.some((e) => e.error)))
   || (isContainer(b) && (!!b.error || b.children.some(hasError)))
 
 /** Linking between output and source lines: which line the cursor is on, and how to jump to one. */
@@ -227,6 +228,33 @@ function ConstantsView({ block }: { block: ConstantsBlock }) {
   )
 }
 
+/** `@chem.species { … }`: a card of species names and their formulas (one on its own line, without the card). */
+function SpeciesView({ block }: { block: SpeciesBlock }) {
+  const link = useLineLink()
+  const failed = !!block.error || block.entries.some((e) => e.error)
+  if (block.hidden && !failed) return null
+  const entries = block.entries.map((e) => (
+    <div className={`calc${e.error ? ' calc--error' : ''}`} key={e.line} {...link(e.line)}>
+      <div className="calc__row">
+        <Tex latex={speciesEntryTex(e)} display />
+        {e.note && <span className="calc__note">{e.note}</span>}
+      </div>
+      <BlockMessages line={e.line} error={e.error} />
+    </div>
+  ))
+  if (block.single) return <>{entries}</>
+  return (
+    <section className={`group group--constants${failed ? ' group--error' : ''}`}>
+      <header className="group__header" {...link(block.line)}>
+        <span className="group__title"><span className="group__kind">Species</span></span>
+        {block.note && <span className="calc__note">{block.note}</span>}
+      </header>
+      <div className="group__body">{entries}</div>
+      <BlockMessages line={block.line} error={block.error} />
+    </section>
+  )
+}
+
 /** Imported data: a summary of its columns, in place of its rows. */
 function ImportView({ block }: { block: ImportBlock }) {
   if (block.hidden && !block.error) return null
@@ -360,6 +388,7 @@ const BLOCK_VIEWS: { readonly [K in BlockKind]: (props: { block: Extract<Block, 
   layout: LayoutView,
   function: FunctionView,
   constants: ConstantsView,
+  species: SpeciesView,
   import: ImportView,
 }
 

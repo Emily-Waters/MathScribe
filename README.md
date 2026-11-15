@@ -968,21 +968,44 @@ concentration is shown in M (0.200 M, not 200 mol/m³). `MPa` is still megapasca
 and `M` is still free as a variable name (a molar mass), since a unit only counts
 right after a number.
 
-**Species:** after a unit, a formula is what the amount is of:
+**Species:** `{formula}` after a value says what it's of. What it qualifies follows
+from the value's unit, by one fixed rule:
+
+| The value's unit | `{H2O}` makes it | Example |
+| --- | --- | --- |
+| a mass | a mass of H2O | `5.00 g {H2O}` |
+| an amount (mol, M) | an amount of H2O | `0.278 mol {H2O}`, `0.100 M {NaOH}` |
+| mass / volume | a mass concentration of H2O | `2.0 g/L {H2O}` |
+| mass / amount | a molar mass of H2O: a mass of it per amount of it | `18.02 g/mol {H2O}`, `(18.02 g / 1 mol) {H2O}` |
+| no mass or amount | an error | `5.0 m {H2O}` |
+
+It can follow a unit, a bracket or a name (`n_1 {H2O}`). A value that's already of a
+species can't be given another: going from one species to another is a mole ratio.
 
 ```
 n_EDTA = 2.755e-4 mol {EDTA}
-r = (1 mol {X}) / (1 mol {EDTA})          # a mole ratio, from the reaction
-n_X = n_EDTA * r                          → 2.755 × 10⁻⁴ mol X   (EDTA cancels)
+q = (1 mol {X}) / (1 mol {EDTA})          # a mole ratio, from the reaction
+n_X = n_EDTA * q                          → 2.755 × 10⁻⁴ mol X   (EDTA cancels)
 c = 0.100 M {NaOH}
 n = c * 17.10 mL                          → 0.00171 mol NaOH
 m = 5.00 g {NaOH}
-n_2 = m / (40.00 g/mol)                   → 0.125 mol NaOH       (a molar mass needs no species)
+n_2 = m / @chem.mm({NaOH})                → 0.125 mol NaOH       (a mass of NaOH over g NaOH/mol NaOH)
+m_2 = n_2 * @chem.mm({NaOH})              → 5.00 g NaOH
 ```
 
-- Each species is a unit of its own, so species cancel as units do, and amounts of
+- Each species is part of the unit, so species cancel as units do, and amounts of
   different species can't be added or compared (mol Na⁺ + mol Cl⁻ is an error, like
   metres + seconds). `to` keeps the species: `n to mmol` is 1.71 mmol NaOH.
+- **Species are strict.** Once a calculation has species, every mass, amount and
+  molar mass in it needs one: `5.00 g / @chem.mm({NaOH})` and
+  `5.00 g {NaOH} / (40.00 g/mol)` are errors (give the mass, or the molar mass, its
+  species). Going from one species to another without a mole ratio is an error too:
+  `5.00 g {HCl} / @chem.mm({NaOH})` says it mixes species. Calculations without any
+  species work as before.
+- A whole number of a species, written without a decimal point (`1 mol {X}`,
+  `6 mol {X}`), is a coefficient from a balanced equation, so it's exact and never
+  limits the sig figs. `1.00 mol {Na}` is a measurement. `1 mol` on its own, as in a
+  molar mass (`18.02 g / 1 mol`), is exact too.
 - To add amounts of different species on purpose (the total moles of ions), use
   `@chem.total`, which adds them as plain amounts:
 
@@ -993,18 +1016,14 @@ n_2 = m / (40.00 g/mol)                   → 0.125 mol NaOH       (a molar mass
   ```
 
   It still only adds amounts to amounts (or masses to masses): `@chem.total(n_Na, 2.0 g)` is an error.
-- A whole number of a species, written without a decimal point (`1 mol {X}`,
-  `6 mol {X}`), is a coefficient from a balanced equation, so it's exact and never
-  limits the sig figs. `1.00 mol {Na}` is a measurement.
-- Values without a species work as before.
 
-**Molar masses:** `@chem.mm.Na` is an element's molar mass in g/mol, and
-`@chem.mm({formula})` a compound's, added up from its elements. Both are under `mm`:
-after it, a dot gives an element and brackets a formula.
+**Molar masses:** `@chem.mm.Na` is an element's molar mass, and `@chem.mm({formula})`
+a compound's, added up from its elements. Both are under `mm`: after it, a dot gives
+an element and brackets a formula. Each is a molar mass of its species, g Na/mol Na.
 
 ```
-M_Na = @chem.mm.Na                        → 22.990 g/mol
-M = @chem.mm({CuSO4*5H2O})                → M = M_Cu + M_S + 9M_O + 10M_H = … = 249.68 g/mol
+M_Na = @chem.mm.Na                        → 22.990 g Na/mol Na
+M = @chem.mm({CuSO4*5H2O})                → M = M_Cu + M_S + 9M_O + 10M_H = … = 249.68 g CuSO4*5H2O/mol CuSO4*5H2O
 n = 5.00 g {NaOH} / @chem.mm({NaOH})      → 0.125 mol NaOH
 ```
 
@@ -1013,17 +1032,65 @@ n = 5.00 g {NaOH} / @chem.mm({NaOH})      → 0.125 mol NaOH
   `@chem.mm.Cl:3` on a line of its own sets it for the whole sheet, as for other
   constants. An element with no stable isotope (Tc, Pm, Po, …) has the mass number of
   its longest-lived isotope.
-- A compound's sum is shown as working, and its sig figs follow the addition rule
-  from the atomic weights. Write it on a line of its own (`M = @chem.mm({NaOH})`) to
-  keep the sum out of the lines that use it.
+- A compound's sum is shown as working, each element's term as a plain g/mol, and its
+  sig figs follow the addition rule from the atomic weights. Write it on a line of its
+  own (`M = @chem.mm({NaOH})`) to keep the sum out of the lines that use it.
 - The formula is written as in the rest of the sheet: counts as digits, groups in
   brackets (`Ca(OH)2`, `K4[Fe(CN)6]`), a hydrate's water after `*`. A charge or state
-  (`{SO4^2-}`, `{NaCl(aq)}`) is left out, since it doesn't change the molar mass.
-  Symbols are case-sensitive: `{Co}` is cobalt, `{CO}` carbon monoxide.
+  (`{SO4^2-}`, `{NaCl(aq)}`) doesn't change the sum, but it's part of the species, as
+  written. Symbols are case-sensitive: `{Co}` is cobalt, `{CO}` carbon monoxide.
 - A coefficient, as in a balanced equation, multiplies the molar mass:
   `@chem.mm({2 H2O})` is 36.030 g/mol, shown as M = 2(2M_H + M_O). It can be a
   whole number or a fraction (`{1/2 O2}`), with or without a space, and it's exact.
-- A molar mass stays in g/mol when worked out from others (not 0.018015 kg/mol).
+- In a formula of parts joined by `*`, a number written right against a part is how
+  many of that part, the first as well as the others: dietzeite,
+  `{7Ca(IO3)2*8CaCrO4}`, is 7 Ca(IO3)2 and 8 CaCrO4 (3977.7 g/mol). To multiply the
+  whole formula instead, leave a space: `{2 CuSO4*5H2O}`.
+- A mass worked out from grams stays in grams (mol × g/mol is 5.00 g, not 0.00500 kg).
+
+**Species names:** name a species once, and use the name wherever braces take a
+formula: after a value, in `@chem.mm`, in reactions, in prose and headings.
+
+```
+@chem.species {
+    dietzeite = {7Ca(IO3)2*8CaCrO4}
+    edta:formula = {EDTA^4-}             # shown by its formula
+}
+
+m = 5.00 g {dietzeite}                   → 5.00 g dietzeite
+n = m / @chem.mm({dietzeite})            → 0.00126 mol dietzeite
+m_2:formula = 5.00 g {dietzeite}         → 5.00 g 7Ca(IO₃)₂·8CaCrO₄
+> A {dietzeite} sample.                  → A dietzeite sample.
+```
+
+- A name is its formula: `{dietzeite}` and `{7Ca(IO3)2*8CaCrO4}` are the same species,
+  so they cancel. Names apply to the whole sheet, above the block too. One can be
+  named on a line of its own: `@chem.species dietzeite = {7Ca(IO3)2*8CaCrO4}`.
+- A species is shown by its name, unless it's declared `:formula`. A line can say
+  either, as a setting on its name: `m:formula = …`, `n:name = …`. In a reaction, it's
+  drawn by its formula, and its member is the name: `r.dietzeite`.
+- A name can't be something braces already read: a formula (`CO` is carbon
+  monoxide), an electron (`e`) or a state (`aq`, `s`, `l`, `g`). What it names
+  needn't be a formula: `{EDTA}` is a species too.
+- Typing `{` suggests your names; hovering over one shows its formula.
+
+**Reactions and stoichiometry:** a balanced reaction, named on a line of its own,
+has each species' coefficient as a member, an exact amount of it, so a mole ratio is
+one member over another:
+
+```
+r = @chem.reaction({2 H2 + O2 -> 2 H2O})   → checked: balanced; r.H2 = 2 mol H2, r.O2 = 1 mol O2, r.H2O = 2 mol H2O
+m_H2 = 4.00 g {H2}
+n_H2 = m_H2 / @chem.mm({H2})               → 1.98 mol H2
+n_H2O = n_H2 * r.H2O / r.H2                → 1.98 mol H2O
+m_H2O = n_H2O * @chem.mm({H2O})            → 35.7 g H2O
+```
+
+- It's checked atom by atom, and by charge: `{H2 + O2 -> H2O}` says O has 2 on the
+  left and 1 on the right. Electrons in a half-reaction are `e^-`
+  (`{Fe^3+ + 3 e^- -> Fe}`). The arrow can be `->`, `<=>`, `<->` or `=`.
+- A species whose formula isn't a name is a member by its letters and digits:
+  `Ca(OH)2` is `r.CaOH2`, `Na^+` is `r.Na`.
 
 **Display names:** a name can be shown as words instead, with a setting in quotes on
 the name being assigned:

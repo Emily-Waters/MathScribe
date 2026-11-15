@@ -50,6 +50,8 @@ export const DEFAULT_CONSTANT_SIG_FIGS = 3
  */
 export interface NamespaceConstant extends BuiltinConstant {
   written: string
+  /** The species it's of, if it is: an element's molar mass is a mass of the element per amount of it. */
+  species?: string
 }
 
 /** Whether a built-in constant is a namespace's, with its value as written. */

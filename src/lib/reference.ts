@@ -281,7 +281,15 @@ export const REFERENCE: ReferenceSection[] = [
       },
       {
         source: 'm = 5.00 g {NaOH}\nn = m / @chem.mm({NaOH})',
-        explain: 'After a unit, {formula} is the species an amount is of; a molar mass needs none.',
+        explain: '{formula} after a value is its species: on g a mass of it, on mol an amount, on g/mol a molar mass. Once there are species, every mass, amount and molar mass needs one.',
+      },
+      {
+        source: '@chem.species dietzeite = {7Ca(IO3)2*8CaCrO4}\nm = 5.00 g {dietzeite}\nn = m / @chem.mm({dietzeite})',
+        explain: '@chem.species names a species: {dietzeite} is its formula wherever braces take one, shown by its name (declare it :formula, or put :formula on a line, to show the formula).',
+      },
+      {
+        source: 'r = @chem.reaction({2 H2 + O2 -> 2 H2O})\nn_H2 = 4.00 g {H2} / @chem.mm({H2})\nn_H2O = n_H2 * r.H2O / r.H2\nm_H2O = n_H2O * @chem.mm({H2O})',
+        explain: '@chem.reaction checks a reaction balances; each coefficient is a member, an exact amount, so r.H2O / r.H2 is a mole ratio.',
       },
       {
         source: 'n_Na = 0.100 mol {Na^+}\nn_Cl = 0.200 mol {Cl^-}\nn = @chem.total(n_Na, n_Cl)',

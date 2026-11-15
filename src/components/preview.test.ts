@@ -20,6 +20,9 @@ const SOURCE = [
   '@constants {',
   '    k = 2.0 N/m',
   '}',
+  '@chem.species {',
+  '    dietzeite = {7Ca(IO3)2*8CaCrO4}',
+  '}',
   'Block {',
   '    y = 1',
   '}',
@@ -49,6 +52,7 @@ describe('the Rendered tab', () => {
     expect(html).toContain('doc__text')
     expect(html).toContain('doc__spacer')
     expect(html).toContain('group--constants')
+    expect(html).toContain('Species')
     expect(html).toContain('group--function')
     expect(html).toContain('group--import')
     expect(html).toContain('<ol class="layout__list">')

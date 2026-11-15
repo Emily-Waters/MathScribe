@@ -255,9 +255,14 @@ exports[`the Reference tab’s examples > Basics: m = 2.00 kg 1`] = `
 2: F = m (9.81 m/s^2) = (2.00 kg) (9.81 m/s^2) = 19.6 N"
 `;
 
-exports[`the Reference tab’s examples > Chemistry: M = @chem.mm({CuSO4*5H2O}) 1`] = `"1: M = M_Cu+ M_S+ 9 M_O+ 10 M_H = 63.546 g/mol+ 32.06 g/mol+ 9 (15.999 g/mol)+ 10 (1.008 g/mol) = 249.68 g/mol"`;
+exports[`the Reference tab’s examples > Chemistry: @chem.species dietzeite = {7Ca(IO3)2*8CaCrO4} 1`] = `
+"2: m = 5.00 g dietzeite
+3: n = \\fracm15 M_Ca+ 14 M_I+ 74 M_O+ 8 M_Cr = \\frac5.00 g dietzeite15 (40.078 g/mol)+ 14 (126.90 g/mol)+ 74 (15.999 g/mol)+ 8 (51.996 g/mol) = 0.00126 mol dietzeite"
+`;
 
-exports[`the Reference tab’s examples > Chemistry: M = @chem.mm.Na 1`] = `"1: M = M_Na = 22.990 g/mol"`;
+exports[`the Reference tab’s examples > Chemistry: M = @chem.mm({CuSO4*5H2O}) 1`] = `"1: M = M_Cu+ M_S+ 9 M_O+ 10 M_H = 63.546 g/mol+ 32.06 g/mol+ 9 (15.999 g/mol)+ 10 (1.008 g/mol) = 249.68 g CuSO4*5H2O/mol CuSO4*5H2O"`;
+
+exports[`the Reference tab’s examples > Chemistry: M = @chem.mm.Na 1`] = `"1: M = M_Na = 22.990 g Na/mol Na"`;
 
 exports[`the Reference tab’s examples > Chemistry: m = 5.00 g {NaOH} 1`] = `
 "1: m = 5.00 g NaOH
@@ -274,6 +279,14 @@ exports[`the Reference tab’s examples > Chemistry: n_Na = 0.100 mol {Na^+} 1`]
 "1: n_Na = 0.100 mol Na^+
 2: n_Cl = 0.200 mol Cl^-
 3: n = n_Na+ n_Cl = 0.100 mol Na^++ 0.200 mol Cl^- = 0.300 mol"
+`;
+
+exports[`the Reference tab’s examples > Chemistry: r = @chem.reaction({2 H2 + O2 -> 2 H2O}) 1`] = `
+"1: r:\\quad 2 H2 + O2 -> 2 H2O
+     INFO Balanced. Each species' coefficient is an amount of it: r.H2 = 2 mol H2, r.O2 = 1 mol O2, r.H2O = 2 mol H2O. A mole ratio is one over another, as in r.H2O / r.H2.
+2: n_H2 = \\frac4.00 g H22 M_H = \\frac4.00 g H22 (1.008 g/mol) = 1.98 mol H2
+3: n_H2O = \\fracn_H2 r_H2Or_H2 = \\frac(1.98 mol H2) (2 mol H2O)2 mol H2 = 1.98 mol H2O
+4: m_H2O = n_H2O (2 M_H+ M_O) = (1.98 mol H2O) [2 (1.008 g/mol)+ 15.999 g/mol] = 35.7 g H2O"
 `;
 
 exports[`the Reference tab’s examples > Constants: @a_0:3 to angstrom 1`] = `

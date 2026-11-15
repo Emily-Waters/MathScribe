@@ -1,4 +1,4 @@
-import { Calculator, type CalcOptions, type FunctionLine, symbolTex, unexpectedError } from './engine/index.ts'
+import { Calculator, ChemistryModule, outsideMaths, type CalcOptions, type FunctionLine, symbolTex, unexpectedError } from './engine/index.ts'
 import type { VariableSummary } from './values.ts'
 import {
   ASSIGNMENT, CONSTANT_DECLARATION, EXACT_SETTING, DEF, DEF_HEAD, FUNCTION_HEAD, IMPORT, LEADING_NAME, LINE_COMMANDS,
@@ -12,8 +12,8 @@ import {
 import { constantKey } from './names.ts'
 import { parseCsv, type CsvData } from './csv.ts'
 import {
-  REACTION_LINE, SPECIES_DISPLAY, formulaTex, isFormulaSubscript, outsideMaths, setSpeciesNames, withFormulas, type SpeciesDisplay,
-} from './chemistry.ts'
+  REACTION_LINE, SPECIES_DISPLAY, formulaTex, isFormulaSubscript, setSpeciesNames, withFormulas, type SpeciesDisplay,
+} from './engine/modules/chemistry/chemistry.ts'
 import {
   BLOCK_KIND, isContainer, type Block, type BlockSettings, type Command, type ConstantsBlock, type GroupBlock, type ImportBlock,
   type LayoutBlock, type SpeciesBlock, type SpeciesEntry,
@@ -231,7 +231,9 @@ export function evaluateSheetSafely(source: string, options: CalcOptions): Sheet
 
 /** Read and evaluate a whole sheet, line by line, into blocks. */
 export function evaluateSheet(source: string, options: CalcOptions): Sheet {
-  const calc = new Calculator(options)
+  // Chemistry extends the engine: species, their names and reactions.
+  const chemistry = new ChemistryModule()
+  const calc = new Calculator(options, [chemistry])
   const root: Block[] = []
   /** Blocks currently open: `{ }` groups, `@list { }` layout blocks, and the sub-lists indented inside lists. */
   const open: (GroupBlock | LayoutBlock)[] = []
@@ -272,12 +274,12 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
   // Species' names (`@chem.species { dietzeite = {…} }`, or one on a line of its
   // own) apply to the whole sheet, so they're read first: `{dietzeite}` then works
   // anywhere braces take a formula, above the block too.
-  setSpeciesNames(calc.speciesNames)
+  setSpeciesNames(chemistry.names)
   const speciesBlocks = new Map<number, { end: number; block: SpeciesBlock }>()
   const nameSpecies = (line: number, written: string, name: string, display: string | undefined, formula: string): SpeciesEntry => {
     const { note } = splitNote(written)
     const shownAs = (display as SpeciesDisplay | undefined) ?? SPECIES_DISPLAY.name
-    return { line, name, formula, display: shownAs, note, error: calc.speciesNames.define(name, formula, shownAs) }
+    return { line, name, formula, display: shownAs, note, error: chemistry.names.define(name, formula, shownAs) }
   }
   for (let i = 0; i < lines.length; i++) {
     const opener = splitNote(lines[i].trim())
@@ -499,7 +501,7 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
     const reaction = REACTION_LINE.exec(body)
     if (reaction) {
       // (A species' name in it is its formula: a reaction is drawn atom by atom.)
-      add({ kind: BLOCK_KIND.latex, line, latex: formulaTex(calc.speciesNames.expandFormula(reaction[1])) })
+      add({ kind: BLOCK_KIND.latex, line, latex: formulaTex(chemistry.names.expandFormula(reaction[1])) })
       continue
     }
     // A line's own command wins; otherwise the nearest enclosing block's.

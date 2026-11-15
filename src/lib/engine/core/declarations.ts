@@ -2,7 +2,7 @@
 import { type MathType, type Unit } from 'mathjs'
 import { COMPONENTS_SETTING, DECLARED, EXACT_SETTING, LEADING_NAME, NAME_WITH_SETTINGS, NOTATIONS, PERCENT, UNIT_VECTOR_SETTING, EACH_SETTING, LABEL_QUOTE, TEMPLATE_USE, type Notation, type Precision, type VectorStyle } from '../../syntax.ts'
 import { UNIT } from '../../mathjsNames.ts'
-import { SPECIES_DISPLAYS, type SpeciesDisplay } from '../../chemistry.ts'
+import { isModuleLineSetting } from './module.ts'
 import { math } from './math.ts'
 import { BRIEF_DIGITS, isValidUnit } from './numbers.ts'
 
@@ -28,8 +28,8 @@ export interface Declaration {
   label?: string
   /** `m_w:massName(H2O)`: shown as the display name a template makes from these arguments. */
   template?: { name: string; args: string[] }
-  /** `m:formula = 5.00 g {dietzeite}`: named species on this line shown by their formula (or `:name`, by their name). */
-  speciesDisplay?: SpeciesDisplay
+  /** Settings that are a module's (see EngineModule.lineSettings): `m:formula = 5.00 g {dietzeite}`. */
+  moduleSettings?: string[]
 }
 
 /** Whether a unit measures angles. */
@@ -103,7 +103,7 @@ export function parseDeclaration(line: string): Declaration | { error: string } 
     const template = TEMPLATE_USE.exec(spec)
     if (spec.startsWith(LABEL_QUOTE)) out.label = spec.slice(1, -1)
     else if (template) out.template = { name: template[1], args: template[2].split(',').map((a) => a.trim()) }
-    else if ((SPECIES_DISPLAYS as readonly string[]).includes(spec)) out.speciesDisplay = spec as SpeciesDisplay
+    else if (isModuleLineSetting(spec)) (out.moduleSettings ??= []).push(spec)
     else if (spec === EXACT_SETTING) out.sf = EXACT_SETTING
     else if (isNotation(spec)) {
       if (out.notation && out.notation !== spec) return { error: `${m[1]} can't be both :${NOTATIONS[0]} and :${NOTATIONS[1]}.` }

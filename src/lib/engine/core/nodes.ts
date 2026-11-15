@@ -1,22 +1,19 @@
 /** Questions about expression trees: brackets, literals, conversions. */
 import { isConstantNode, isFunctionNode, isOperatorNode, isParenthesisNode, type MathNode } from 'mathjs'
 import { VECTOR_FUNCTION } from '../../syntax.ts'
-import { ANY_SPECIES_FUNCTION, SPECIES_FUNCTION } from '../../names.ts'
 import { OP, isOp } from '../../mathjsNames.ts'
 import { isUnitCall, isLitCall } from './tex.ts'
+import { isUnwrittenFunction } from './module.ts'
 
 /** A node without any brackets around it. */
 export function unwrap(n: MathNode): MathNode {
   return isParenthesisNode(n) ? unwrap(n.content) : n
 }
 
-/** The functions that aren't written in the working, only what's inside them: they give or take a species. */
-export const UNWRITTEN_FUNCTIONS: ReadonlySet<string> = new Set([ANY_SPECIES_FUNCTION, SPECIES_FUNCTION.quiet, SPECIES_FUNCTION.plain])
-
-/** A node as it's written: without brackets, or the unwritten functions around it (so a sum inside one is bracketed in a product). */
+/** A node as it's written: without brackets, or a module's unwritten functions around it (so a sum inside one is bracketed in a product). */
 export function seeThrough(node: MathNode): MathNode {
   const n = unwrap(node)
-  return isFunctionNode(n) && UNWRITTEN_FUNCTIONS.has(n.fn.name) ? seeThrough(n.args[0]) : n
+  return isFunctionNode(n) && isUnwrittenFunction(n.fn.name) ? seeThrough(n.args[0]) : n
 }
 
 /** A bare number or quantity such as `2.0 kg` or `-3`, with nothing to compute. */

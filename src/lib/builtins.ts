@@ -20,7 +20,7 @@
  */
 import { BUILTIN_CONSTANTS, type BuiltinConstant, type NamespaceConstant } from './constants.ts'
 import { ELEMENTS, MOLAR_MASS_UNIT, elementDescription, type ElementSymbol } from './elements.ts'
-import { molarMassSum, parseFormula, speciesKey, splitCoefficient } from './chemistry.ts'
+import { molarMassSum, parseFormula, speciesKey, splitCoefficient } from './engine/modules/chemistry/chemistry.ts'
 import { ANY_SPECIES_FUNCTION, JOIN, SPECIES_FUNCTION } from './names.ts'
 import { splitArgs } from './solve.ts'
 import {

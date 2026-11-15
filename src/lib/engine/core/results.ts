@@ -2,9 +2,9 @@
 import { type MathNode } from 'mathjs'
 import { PERCENT, KEYWORD, DISPLAY_MODE, type DisplayMode, type LineCommand, type Notation, type Precision, type VectorStyle } from '../../syntax.ts'
 import { FIT, seriesMemberName } from '../../names.ts'
-import { readableSpecies } from '../../chemistry.ts'
 import { type PlotData } from '../../plot.ts'
 import { math } from './math.ts'
+import { moduleReadableMessage, unitMismatchNotes } from './module.ts'
 
 /** Settings for evaluating a sheet (the Output options). */
 export interface CalcOptions {
@@ -124,6 +124,9 @@ export interface Definition {
   members?: number
 }
 
+/** A problem with a line, explained as it should be shown (not an unexpected error's message). */
+export class ExplainedError extends Error {}
+
 /** An error nothing expected, as a message for its line. */
 export const unexpectedError = (e: unknown): string =>
   `This couldn't be worked out: ${e instanceof Error ? e.message : String(e)}`
@@ -231,8 +234,7 @@ export function readableUnitError(message: string): string {
     return `This is in ${conversion[2] || 'no unit'}, which can't be converted to ${conversion[1]}. Check the units of the values it uses.`
   }
   if (message === 'Units do not match') {
-    return 'The units don\'t match: values in different units (or one with a unit and one without) can\'t be added, subtracted or compared. '
-      + 'That includes amounts of different species (mol {Na^+} and mol {Cl^-}).'
+    return ['The units don\'t match: values in different units (or one with a unit and one without) can\'t be added, subtracted or compared.', ...unitMismatchNotes()].join(' ')
   }
-  return readableSpecies(message)
+  return moduleReadableMessage(message)
 }

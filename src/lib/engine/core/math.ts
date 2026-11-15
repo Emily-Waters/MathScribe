@@ -2,7 +2,7 @@
 import { all, create, type MathType, type Unit } from 'mathjs'
 import { VECTOR_FUNCTION } from '../../syntax.ts'
 import { FN, OP, UNIT } from '../../mathjsNames.ts'
-import { isSpeciesUnit } from '../../chemistry.ts'
+import { isLabelUnit } from './module.ts'
 
 /** Our own mathjs instance, with the functions below added or replaced. */
 export const math = create(all)
@@ -114,11 +114,11 @@ for (const name of [FN.sin, FN.cos, FN.tan] as const) {
       if (typeof x === 'number' && math.isUnit(unit)) {
         throw new Error(`${x} has no unit, so it can't be converted to ${(unit as Unit).formatUnits()}: give it one (3.0 m to cm).`)
       }
-      // An amount of a species keeps it: mol NaOH to mmol is mmol NaOH.
-      const species = math.isUnit(x) ? (x as Unit).units.filter((p) => isSpeciesUnit(p.unit.name)) : []
+      // A label unit is kept (see EngineModule.isLabelUnit): mol NaOH to mmol is mmol NaOH.
+      const labels = math.isUnit(x) ? (x as Unit).units.filter((p) => isLabelUnit(p.unit.name)) : []
       const target = unit as Unit
-      if (species.length && math.isUnit(unit) && !target.units.some((p) => isSpeciesUnit(p.unit.name))) {
-        const tag = species.map((p) => (p.power === 1 ? p.unit.name : `${p.unit.name}^${p.power}`)).join(' ')
+      if (labels.length && math.isUnit(unit) && !target.units.some((p) => isLabelUnit(p.unit.name))) {
+        const tag = labels.map((p) => (p.power === 1 ? p.unit.name : `${p.unit.name}^${p.power}`)).join(' ')
         return original(x, math.unit(`${target.formatUnits()} ${tag}`))
       }
       return original(x, unit)

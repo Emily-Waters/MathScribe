@@ -8,10 +8,9 @@ import { EXACT, MAX_DIGITS, countSigFigs, formatExact, formatSigFigs, formatWith
 import { AGGREGATE_KIND, Variable, type Aggregate, type Contributions, type VariableFields, type VariableSummary } from '../../values.ts'
 import { DEFAULT_CONSTANT_SIG_FIGS, isNamespaceConstant, suggestConstant } from '../../constants.ts'
 import { BUILTIN_CONSTANT_KEYS, RESERVED_CONSTANT_NAMES, builtinConstant } from '../../builtins.ts'
-import { ASSIGNMENT, ASSIGNMENT_WITH_VALUE, COMPONENTS_SETTING, CONSTANT_REF, EXACT_SETTING, IS_NAME, LEADING_NAME, ONE_LINE_FUNCTION, PERCENT, CALL, ELSE_IF_LINE, ELSE_LINE, IF_LINE, KEYWORD, PLOT_CALL, RETURN_LINE, SOLVE_SYSTEM, SELECT_CALL, SOLVE_CALL, SUBSCRIPT, TABLE_CALL, UNIT_VECTOR_SETTING, UNPACK, VECTOR_FUNCTION, DISPLAY_MODE, LINE_COMMAND, VALUE_IN_TEXT, CONSTANTS_BLOCK, LABEL_TEMPLATE, REACTION_DEFINITION, SIGIL, type DisplayMode, type Notation, type Precision, type UncertaintyWord, type VectorStyle } from '../../syntax.ts'
-import { ANY_SPECIES_FUNCTION, FIT, SPECIES_FUNCTION, INLINE_VALUE_NAME, JOIN, RESERVED_NAMESPACES, constantKey, constantRefName, expandDots, typedConstant, isHiddenName, isUncertaintyName, memberName, parseMemberName, parseNumberedName, parseUncertaintyName, readableMembers, seriesMemberName, solvedName, uncertaintyName, unpackedColumnName, unpackedName } from '../../names.ts'
+import { ASSIGNMENT, ASSIGNMENT_WITH_VALUE, COMPONENTS_SETTING, CONSTANT_REF, EXACT_SETTING, IS_NAME, LEADING_NAME, ONE_LINE_FUNCTION, PERCENT, CALL, ELSE_IF_LINE, ELSE_LINE, IF_LINE, KEYWORD, PLOT_CALL, RETURN_LINE, SOLVE_SYSTEM, SELECT_CALL, SOLVE_CALL, SUBSCRIPT, TABLE_CALL, UNIT_VECTOR_SETTING, UNPACK, VECTOR_FUNCTION, DISPLAY_MODE, LINE_COMMAND, VALUE_IN_TEXT, CONSTANTS_BLOCK, LABEL_TEMPLATE, SIGIL, type DisplayMode, type Notation, type Precision, type UncertaintyWord, type VectorStyle } from '../../syntax.ts'
+import { FIT, INLINE_VALUE_NAME, JOIN, RESERVED_NAMESPACES, constantKey, constantRefName, expandDots, typedConstant, isHiddenName, isUncertaintyName, memberName, parseMemberName, parseNumberedName, parseUncertaintyName, readableMembers, seriesMemberName, solvedName, uncertaintyName, unpackedColumnName, unpackedName } from '../../names.ts'
 import { COMPARISONS, FN, OP, OP_SYMBOL, UNIT, isOp } from '../../mathjsNames.ts'
-import { SpeciesError, formulaTex, outsideMaths, readableSpecies, SPECIES_KIND, SpeciesNames, parseReaction, reactionImbalance, reactionMemberName, showSpeciesOnLine, setSpeciesNames, type ReactionTerm, withFormulas } from '../../chemistry.ts'
 import { POLYNOMIAL_KIND, Solver, contains, countOccurrences, matchingParen, splitArgs, splitEquation } from '../../solve.ts'
 import { nestBrackets } from '../../brackets.ts'
 import type { CsvColumn } from '../../csv.ts'
@@ -19,12 +18,12 @@ import { SETTING, parseRowRange, parseTableSettings, settingParts, splitCallArgs
 import { parsePlotSettings } from '../../plotSettings.ts'
 import { linearFit, type LinearFit, type PlotData, type PlotPoint, type PlotSeries } from '../../plot.ts'
 import { isTuple, math } from './math.ts'
-import { speciesUnitName, speciesOfConstant, withoutSpeciesUnits, speciesProblem, isOneMole, isSpeciesCount } from './species.ts'
-import { wordsTex } from './text.ts'
+import { EngineModule, installModule, moduleReadableMessage, type ModuleHost } from './module.ts'
+import { outsideMaths, wordsTex } from './text.ts'
 import { expandNamespaceCalls } from './builtinCalls.ts'
 import { VECTOR_PRODUCTS, hasVector } from './vectors.ts'
 import { BUILTIN_CONSTANT_NAMES, NUMBER_LITERAL, NAME_IN_LINE, CONVERSION_TAIL, preprocess } from './literals.ts'
-import { type CalcOptions, type EquationParts, layoutEquation, type FunctionResult, type FunctionLine, type TraceLine, type CalcResult, type Definition, unexpectedError, fitHint, seriesDefinitions, type DataColumn, type LineNotation, type LineResult, type ParsedLine, TO_PERCENT, RAW, rawNode, STEP, readableUnitError } from './results.ts'
+import { ExplainedError, type CalcOptions, type EquationParts, layoutEquation, type FunctionResult, type FunctionLine, type TraceLine, type CalcResult, type Definition, unexpectedError, fitHint, seriesDefinitions, type DataColumn, type LineNotation, type LineResult, type ParsedLine, TO_PERCENT, RAW, rawNode, STEP, readableUnitError } from './results.ts'
 import { NAME_THEN_SETTINGS, DELTA_REF, expandParenPm, splitPm } from './uncertainty.ts'
 import { SELECT_RANGE, parseAggregateName, escapeRegExp } from './series.ts'
 import { symbolTex, numberTex, unitTex, attachUnit, isUnitCall, unitCallText, isLitCall } from './tex.ts'
@@ -71,8 +70,6 @@ export class Calculator {
   private readonly customConstants = new Map<string, CustomConstant>()
   /** Display-name templates, `massName(x) = "m_{{x}}"`, by name: their parameters, and their words. */
   private readonly labelTemplates = new Map<string, { params: string[]; words: string }>()
-  /** The species the sheet names (`@chem.species { dietzeite = {…} }`), named before anything else is worked out. */
-  readonly speciesNames = new SpeciesNames()
   /** Sheet-wide precision from a line like `@c:4`, used wherever `@c` has no `:n` of its own. */
   private readonly constantPrecision = new Map<string, Precision>()
   /** Sheet-wide unit from a line like `@a_0 to angstrom`. */
@@ -80,9 +77,15 @@ export class Calculator {
   /** Set while evaluating a line whose sum/difference has no significant figures. */
   private precisionLost = false
   private options: CalcOptions
+  /** What extends the engine (chemistry), each with its own hooks: see EngineModule. */
+  private readonly modules: readonly EngineModule[]
+  /** What the modules can do to this Calculator. */
+  private readonly host: ModuleHost = { store: (name, v) => this.store(name, v) }
 
-  constructor(options: CalcOptions) {
+  constructor(options: CalcOptions, modules: readonly EngineModule[] = []) {
     this.options = options
+    this.modules = modules
+    for (const m of modules) installModule(m)
   }
 
   private get autoSigFigs() {
@@ -433,18 +436,12 @@ export class Calculator {
       if (isFunctionNode(n) && n.fn.name === FN.tuple) {
         return `\\left(${n.args.map((a) => a.toTex(options).trim()).join(', ')}\\right)`
       }
-      // Taking a species off (in `@chem.total(…)`) isn't written: n_Na + n_Cl.
-      if (isFunctionNode(n) && n.fn.name === ANY_SPECIES_FUNCTION) return ` ${n.args[0].toTex(options).trim()}`
-      // An element's term in a compound's molar mass, without its species (15.999 g/mol, not g O/mol O).
-      if (isFunctionNode(n) && n.fn.name === SPECIES_FUNCTION.plain) return ` ${withoutSpeciesUnits(n.args[0]).toTex(options).trim()}`
-      // A value given its species: `(18.02 g / 1 mol) {H2O}` as the value then the formula;
-      // @chem.mm's compound as just its value (its species shows in its unit).
-      if (isFunctionNode(n) && n.fn.name === SPECIES_FUNCTION.quiet) return ` ${n.args[0].toTex(options).trim()}`
-      if (isFunctionNode(n) && n.fn.name === SPECIES_FUNCTION.shown && isConstantNode(n.args[1])) {
-        const of = unwrap(n.args[0])
-        const value = of.toTex(options).trim()
-        const bracketed = isSymbolNode(of) || isConstantNode(of) || isLitCall(of) ? value : `\\left(${value}\\right)`
-        return ` ${bracketed}\\,${formulaTex(String(n.args[1].value))}`
+      // A module's own functions (giving a value its species, `{H2O}`) are written as it says.
+      if (isFunctionNode(n)) {
+        for (const m of this.modules) {
+          const tex = m.functionTex(n, (a) => a.toTex(options).trim())
+          if (tex !== undefined) return ` ${tex}`
+        }
       }
       if (isFunctionNode(n) && n.fn.name === VECTOR_FUNCTION) {
         return `\\left\\langle ${n.args.map((a) => a.toTex(options).trim()).join(', ')}\\right\\rangle`
@@ -524,10 +521,11 @@ export class Calculator {
       if (traced !== undefined) return traced
     }
     if (isOperatorNode(node)) {
-      // A number with a unit is measured; but a whole number of a species (`1 mol {X}`,
-      // from a balanced equation) is a count, and exact.
+      // A number with a unit is measured; unless a module says it's an exact count
+      // (a whole number of a species, `2 mol {X}`, from a balanced equation).
       if (node.fn === OP.multiply && isUnitCall(node.args[1])) {
-        return this.sigFigsOf(node.args[0], literals, !isSpeciesCount(node.args[0], node.args[1], literals) && !isOneMole(node.args[0], node.args[1], literals))
+        const [number, unit] = node.args
+        return this.sigFigsOf(number, literals, !this.modules.some((m) => m.isExactCount(number, unit, literals)))
       }
       if (node.fn === OP.unaryMinus || node.fn === OP.unaryPlus) return this.sigFigsOf(node.args[0], literals, measured)
       if (node.fn === OP.add || node.fn === OP.subtract) {
@@ -957,7 +955,7 @@ export class Calculator {
    * `x:sci`), and `to` converts (`V to mL`); any expression works.
    */
   inlineValue(source: string): { tex?: string; error?: string } {
-    const text = expandDots(this.speciesNames.expand(source.trim()))
+    const text = expandDots(this.rewriteLine(source.trim()))
     const settings = NAME_THEN_SETTINGS.exec(text)
     // A name on its own is read as a line of its own, so it shows as the variable
     // does (in the unit it was typed in); anything else is worked out as a value.
@@ -977,7 +975,8 @@ export class Calculator {
 
   /**
    * A display name as LaTeX: its text upright, each `{{x}}` as x's value now
-   * (so the name says what it was worked out from), each `{Na^+}` as chemistry.
+   * (so the name says what it was worked out from), and a module's notation
+   * (`{Na^+}`, chemistry) as it draws it.
    */
   private labelTex(label: string): { tex: string; error?: string } {
     let error: string | undefined
@@ -993,7 +992,7 @@ export class Calculator {
       const space = (s: string) => (s ? '\\ ' : '')
       return `${space(before)}${inner ? wordsTex(inner) : ''}${space(after)}`
     }
-    const tex = withFormulas(withValuesIn).split(/(\$[^$]*\$)/)
+    const tex = this.modules.reduce((text, m) => m.markupText(text), withValuesIn).split(/(\$[^$]*\$)/)
       .map((part, i) => (i % 2 ? part.slice(1, -1) : words(part)))
       .join('')
     return { tex, error }
@@ -1116,7 +1115,7 @@ export class Calculator {
       const allDigits = custom ? custom.sf : writtenSf ?? countSigFigs(String(builtin!.value))
       this.store(hidden, {
         // (A built-in constant of a species, @chem.mm.Na, is given it once rounded.)
-        value: speciesOfConstant(exact ? full : this.roundTo(full, digits), builtin),
+        value: this.modules.reduce((v, m) => m.constantValue(v, builtin), (exact ? full : this.roundTo(full, digits)) as unknown),
         sf: exact ? allDigits : digits,
         contributions: custom?.contributions,
         uncSf: custom?.uncSf,
@@ -1158,8 +1157,8 @@ export class Calculator {
    * (and kept) that way.
    */
   defineFunction(name: string, paramSpecs: string[], given: FunctionLine[], multiline = false, returnSpec = ''): FunctionResult {
-    // (A species' name in its body is its formula, as on any line.)
-    const lines = given.map((l) => ({ ...l, text: this.speciesNames.expand(l.text) }))
+    // (Its body is read as any line is: a species' name in it is its formula.)
+    const lines = given.map((l) => ({ ...l, text: this.rewriteLine(l.text) }))
     // `m to kg`: the argument is converted to kg on the way in.
     const parsed = paramSpecs.map(parseParam)
     const params = parsed.map((p) => p?.name ?? '')
@@ -1822,12 +1821,11 @@ export class Calculator {
   evaluate(input: string, mode: DisplayMode = DISPLAY_MODE.full, explicit = false, multiline = false, notation: LineNotation = {}): CalcResult {
     this.multiline = multiline
     this.lineNotation = notation
-    // The sheet's species names: `{dietzeite}` is its formula, and units show it by its name.
-    setSpeciesNames(this.speciesNames)
+    for (const m of this.modules) m.beginLine()
     try {
-      const { tex, error, warning, info, trace, returnNote, plot, defines } = this.evaluateLine(this.speciesNames.expand(input), mode, explicit)
-      // Messages name a namespace's members as typed, a.x_1 (not a__x_1).
-      const readable = (s: string | undefined) => (s === undefined ? s : readableSpecies(s.includes(JOIN) ? fitHint(readableMembers(s)) : s))
+      const { tex, error, warning, info, trace, returnNote, plot, defines } = this.evaluateLine(this.rewriteLine(input), mode, explicit)
+      // Messages name a namespace's members as typed, a.x_1 (not a__x_1), and a module's inside names as the sheet does.
+      const readable = (s: string | undefined) => (s === undefined ? s : moduleReadableMessage(s.includes(JOIN) ? fitHint(readableMembers(s)) : s))
       // Brackets by nesting, ( ) inside [ ] inside { }, once each equation is finished.
       return {
         tex: nestBrackets(tex), error: readable(error), warning: readable(warning), info: readable(info), returnNote, plot, defines,
@@ -1835,13 +1833,18 @@ export class Calculator {
       }
     } catch (e) {
       // Anything a line's own handling didn't catch stays that line's error, not the whole sheet's.
-      // (A species' problem is explained as it is.)
-      return { tex: '', error: readableSpecies(readableMembers(e instanceof SpeciesError ? e.message : unexpectedError(e))) }
+      // (A problem that's explained already, such as a species', is shown as it is.)
+      return { tex: '', error: moduleReadableMessage(readableMembers(e instanceof ExplainedError ? e.message : unexpectedError(e))) }
     } finally {
       this.multiline = false
       this.lineNotation = {}
-      showSpeciesOnLine(undefined)
+      for (const m of this.modules) m.endLine()
     }
+  }
+
+  /** A line's text as the modules read it before anything else does (a species' name as its formula). */
+  private rewriteLine(text: string): string {
+    return this.modules.reduce((t, m) => m.rewriteLine(t), text)
   }
 
   /** `#multiline` on the line being evaluated: each `=` (and in a call's working too) on its own row. */
@@ -2352,51 +2355,12 @@ export class Calculator {
     this.vars.delete(name)
   }
 
-  /**
-   * A named reaction, `r = @chem.reaction({2 H2 + O2 -> 2 H2O})`: checked to
-   * balance (each element's atoms, and the charge), then each species'
-   * coefficient is a member, an exact amount of it: r.H2 is 2 mol H2, r.H2O
-   * 2 mol H2O, so r.H2O / r.H2 is the mole ratio from H2 to H2O. A formula
-   * that isn't a name (Ca(OH)2, Na^+) is a member by its letters and digits:
-   * r.CaOH2, r.Na.
-   */
-  private evaluateReaction(name: string, written: string): LineResult {
-    const tex = `${symbolTex(name)}:\\quad ${formulaTex(written)}`
-    const parsed = parseReaction(written)
-    if ('error' in parsed) return { tex, error: parsed.error }
-    const imbalance = reactionImbalance(parsed)
-    if (imbalance) return { tex, error: `{${written.trim()}}: ${imbalance}` }
-    const terms = [...parsed.reactants, ...parsed.products]
-    const members = new Map<string, ReactionTerm>()
-    for (const t of terms) {
-      // A named species is a member by its name: r.dietzeite.
-      const member = this.speciesNames.nameOf(t.formula)?.name ?? reactionMemberName(t.formula)
-      const other = members.get(member)
-      if (other && other.formula !== t.formula) {
-        return { tex, error: `${other.formula} and ${t.formula} would both be ${name}.${member}: write one of them differently.` }
-      }
-      members.set(member, t)
-    }
-    for (const [member, t] of members) {
-      this.store(memberName(name, member), {
-        value: math.unit(t.coefficient, `${UNIT.mole} ${speciesUnitName(t.formula, SPECIES_KIND.amount)}`),
-        sf: EXACT,
-        // r.H2O is written r with H₂O below.
-        symbol: `${symbolTex(name)}_{${formulaTex(t.formula)}}`,
-      })
-    }
-    const listed = [...members].map(([member, t]) => `${name}.${member} = ${t.coefficient} mol ${t.formula}`).join(', ')
-    return {
-      tex,
-      info: `Balanced. Each species' coefficient is an amount of it: ${listed}. A mole ratio is one over another, as in ${name}.${[...members.keys()].at(-1)} / ${name}.${[...members.keys()][0]}.`,
-      defines: [...members.keys()].map((member) => ({ name: memberName(name, member) })),
-    }
-  }
-
   private evaluateLine(input: string, requestedMode: DisplayMode, explicit = false): LineResult {
-    // `r = @chem.reaction({2 H2 + O2 -> 2 H2O})`: a balanced reaction, whose coefficients are its members.
-    const reaction = REACTION_DEFINITION.exec(input.trim())
-    if (reaction) return this.evaluateReaction(reaction[1], reaction[2])
+    // A line a module works out itself: a reaction, `r = @chem.reaction({2 H2 + O2 -> 2 H2O})`.
+    for (const m of this.modules) {
+      const own = m.evaluateLine(input, this.host)
+      if (own) return own
+    }
     // `a.x_1`, a namespace's member, is the variable a__x_1 inside.
     input = expandDots(input)
     // `table(t, x, v = x / t)`: series in a table; `plot(t, x)`: plotted; `a = select(t, x; …)`: a slice.
@@ -2435,8 +2399,8 @@ export class Calculator {
     // `m:3 = …`, `phi:3:deg = …` set how what's assigned is shown; take them off the name.
     const declaration = parseDeclaration(input.trim())
     if (declaration && 'error' in declaration) return { tex: '', error: declaration.error }
-    // `m:formula = …` / `m:name = …`: how the named species on this line are shown.
-    showSpeciesOnLine(declaration?.speciesDisplay)
+    // Settings that are a module's: `m:formula = …`, how the named species on this line are shown.
+    for (const m of this.modules) m.useLineSettings(declaration?.moduleSettings ?? [])
     // A display name is worked out now, so values in it are the ones it was computed with.
     // (One made with a template, `m_w:massName(H2O)`, is its words with the arguments put in.)
     const labelWords = declaration?.template ? this.fillTemplate(declaration.template.name, declaration.template.args) : undefined
@@ -2673,9 +2637,11 @@ export class Calculator {
       // A name on its own (`c`, `y = c`) is shown as the variable is: in its unit.
       const justAName = isSymbolNode(bare)
       value = normalise(expr.compile().evaluate(this.scope), isConversion(expr) || isLiteral(expr) || declaresUnit || justAName)
-      // A value with species follows their rules, whatever it was worked out from.
-      const speciesError = speciesProblem(value)
-      if (speciesError) throw new SpeciesError(speciesError)
+      // A value follows the modules' rules (a value with species, theirs), whatever it was worked out from.
+      for (const m of this.modules) {
+        const problem = m.valueProblem(value)
+        if (problem) throw new ExplainedError(problem)
+      }
       // A value typed with a unit keeps that unit wherever it's shown (L = 1.00e-10 m
       // stays in m, not 100 pm), as a conversion's result does.
       if (isLiteral(expr) && math.isUnit(value)) (value as Unit).fixPrefix = true

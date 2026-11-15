@@ -1,4 +1,14 @@
-/** Uncertainty syntax: `pm`, `(2.0 pm 0.1) kg`, `delta F`. */
+/**
+ * Uncertainty syntax:
+ *
+ *   m = 2.0 kg pm 0.1 kg     (also ± or +-)
+ *   m = (2.0 pm 0.1) kg
+ *   m = 2.0 kg pm 0.1        uncertainty takes the value's unit
+ *   m = 2.0 kg pm 5%         relative uncertainty
+ *   delta F / Delta F        the uncertainty of F, rendered δF / ΔF as typed
+ *
+ * (Each delta F, @c and solved unknown is held in a hidden variable: see names.ts.)
+ */
 import { NAME, KEYWORD, UNCERTAINTY_WORDS } from '../../syntax.ts'
 import { readUnit, PM_WORD, NAME_CHAR_RE } from './literals.ts'
 

@@ -7,7 +7,7 @@ import {
   BLOCK_KIND, type Block, type ConstantsBlock, type FunctionBlock, type GroupBlock, type ImportBlock, type SpeciesBlock,
   type SpeciesEntry,
 } from '../blocks.ts'
-import { formulaTex } from '../chemistry.ts'
+import { formulaTex } from '../engine/modules/chemistry/chemistry.ts'
 import { LINE_COMMAND } from '../syntax.ts'
 import { errorComment, gather, heading as latexHeading, titleToLatex, titled as latexTitled } from '../latexKit.ts'
 import { equation, heading as docxHeading, run, titled as docxTitled, type Ctx, type Item } from '../docxKit.ts'

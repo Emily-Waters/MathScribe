@@ -1569,8 +1569,11 @@ renamed, change it there too.
   selections, LaTeX generation. `index.ts` is all the rest of MathScribe imports;
   `core/` is split by concern, one file each: the `Calculator` class
   (`calculator.ts`), the mathjs instance (`math.ts`), scopes, unit literals,
-  vectors, uncertainty, series, tables, imported data, LaTeX, and species in
-  units. Each variable is one record (`StoredVariable`: value, sig figs,
+  vectors, uncertainty, series, tables, imported data and LaTeX. `modules/`
+  extends the core: each module is an `EngineModule` subclass (`core/module.ts`)
+  overriding the hooks it needs, given to the Calculator as
+  `new Calculator(options, [new ChemistryModule()])`. The core never imports a
+  module (`boundaries.test.ts` checks). Each variable is one record (`Variable`: value, sig figs,
   uncertainty, how it's shown) in a scope per `{ }` block or function call; each
   scope keeps a series index, and selections and named plots are lookups into the
   variables they pick (`Views`). mathjs sees just the values, through `Values`.
@@ -1582,8 +1585,11 @@ renamed, change it there too.
 - `src/lib/plot.ts`: the linear fit, axes, and drawing a plot as SVG;
   `src/lib/plotImage.ts`: plots as pictures for the Word export
 - `src/lib/brackets.ts`: choosing ( ), [ ] and { } by nesting in the output
-- `src/lib/chemistry.ts`: formulas in braces, species as units, and reading a
-  formula's atoms for `@chem.mm`; `src/lib/elements.ts`: the elements and their
+- `src/lib/engine/modules/chemistry/`: the chemistry module. `chemistry.ts`:
+  formulas in braces, species as units, reading a formula's atoms for `@chem.mm`,
+  reactions and species names; `species.ts`: giving values their species and the
+  strict rules; `module.ts`: `ChemistryModule`, where the engine's hooks meet
+  them. `src/lib/elements.ts`: the elements and their
   atomic weights; `src/lib/katex.ts`: KaTeX with mhchem, which everything that
   draws maths imports
 - `src/components/ErrorBoundary.tsx`: keeps a failure drawing the output from

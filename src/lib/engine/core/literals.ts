@@ -1,10 +1,8 @@
 /** Unit literals (`9.81 m/s^2` as a number times a unit) and numbers kept as typed. */
-import { type Unit } from 'mathjs'
 import { NAME, NAME_CHAR, NUMBER, KEYWORD } from '../../syntax.ts'
 import { FN, MATHJS_IN } from '../../mathjsNames.ts'
-import { SPECIES_AFTER_UNIT } from '../../chemistry.ts'
 import { math } from './math.ts'
-import { speciesUnits, expandSpeciesAfterValues } from './species.ts'
+import { readAfterUnit, rewriteExpression } from './module.ts'
 import { expandVectors, bareTuple } from './vectors.ts'
 import { DERIVED_UNITS } from './normalise.ts'
 import { MESSAGE_DIGITS } from './numbers.ts'
@@ -122,15 +120,8 @@ export function readUnit(src: string, pos: number): { text: string; end: number 
     end = NEXT_UNIT.lastIndex
     readPower()
   }
-  // The species it's of: `mol {EDTA}` (an amount), `g {NaOH}` (a mass), `g/mol {H2O}` (a molar mass).
-  const species = SPECIES_AFTER_UNIT.exec(src.slice(end))
-  if (species) {
-    // Each species beside the unit it qualifies, as mathjs writes them: (g H2O) / (mol H2O).
-    const unit = math.unit(1, text)
-    text = (math.multiply(unit, math.unit(1, speciesUnits(unit.dimensions, species[1]))) as Unit).formatUnits()
-    end += species[0].length
-  }
-  return { text, end }
+  // Anything after it that a module reads as part of it: a species, `mol {EDTA}`.
+  return readAfterUnit(src, { text, end })
 }
 
 /** Every number in a line, but not digits inside a name (`v_0`) or after a point. */
@@ -189,5 +180,5 @@ export function preprocess(src: string, isVariable: (id: string) => boolean): { 
     out += `${src.slice(last, m.index)}(${m[0]} * ${FN.unit}("${unit.text}"))`
     last = unit.end
   }
-  return { text: markLiterals(expandSpeciesAfterValues(out + src.slice(last))), shadowed: [...shadowed] }
+  return { text: markLiterals(rewriteExpression(out + src.slice(last))), shadowed: [...shadowed] }
 }

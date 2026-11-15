@@ -2,8 +2,8 @@
 import { type MathType, type Unit } from 'mathjs'
 import { MOLAR_MASS_UNIT } from '../../elements.ts'
 import { UNIT } from '../../mathjsNames.ts'
-import { isSpeciesUnit } from '../../chemistry.ts'
 import { math } from './math.ts'
+import { isLabelUnit } from './module.ts'
 import { SAME_VALUE_TOLERANCE, TINY } from './numbers.ts'
 
 // ---------------------------------------------------------------------------
@@ -59,21 +59,21 @@ export const GRAMS = math.unit(UNIT.gram)
 export function normalise(value: unknown, keepUnits: boolean): unknown {
   if (!math.isUnit(value)) return value
   const u = value as Unit
-  // Species (mol EDTA) aren't SI: set them aside, tidy the rest, and put them back.
-  // (Each species unit is worth exactly 1, so the number in the other units is the same.)
-  if (u.units.some((p) => isSpeciesUnit(p.unit.name))) {
+  // Label units (a species, mol EDTA) aren't SI: set them aside, tidy the rest, and put them back.
+  // (Each label unit is worth exactly 1, so the number in the other units is the same.)
+  if (u.units.some((p) => isLabelUnit(p.unit.name))) {
     const part = (p: Unit['units'][number]) =>
       `${(p.prefix as unknown as { name?: string } | undefined)?.name ?? ''}${p.unit.name}${p.power === 1 ? '' : `^${p.power}`}`
-    // Each species once, its powers added up: mol EDTA × (mol X / mol EDTA) is mol X.
+    // Each label once, its powers added up: mol EDTA × (mol X / mol EDTA) is mol X.
     const powers = new Map<string, number>()
-    for (const p of u.units) if (isSpeciesUnit(p.unit.name)) powers.set(p.unit.name, (powers.get(p.unit.name) ?? 0) + p.power)
-    const species = [...powers].filter(([, power]) => power !== 0)
+    for (const p of u.units) if (isLabelUnit(p.unit.name)) powers.set(p.unit.name, (powers.get(p.unit.name) ?? 0) + p.power)
+    const labels = [...powers].filter(([, power]) => power !== 0)
       .map(([name, power]) => (power === 1 ? name : `${name}^${power}`)).join(' ')
-    const others = u.units.filter((p) => !isSpeciesUnit(p.unit.name)).map(part).join(' ')
+    const others = u.units.filter((p) => !isLabelUnit(p.unit.name)).map(part).join(' ')
     const number = u.toNumber(u.formatUnits())
     const tidy = others ? normalise(math.unit(number, others), keepUnits) : number
-    if (!species) return tidy
-    const result = math.multiply(tidy as MathType, math.unit(1, species)) as Unit
+    if (!labels) return tidy
+    const result = math.multiply(tidy as MathType, math.unit(1, labels)) as Unit
     // (Shown as made: left to itself, mathjs would re-simplify it to SI when formatting.)
     result.skipAutomaticSimplification = true
     return result

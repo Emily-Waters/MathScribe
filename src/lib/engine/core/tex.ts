@@ -5,9 +5,11 @@ import { builtinConstant } from '../../builtins.ts'
 import { GREEK_BY_CHAR, GREEK_BY_NAME, GREEK_CHARS, SERIES_SUFFIXES } from '../../syntax.ts'
 import { FIT, parseConstantRefName, parseMemberName, parseSeriesStatName, parseSolvedName, parseUncertaintyName } from '../../names.ts'
 import { FN, UNIT_LOOKS } from '../../mathjsNames.ts'
-import { isSpeciesUnit, speciesTex, speciesOf } from '../../chemistry.ts'
 import { math } from './math.ts'
-import { SPECIES_GAP, SPECIES_RATIO_UNIT } from './species.ts'
+import { isLabelUnit, labelUnitTex } from './module.ts'
+
+/** In unitTex: between a unit and the label unit after it (mol EDTA), a space rather than a dot. */
+export const LABEL_GAP = '~'
 
 // ---------------------------------------------------------------------------
 // LaTeX helpers
@@ -129,21 +131,19 @@ export function unitTex(s: string): string {
     .replace(/^\(([^()]*)\)\//, '$1/')
     .replace(/\(\s*/g, '(').replace(/\s*\)/g, ')')
     .replace(/\s*[*·]\s*|\s+/g, '*')
-  // A species goes after its amount with a space, not a dot: mol EDTA, M NaOH.
-  // A unit of species alone is a mole ratio, from mol X / mol EDTA: shown that way.
+  // A label unit (a species, whose names are small letters) goes after its unit with a space, not a dot: mol EDTA, M NaOH.
+  // A unit of labels alone is a ratio of them (mol X / mol EDTA): its module shows it as one.
   const words = norm.match(/[A-Za-z]+/g) ?? []
-  const onlySpecies = words.length > 0 && words.every(isSpeciesUnit)
-  norm = norm.replace(/\*(?=[a-z]+)/g, (star, at: number) => (isSpeciesUnit(/^[a-z]+/.exec(norm.slice(at + 1))![0]) ? SPECIES_GAP : star))
-    // A denominator that's one unit and its species needs no brackets: g H2O/mol H2O.
+  const onlyLabels = words.length > 0 && words.every(isLabelUnit)
+  norm = norm.replace(/\*(?=[a-z]+)/g, (star, at: number) => (isLabelUnit(/^[a-z]+/.exec(norm.slice(at + 1))![0]) ? LABEL_GAP : star))
+    // A denominator that's one unit and its label needs no brackets: g H2O/mol H2O.
     .replace(/\/\(([A-Za-z]+~[a-z]+)\)$/, '/$1')
   return norm.replace(/[A-Za-z]+|\^(-?[\d.]+)|\*|~/g, (tok, pow) => {
     if (tok === '*') return '\\cdot '
-    if (tok === SPECIES_GAP) return '\\,'
+    if (tok === LABEL_GAP) return '\\,'
     if (pow !== undefined) return `^{${pow}}`
-    const species = speciesOf(tok)
-    // A ratio of species alone: mol X / mol EDTA, or g Cl / g AgCl.
-    // (A named species is shown by its name, or its formula, as its declaration or the line says: speciesTex.)
-    if (species) return onlySpecies ? `\\mathrm{${SPECIES_RATIO_UNIT[species.kind]}}\\,${speciesTex(species.formula)}` : speciesTex(species.formula)
+    const label = labelUnitTex(tok, onlyLabels)
+    if (label !== undefined) return label
     const look = UNIT_LOOKS[tok]
     if (look) return look.tex
     // The micro prefix, u in mathjs, as µ: um → µm.

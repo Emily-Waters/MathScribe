@@ -22,9 +22,11 @@
  * A compound's molar mass is `@chem.mm({CuSO4*5H2O})` (see parseFormula), and
  * an element's `@chem.mm.Na` (see elements.ts).
  */
-import { isElement, type ElementSymbol } from './elements.ts'
-import { CHEM_FUNCTION, MEMBER_DOT, NAMESPACE, SIGIL } from './syntax.ts'
-import { SPECIES_FUNCTION } from './names.ts'
+import { isElement, type ElementSymbol } from '../../../elements.ts'
+import { CHEM_FUNCTION, MEMBER_DOT, NAMESPACE, SIGIL } from '../../../syntax.ts'
+import { SPECIES_FUNCTION } from '../../../names.ts'
+import { ExplainedError } from '../../core/results.ts'
+import { outsideMaths } from '../../core/text.ts'
 
 /** A formula in text, `{Na^+}`: single braces, not a value's `{{…}}`, nor a subscript's `_{…}` (1: the formula). */
 export const FORMULA_IN_TEXT = /(?<![{_])\{([^{}]+)\}(?!\})/g
@@ -48,10 +50,6 @@ const FORMULA_SUBSCRIPT = /^[A-Z]/
 
 /** Whether a subscript in words is a formula (see FORMULA_SUBSCRIPT). */
 export const isFormulaSubscript = (subscript: string) => FORMULA_SUBSCRIPT.test(subscript.trim())
-
-/** Text with `fix` applied to its parts outside `$…$` (inline maths is left alone). */
-export const outsideMaths = (text: string, fix: (part: string) => string) =>
-  text.split(/(\$[^$]*\$)/).map((part, i) => (i % 2 ? part : fix(part))).join('')
 
 /** Text with each formula, `{Na^+}`, as inline maths: $\ce{Na^+}$. */
 export const withFormulas = (text: string) =>
@@ -82,7 +80,7 @@ export const SPECIES_KINDS: readonly SpeciesKind[] = Object.values(SPECIES_KIND)
 const SPECIES_UNIT_PREFIX: Record<SpeciesKind, string> = { amount: 'amountof', mass: 'massof' }
 
 /** Something wrong with a value's species, explained as it should be shown. */
-export class SpeciesError extends Error {}
+export class SpeciesError extends ExplainedError {}
 
 /** A species unit: the formula it's of, and what it qualifies. */
 export interface SpeciesUnit {

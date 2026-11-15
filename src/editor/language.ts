@@ -12,7 +12,7 @@
 import { StreamLanguage, foldService, foldedRanges, indentService, type StringStream } from '@codemirror/language'
 import { tags } from '@lezer/highlight'
 import { closesVector, isUnitName } from '../lib/engine/index.ts'
-import { REACTION_LINE } from '../lib/chemistry.ts'
+import { REACTION_LINE } from '../lib/engine/modules/chemistry/chemistry.ts'
 import {
   BRANCH_START, CALL, COMMAND_NAMES, CONSTANT_TOKEN, DEF_START, FUNCTION_HEAD, GREEK_CHARS, IMPORT, INDENT_WIDTH, KEYWORD, NAME, NAME_CHAR,
   BLOCK_CLOSE, BLOCK_OPEN, CONSTANTS_TOKEN, SPECIES_TOKEN, LATEX_OPENER, LATEX_TOKEN, closesLatex, LAYOUT_NAME_TOKEN, LAYOUT_OPENER, LAYOUT_STYLES, PROSE_LAYOUTS, layoutMembers, COMMENT_START, NAMESPACE_CALL_TOKEN, NUMBER, SETTINGS,

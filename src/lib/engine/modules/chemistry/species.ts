@@ -1,12 +1,12 @@
-/** Species in units: giving a value its species, taking them off, and the strict rules (moves to the chemistry module next). */
+/** Species in units: giving a value its species, taking them off, and the strict rules. */
 import { isConstantNode, type FunctionNode, type MathNode, type MathType, type Unit } from 'mathjs'
-import { isNamespaceConstant, type BuiltinConstant, type NamespaceConstant } from '../../constants.ts'
-import { GREEK_CHARS } from '../../syntax.ts'
-import { ANY_SPECIES_FUNCTION, SPECIES_FUNCTION } from '../../names.ts'
-import { BASE_DIMENSION, FN, UNIT } from '../../mathjsNames.ts'
-import { SPECIES_KINDS, SpeciesError, isSpeciesUnit, speciesOf, speciesPowers, speciesUnit, type SpeciesKind } from '../../chemistry.ts'
-import { math } from './math.ts'
-import { isUnitCall, unitCallText } from './tex.ts'
+import { isNamespaceConstant, type BuiltinConstant, type NamespaceConstant } from '../../../constants.ts'
+import { GREEK_CHARS } from '../../../syntax.ts'
+import { SPECIES_FUNCTION } from '../../../names.ts'
+import { BASE_DIMENSION, FN, UNIT } from '../../../mathjsNames.ts'
+import { math } from '../../core/math.ts'
+import { isUnitCall, unitCallText } from '../../core/tex.ts'
+import { SPECIES_KINDS, SpeciesError, isSpeciesUnit, speciesOf, speciesPowers, speciesUnit, type SpeciesKind } from './chemistry.ts'
 
 /** A species' unit of a kind (see chemistry.ts), made in mathjs the first time it's used. */
 export function speciesUnitName(formula: string, kind: SpeciesKind): string {
@@ -55,7 +55,6 @@ export function withSpecies(x: MathType, formula: string): MathType {
   }
   return math.multiply(x, math.unit(1, speciesUnits((x as Unit).dimensions, formula))) as MathType
 }
-math.import({ [SPECIES_FUNCTION.shown]: withSpecies, [SPECIES_FUNCTION.quiet]: withSpecies })
 
 /** A built-in constant's value, given its species if it's of one (@chem.mm.Na: a molar mass of Na). */
 export const speciesOfConstant = (value: unknown, constant: BuiltinConstant | NamespaceConstant | undefined): unknown =>
@@ -130,9 +129,6 @@ export function speciesProblem(value: unknown): string | undefined {
   return undefined
 }
 
-/** In unitTex: between an amount and its species (mol EDTA). */
-export const SPECIES_GAP = '~'
-
 /** The unit a ratio of species alone is shown in, by kind: a mole ratio in mol, a mass ratio in g. */
 export const SPECIES_RATIO_UNIT: Record<SpeciesKind, string> = { amount: UNIT.mole, mass: UNIT.gram }
 
@@ -156,7 +152,6 @@ export function withoutSpecies(x: MathType): MathType {
   const value = u.toNumber()
   return rest ? math.unit(value, rest) : value
 }
-math.import({ [ANY_SPECIES_FUNCTION]: withoutSpecies, [SPECIES_FUNCTION.plain]: withoutSpecies })
 
 /** A species after something that isn't a unit (after a unit, readUnit takes it): `{H2O}` (1: the formula). */
 export const SPECIES_AFTER_VALUE = /(?<!\{)\{([^{}]+)\}(?!\})/
@@ -191,18 +186,6 @@ export function expandSpeciesAfterValues(src: string): string {
   }
   return src
 }
-
-// ---------------------------------------------------------------------------
-// Uncertainty syntax
-//
-//   m = 2.0 kg pm 0.1 kg     (also ± or +-)
-//   m = (2.0 pm 0.1) kg
-//   m = 2.0 kg pm 0.1        uncertainty takes the value's unit
-//   m = 2.0 kg pm 5%         relative uncertainty
-//   delta F / Delta F        the uncertainty of F, rendered δF / ΔF as typed
-// ---------------------------------------------------------------------------
-
-// (Each delta F, @c and solved unknown is held in a hidden variable: see names.ts.)
 
 /** The amount `1 mol` is exact when written as a whole one: per one mole, as in a molar mass (18.02 g / 1 mol). */
 export const ONE_MOLE = { number: 1, text: '1' } as const

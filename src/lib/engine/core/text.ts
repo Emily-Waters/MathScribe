@@ -1,12 +1,16 @@
 /** Words in display names and text, as LaTeX. */
 import { SUBSCRIPT_BASE, TEXT_SUBSCRIPT, subscriptOf, unescapeUnderscores } from '../../syntax.ts'
-import { formulaTex, isFormulaSubscript } from '../../chemistry.ts'
+import { moduleSubscriptTex } from './module.ts'
+
+/** Text with `fix` applied to its parts outside `$…$` (inline maths is left alone). */
+export const outsideMaths = (text: string, fix: (part: string) => string) =>
+  text.split(/(\$[^$]*\$)/).map((part, i) => (i % 2 ? part : fix(part))).join('')
 
 /** Words as upright LaTeX text, `\_` as a plain underscore. */
 export const plainTextTex = (text: string) => (text ? `\\text{${escapeText(unescapeUnderscores(text))}}` : '')
 
-/** A subscript in words as LaTeX: a formula (`H2O`) as chemistry, anything else as upright text. */
-export const subscriptTex = (subscript: string) => (isFormulaSubscript(subscript) ? formulaTex(subscript) : plainTextTex(subscript))
+/** A subscript in words as LaTeX: in a module's notation if it's one (`H2O`, chemistry), else as upright text. */
+export const subscriptTex = (subscript: string) => moduleSubscriptTex(subscript) ?? plainTextTex(subscript)
 
 /**
  * Words in a display name as LaTeX, with subscripts as in names and headings:

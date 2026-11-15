@@ -179,8 +179,15 @@ describe('@chem.mm: a compound’s molar mass', () => {
     expect(value('m = 5.00 g {NaOH}\nn = m / @chem.mm({NaOH})')).toBe('0.125 mol NaOH')
   })
 
-  it('explains a coefficient, an unknown element, and a formula without braces', () => {
-    expect(last('M = @chem.mm({2 H2O})').error).toMatch(/coefficient/)
+  it('multiplies by a coefficient, as in a balanced equation, which is exact', () => {
+    expect(value('M = @chem.mm({2 H2O})')).toBe('36.030 g/mol')
+    expect(value('M = @chem.mm({2H2O})')).toBe('36.030 g/mol')
+    expect(value('M = @chem.mm({1/2 O2})')).toBe('15.999 g/mol')
+    expect(value('M = @chem.mm({3 Ca(OH)2})')).toBe('222.28 g/mol')
+    expect(readable(last('M = @chem.mm({2 H2O})').tex)).toMatch(/^M = 2 \(2 M_H\+ M_O\)/)
+  })
+
+  it('explains an unknown element, and a formula without braces', () => {
     expect(last('M = @chem.mm({Xy2})').error).toMatch(/Xy, which isn't an element/)
     expect(last('M = @chem.mm(H2O)').error).toMatch(/in braces/)
     expect(last('M = @chem.mm({Ca(OH2})').error).toMatch(/missing/)

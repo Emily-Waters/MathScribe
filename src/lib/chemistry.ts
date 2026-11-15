@@ -167,11 +167,23 @@ function countPart(part: string, formula: string): AtomCounts | { error: string 
 }
 
 /**
+ * A coefficient before a formula, as in a balanced equation: `2 H2O`, `2H2O`,
+ * `1/2 O2` (1: the coefficient, a whole number or a fraction; 2: the formula).
+ */
+const COEFFICIENT = /^\s*(\d+(?:\/\d+)?)\s*([A-Z([].*)$/s
+
+/** A formula's coefficient, if it has one (`2 H2O` → 2 and H2O); otherwise the formula as it is. */
+export function splitCoefficient(formula: string): { coefficient?: string; compound: string } {
+  const m = COEFFICIENT.exec(formula)
+  return m ? { coefficient: m[1], compound: m[2] } : { compound: formula }
+}
+
+/**
  * The atoms in a compound's formula, as MathScribe writes formulas: counts as
  * digits (`H2O`), groups in brackets (`Ca(OH)2`, `K4[Fe(CN)6]`), a hydrate's dot
  * as `*` (`CuSO4*5H2O`). A charge (`SO4^2-`) and state (`(aq)`) are left out, as
- * they don't change the molar mass. A coefficient (`2 H2O`) isn't one compound,
- * so it's an error: multiply by it in the calculation instead.
+ * they don't change the molar mass. A coefficient (`2 H2O`) is taken off first
+ * (splitCoefficient), so here one is an error.
  */
 export function parseFormula(formula: string): AtomCounts | { error: string } {
   const compact = formula.replace(/\s+/g, '').replace(STATE_SUFFIX, '').replace(CHARGE_SUFFIX, '')

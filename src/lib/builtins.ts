@@ -20,7 +20,7 @@
  */
 import { BUILTIN_CONSTANTS, type BuiltinConstant, type NamespaceConstant } from './constants.ts'
 import { ELEMENTS, MOLAR_MASS_UNIT, elementDescription, type ElementSymbol } from './elements.ts'
-import { molarMassSum, parseFormula } from './chemistry.ts'
+import { molarMassSum, parseFormula, splitCoefficient } from './chemistry.ts'
 import { ANY_SPECIES_FUNCTION, JOIN } from './names.ts'
 import { splitArgs } from './solve.ts'
 import {
@@ -239,8 +239,12 @@ class MolarMassFunction extends FunctionMember {
   expand(args: string): Expansion {
     const formula = FORMULA_ARGUMENT.exec(args.trim())
     if (!formula) return { error: `${this.typed} takes one formula, in braces: ${this.typed}({CuSO4*5H2O}).` }
-    const atoms = parseFormula(formula[1])
-    return 'error' in atoms ? atoms : { text: molarMassSum(atoms) }
+    // A coefficient, as in a balanced equation (`2 H2O`, `1/2 O2`), multiplies the compound's molar mass.
+    const { coefficient, compound } = splitCoefficient(formula[1])
+    const atoms = parseFormula(compound)
+    if ('error' in atoms) return atoms
+    const sum = molarMassSum(atoms)
+    return { text: coefficient ? `(${coefficient}) * ${sum}` : sum }
   }
 }
 

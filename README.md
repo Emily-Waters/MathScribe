@@ -1020,8 +1020,9 @@ n = 5.00 g {NaOH} / @chem.mm({NaOH})      → 0.125 mol NaOH
   brackets (`Ca(OH)2`, `K4[Fe(CN)6]`), a hydrate's water after `*`. A charge or state
   (`{SO4^2-}`, `{NaCl(aq)}`) is left out, since it doesn't change the molar mass.
   Symbols are case-sensitive: `{Co}` is cobalt, `{CO}` carbon monoxide.
-- A coefficient (`{2 H2O}`) isn't one compound, so it's an error: multiply instead,
-  `2 * @chem.mm({H2O})`.
+- A coefficient, as in a balanced equation, multiplies the molar mass:
+  `@chem.mm({2 H2O})` is 36.030 g/mol, shown as M = 2(2M_H + M_O). It can be a
+  whole number or a fraction (`{1/2 O2}`), with or without a space, and it's exact.
 - A molar mass stays in g/mol when worked out from others (not 0.018015 kg/mol).
 
 **Display names:** a name can be shown as words instead, with a setting in quotes on

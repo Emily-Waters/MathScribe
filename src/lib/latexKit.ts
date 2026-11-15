@@ -5,7 +5,7 @@
  * export (latex.ts) being involved.
  */
 import { TITLE_SEGMENT, titleSegments } from './document.ts'
-import { symbolTex, unitTex } from './engine.ts'
+import { symbolTex, unitTex } from './engine/index.ts'
 import type { PlotData, PlotName } from './plot.ts'
 import type { LatexOptions } from './latex.ts'
 

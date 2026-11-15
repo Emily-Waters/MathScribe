@@ -11,7 +11,7 @@
  */
 import { StreamLanguage, foldService, foldedRanges, indentService, type StringStream } from '@codemirror/language'
 import { tags } from '@lezer/highlight'
-import { closesVector, isUnitName } from '../lib/engine.ts'
+import { closesVector, isUnitName } from '../lib/engine/index.ts'
 import { REACTION_LINE } from '../lib/chemistry.ts'
 import {
   BRANCH_START, CALL, COMMAND_NAMES, CONSTANT_TOKEN, DEF_START, FUNCTION_HEAD, GREEK_CHARS, IMPORT, INDENT_WIDTH, KEYWORD, NAME, NAME_CHAR,

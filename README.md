@@ -1564,13 +1564,16 @@ renamed, change it there too.
   centre and right, for the Document option and the Word export
 - `src/lib/storage.ts`: reading and writing the browser's storage safely;
   `src/useFlash.ts`: copying to the clipboard, and the brief "Copied" messages
-- `src/lib/engine.ts`: evaluation with scoped variables, unit-literal handling,
+- `src/lib/engine/`: evaluation with scoped variables, unit-literal handling,
   sig-fig tracking, uncertainty propagation, functions, tables, plots and
-  selections, LaTeX generation. Each variable is one record (`StoredVariable`:
-  value, sig figs, uncertainty, how it's shown) in a scope per `{ }` block or
-  function call; each scope keeps a series index, and selections and named plots
-  are lookups into the variables they pick (`Views`). mathjs sees just the values,
-  through `Values`.
+  selections, LaTeX generation. `index.ts` is all the rest of MathScribe imports;
+  `core/` is split by concern, one file each: the `Calculator` class
+  (`calculator.ts`), the mathjs instance (`math.ts`), scopes, unit literals,
+  vectors, uncertainty, series, tables, imported data, LaTeX, and species in
+  units. Each variable is one record (`StoredVariable`: value, sig figs,
+  uncertainty, how it's shown) in a scope per `{ }` block or function call; each
+  scope keeps a series index, and selections and named plots are lookups into the
+  variables they pick (`Views`). mathjs sees just the values, through `Values`.
 - `src/lib/csv.ts`: reading imported data (columns, units, uncertainty columns);
   `src/editor/dataBlocks.ts`, `dataBlockLines.ts`: an import's rows in the editor
   (row numbers, folding, the table look, moving and deleting them as one)

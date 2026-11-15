@@ -7,7 +7,7 @@
  * engine's rounding in engine.ts, the sheet language's words and patterns in
  * lib/syntax.ts.)
  */
-import type { CalcOptions } from './lib/engine.ts'
+import type { CalcOptions } from './lib/engine/index.ts'
 
 // ---------------------------------------------------------------------------
 // What the browser keeps (localStorage)

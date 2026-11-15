@@ -1,7 +1,7 @@
 /** Namespaces, `a.x_1`: slices (select), named imports and named plots. */
 import { describe, expect, it } from 'vitest'
 import { last, lines, sheet, value } from '../test/helpers.ts'
-import { symbolTex } from './engine.ts'
+import { symbolTex } from './engine/index.ts'
 import { collectSymbols } from './document.ts'
 import type { ImportBlock } from './blocks.ts'
 import { expandDots, parseMemberName, readableMembers } from './names.ts'

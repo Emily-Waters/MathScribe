@@ -7,7 +7,7 @@ import { EditorPane } from './components/EditorPane.tsx'
 import { PreviewPane } from './components/PreviewPane.tsx'
 import { SplitPane } from './components/SplitPane.tsx'
 import { collectDefinitions, collectDiagnostics, collectSymbols, evaluateSheetTimed } from './lib/document.ts'
-import type { CalcOptions } from './lib/engine.ts'
+import type { CalcOptions } from './lib/engine/index.ts'
 import {
   DEFAULT_SYNTAX_THEME, customPalette, loadCustomSyntax, loadSyntaxTheme, saveCustomSyntax, saveSyntaxTheme,
   type CustomSyntax, type SyntaxThemeId,

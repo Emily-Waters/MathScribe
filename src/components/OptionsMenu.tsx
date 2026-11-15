@@ -1,4 +1,4 @@
-import type { CalcOptions } from '../lib/engine.ts'
+import type { CalcOptions } from '../lib/engine/index.ts'
 import { Dropdown } from './Dropdown.tsx'
 
 interface OptionsMenuProps {

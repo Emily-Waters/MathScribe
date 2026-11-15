@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { EXAMPLE_CALC_OPTIONS } from '../config.ts'
 import { evaluateSheetSafely } from '../lib/document.ts'
-import { symbolTex } from '../lib/engine.ts'
+import { symbolTex } from '../lib/engine/index.ts'
 import { LIBRARY, searchLibrary, type LibraryEntry } from '../lib/library.ts'
 import { copyText, useFlash } from '../useFlash.ts'
 import { RenderedBlock, Tex } from './PreviewPane.tsx'

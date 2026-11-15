@@ -1,4 +1,4 @@
-import { Calculator, type CalcOptions, type FunctionLine, symbolTex, unexpectedError } from './engine.ts'
+import { Calculator, type CalcOptions, type FunctionLine, symbolTex, unexpectedError } from './engine/index.ts'
 import type { VariableSummary } from './values.ts'
 import {
   ASSIGNMENT, CONSTANT_DECLARATION, EXACT_SETTING, DEF, DEF_HEAD, FUNCTION_HEAD, IMPORT, LEADING_NAME, LINE_COMMANDS,

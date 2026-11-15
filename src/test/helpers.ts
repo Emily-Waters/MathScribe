@@ -5,7 +5,7 @@
  */
 import { evaluateSheet, type Sheet } from '../lib/document.ts'
 import { BLOCK_KIND, isContainer, type Block } from '../lib/blocks.ts'
-import type { CalcOptions } from '../lib/engine.ts'
+import type { CalcOptions } from '../lib/engine/index.ts'
 import type { PlotData } from '../lib/plot.ts'
 import { EXAMPLE_CALC_OPTIONS } from '../config.ts'
 

@@ -10,7 +10,7 @@ import {
 import { speciesEntryTex } from '../lib/constructs/blocks.ts'
 import { LAYOUT_STYLE, LINE_COMMAND } from '../lib/syntax.ts'
 import { loadLatexOptions, saveLatexOptions, toLatexDocument, type LatexOptions } from '../lib/latex.ts'
-import { symbolTex, unitTex, type CalcOptions } from '../lib/engine.ts'
+import { symbolTex, unitTex, type CalcOptions } from '../lib/engine/index.ts'
 import { THEME_PALETTE, plotSvg, type PlotData } from '../lib/plot.ts'
 import { ReferencePane } from './ReferencePane.tsx'
 import { OptionsMenu } from './OptionsMenu.tsx'

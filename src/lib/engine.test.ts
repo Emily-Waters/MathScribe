@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { last, lineAt, lines, readable, sheet, shown, value } from '../test/helpers.ts'
-import { bareTuple, expandVectors, symbolTex } from './engine.ts'
+import { bareTuple, expandVectors, symbolTex } from './engine/index.ts'
 
 describe('basic calculation', () => {
   it('substitutes values and tidies the unit', () => {

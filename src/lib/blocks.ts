@@ -9,7 +9,7 @@
  *   group, layout                     blocks holding others (ContainerBlock)
  *   function, constants, species, import   blocks spanning several lines (Spans)
  */
-import type { DataColumn, Definition, FunctionResult, TraceLine } from './engine.ts'
+import type { DataColumn, Definition, FunctionResult, TraceLine } from './engine/index.ts'
 import type { VariableSummary } from './values.ts'
 import type { LayoutStyle, LineCommand, Notation } from './syntax.ts'
 import type { SpeciesDisplay } from './chemistry.ts'

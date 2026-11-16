@@ -69,6 +69,16 @@ what's here better.
 - [ ] **Limiting reagent and yield**: which reactant runs out, theoretical and
       percent yield.
 - [ ] **Equilibrium and pH helpers**: ICE tables, pH/pOH, K from concentrations.
+- [ ] **A species as a value with members**: define one, `H2SO4 = @chem.something({H2SO4})`
+      (the member's name to be decided), then read data about it, `H2SO4.M`
+      (molar mass), and chain into its elements, `H2SO4.H.n` (mol of H per mol
+      of the substance: 2). Setting an amount, `H2SO4.n = 2 mol`, fills in what
+      follows from it: `H2SO4.m` (its mass), `H2SO4.H.n`, `H2SO4.H.m` (each
+      element's amount and mass in that much of it). Open: the name; whether
+      what's set is any one of n, m (or c with V) and the rest follow; how it
+      shows in the working (which member came from which); and how it sits with
+      `{X}` species units and reactions' members (`r.H2O`), which this could
+      grow from.
 
 ## 5. Editor
 
@@ -283,6 +293,24 @@ edit reads again only what it changed, and nodes are shared between trees.
       `def` lines are read this way; the lexer's rules are listed in
       `introspect()`. Next: 5b, the engine reading the tokens, so the modules'
       text-rewriting hooks go.
+      Progress (5b, the engine reads them): the engine writes an expression for
+      mathjs from its tokens (`core/writer.ts`), not by searching its text. Each
+      kind of part has a writer: the core's write a quantity as its value times
+      its unit, a unit after `to` as a unit, a number as typed (`lit("2.0")`);
+      a module's (`EngineModule.writers`) write its own kinds and are tried
+      first: vectors write `<…>`, chemistry a species, and a quantity of one.
+      What follows a unit as part of it is a lexer rule a module declares
+      (`ModuleGrammar.unitRules`: `2.0 mol {EDTA}` reads as one quantity). The
+      text-rewriting hooks are gone (`expandSyntax`, `readAfterUnit`,
+      `rewriteExpression`), with the text rewriters behind them. Checked by
+      running the old and new side by side over every test and edge case: they
+      agreed everywhere but one, a label in quotes, `"2 kg"`, which the old
+      wrongly rewrote. The sample sheet works out in the same time.
+      Left in text (for 5c): a species' name, `{dietzeite}`, read as its formula
+      before the line is read (it's the sheet's, so it can't be the lexer's);
+      collecting a line's numbers as typed for the working (`NUMBER_LITERAL`);
+      `(2.0 pm 0.1) kg` (which now copies the unit as the lexer reads it); and
+      the Calculator's own line patterns (assignments, unpacking, functions).
 
 ## Done
 

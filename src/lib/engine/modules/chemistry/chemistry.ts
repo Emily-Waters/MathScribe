@@ -34,9 +34,6 @@ export const FORMULA_IN_TEXT = /(?<![{_])\{([^{}]+)\}(?!\})/g
 /** A line that's a formula on its own, a reaction: `{OH^- + H3O^+ -> 2 H2O}` (1: the formula). */
 export const REACTION_LINE = /^\{(?!\{)([^{}]+)\}$/
 
-/** A species after a unit, `{EDTA}`, with any space before it (1: the formula). */
-export const SPECIES_AFTER_UNIT = /^[ \t]*\{([^{}]+)\}/
-
 /** A formula as LaTeX, drawn by mhchem: `Ca^2+` → \ce{Ca^2+}. */
 export const formulaTex = (formula: string) => `\\ce{${formula.trim()}}`
 

@@ -88,8 +88,25 @@ export function declareLexRules(owner: string, declared: readonly LexRule[]): vo
   rules.splice(at < 0 ? rules.length : at, 0, ...declared.map((rule) => ({ owner, rule })))
 }
 
-/** Every rule declared, with its owner, in the order they're tried (for the schema's listing). */
-export const declaredLexRules = () => rules.map(({ owner, rule }) => ({ owner, describes: rule.describes }))
+/**
+ * What can follow a unit as part of it, as a module reads it: chemistry's
+ * species, `2.0 mol {EDTA}` (mol of EDTA). Read into the quantity, after its unit.
+ */
+const unitRules: { owner: string; rule: LexRule }[] = []
+
+/** Declare rules for what can follow a unit as part of it (see unitRules). */
+export function declareUnitRules(owner: string, declared: readonly LexRule[]): void {
+  unitRules.push(...declared.map((rule) => ({ owner, rule })))
+}
+
+/** Every rule declared, with its owner, in the order they're tried (for the schema's listing); a unit's after the others. */
+export const declaredLexRules = () => [
+  ...rules.map(({ owner, rule }) => ({ owner, describes: rule.describes })),
+  ...unitRules.map(({ owner, rule }) => ({ owner, describes: `${AFTER_A_UNIT}${rule.describes}` })),
+]
+
+/** How a rule for what follows a unit is listed: `after a unit: a formula in braces…`. */
+const AFTER_A_UNIT = 'after a unit: '
 
 // ---------------------------------------------------------------------------
 // Reading
@@ -179,12 +196,38 @@ const spacesAt = (text: string, pos: number) => /^[ \t]*/.exec(text.slice(pos))!
  * a quantity, `5.00 g`, `<3.0, 4.0> N`. Otherwise the part as it is.
  */
 export function withUnit(part: Part, length: number, pos: number, state: LexState): Lexed {
-  const at = pos + length
-  const gap = spacesAt(state.text, at)
-  const unit = at + gap < state.end ? unitAt(state.text, at + gap) : 0
+  const unit = unitPartsAt(state.text, pos + length, state.end)
   if (!unit) return one(part, length)
-  const parts = [part, ...(gap ? [token(TOKEN_KIND.space, state.text.slice(at, at + gap))] : []), token(TOKEN_KIND.unit, state.text.slice(at + gap, at + gap + unit))]
-  return one(node(NODE_KIND.quantity, parts), length + gap + unit)
+  return one(node(NODE_KIND.quantity, [part, ...unit.parts]), length + unit.length)
+}
+
+/**
+ * A unit at a position (after spaces, if any), with what a module reads as part
+ * of it after it (unitRules: `mol {EDTA}`): its parts, and how much of the text
+ * they take. Undefined if there's no unit there.
+ */
+export function unitPartsAt(text: string, pos: number, end = text.length): Lexed | undefined {
+  const spaceAt = (at: number) => {
+    const n = spacesAt(text, at)
+    return n ? [token(TOKEN_KIND.space, text.slice(at, at + n))] : []
+  }
+  const gap = spaceAt(pos)
+  const start = pos + (gap[0]?.text.length ?? 0)
+  const unit = start < end ? unitAt(text, start) : 0
+  if (!unit) return undefined
+  const parts: Part[] = [...gap, token(TOKEN_KIND.unit, text.slice(start, start + unit))]
+  let at = start + unit
+  for (;;) {
+    const space = spaceAt(at)
+    const from = at + (space[0]?.text.length ?? 0)
+    const state: LexState = { text, end, prev: parts[parts.length - 1], lhs: false }
+    const span: ReadSpan = (s, e, callee, lhs = false) => readSpan(text, s, e, callee, lhs, span)
+    const read = from < end ? unitRules.map((r) => r.rule.read(from, state, span)).find((r) => r && r.length > 0) : undefined
+    if (!read) break
+    parts.push(...space, ...read.parts)
+    at = from + read.length
+  }
+  return { parts, length: at - pos }
 }
 
 /** A call: what's called, then its arguments in brackets, read as a call's (or undefined if its `(` isn't closed). */
@@ -278,15 +321,17 @@ const CORE_RULES: LexRule[] = [
   {
     describes: 'a word: a keyword (to, mod, pm, return, …), a unit after `to` or a name’s `:`, a call (f(x)), or a symbol',
     read: (pos, state, span) => {
-      const word = sticky(NAME_AT, state.text, pos)
-      if (!word || (pos > 0 && new RegExp(NAME_CHAR).test(state.text[pos - 1]))) return undefined
+      if (pos > 0 && new RegExp(NAME_CHAR).test(state.text[pos - 1])) return undefined
       // A unit: after `to` (a conversion), or a setting on the name being assigned (`phi:3:deg = …`).
+      // (Before the name: a unit can start with a micro sign, `to µm`, which a name can't.)
       const afterTo = isTokenOf(state.prev, TOKEN_KIND.keyword, KEYWORD.to)
       const setting = state.lhs && isTokenOf(state.prev, TOKEN_KIND.delimiter, ':')
       if (afterTo || setting) {
         const unit = unitAt(state.text, pos)
         if (unit) return one(token(TOKEN_KIND.unit, state.text.slice(pos, pos + unit)), unit)
       }
+      const word = sticky(NAME_AT, state.text, pos)
+      if (!word) return undefined
       if (KEYWORDS.has(word) && isWordEnd(state.text, pos + word.length)) return one(token(TOKEN_KIND.keyword, word), word.length)
       const symbol = token(TOKEN_KIND.symbol, word)
       return call(symbol, pos, state, span) ?? one(symbol, word.length)

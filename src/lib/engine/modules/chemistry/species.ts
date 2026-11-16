@@ -1,12 +1,10 @@
 /** Species in units: giving a value its species, taking them off, and the strict rules. */
 import { isConstantNode, type FunctionNode, type MathNode, type MathType, type Unit } from 'mathjs'
 import { isNamespaceConstant, type BuiltinConstant, type NamespaceConstant } from '../../../constants.ts'
-import { GREEK_CHARS } from '../../../syntax.ts'
 import { BASE_DIMENSION, FN, UNIT } from '../../../mathjsNames.ts'
 import { math } from '../../core/math.ts'
 import { isUnitCall, unitCallText } from '../../core/tex.ts'
 import { SPECIES_KINDS, SpeciesError, isSpeciesUnit, speciesOf, speciesPowers, speciesUnit, type SpeciesKind } from './chemistry.ts'
-import { SPECIES_FUNCTION } from './syntax.ts'
 
 /** A species' unit of a kind (see chemistry.ts), made in mathjs the first time it's used. */
 export function speciesUnitName(formula: string, kind: SpeciesKind): string {
@@ -151,40 +149,6 @@ export function withoutSpecies(x: MathType): MathType {
   // (A species unit has no prefix and a factor of 1, so the value in the rest of the units is the same.)
   const value = u.toNumber()
   return rest ? math.unit(value, rest) : value
-}
-
-/** A species after something that isn't a unit (after a unit, readUnit takes it): `{H2O}` (1: the formula). */
-export const SPECIES_AFTER_VALUE = /(?<!\{)\{([^{}]+)\}(?!\})/
-
-/** A character that can end a name or a number, which a species can follow. */
-export const ENDS_OPERAND = new RegExp(String.raw`[\w.${GREEK_CHARS}]`)
-
-/**
- * `{X}` after a bracket, a call, a name or a number, as a call that gives what's
- * before it its species: `(18.02 g / 1 mol) {H2O}` → of((18.02 g / 1 mol), "H2O"),
- * `n_1 {H2O}` → of(n_1, "H2O"). (After a unit, readUnit has already taken it.)
- */
-export function expandSpeciesAfterValues(src: string): string {
-  for (let m = SPECIES_AFTER_VALUE.exec(src); m; m = SPECIES_AFTER_VALUE.exec(src)) {
-    const at = m.index
-    let end = at
-    while (end > 0 && /\s/.test(src[end - 1])) end--
-    let start = end
-    if (src[end - 1] === ')') {
-      // Back to the matching bracket, and the name of the function it calls, if it does.
-      let depth = 0
-      for (start = end - 1; start >= 0; start--) {
-        if (src[start] === ')') depth++
-        else if (src[start] === '(' && --depth === 0) break
-      }
-      if (start < 0) return src
-    }
-    while (start > 0 && ENDS_OPERAND.test(src[start - 1])) start--
-    // Nothing before it to give a species to: left for mathjs to explain.
-    if (start === end) return src
-    src = `${src.slice(0, start)}${SPECIES_FUNCTION.shown}(${src.slice(start, end)}, "${m[1]}")${src.slice(at + m[0].length)}`
-  }
-  return src
 }
 
 /** The amount `1 mol` is exact when written as a whole one: per one mole, as in a molar mass (18.02 g / 1 mol). */

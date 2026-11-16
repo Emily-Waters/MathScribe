@@ -15,8 +15,8 @@ import {
 import { SIDE, needsBrackets } from '../../core/products.ts'
 import { attachUnit } from '../../core/tex.ts'
 import { componentsOf } from './components.ts'
-import { VECTOR_GRAMMAR } from './grammar.ts'
-import { expandVectors, hasVector } from './literals.ts'
+import { VECTOR_GRAMMAR, VECTOR_WRITERS, hasVector } from './grammar.ts'
+import type { PartWriter } from '../../core/writer.ts'
 import {
   COMPONENTS_SETTING, UNIT_VECTOR_SETTING, UNIT_VECTOR_TEX, VECTOR_BRACKETS, VECTOR_CALL, VECTOR_FUNCTION, VECTOR_LOOK, VECTOR_LOOKS,
   VECTOR_PRODUCTS, VECTOR_SETTINGS, type VectorLook,
@@ -61,9 +61,9 @@ export class VectorModule extends EngineModule {
     return [new VectorFunction()]
   }
 
-  /** `<3.0, 4.0> N` → `(VECTOR_FUNCTION(3.0, 4.0) * N)`. */
-  override expandSyntax(src: string): string {
-    return expandVectors(src)
+  /** `<3.0, 4.0>` → `VECTOR_FUNCTION(3.0, 4.0)` (with a unit, it's in a quantity: the core writes that). */
+  override writers(): Readonly<Record<string, PartWriter>> {
+    return VECTOR_WRITERS
   }
 
   override bareTupleHint(bare: string): string {

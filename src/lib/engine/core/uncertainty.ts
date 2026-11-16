@@ -10,7 +10,8 @@
  * (Each delta F, @c and solved unknown is held in a hidden variable: see names.ts.)
  */
 import { NAME, KEYWORD, UNCERTAINTY_WORDS } from '../../syntax.ts'
-import { readUnit, PM_WORD, NAME_CHAR_RE } from './literals.ts'
+import { PM_WORD, NAME_CHAR_RE } from './literals.ts'
+import { unitPartsAt } from '../../tree/lexer.ts'
 
 /** A value in text with settings on its name: `V:4 to mL` (1: the name, 2: the settings, 3: the rest). */
 export const NAME_THEN_SETTINGS = new RegExp(String.raw`^(${NAME})((?::[^:\s]+)+)(.*)$`)
@@ -21,15 +22,16 @@ export const DELTA_REF = new RegExp(String.raw`\b(${UNCERTAINTY_WORDS.join('|')}
 /** `(2.0 pm 0.1)`: a bracketed value with its uncertainty (1: value, 2: uncertainty, 3: `%` if relative). */
 export const PAREN_PM = new RegExp(String.raw`\(\s*([-+]?[\d.]+(?:[eE][+-]?\d+)?)\s*(?:${KEYWORD.pm}\b|±|\+-)\s*([\d.]+(?:[eE][+-]?\d+)?)(%?)\s*\)`, 'g')
 
-/** `(2.0 pm 0.1) kg` → `2.0 kg pm 0.1 kg` */
+/** `(2.0 pm 0.1) kg` → `2.0 kg pm 0.1 kg` (the unit as typed, with what's part of it: `mol {EDTA}`). */
 export function expandParenPm(src: string): string {
   let out = ''
   let last = 0
   for (const m of src.matchAll(PAREN_PM)) {
-    const unit = readUnit(src, m.index + m[0].length)
-    const u = unit ? ` ${unit.text}` : ''
+    const after = m.index + m[0].length
+    const unit = unitPartsAt(src, after)
+    const u = unit ? ` ${src.slice(after, after + unit.length).trim()}` : ''
     out += `${src.slice(last, m.index)}${m[1]}${u} pm ${m[2]}${m[3] ? '%' : u}`
-    last = unit ? unit.end : m.index + m[0].length
+    last = after + (unit?.length ?? 0)
   }
   return out + src.slice(last)
 }

@@ -1,9 +1,7 @@
 /** Unit literals (`9.81 m/s^2` as a number times a unit) and numbers kept as typed. */
-import { CALL, NAME, NAME_CHAR, NUMBER, KEYWORD, SIGIL } from '../../syntax.ts'
-import { FN, MATHJS_IN } from '../../mathjsNames.ts'
+import { NAME, NAME_CHAR, NUMBER, KEYWORD } from '../../syntax.ts'
+import { MATHJS_IN } from '../../mathjsNames.ts'
 import { math } from './math.ts'
-import { bareTupleHints, expandModuleSyntax, readAfterUnit, rewriteExpression } from './module.ts'
-import { bareTuple } from './tuples.ts'
 import { DERIVED_UNITS } from './normalise.ts'
 import { MESSAGE_DIGITS } from './numbers.ts'
 
@@ -13,21 +11,13 @@ export const BUILTIN_CONSTANT_NAMES = new Set([
   'LN2', 'LN10', 'LOG2E', 'LOG10E', 'SQRT1_2', 'SQRT2', 'true', 'false', 'null',
 ])
 
-/** Wrap numbers whose text isn't their plain value in lit("…"); leaves quoted strings alone. */
-export function markLiterals(src: string): string {
-  return src
-    .split(/("[^"]*")/)
-    .map((part, i) => (i % 2 ? part : part.replace(NUMBER_LITERAL, (m) => (String(Number(m)) === m ? m : `${FN.literal}("${m}")`))))
-    .join('')
-}
-
 // ---------------------------------------------------------------------------
 // Unit literals
 //
 // mathjs resolves a symbol from the scope before treating it as a unit, so after
 // `m = 2 kg`, the text `9.81 m/s^2` would multiply by the mass. To keep plain
 // text natural, a unit written directly after a number is always a unit:
-// `9.81 m/s^2` is rewritten to `(9.81 * unit("m/s^2"))` before parsing.
+// `9.81 m/s^2` is written `(9.81 * unit("m/s^2"))` for mathjs (writer.ts).
 // A compound unit has no spaces (`kg*m/s^2`); a space ends it, so `5 kg * m`
 // multiplies by a variable m.
 // ---------------------------------------------------------------------------
@@ -120,8 +110,7 @@ export function readUnit(src: string, pos: number): { text: string; end: number 
     end = NEXT_UNIT.lastIndex
     readPower()
   }
-  // Anything after it that a module reads as part of it: a species, `mol {EDTA}`.
-  return readAfterUnit(src, { text, end })
+  return { text, end }
 }
 
 /** Every number in a line, but not digits inside a name (`v_0`) or after a point. */
@@ -134,55 +123,5 @@ export const MORE_TERMS = new RegExp(String.raw`^[ \t]+(?!(?:${KEYWORD.to}|${MAT
 export const PM_WORD = new RegExp(`^${KEYWORD.pm}(?!${NAME_CHAR})`)
 /** A character that can be part of a name. */
 export const NAME_CHAR_RE = new RegExp(NAME_CHAR)
-/** `to` before a unit. */
-export const CONVERSION = new RegExp(String.raw`\b${KEYWORD.to}\s+`, 'g')
 /** A conversion that's all that's left of a line: `to cm` (1: the unit). */
 export const CONVERSION_TAIL = new RegExp(String.raw`^${KEYWORD.to}\s+(.+)$`)
-
-/**
- * Rewrite unit literals into explicit mathjs unit() calls. Also reports the
- * likely mistake of a lone unit that is also a variable name, followed by more
- * terms: in `1/2 m v^2`, m is read as metres.
- */
-export function preprocess(src: string, isVariable: (id: string) => boolean): { text: string; shadowed: string[] } {
-  const shadowed = new Set<string>()
-  const bare = bareTuple(src)
-  if (bare) {
-    // (A module may have a way to write it: a vector, <a, b>.)
-    const hints = bareTupleHints(bare)
-    const written = `${SIGIL}${CALL.tuple}${bare}`
-    const tuple = hints.length ? `for other coordinates, ${written}` : `write ${written}`
-    throw new Error(`A bracketed list with commas, ${bare}, isn't a value: ${[...hints, tuple].join('; ')}.`)
-  }
-  // A module's own syntax, read before unit literals: `<3.0, 4.0> N`.
-  src = expandModuleSyntax(src)
-
-  // `... to kN`: the conversion target is always a unit.
-  let out = ''
-  let last = 0
-  for (const m of src.matchAll(CONVERSION)) {
-    if (m.index < last) continue
-    const unit = readUnit(src, m.index + m[0].length)
-    if (!unit) continue
-    out += `${src.slice(last, m.index)}to ${FN.unit}("${unit.text}")`
-    last = unit.end
-  }
-  src = out + src.slice(last)
-
-  // `9.81 m/s^2` → `(9.81 * unit("m/s^2"))`
-  out = ''
-  last = 0
-  for (const m of src.matchAll(NUMBER_LITERAL)) {
-    if (m.index < last) continue
-    const unit = readUnit(src, m.index + m[0].length)
-    if (!unit) continue
-    // (`0.25 m to kPa` is a conversion, not another term.)
-    if (/^[A-Za-z]+$/.test(unit.text) && isVariable(unit.text)
-      && MORE_TERMS.test(src.slice(unit.end))) {
-      shadowed.add(unit.text)
-    }
-    out += `${src.slice(last, m.index)}(${m[0]} * ${FN.unit}("${unit.text}"))`
-    last = unit.end
-  }
-  return { text: markLiterals(rewriteExpression(out + src.slice(last))), shadowed: [...shadowed] }
-}

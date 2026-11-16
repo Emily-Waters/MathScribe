@@ -4,17 +4,19 @@
  * What it does is in chemistry.ts and species.ts; this is where the engine
  * meets it, through EngineModule's hooks.
  */
-import { isConstantNode, isSymbolNode, type FunctionNode, type MathNode, type MathType, type Unit } from 'mathjs'
+import { isConstantNode, isSymbolNode, type FunctionNode, type MathNode, type MathType } from 'mathjs'
 import type { Member } from '../../../builtins.ts'
 import type { BuiltinConstant, NamespaceConstant } from '../../../constants.ts'
 
 import { math } from '../../core/math.ts'
-import { EngineModule, type LineForm, type ModuleGrammar, type ReadUnit } from '../../core/module.ts'
+import { EngineModule, type LineForm, type ModuleGrammar } from '../../core/module.ts'
+import type { PartWriter } from '../../core/writer.ts'
+import { CHEM_WRITERS } from './writers.ts'
 
 import { isLitCall } from '../../core/tex.ts'
 import { unwrap } from '../../core/nodes.ts'
-import { SPECIES_AFTER_UNIT, SpeciesNames, formulaTex, isFormulaSubscript, isSpeciesUnit, readableSpecies, setSpeciesNames, showSpeciesOnLine, speciesOf, speciesTex, withFormulas } from './chemistry.ts'
-import { SPECIES_RATIO_UNIT, expandSpeciesAfterValues, isOneMole, isSpeciesCount, speciesOfConstant, speciesProblem, speciesUnits, withSpecies, withoutSpecies, withoutSpeciesUnits } from './species.ts'
+import { SpeciesNames, formulaTex, isFormulaSubscript, isSpeciesUnit, readableSpecies, setSpeciesNames, showSpeciesOnLine, speciesOf, speciesTex, withFormulas } from './chemistry.ts'
+import { SPECIES_RATIO_UNIT, isOneMole, isSpeciesCount, speciesOfConstant, speciesProblem, withSpecies, withoutSpecies, withoutSpeciesUnits } from './species.ts'
 import { chemNamespace } from './namespace.ts'
 import { CHEM_GRAMMAR } from './grammar.ts'
 import { ReactionForm } from './reaction.ts'
@@ -72,20 +74,9 @@ export class ChemistryModule extends EngineModule implements ReadsLines {
     return alone ? `\\mathrm{${SPECIES_RATIO_UNIT[species.kind]}}\\,${speciesTex(species.formula)}` : speciesTex(species.formula)
   }
 
-  /** The species after a unit: `mol {EDTA}` (an amount), `g {NaOH}` (a mass), `g/mol {H2O}` (a molar mass). */
-  override readAfterUnit(src: string, unit: ReadUnit): ReadUnit | undefined {
-    const species = SPECIES_AFTER_UNIT.exec(src.slice(unit.end))
-    if (!species) return undefined
-    // Each species beside the unit it qualifies, as mathjs writes them: (g H2O) / (mol H2O).
-    const u = math.unit(1, unit.text)
-    return {
-      text: (math.multiply(u, math.unit(1, speciesUnits(u.dimensions, species[1]))) as Unit).formatUnits(),
-      end: unit.end + species[0].length,
-    }
-  }
-
-  override rewriteExpression(src: string): string {
-    return expandSpeciesAfterValues(src)
+  /** A species after a unit (`mol {EDTA}`, an amount; `g/mol {H2O}`, a molar mass) or a value (`n_1 {H2O}`): writers.ts. */
+  override writers(): Readonly<Record<string, PartWriter>> {
+    return CHEM_WRITERS
   }
 
   /** Giving or taking a species isn't written, only what it's given to. */

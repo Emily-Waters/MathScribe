@@ -18,7 +18,8 @@ import type { Values } from './scope.ts'
 import { BUILTINS, type Member } from '../../builtins.ts'
 import { declareNodeKinds, declareTokenKinds } from '../../tree/registry.ts'
 import { declareContexts, declareLineSyntaxes, type ContextInfo, type LineSyntax } from '../../tree/grammar.ts'
-import { declareLexRules, type LexRule } from '../../tree/lexer.ts'
+import { declareLexRules, declareUnitRules, type LexRule } from '../../tree/lexer.ts'
+import type { PartWriter } from './writer.ts'
 import type { BuiltinConstant, NamespaceConstant } from '../../constants.ts'
 import type { Contributions, Variable, VariableFields } from '../../values.ts'
 import type { DisplayMode, Notation, Precision } from '../../syntax.ts'
@@ -147,12 +148,6 @@ export abstract class LineForm {
   abstract evaluate(line: FormLine, host: ModuleHost): LineResult | undefined
 }
 
-/** A unit literal read so far: the unit as mathjs reads it, and where the text after it starts. */
-export interface ReadUnit {
-  text: string
-  end: number
-}
-
 /**
  * How a tuple is shown, if not as a plain one, (3.0, 4.0) m: a look a module
  * gives it (a vector, ⟨3.0, 4.0⟩ m). The core keeps a tuple's look with it, through
@@ -185,6 +180,8 @@ export interface ModuleGrammar {
   readonly syntaxes?: readonly LineSyntax[]
   /** Its rules for reading expressions (lexer.ts): `<3.0, 4.0>` as a vector, `{H2O}` as a species. */
   readonly lexRules?: readonly LexRule[]
+  /** Its rules for what can follow a unit as part of it (lexer.ts): `mol {EDTA}`, a species. */
+  readonly unitRules?: readonly LexRule[]
 }
 
 /** A kind of module: its class, by which another module says it needs it. */
@@ -231,19 +228,14 @@ export abstract class EngineModule {
     return undefined
   }
 
-  /** What follows a unit literal that's part of it (`2.0 mol {EDTA}`): the unit with it, and where the text after it starts. */
-  readAfterUnit(_src: string, _unit: ReadUnit): ReadUnit | undefined {
-    return undefined
-  }
-
-  /** An expression's text, rewritten before its unit literals are read (`<3.0, 4.0> N` → @vector(3.0, 4.0) * N). */
-  expandSyntax(src: string): string {
-    return src
-  }
-
-  /** An expression's text, rewritten before mathjs reads it (unit literals are already read). */
-  rewriteExpression(src: string): string {
-    return src
+  /**
+   * How it writes parts of an expression as mathjs reads them (writer.ts), by
+   * kind of part: its own kinds (a vector, `<3.0, 4.0>` → VECTOR_FUNCTION(3.0, 4.0)),
+   * and the core's where it has an exception (a quantity of a species). Tried
+   * before the core's; a writer that returns undefined leaves the part to the next.
+   */
+  writers(): Readonly<Record<string, PartWriter>> {
+    return {}
   }
 
   /** How to write a bracketed list with commas, `(a, b)` (which isn't a value), as this module's: `for a vector, write <a, b>`. */
@@ -417,7 +409,9 @@ export function installModule(module: EngineModule): void {
     declareContexts(grammar.contexts ?? [])
     declareLineSyntaxes(kind.name, grammar.syntaxes ?? [])
     declareLexRules(kind.name, grammar.lexRules ?? [])
+    declareUnitRules(kind.name, grammar.unitRules ?? [])
   }
+  writersByKind = undefined
 }
 
 const shared = (): EngineModule[] => [...installed.values()]
@@ -427,15 +421,19 @@ export const isLabelUnit = (unitName: string) => shared().some((m) => m.isLabelU
 export const labelUnitTex = (unitName: string, alone: boolean) =>
   shared().map((m) => m.labelUnitTex(unitName, alone)).find((tex) => tex !== undefined)
 
-export function readAfterUnit(src: string, unit: ReadUnit): ReadUnit {
-  for (const m of shared()) {
-    const more = m.readAfterUnit(src, unit)
-    if (more) return more
-  }
-  return unit
-}
+/** The modules' writers, by kind of part (made when first asked for, and again after a module's installed). */
+let writersByKind: Map<string, PartWriter[]> | undefined
 
-export const rewriteExpression = (src: string) => shared().reduce((text, m) => m.rewriteExpression(text), src)
+/** The installed modules' writers for a kind of part, in the order they're tried. */
+export function moduleWriters(kind: string): readonly PartWriter[] {
+  if (!writersByKind) {
+    writersByKind = new Map()
+    for (const m of shared()) {
+      for (const [k, writer] of Object.entries(m.writers())) writersByKind.set(k, [...(writersByKind.get(k) ?? []), writer])
+    }
+  }
+  return writersByKind.get(kind) ?? []
+}
 
 export const isUnwrittenFunction = (name: string) => shared().some((m) => m.unwrittenFunctions.includes(name))
 
@@ -449,8 +447,6 @@ export const moduleReadableMessage = (message: string) => shared().reduce((s, m)
 export const unitMismatchNotes = () => shared().map((m) => m.unitMismatchNote).filter((n) => n !== undefined)
 
 export const isModuleLineSetting = (setting: string) => shared().some((m) => m.lineSettings.includes(setting))
-
-export const expandModuleSyntax = (src: string) => shared().reduce((text, m) => m.expandSyntax(text), src)
 
 export const bareTupleHints = (bare: string) => shared().map((m) => m.bareTupleHint(bare)).filter((h) => h !== undefined)
 

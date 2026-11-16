@@ -1449,7 +1449,11 @@ renamed, change it there too.
   `core/` is split by concern, one file each: the `Calculator` class
   (`calculator.ts`), the mathjs instance (`math.ts`), scopes, unit literals,
   tuples (and the look a module gives one: `TupleLook`), uncertainty, series,
-  imported data and LaTeX.
+  imported data and LaTeX. `writer.ts` writes an expression for mathjs from
+  its tokens (`src/lib/tree/lexer.ts`), one writer per kind of part: the
+  core's (a quantity, `(9.81 * unit("m/s^2"))`; a unit after `to`; a number
+  kept as typed), and a module's (`EngineModule.writers`: a vector, a species),
+  tried first.
   `modules/` extends the core: each module is an `EngineModule` subclass
   (`core/module.ts`) overriding the hooks it needs, where an exception to the
   core's rules comes from; a module works through the `ModuleHost` the core
@@ -1477,7 +1481,9 @@ renamed, change it there too.
   line patterns (`@chem.species`, reactions); `elements.ts`: the elements
   and their atomic weights; `reaction.ts`: `r = @chem.reaction(…)` as a line
   form; `readers.ts`: its lines of a sheet (`@chem.species { }`, a reaction on
-  its own); `module.ts`: `ChemistryModule`, where the engine's hooks meet them.
+  its own); `grammar.ts`: its kinds of line and token (a species, after a
+  unit or a value); `writers.ts`: writing a species for mathjs; `module.ts`:
+  `ChemistryModule`, where the engine's hooks meet them.
   `src/lib/katex.ts`: KaTeX with mhchem, which everything that draws maths imports
 - `src/lib/engine/modules/series/`: the series module: `@table(…)`, `@plot(…)`
   and `@select(…)` as line forms (`table.ts`, `plot.ts`, `select.ts`), and the
@@ -1488,7 +1494,8 @@ renamed, change it there too.
   algebra they use (isolating an unknown, polynomials)
 - `src/lib/engine/modules/vectors/`: the vectors module: a vector is a tuple
   with a look of its own. `syntax.ts`: `<…>`, `@vector(…)`, `:ijk` and `:xyz`;
-  `literals.ts`: reading `<3.0, 4.0> N`; `components.ts`: F_x, F_y from `F:xyz`;
+  `literals.ts`: where `<…>` is a vector; `grammar.ts`: reading `<3.0, 4.0> N`
+  into the tree, and writing it for mathjs; `components.ts`: F_x, F_y from `F:xyz`;
   `module.ts`: `VectorModule`, how vectors are drawn (⟨…⟩, î ĵ k̂) and dot and
   cross products
 - `src/components/ErrorBoundary.tsx`: keeps a failure drawing the output from

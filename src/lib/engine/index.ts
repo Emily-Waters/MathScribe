@@ -16,11 +16,11 @@ export {
   type CalcOptions, type CalcResult, type DataColumn, type Definition, type FunctionLine, type FunctionResult, type LineNotation,
   type TraceLine,
 } from './core/results.ts'
-export { describeUnit, isUnitName, preprocess, unitNames, withMicroPrefix } from './core/literals.ts'
+export { describeUnit, isUnitName, unitNames, withMicroPrefix } from './core/literals.ts'
+export { preprocess } from './core/writer.ts'
 export { numberTex, symbolTex, unitTex } from './core/tex.ts'
 export { outsideMaths, wordsTex } from './core/text.ts'
 export { bareTuple } from './core/tuples.ts'
-export { closesVector, expandVectors } from './modules/vectors/literals.ts'
 export { expandNamespaceCalls } from './core/builtinCalls.ts'
 export { EngineModule, LineForm, markupText, moduleSubscriptTex, type ModuleHost } from './core/module.ts'
 export { ChemistryModule, SeriesModule, SolveModule, VectorModule }

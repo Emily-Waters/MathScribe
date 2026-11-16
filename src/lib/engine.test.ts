@@ -5,8 +5,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { last, lineAt, lines, readable, sheet, shown, value } from '../test/helpers.ts'
-import { bareTuple, expandVectors, symbolTex } from './engine/index.ts'
-import { VECTOR_FUNCTION } from './engine/modules/vectors/syntax.ts'
+import { bareTuple, symbolTex } from './engine/index.ts'
 
 describe('basic calculation', () => {
   it('substitutes values and tidies the unit', () => {
@@ -472,21 +471,6 @@ describe('#sci and #dec', () => {
 
   it('aren’t taken into the note', () => {
     expect(last('x = 2.0   #sci   # a note').tex).toBe('x = 2.0')
-  })
-})
-
-describe('expandVectors', () => {
-  it('reads <…> as a vector where a value can start, with any unit after it', () => {
-    // (As a call to the function vectors are made with, as mathjs holds it: VECTOR_FUNCTION.)
-    const v = VECTOR_FUNCTION
-    expect(expandVectors('F = <3.0, 4.0> N')).toBe(`F = (${v}(3.0, 4.0) * unit("N"))`)
-    expect(expandVectors('c = cross(<1, 0, 0>, <0, 1, 0>)')).toBe(`c = cross(${v}(1, 0, 0), ${v}(0, 1, 0))`)
-    expect(expandVectors('r = <max(1, 2), <1, 2>>')).toBe(`r = ${v}(max(1, 2), ${v}(1, 2))`)
-  })
-
-  it('leaves comparisons alone', () => {
-    expect(expandVectors('q = a < b')).toBe('q = a < b')
-    expect(expandVectors('q = (a < b) and (c > d)')).toBe('q = (a < b) and (c > d)')
   })
 })
 

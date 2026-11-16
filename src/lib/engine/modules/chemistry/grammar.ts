@@ -55,6 +55,8 @@ export const CHEM_GRAMMAR: ModuleGrammar = {
   tokenKinds: { [CHEM_TOKEN.species]: 'A formula in braces in an expression: the species a value is of (5.00 g {H2O}), or a compound (@chem.mm({H2O}))' } satisfies Record<(typeof CHEM_TOKEN)[keyof typeof CHEM_TOKEN], string>,
   contexts: [{ name: SPECIES_CONTEXT, lineKind: CHEM_NODE.speciesEntry, content: CONTENT.noted }],
   lexRules: [SPECIES_RULE],
+  // (After a unit, a species is part of it: `2.0 mol {EDTA}`, mol of EDTA.)
+  unitRules: [SPECIES_RULE],
   syntaxes: [
     { kind: CHEM_NODE.speciesLine, contexts: [LINE_CONTEXT.sheet], content: CONTENT.noted, matches: (_, split) => SPECIES_LINE.test(split().body) },
     {

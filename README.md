@@ -1588,7 +1588,8 @@ renamed, change it there too.
 - `src/lib/engine/modules/chemistry/`: the chemistry module. `chemistry.ts`:
   formulas in braces, species as units, reading a formula's atoms for `@chem.mm`,
   reactions and species names; `species.ts`: giving values their species and the
-  strict rules; `namespace.ts`: its `@chem` members; `elements.ts`: the elements
+  strict rules; `namespace.ts`: its `@chem` members; `syntax.ts`: its names and
+  line patterns (`@chem.species`, reactions); `elements.ts`: the elements
   and their atomic weights; `module.ts`: `ChemistryModule`, where the engine's
   hooks meet them. `src/lib/katex.ts`: KaTeX with mhchem, which everything that
   draws maths imports

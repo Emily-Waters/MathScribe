@@ -7,8 +7,7 @@
 import { isConstantNode, isSymbolNode, type FunctionNode, type MathNode, type MathType, type Unit } from 'mathjs'
 import type { Namespace } from '../../../builtins.ts'
 import type { BuiltinConstant, NamespaceConstant } from '../../../constants.ts'
-import { REACTION_DEFINITION } from '../../../syntax.ts'
-import { ANY_SPECIES_FUNCTION, SPECIES_FUNCTION, memberName } from '../../../names.ts'
+import { memberName } from '../../../names.ts'
 import { UNIT } from '../../../mathjsNames.ts'
 import { EXACT } from '../../../sigfigs.ts'
 import { math } from '../../core/math.ts'
@@ -17,15 +16,18 @@ import type { LineResult } from '../../core/results.ts'
 import { isLitCall, symbolTex } from '../../core/tex.ts'
 import { unwrap } from '../../core/nodes.ts'
 import {
-  SPECIES_AFTER_UNIT, SPECIES_DISPLAYS, SPECIES_KIND, SpeciesNames, formulaTex, isFormulaSubscript, isSpeciesUnit,
+  SPECIES_AFTER_UNIT, SPECIES_KIND, SpeciesNames, formulaTex, isFormulaSubscript, isSpeciesUnit,
   parseReaction, reactionImbalance, reactionMemberName, readableSpecies, setSpeciesNames, showSpeciesOnLine, speciesOf,
-  speciesTex, withFormulas, type ReactionTerm, type SpeciesDisplay,
+  speciesTex, withFormulas, type ReactionTerm,
 } from './chemistry.ts'
 import {
   SPECIES_RATIO_UNIT, expandSpeciesAfterValues, isOneMole, isSpeciesCount, speciesOfConstant, speciesProblem,
   speciesUnitName, speciesUnits, withSpecies, withoutSpecies, withoutSpeciesUnits,
 } from './species.ts'
 import { chemNamespace } from './namespace.ts'
+import {
+  ANY_SPECIES_FUNCTION, REACTION_DEFINITION, SPECIES_DISPLAYS, SPECIES_FUNCTION, type SpeciesDisplay,
+} from './syntax.ts'
 
 /** Whether a setting on an assigned name says how its line's named species are shown (`m:formula`). */
 const isSpeciesDisplay = (setting: string): setting is SpeciesDisplay => (SPECIES_DISPLAYS as readonly string[]).includes(setting)

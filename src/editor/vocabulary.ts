@@ -8,7 +8,7 @@ import {
   CALL, COMMAND_NAMES, COMPONENTS_SETTING, EXACT_SETTING, KEYWORD, NOTATIONS, PERCENT, UNCERTAINTY_WORDS, UNIT_VECTOR_SETTING,
   VECTOR_FUNCTION, type CommandName, type Notation, type SeriesSuffix,
 } from '../lib/syntax.ts'
-import { SPECIES_DISPLAY } from '../lib/engine/modules/chemistry/chemistry.ts'
+import { SPECIES_DISPLAY } from '../lib/engine/modules/chemistry/syntax.ts'
 
 /** What each display command does. */
 const COMMAND_DESCRIPTIONS: Record<CommandName, string> = {

@@ -6,14 +6,16 @@ import {
   BLOCK_CLOSE, BLOCK_OPEN, CONSTANTS_BLOCK, CONSTANTS_OPENER, LAYOUT_OPENER, LINE_LAYOUTS, PROSE_LAYOUTS, SIGIL, layoutOpenerText,
   DISPLAY_MODES, LAYOUT_MEMBERS, LAYOUT_MODIFIER, LAYOUT_MODIFIERS, LAYOUT_STYLES, MEMBER_DOT, NAMESPACE, layoutMembers, layoutName,
   LATEX_BLOCK, LATEX_OPENER, TEXT_SUBSCRIPT, closesLatex, commandPattern, indentOf, isComment, subscriptOf, unescapeUnderscores,
-  SPECIES_BLOCK, SPECIES_ENTRY, SPECIES_LINE, SPECIES_OPENER,
   type DisplayMode, type LayoutModifier, type LayoutStyle, type LineLayout, type Notation,
 } from './syntax.ts'
 import { constantKey } from './names.ts'
 import { parseCsv, type CsvData } from './csv.ts'
 import {
-  REACTION_LINE, SPECIES_DISPLAY, formulaTex, isFormulaSubscript, setSpeciesNames, withFormulas, type SpeciesDisplay,
+  REACTION_LINE, formulaTex, isFormulaSubscript, setSpeciesNames, withFormulas,
 } from './engine/modules/chemistry/chemistry.ts'
+import {
+  CHEM_NAMESPACE, SPECIES_BLOCK, SPECIES_DISPLAY, SPECIES_ENTRY, SPECIES_LINE, SPECIES_OPENER, type SpeciesDisplay,
+} from './engine/modules/chemistry/syntax.ts'
 import {
   BLOCK_KIND, isContainer, type Block, type BlockSettings, type Command, type ConstantsBlock, type GroupBlock, type ImportBlock,
   type LayoutBlock, type SpeciesBlock, type SpeciesEntry,
@@ -307,14 +309,14 @@ export function evaluateSheet(source: string, options: CalcOptions): Sheet {
       const m = SPECIES_ENTRY.exec(splitNote(text).body)
       entries.push(m
         ? nameSpecies(j + 1, text, m[1], m[2], m[3])
-        : { line: j + 1, name: splitNote(text).body, formula: '', display: SPECIES_DISPLAY.name, error: `Inside ${SIGIL}${NAMESPACE.chem}.${SPECIES_BLOCK}, each line names a species: dietzeite = {7Ca(IO3)2*8CaCrO4}.` })
+        : { line: j + 1, name: splitNote(text).body, formula: '', display: SPECIES_DISPLAY.name, error: `Inside ${SIGIL}${CHEM_NAMESPACE}.${SPECIES_BLOCK}, each line names a species: dietzeite = {7Ca(IO3)2*8CaCrO4}.` })
     }
     speciesBlocks.set(i, {
       end,
       block: {
         kind: BLOCK_KIND.species, line: i + 1, endLine: end + 1, note: opener.note, entries, single: false,
         hidden: opener.command === LINE_COMMAND.hide,
-        error: closed ? undefined : `The ${SIGIL}${NAMESPACE.chem}.${SPECIES_BLOCK} block on line ${i + 1} is missing its closing ${BLOCK_CLOSE}.`,
+        error: closed ? undefined : `The ${SIGIL}${CHEM_NAMESPACE}.${SPECIES_BLOCK} block on line ${i + 1} is missing its closing ${BLOCK_CLOSE}.`,
       },
     })
     i = end

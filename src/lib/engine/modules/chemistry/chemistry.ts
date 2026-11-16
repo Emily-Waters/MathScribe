@@ -23,8 +23,8 @@
  * an element's `@chem.mm.Na` (see elements.ts).
  */
 import { isElement, type ElementSymbol } from './elements.ts'
-import { CHEM_FUNCTION, MEMBER_DOT, NAMESPACE, SIGIL } from '../../../syntax.ts'
-import { SPECIES_FUNCTION } from '../../../names.ts'
+import { MEMBER_DOT, SIGIL } from '../../../syntax.ts'
+import { CHEM_FUNCTION, CHEM_NAMESPACE, SPECIES_DISPLAY, SPECIES_FUNCTION, type SpeciesDisplay } from './syntax.ts'
 import { ExplainedError } from '../../core/results.ts'
 import { outsideMaths } from '../../core/text.ts'
 
@@ -266,7 +266,7 @@ export function molarMassSum(atoms: AtomCounts): string {
   const term = ([symbol, n]: [ElementSymbol, number]) => {
     // Each element's molar mass is of the element (@chem.mm.Na); in a compound's, they're
     // added as plain molar masses, and the sum is given the compound's species.
-    const element = `${SIGIL}${[NAMESPACE.chem, CHEM_FUNCTION.molarMass, symbol].join(MEMBER_DOT)}`
+    const element = `${SIGIL}${[CHEM_NAMESPACE, CHEM_FUNCTION.molarMass, symbol].join(MEMBER_DOT)}`
     return `${SPECIES_FUNCTION.plain}(${n === 1 ? element : `${n} * ${element}`})`
   }
   return `(${[...atoms].map(term).join(' + ')})`
@@ -385,11 +385,6 @@ const BALANCE_TOLERANCE = 1e-9
 // ---------------------------------------------------------------------------
 // Species names: `@chem.species { dietzeite = {7Ca(IO3)2*8CaCrO4} }`
 // ---------------------------------------------------------------------------
-
-/** How a named species is shown: by its name (dietzeite), or its formula (7Ca(IO₃)₂·8CaCrO₄). */
-export const SPECIES_DISPLAY = { name: 'name', formula: 'formula' } as const
-export type SpeciesDisplay = (typeof SPECIES_DISPLAY)[keyof typeof SPECIES_DISPLAY]
-export const SPECIES_DISPLAYS: readonly SpeciesDisplay[] = Object.values(SPECIES_DISPLAY)
 
 /** A species' name, as declared: the formula it stands for, and how it's shown unless a value says otherwise. */
 export interface SpeciesName {

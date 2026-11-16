@@ -9,9 +9,8 @@
  *   └─ species     the block naming species, @chem.species { … }
  */
 import { BlockMember, ConstantMember, FunctionMember, Namespace, type Expansion } from '../../../builtins.ts'
-import { ANY_SPECIES_FUNCTION, SPECIES_FUNCTION } from '../../../names.ts'
 import { splitArgs } from '../../../solve.ts'
-import { CHEM_FUNCTION, NAMESPACE, SPECIES_BLOCK } from '../../../syntax.ts'
+import { ANY_SPECIES_FUNCTION, CHEM_FUNCTION, CHEM_NAMESPACE, SPECIES_BLOCK, SPECIES_FUNCTION } from './syntax.ts'
 import { ELEMENTS, MOLAR_MASS_UNIT, elementDescription, type ElementSymbol } from './elements.ts'
 import { molarMassSum, parseFormula, speciesKey, splitCoefficient } from './chemistry.ts'
 
@@ -83,7 +82,7 @@ const elementMembers = () => (Object.keys(ELEMENTS) as ElementSymbol[]).map((sym
 }))
 
 /** `@chem`, made fresh (a member belongs to one tree). */
-export const chemNamespace = () => new Namespace(NAMESPACE.chem, 'The elements’ molar masses (@chem.mm.Na), mm( ) and total( )', [
+export const chemNamespace = () => new Namespace(CHEM_NAMESPACE, 'The elements’ molar masses (@chem.mm.Na), mm( ) and total( )', [
   new Namespace(CHEM_FUNCTION.molarMass, 'An element’s molar mass: @chem.mm.Na', elementMembers(), { call: new MolarMassFunction() }),
   new TotalFunction(),
   new ReactionFunction(),

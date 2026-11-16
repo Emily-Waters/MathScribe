@@ -12,7 +12,7 @@
 import type { DataColumn, Definition, FunctionResult, TraceLine } from './engine/index.ts'
 import type { VariableSummary } from './values.ts'
 import type { LayoutStyle, LineCommand, Notation } from './syntax.ts'
-import type { SpeciesDisplay } from './engine/modules/chemistry/chemistry.ts'
+import type { SpeciesDisplay } from './engine/modules/chemistry/syntax.ts'
 import type { PlotData } from './plot.ts'
 
 /** Each kind of block. */

@@ -2,11 +2,11 @@
 import { isConstantNode, type FunctionNode, type MathNode, type MathType, type Unit } from 'mathjs'
 import { isNamespaceConstant, type BuiltinConstant, type NamespaceConstant } from '../../../constants.ts'
 import { GREEK_CHARS } from '../../../syntax.ts'
-import { SPECIES_FUNCTION } from '../../../names.ts'
 import { BASE_DIMENSION, FN, UNIT } from '../../../mathjsNames.ts'
 import { math } from '../../core/math.ts'
 import { isUnitCall, unitCallText } from '../../core/tex.ts'
 import { SPECIES_KINDS, SpeciesError, isSpeciesUnit, speciesOf, speciesPowers, speciesUnit, type SpeciesKind } from './chemistry.ts'
+import { SPECIES_FUNCTION } from './syntax.ts'
 
 /** A species' unit of a kind (see chemistry.ts), made in mathjs the first time it's used. */
 export function speciesUnitName(formula: string, kind: SpeciesKind): string {

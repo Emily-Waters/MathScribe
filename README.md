@@ -1598,9 +1598,16 @@ renamed, change it there too.
 - `src/lib/aiPrompt.ts`: Create's prompt (what can be made, its tickboxes, and the
   rules of writing a sheet, whose examples a test evaluates) and reading the AI's
   answer back; `src/components/CreateDialog.tsx`: the dialog
-- `src/lib/document.ts`: line types and blocks (`{ }`, `@layout.list { }` and the other
-  layouts, `def`, `@constants`), sheet evaluation, diagnostics,
-  definitions and symbols for the editor
+- `src/lib/document.ts`: evaluating a sheet, diagnostics, definitions and
+  symbols for the editor
+- `src/lib/reading/`: reading a sheet into blocks. `sheetReader.ts`: the
+  `SheetReader`, which offers each line to the readers in turn and holds what
+  they share (the Calculator, the open blocks, blank lines, section numbers);
+  `readers.ts`: one `LineReader` class per kind of line (a heading, `@latex { }`,
+  `def`, a layout block, a calculation, …), with `BracedReader` the base of
+  blocks closed by `}`, and the sheet-wide ones (`@constants`, species' names,
+  `@c:4` declarations) read before everything else; `lineSyntax.ts`: a line's
+  #commands and note, and layout openers
 - `src/lib/constructs/`: one class per kind of block (a heading, a calculation,
   an `@layout` block, …) that writes its blocks to each export; `layout.ts` has a
   class per layout. The exports ask each block's construct to write it, and the

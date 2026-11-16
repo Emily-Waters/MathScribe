@@ -1,6 +1,6 @@
 /** What evaluating a line gives back, and how its equation is laid out. */
 import { type MathNode } from 'mathjs'
-import { PERCENT, KEYWORD, DISPLAY_MODE, SIGIL, type DisplayMode, type LineCommand, type Notation, type Precision } from '../../syntax.ts'
+import { PERCENT, KEYWORD, DISPLAY_MODE, SIGIL, type DisplayMode, type Notation, type Precision } from '../../syntax.ts'
 import { FIT, seriesMemberName } from '../../names.ts'
 import { FunctionMember, builtinAt } from '../../builtins.ts'
 import { type PlotData } from '../../plot.ts'
@@ -77,27 +77,6 @@ export function layoutEquation(mode: DisplayMode, p: EquationParts, multiline = 
   return steps.reduce((out, s, i) => (i === 0 ? s : `${out} ${rels[i - 1]} ${s}`), '')
 }
 
-/** A rendered multi-line function definition (`def f(a, b)` with an indented body). */
-export interface FunctionResult {
-  /** f\left(a, b\right) */
-  signature: string
-  /** Each body line as an equation; the return line reads f(a, b) = … */
-  body: { tex: string; note?: string; line: number }[]
-  error?: string
-}
-
-/** A body line of a multi-line function, with its note and command already split off. */
-export interface FunctionLine {
-  line: number
-  text: string
-  note?: string
-  command?: LineCommand
-  /** `#multiline` on this body line. */
-  multiline?: boolean
-  /** Its indentation: lines indented under an `if` or `else` belong to it. */
-  indent?: number
-}
-
 /** One equation of working from inside a function call. */
 export interface TraceLine {
   tex: string
@@ -108,12 +87,10 @@ export interface TraceLine {
 export interface CalcResult {
   tex: string
   /**
-   * Working from inside user-defined functions called on this line, one equation
-   * per body line, shown before the line itself.
+   * Working from inside the sheet's functions called on this line, shown before
+   * the line itself.
    */
   trace?: TraceLine[]
-  /** Note from the called function's return line, for a line that is just the call. */
-  returnNote?: string
   error?: string
   warning?: string
   /** Something worth knowing that isn't a problem, e.g. other solutions of an equation. */

@@ -7,7 +7,6 @@
  * Worked out once per version of the document (and the tree's lines are cached
  * by text, so an edit reads again only what it changed).
  */
-import { BRANCH_START, indentOf } from '../lib/syntax.ts'
 import { LINE_CONTEXT, LINE_ROLE, NODE_KIND, TOP, stepLine, type LineState, type Step } from '../lib/tree/index.ts'
 import { BODY_END } from '../lib/tree/grammar.ts'
 
@@ -65,7 +64,7 @@ export function sheetLines(doc: DocLines): SheetLine[] {
   // Bodies open at the end: one that ends where the indentation does ends at its last line; a braced one isn't closed.
   for (const o of open) {
     const ends = lines[o.line - 1].step.state.at(-1)?.ends
-    const indented = ends === BODY_END.indent || ends === BODY_END.indentOrBlank
+    const indented = ends === BODY_END.indent
     lines[o.line - 1].foldTo = indented && o.lastFilled > o.line ? o.lastFilled : undefined
   }
   read.set(doc, lines)
@@ -75,33 +74,20 @@ export function sheetLines(doc: DocLines): SheetLine[] {
 /** Line n, read in its place. */
 export const sheetLine = (doc: DocLines, n: number): SheetLine => sheetLines(doc)[n - 1]
 
-/** Whether a line opens a body (a block, a function, an import), or a branch in a function's body (indented under it). */
-export const opensBody = (step: Step, text: string) => step.role === LINE_ROLE.opener || isBranch(step, text)
-
-/** An `if` / `else` in a function's body, whose lines are indented under it. */
-const isBranch = (step: Step, text: string) => step.node.kind === NODE_KIND.functionLine && BRANCH_START.test(text.trim())
+/** Whether a line opens a body (a block, an import). */
+export const opensBody = (step: Step) => step.role === LINE_ROLE.opener
 
 /** Line n read as if it were `text` (a line being split by Enter), in its place. */
 export const readAs = (doc: DocLines, n: number, text: string) => stepLine(sheetLine(doc, n).before, { text, eol: '' })
 
 /**
  * The lines a line folds, from its end to the end of the last: a block's up to
- * (not including) its `}`, a function's or import's indented lines, a branch's.
+ * (not including) its `}`, an import's indented lines.
  */
 export function foldRange(doc: DocLines, n: number): { from: number; to: number } | null {
   const line = sheetLine(doc, n)
-  if (line.step.role === LINE_ROLE.opener) return line.foldTo ? { from: n, to: line.foldTo } : null
-  if (!isBranch(line.step, doc.line(n).text)) return null
-  // A branch: its lines indented under it.
-  const base = indentOf(doc.line(n).text)
-  let last = n
-  for (let m = n + 1; m <= doc.lines; m++) {
-    const text = doc.line(m).text
-    if (!text.trim()) continue
-    if (indentOf(text) <= base) break
-    last = m
-  }
-  return last > n ? { from: n, to: last } : null
+  if (line.step.role !== LINE_ROLE.opener) return null
+  return line.foldTo ? { from: n, to: line.foldTo } : null
 }
 
 /** Whether a line is an `@import(…)`. */

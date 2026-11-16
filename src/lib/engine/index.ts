@@ -13,7 +13,7 @@ import { VectorModule } from './modules/vectors/module.ts'
 export { Calculator } from './core/calculator.ts'
 export {
   AUTO_PRECISION, unexpectedError,
-  type CalcOptions, type CalcResult, type DataColumn, type Definition, type FunctionLine, type FunctionResult, type LineNotation,
+  type CalcOptions, type CalcResult, type DataColumn, type Definition, type LineNotation,
   type TraceLine,
 } from './core/results.ts'
 export { describeUnit, isUnitName, unitNames, withMicroPrefix } from './core/literals.ts'

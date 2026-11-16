@@ -88,7 +88,7 @@ describe('the listing', () => {
     // A module's kinds of line are offered a line first, then the core's.
     const owners = listing.lineSyntaxes.map((s) => s.owner)
     expect(owners.indexOf(GRAMMAR_CORE)).toBeGreaterThan(owners.lastIndexOf('ChemistryModule'))
-    expect(listing.lineSyntaxes.find((s) => s.kind === NODE_KIND.defLine)?.opens).toMatchObject({ node: NODE_KIND.function })
+    expect(listing.lineSyntaxes.find((s) => s.kind === NODE_KIND.importLine)?.opens).toMatchObject({ node: NODE_KIND.import })
   })
 
   it('is plain data, the same through JSON', () => {

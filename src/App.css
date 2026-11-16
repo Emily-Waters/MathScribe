@@ -652,11 +652,6 @@ body {
   margin: 0.35em 0;
 }
 
-/* Function definitions: same card, a different accent */
-.group--function {
-  border-left-color: var(--fn);
-}
-
 .group__kind {
   font-size: 11px;
   font-weight: 600;

@@ -4,7 +4,7 @@ import {
   DIAGNOSTIC_KIND, TITLE_SEGMENT, lineNumbering, listItems, splitInlineMath, titleSegments, type DiagnosticKind, type Sheet,
 } from '../lib/document.ts'
 import {
-  BLOCK_KIND, HEADING_LEVEL, isContainer, type Block, type BlockKind, type CalcBlock, type ConstantsBlock, type FunctionBlock, type GroupBlock,
+  BLOCK_KIND, HEADING_LEVEL, isContainer, type Block, type BlockKind, type CalcBlock, type ConstantsBlock, type GroupBlock,
   type HeadingBlock, type HeadingLevel, type ImportBlock, type LatexBlock, type LayoutBlock, type SpeciesBlock, type TextBlock,
 } from '../lib/blocks.ts'
 import { speciesEntryTex } from '../lib/constructs/blocks.ts'
@@ -44,7 +44,7 @@ function Title({ text }: { text: string }) {
 
 /** Whether a block or anything inside it has an error (so a hidden block still shows it). */
 const hasError = (b: Block): boolean =>
-  ((b.kind === BLOCK_KIND.calc || b.kind === BLOCK_KIND.function || b.kind === BLOCK_KIND.import) && !!b.error)
+  ((b.kind === BLOCK_KIND.calc || b.kind === BLOCK_KIND.import) && !!b.error)
   || ((b.kind === BLOCK_KIND.constants || b.kind === BLOCK_KIND.species) && (!!b.error || b.entries.some((e) => e.error)))
   || (isContainer(b) && (!!b.error || b.children.some(hasError)))
 
@@ -298,33 +298,6 @@ function CalcView({ block }: { block: CalcBlock }) {
   )
 }
 
-/** `def f(a, b)`: a card of its working, titled with its signature. */
-function FunctionView({ block }: { block: FunctionBlock }) {
-  const link = useLineLink()
-  if (block.hidden && !block.error) return null
-  return (
-    <section className={`group group--function${block.error ? ' group--error' : ''}`}>
-      <header className="group__header" {...link(block.line)}>
-        <span className="group__title">
-          <span className="group__kind">Function</span> <Tex latex={block.signature} />
-        </span>
-        {block.note && <span className="calc__note">{block.note}</span>}
-      </header>
-      <div className="group__body">
-        {block.body.map((s, i) => (
-          <div className="calc" key={i} {...link(s.line)}>
-            <div className="calc__row">
-              <Tex latex={s.tex} display />
-              {s.note && <span className="calc__note">{s.note}</span>}
-            </div>
-          </div>
-        ))}
-      </div>
-      <BlockMessages line={block.line} error={block.error} />
-    </section>
-  )
-}
-
 /** `@layout.…`: a list (with sub-lists), or its lines arranged as its layout says. */
 function LayoutView({ block }: { block: LayoutBlock }) {
   const link = useLineLink()
@@ -402,7 +375,6 @@ const BLOCK_VIEWS: { readonly [K in BlockKind]: (props: { block: Extract<Block, 
   calc: CalcView,
   group: GroupView,
   layout: LayoutView,
-  function: FunctionView,
   constants: ConstantsView,
   species: SpeciesView,
   import: ImportView,

@@ -1,7 +1,7 @@
 /** Vectors typed `<3.0, 4.0> N`: where one opens and closes (the lexer reads them by this: grammar.ts). */
 
 /** Characters after which a `<` opens a vector rather than comparing: the start, `=`, `(`, `[`, `,`, an operator. */
-export const VECTOR_OPENS_AFTER = /(?:^|[=([,+\-*/^<]|\breturn)\s*$/
+export const VECTOR_OPENS_AFTER = /(?:^|[=([,+\-*/^<])\s*$/
 
 /**
  * Where the vector opened by the `<` at `start` closes: the index of its `>`,

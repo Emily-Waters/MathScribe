@@ -97,6 +97,8 @@ what's here better.
 - [ ] **Go to definition for variables and constants** (`@rho_w` → its
       `@constants` entry).
 - [ ] **Snippets**: `def`, `@layout.numbered { }` blocks, `@constants { }`.
+      (`def` functions were removed on 2026-11-16: a function is one line now, so
+      the snippet would be `f(x) = …`.)
 
 ## 6. Sharing and the app
 
@@ -180,7 +182,8 @@ what's here better.
       a slash (inline, in an exponent, a unit's own), and how a value with a
       species reads in each. Collect the worst examples from the chemistry
       sheets and the golden tests first, and decide on the rules before changing
-      them.
+      them. Nested conditions (`c1 ? a : (c2 ? b : c)`) are typeset as a brace
+      inside a brace; they'd read better as one brace of three cases.
 
 ## 8. The sheet's schema: a tree of nodes
 
@@ -260,7 +263,8 @@ edit reads again only what it changed, and nodes are shared between trees.
       (once per version of the document). The editor's own line rules
       (`lineKind`, `opensText`, the brace counting) are gone; an `if` / `else`
       in a function's body still folds by indentation, as the tree doesn't hold
-      a function's branches yet.
+      a function's branches yet. (Since 2026-11-16 there are no branches: `def`
+      was removed.)
 - [x] **Introspection and validation**: a JSON Schema made from the registry,
       for checking a tree from a request; the schema listed for the editor and docs.
 
@@ -336,6 +340,20 @@ edit reads again only what it changed, and nodes are shared between trees.
       are still read by patterns (and the editor folds branches by indentation);
       intellisense reads half-typed settings by pattern (a line being typed
       has no `=` yet).
+      Progress (5c, `def` removed, 2026-11-16): rather than read `def` and its
+      branches into the tree, `def` functions were taken out entirely (decided
+      with Emily): a function is one line, `f(x) = …`, with `cond ? a : b` (nested
+      for more cases) for branches. Gone with it: the `def` line and its body in
+      the tree (`defLine`, `functionLine`, `function`, the `functionBody`
+      context, bodies that end by indentation or a blank line), its reader and
+      block (the function card in the preview and both exports), body
+      statements, branches and procedures without a `return` in the engine,
+      the `def` / `return` / `if` / `else` keywords and their patterns, and the
+      editor's folding and indenting of bodies and branches. The examples (the
+      sample sheet, the reference, the AI prompt) write their functions on one
+      line. What's lost: a function's named steps shown in its working, settings
+      on a value inside it, and procedures without a value. The only body whose
+      extent comes from indentation now is imported data's rows.
 
 ## Done
 
@@ -350,6 +368,8 @@ edit reads again only what it changed, and nodes are shared between trees.
       with the working shown.
 - [x] **Conditions**: `condition ? a : b` in a line, and `if` / `else if` / `else`
       in a function's body, with the comparisons shown in the working.
+      (2026-11-16: `def` functions, and with them `if` / `else if` / `else`, were
+      removed; `cond ? a : b`, nested for more cases, is how a function branches.)
 - [x] **Chemistry notation**: formulas in braces (`{Ca^2+}`), reactions, molarity
       (`M`), species as units that cancel in mole ratios, and display names.
 - [x] **Values in text** (`{{name}}`) and `//` comments.

@@ -2,8 +2,7 @@
  * The reader of each kind of node in a sheet's tree (the core's: a module's are
  * its own). The tree says what each line is, and which lines a block holds.
  */
-import { symbolTex, type FunctionLine } from '../engine/index.ts'
-import { BLOCK_CLOSE, BLOCK_OPEN, CONSTANTS_BLOCK, DEF, DISPLAY_MODE, EXACT_SETTING, IMPORT, LATEX_BLOCK, LATEX_OPENER, LAYOUT_STYLE, LINE_COMMAND, SIGIL } from '../syntax.ts'
+import { BLOCK_CLOSE, BLOCK_OPEN, CONSTANTS_BLOCK, DISPLAY_MODE, EXACT_SETTING, IMPORT, LATEX_BLOCK, LATEX_OPENER, LAYOUT_STYLE, LINE_COMMAND, SIGIL } from '../syntax.ts'
 import { BLOCK_KIND, HEADING_LEVEL, type ConstantsBlock, type GroupBlock, type HeadingLevel, type SectionTitle, type ImportBlock, type LayoutBlock } from '../blocks.ts'
 import { NODE_KIND } from '../tree/index.ts'
 import { bracesBalance, layoutOpener, openerText, parseConstantDeclaration, readCsv, splitNote, type SplitLine } from './lineSyntax.ts'
@@ -197,39 +196,6 @@ class ImportReader extends NodeReader {
   }
 }
 
-/**
- * `def f(a, b)`: the function body is every following line indented further.
- * (`def f(x):3:deg`: settings for the result after the parameters; a lone trailing `:` is fine too.)
- */
-class DefReader extends NodeReader {
-  readonly kinds = [NODE_KIND.function]
-
-  read(item: TreeItem, sheet: SheetReader): void {
-    const { line } = item
-    const { body, note, command, multiline } = line.parts
-    const def = DEF.exec(body)!
-    const bodyLines: FunctionLine[] = []
-    for (const b of item.body) {
-      if (b.node.kind === NODE_KIND.comment) continue
-      const text = b.line.trimmed
-      // Blank lines at the end of the body count toward the gap after the function.
-      sheet.blankRun = text ? 0 : sheet.blankRun + 1
-      if (!text || text.startsWith('#')) continue // blank lines and comments
-      const split = splitNote(text)
-      bodyLines.push({ line: b.line.number, text: split.body, note: split.note, command: split.command, multiline: split.multiline, indent: b.line.indent })
-    }
-    const params = def[2].split(',').map((p) => p.trim()).filter(Boolean)
-    // Parameters (`m`, or `m to kg`) are checked by defineFunction.
-    const result = bodyLines.length
-      ? sheet.calc.defineFunction(def[1], params, bodyLines, multiline || sheet.inheritedMultiline, def[3])
-      : { signature: symbolTex(def[1]), body: [], error: `${def[1]} has no body: indent the lines under def.` }
-    sheet.add({
-      kind: BLOCK_KIND.function, line: line.number, endLine: bodyLines.at(-1)?.line ?? line.number, name: def[1], note,
-      hidden: (command ?? sheet.inheritedCommand) === LINE_COMMAND.hide, ...result,
-    })
-  }
-}
-
 // ---------------------------------------------------------------------------
 // Braced blocks: opened with `{`, closed by `}`
 // ---------------------------------------------------------------------------
@@ -396,10 +362,9 @@ class CalcReader extends NodeReader {
       ? { kind: BLOCK_KIND.layout, line: line.number, endLine: line.number, title: '', style: layout, children: [], indent: line.indent }
       : undefined
     if (own) sheet.add(own)
-    // A line that's just a function call can take its note from the return line.
     ;(own?.children ?? sheet.open.at(-1)?.children ?? sheet.root).push({
       kind: BLOCK_KIND.calc, line: line.number, source: body, hidden: effective === LINE_COMMAND.hide, ...result,
-      note: note ?? result.returnNote,
+      note,
       info: result.info ?? (result.error ? undefined : sheet.declarationInfo(body, line.number)),
       warning: sheet.duplicateDeclarations.get(line.number) ?? result.warning,
     })
@@ -418,7 +383,6 @@ export const lineReaders = (): NodeReader[] => [
   new TextReader(),
   new LatexReader(),
   new ImportReader(),
-  new DefReader(),
   new CloseReader(),
   new ProseLayoutReader(),
   new LayoutReader(),

@@ -9,7 +9,7 @@
  *   group, layout                     blocks holding others (ContainerBlock)
  *   function, constants, species, import   blocks spanning several lines (Spans)
  */
-import type { DataColumn, Definition, FunctionResult, TraceLine } from './engine/index.ts'
+import type { DataColumn, Definition, TraceLine } from './engine/index.ts'
 import type { VariableSummary } from './values.ts'
 import type { LayoutStyle, LineCommand, Notation } from './syntax.ts'
 import type { SpeciesDisplay } from './engine/modules/chemistry/syntax.ts'
@@ -24,7 +24,6 @@ export const BLOCK_KIND = {
   calc: 'calc',
   group: 'group',
   layout: 'layout',
-  function: 'function',
   constants: 'constants',
   species: 'species',
   import: 'import',
@@ -175,12 +174,6 @@ export interface LayoutBlock extends ContainerBlock {
   itemIndent?: number
 }
 
-/** `def f(a, b)` with its indented body. */
-export interface FunctionBlock extends BlockBase, FunctionResult, Spans, Noted, Hideable {
-  kind: typeof BLOCK_KIND.function
-  name: string
-}
-
 /** One `name = value` line of an `@constants { … }` block. */
 export interface ConstantEntry extends Noted, Faulted {
   line: number
@@ -241,7 +234,6 @@ export type Block =
   | CalcBlock
   | GroupBlock
   | LayoutBlock
-  | FunctionBlock
   | ConstantsBlock
   | SpeciesBlock
   | ImportBlock

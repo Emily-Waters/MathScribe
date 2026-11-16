@@ -58,7 +58,6 @@ export interface Step {
 function endsBefore(line: SourceLine, frame: Frame): boolean {
   const blank = !line.text.trim()
   if (frame.ends === BODY_END.indent) return blank || indentOf(line.text) <= frame.indent
-  if (frame.ends === BODY_END.indentOrBlank) return !blank && indentOf(line.text) <= frame.indent
   return false
 }
 

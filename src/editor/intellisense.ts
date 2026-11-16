@@ -200,8 +200,8 @@ function symbolInfo(s: SheetSymbol): HTMLElement {
 const SETTING_ON_NAME = new RegExp(String.raw`^\s*${NAME}${SETTINGS}:([A-Za-z]*)$`)
 /** …on a name being unpacked: `@tuple(r:3, theta:de`. */
 const SETTING_ON_UNPACKED = new RegExp(String.raw`^\s*${SIGIL}${CALL.tuple}\s*\((?:[^()=]*,)?\s*${NAME}(?::[^:=\s,()]+)*:([A-Za-z]*)$`)
-/** …on a function's result: `f(x):3:de`, `def polar(x, y):de`. */
-const SETTING_ON_RESULT = new RegExp(String.raw`^\s*(?:${KEYWORD.def}\s+)?${NAME}\s*\([^()]*\)${SETTINGS}:([A-Za-z]*)$`)
+/** …on a function's result: `f(x):3:de`. */
+const SETTING_ON_RESULT = new RegExp(String.raw`^\s*${NAME}\s*\([^()]*\)${SETTINGS}:([A-Za-z]*)$`)
 
 /** A unit being typed: after a number or `to` (1: what's typed of it so far). */
 const UNIT_SO_FAR = new RegExp(String.raw`(?:\d\.?|\b${KEYWORD.to})\s+([A-Za-z]*)$`)

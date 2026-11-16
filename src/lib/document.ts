@@ -1,6 +1,6 @@
 import { type CalcOptions, moduleSubscriptTex, unexpectedError } from './engine/index.ts'
 import type { VariableSummary } from './values.ts'
-import { DEF_HEAD, LEADING_NAME, LINE_COMMAND, TEXT_SUBSCRIPT, subscriptOf, unescapeUnderscores } from './syntax.ts'
+import { LINE_COMMAND, TEXT_SUBSCRIPT, subscriptOf, unescapeUnderscores } from './syntax.ts'
 import { NODE_KIND } from './tree/nodes.ts'
 import { assignedOf, lineShape } from './tree/shapes.ts'
 import { formulaTex } from './engine/modules/chemistry/chemistry.ts'
@@ -18,9 +18,7 @@ export type { Sheet }
  *   Title {            → opens a scoped block (title optional); `}` closes it
  *   m = 2.0 kg  # note → calculation; the text after # is shown as its description
  *   @constants {       → constants, usable anywhere as @name; `}` closes it
- *   def f(a, b)        → function; its body is the following, more-indented lines
- *       c = a * b        (local assignments)
- *       return c + 1
+ * *   f(a, b) = a * b    → a function, worked out where it's called
  *
  * Display commands can go anywhere after a calculation or block opener:
  *   #sym   show the equation only        F = m·a
@@ -124,7 +122,7 @@ export function titleSegments(text: string): TitleSegment[] {
 export function isOmitted(b: Block): boolean {
   // Spacers, and imported data, which only defines variables.
   if (b.kind === BLOCK_KIND.spacer || b.kind === BLOCK_KIND.import) return true
-  if (b.kind === BLOCK_KIND.calc || b.kind === BLOCK_KIND.function || b.kind === BLOCK_KIND.constants || b.kind === BLOCK_KIND.species) {
+  if (b.kind === BLOCK_KIND.calc || b.kind === BLOCK_KIND.constants || b.kind === BLOCK_KIND.species) {
     return !!b.hidden && !b.error
   }
   if (isContainer(b)) return b.command === LINE_COMMAND.hide && !b.error
@@ -142,16 +140,12 @@ export function listItems(children: Block[]): { item: Block; subs: Block[] }[] {
   return items
 }
 
-/**
- * Where each function is defined, by name: `def f(…)` lines and one-line
- * `f(…) = …` lines, in order. (For go-to-definition in the editor.)
- */
+/** Where each function is defined, by name: its `f(…) = …` lines, in order. (For go-to-definition in the editor.) */
 export function collectDefinitions(blocks: Block[]): Map<string, number[]> {
   const out = new Map<string, number[]>()
   const put = (name: string, line: number) => out.set(name, [...(out.get(name) ?? []), line])
   const visit = (b: Block) => {
-    if (b.kind === BLOCK_KIND.function) put(b.name, b.line)
-    else if (b.kind === BLOCK_KIND.calc) {
+    if (b.kind === BLOCK_KIND.calc) {
       const { target } = lineShape(b.source)
       if (target?.kind === NODE_KIND.functionHead) put(target.name, b.line)
     } else if (isContainer(b)) b.children.forEach(visit)
@@ -245,16 +239,6 @@ export function collectSymbols(sheet: Sheet, source: string): SheetSymbol[] {
           if (target?.kind === NODE_KIND.assigned) out.push(variable(target.name, b.line, b.line + 1, to, scope))
           break
         }
-        case BLOCK_KIND.function: {
-          const params = DEF_HEAD.exec(lines[b.line - 1] ?? '')?.[2].trim() ?? ''
-          out.push({ name: b.name, kind: SYMBOL_KIND.function, line: b.line, from: b.line, to, tex: b.signature, params })
-          // Inside the body, its parameters are names too.
-          for (const p of params.split(',')) {
-            const name = LEADING_NAME.exec(p.trim())?.[0]
-            if (name) out.push({ name, kind: SYMBOL_KIND.parameter, line: b.line, from: b.line + 1, to: b.endLine })
-          }
-          break
-        }
         case BLOCK_KIND.constants:
           for (const e of b.entries) {
             const { target } = lineShape(e.source)
@@ -329,12 +313,6 @@ export function collectDiagnostics(blocks: Block[]): Map<number, Diagnostic> {
         put(b.line, DIAGNOSTIC_KIND.warning, b.warning)
         put(b.line, DIAGNOSTIC_KIND.error, b.error)
         break
-      case BLOCK_KIND.function: {
-        // "Line 12: …" errors point at a body line.
-        const at = /^Line (\d+): (.*)$/.exec(b.error ?? '')
-        put(at ? Number(at[1]) : b.line, DIAGNOSTIC_KIND.error, at ? at[2] : b.error)
-        break
-      }
       case BLOCK_KIND.import:
       case BLOCK_KIND.heading:
       case BLOCK_KIND.text:

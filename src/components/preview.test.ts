@@ -15,8 +15,6 @@ const SOURCE = [
   '',
   '',
   'f(x) = x^2',
-  'def g(a)',
-  '    return a * 2',
   '@constants {',
   '    k = 2.0 N/m',
   '}',
@@ -53,7 +51,6 @@ describe('the Rendered tab', () => {
     expect(html).toContain('doc__spacer')
     expect(html).toContain('group--constants')
     expect(html).toContain('Species')
-    expect(html).toContain('group--function')
     expect(html).toContain('group--import')
     expect(html).toContain('<ol class="layout__list">')
     expect(html).toContain('calc__note')

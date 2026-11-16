@@ -44,7 +44,7 @@ describe('Greek letters in names', () => {
     const call = last('λ(L, n) = 2 * L / n\nL = 300.0 nm\nn1 = 2\nλ_1 = λ(L, n1)')
     expect(call.error).toBeUndefined()
     expect(call.tex).toMatch(/^\\lambda_\{1\} = /)
-    expect(value('def Λ(a, b)\n    c = a * b\n    return c\nk = Λ(2.0, 3.0)')).toBe('6.0')
+    expect(value('Λ(a, b) = a * b\nk = Λ(2.0, 3.0)')).toBe('6.0')
   })
 
   it('keep a spelled-out Delta with a space as an uncertainty', () => {
@@ -298,10 +298,6 @@ describe('functions', () => {
     expect(shown('f(x) = 2.0 m * x\nz = f(-2.0)')).toBe('z = (2.0 m) (-2.0) = -4.0 m')
   })
 
-  it('runs def bodies', () => {
-    expect(value('def KE(mass, speed)\n    E = 1/2 * mass * speed^2\n    return E\nE_k = KE(2.00 kg, 3.00 m/s)')).toBe('9.00 J')
-  })
-
   it('give a call inside a bigger expression the sig figs of its measured numbers', () => {
     const src = 'hyd(n) = -13.6 eV / n^2\ndE = hyd(3) - hyd(2)'
     expect(value(src)).toBe('1.89 eV')
@@ -317,14 +313,13 @@ describe('functions', () => {
       expect(resultOfLine(src, 4)).toBe('0.447')
     })
 
-    it('work on a def, including a tuple result', () => {
-      const polar = 'def polar(px, py):3\n    rr = sqrt(px^2 + py^2)\n    th = atan2(py, px)\n    return @tuple(rr, th)\nQ = polar(1.0 m, 1.0 m)'
-      expect(value(polar)).toBe('(1.41 m, 0.785)')
-      expect(value('def h(px, py):deg\n    th = atan2(py, px)\n    return th\nd = h(1.00 m, 1.00 m)')).toBe('45.0°')
+    it('work on a tuple result too', () => {
+      expect(value('polar(px, py):3 = @tuple(sqrt(px^2 + py^2), atan2(py, px))\nQ = polar(1.0 m, 1.0 m)')).toBe('(1.41 m, 0.785)')
+      expect(value('h(px, py):deg = atan2(py, px)\nd = h(1.00 m, 1.00 m)')).toBe('45.0°')
     })
 
     it('give way to settings on the calling line', () => {
-      expect(value('def h(px, py):deg\n    th = atan2(py, px)\n    return th\nw:2 = h(1.00 m, 1.00 m)')).toBe('45°')
+      expect(value('h(px, py):deg = atan2(py, px)\nw:2 = h(1.00 m, 1.00 m)')).toBe('45°')
     })
 
     it('carry the uncertainty', () => {
@@ -335,10 +330,6 @@ describe('functions', () => {
       expect(value('conc(n, V):mol/L = n / V\nc = conc(0.150 mol, 250. mL)')).toBe('0.600 mol/L')
     })
 
-    it('still allow a plain trailing colon on a def', () => {
-      expect(value('def f(x):\n    return 2*x\ny = f(1.5)')).toBe('3.0')
-    })
-
     it('explain what doesn’t fit', () => {
       const [g, h] = lines('g(x):zz = x\nh(x):percent = x')
       expect(g.error).toMatch(/"zz" isn't a number of sig figs, a unit, or a setting like sci or ijk/)
@@ -347,24 +338,8 @@ describe('functions', () => {
     })
   })
 
-  describe('a def without return', () => {
-    const def = 'def steps(a, b)\n    s = a + b\n    p = s * 2\n'
-
-    it('shows its working when called on a line of its own', () => {
-      const call = last(`${def}steps(1.0, 2.0)`)
-      expect(call.error).toBeUndefined()
-      expect(readable(call.tex)).toBe('steps(1.0, 2.0)')
-      expect(call.trace?.map((t) => readable(t.tex))).toEqual(['s = 1.0+ 2.0 = 3.0', 'p = s· 2 = 3.0· 2 = 6.0'])
-    })
-
-    it('can’t be used in a calculation, since it gives no value', () => {
-      expect(last(`${def}r = steps(1.0, 2.0)`).error).toMatch(/steps has no return line, so it doesn't give a value to store in r/)
-      expect(last(`${def}2 * steps(1.0, 2.0)`).error).toMatch(/doesn't give a value to calculate with/)
-    })
-
-    it('still reports a mistake in the call', () => {
-      expect(last('def show(m to kg)\n    w = m * 9.81 m/s^2\nshow(2.0 m)').error).toMatch(/can't be converted to kg/)
-    })
+  it('reports a mistake in the call', () => {
+    expect(last('show(m to kg) = m * 9.81 m/s^2\nshow(2.0 m)').error).toMatch(/can't be converted to kg/)
   })
 
   it('converts cast parameters on the way in', () => {
@@ -563,7 +538,7 @@ describe('vectors', () => {
 
   it('come back from a function as vectors', () => {
     expect(value('f(x) = <x, 2 * x>\ng = f(3.0)')).toBe('⟨3.0, 6.0⟩')
-    expect(value('def push(m, a)\n    F = m * a\n    return F\nk = push(2.0 kg, <1.0, 2.0> m/s^2)')).toBe('⟨2.0, 4.0⟩ N')
+    expect(value('push(m, a) = m * a\nk = push(2.0 kg, <1.0, 2.0> m/s^2)')).toBe('⟨2.0, 4.0⟩ N')
   })
 
   it('show with unit vectors with :ijk, and so does what’s worked out from them', () => {
@@ -591,10 +566,6 @@ describe('vectors', () => {
     expect(tex).toMatch(/^\\begin\{aligned\}G &= F\+ 2 F \\\\ &= .* \\\\ G_\{x\} &= 9\.0\\,\\mathrm\{N\} \\\\ G_\{y\} &= 12\\,\\mathrm\{N\}\\end\{aligned\}$/)
   })
 
-  it('make components inside a function, too', () => {
-    expect(value('def fx(m, a)\n    F:xyz = m * a\n    return F_x\nk = fx(2.0 kg, <1.0, 2.0> m/s^2)')).toBe('2.0 N')
-  })
-
   it('explain settings that don’t fit', () => {
     expect(last('bad:xyz = 3').error).toBe('bad:xyz needs a vector of 2 or 3 values, like <3.0, 4.0> N.')
     expect(last('@tuple(a:ijk, b) = <1, 2>').error).toMatch(/a:ijk is for a vector/)
@@ -619,8 +590,6 @@ describe('tuples', () => {
 
   it('can be a function’s result', () => {
     expect(value('to_cart(rr, th to rad) = @tuple(rr * cos(th), rr * sin(th))\nP = to_cart(2.00 m, 30.0 deg)')).toBe('(1.73, 1.00) m')
-    const polar = 'def polar(px, py)\n    rr = sqrt(px^2 + py^2)\n    th:deg = atan2(py, px)\n    return @tuple(rr, th)\nQ = polar(1.00 m, 1.00 m)'
-    expect(value(polar)).toBe('(1.41 m, 45.0°)') // the body's :deg applies to what's returned
   })
 
   it('must be written @tuple(…): a bracketed list with commas is an error', () => {
@@ -646,25 +615,19 @@ describe('unpacking a tuple', () => {
     expect(value(src)).toBe('6.00 m')
   })
 
-  it('takes a function’s result, and keeps each value’s unit', () => {
-    const src = 'def polar(px, py)\n    rr = sqrt(px^2 + py^2)\n    th:deg = atan2(py, px)\n    return @tuple(rr, th)\n'
-      + '@tuple(r, theta) = polar(1.00 m, 1.00 m)\nx2 = r * cos(theta)'
-    const call = lineAt(src, 5)
-    expect(readable(call.tex)).toBe('(r, \\theta) = (rr, th) = (1.41 m, 45.0°)')
-    // The function's own working keeps its own names.
-    expect(call.trace?.map((t) => readable(t.tex).split(' = ')[0])).toEqual(['rr', 'th'])
+  /** A function giving a tuple, to unpack. */
+  const polar = 'polar(px, py) = @tuple(sqrt(px^2 + py^2), atan2(py, px))\n'
+
+  it('takes a function’s result', () => {
+    const src = `${polar}@tuple(r, theta) = polar(1.00 m, 1.00 m)\nx2 = r * cos(theta)`
+    expect(lineAt(src, 2).error).toBeUndefined()
     expect(value(src)).toBe('1.00 m')
   })
 
-  it('works inside a function', () => {
-    expect(value('def f(p)\n    @tuple(u, v) = p\n    return u + v\nk = f(@tuple(1.0, 2.0))')).toBe('3.0')
-  })
-
   it('takes sig figs and a unit on each name, as a single assignment does', () => {
-    const src = 'def polar(px, py)\n    rr = sqrt(px^2 + py^2)\n    th = atan2(py, px)\n    return @tuple(rr, th)\n'
-      + '@tuple(r:3, theta:deg) = polar(1.00 m, 1.00 m)\ntheta\nx2 = r * cos(theta)'
-    expect(readable(lineAt(src, 5).tex)).toBe('(r, \\theta) = (rr, th) = (1.41 m, 0.785) = (1.41 m, 45.0°)')
-    expect(resultOfLine(src, 6)).toBe('45.0°') // theta keeps the unit
+    const src = `${polar}@tuple(r:3, theta:deg) = polar(1.00 m, 1.00 m)\ntheta\nx2 = r * cos(theta)`
+    expect(readable(lineAt(src, 2).tex).split(' = ').at(-1)).toBe('(1.41 m, 45.0°)')
+    expect(resultOfLine(src, 3)).toBe('45.0°') // theta keeps the unit
     expect(value(src)).toBe('1.00 m')
     expect(value('@tuple(a:km, b:2) = @tuple(1500. m, 2.345 s)\nb')).toBe('2.3 s') // b keeps its sig figs
   })
@@ -674,10 +637,6 @@ describe('unpacking a tuple', () => {
     expect(last('@tuple(r, phi) = @tuple(1, 90 deg)').warning).toMatch(/Trailing zeros in 90/)
     // Only the values whose names don't declare sig figs are checked.
     expect(last('@tuple(a:2, b) = @tuple(300 m, 400 m)').warning).toMatch(/Trailing zeros in 400 aren't/)
-  })
-
-  it('applies a name’s unit inside a function too', () => {
-    expect(value('def f(p)\n    @tuple(u:cm, v) = p\n    return u\nk = f(@tuple(1.00 m, 2.00))')).toBe('100. cm')
   })
 
   it('explains a setting that doesn’t fit', () => {

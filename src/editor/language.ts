@@ -87,8 +87,6 @@ interface State {
   /** The line's pieces, and how what it says is coloured. */
   pieces: readonly Piece[]
   says: Says
-  /** It's a `def f(…)` line (what it calls first is a definition; a one-line function's head says so itself: Piece.defines). */
-  defines: boolean
 }
 
 /** How a line's text (`text`) is coloured, by its kind and role. */
@@ -115,7 +113,6 @@ function startLine(stream: StringStream, state: State): void {
   // A block opener with a title: one whose body is braced and isn't raw LaTeX (`Title {`, `@layout.list Title {`).
   const titled = step.role === LINE_ROLE.opener && (step.body?.ends === BODY_END.closer || step.body?.ends === BODY_END.brace)
   state.says = saysOf(step.node.kind, step.role, titled)
-  state.defines = step.node.kind === NODE_KIND.defLine
 }
 
 /** A line's tokens, its expression's nodes' too (a quantity's, a call's), as pieces where each ends on the line. */
@@ -148,12 +145,12 @@ const EXPRESSION_STYLE: Readonly<Record<string, Token | null>> = {
 const BRACKETS = /^[()[\]{}]$/
 
 /** How an expression's token is coloured. */
-function expressionStyle(piece: Piece, text: string, state: State): Token | null {
+function expressionStyle(piece: Piece, text: string): Token | null {
   if (piece.t === TOKEN_KIND.delimiter) {
     if (text === VALUE_BRACES.open || text === VALUE_BRACES.close) return TOKEN.value
     return BRACKETS.test(text) ? TOKEN.bracket : TOKEN.operator
   }
-  if (piece.callee) return piece.t === TOKEN_KIND.symbol && (state.defines || piece.defines) ? TOKEN.definition : TOKEN.function
+  if (piece.callee) return piece.t === TOKEN_KIND.symbol && piece.defines ? TOKEN.definition : TOKEN.function
   return EXPRESSION_STYLE[piece.t] ?? null
 }
 
@@ -170,7 +167,7 @@ function token(stream: StringStream, state: State): Token | null {
   if (at && (at.t in EXPRESSION_STYLE || at.t === TOKEN_KIND.delimiter)) {
     const text = stream.string.slice(stream.pos, at.end)
     stream.pos = at.end
-    return expressionStyle(at, text, state)
+    return expressionStyle(at, text)
   }
   const piece = state.says === SAYS.rows ? TOKEN_KIND.rows : at?.t
   switch (piece) {
@@ -250,7 +247,7 @@ function proseToken(stream: StringStream): Token {
 export const mathscribeLanguage = StreamLanguage.define<State>({
   name: 'mathscribe',
   startState: () => ({
-    lines: TOP, pieces: [], says: SAYS.expression, defines: false,
+    lines: TOP, pieces: [], says: SAYS.expression,
   }),
   copyState: (s) => ({ ...s }),
   // An empty line is read in its place too (it ends an import's rows).
@@ -322,14 +319,14 @@ export const mathscribeIndent = indentService.of((cx, pos) => {
     }
     // (The line above as it is now: up to the cursor, if Enter is splitting it.)
     const step = breaking && n === at.number ? readAs(doc, n, above) : sheetLine(doc, n).step
-    let indent = indentOf(above) + (opensBody(step, above) ? INDENT_WIDTH : 0)
+    let indent = indentOf(above) + (opensBody(step) ? INDENT_WIDTH : 0)
     if (/^\s*\}/.test(lineText)) indent -= INDENT_WIDTH
     return Math.max(0, indent)
   }
   return 0
 })
 
-/** Folding: a block folds up to its `}`; a `def`, an `@import(…)` or a branch, its indented lines. */
+/** Folding: a block folds up to its `}`; an `@import(…)`, its indented rows. */
 export const mathscribeFolding = foldService.of((state, lineStart, lineEnd) => {
   const { doc } = state
   const first = doc.lineAt(lineStart)

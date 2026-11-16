@@ -350,8 +350,8 @@ describe('editor information', () => {
     '    g(t) = 2*t', // 3
     '}', // 4
     'W {', // 5
-    '    def h(a, b to m)', // 6
-    '        return a', // 7
+    '    h(a, b to m) = a', // 6
+    '    q = 2', // 7
     '    local = 3', // 8
     '}', // 9
     'f(x) = x^3', // 10
@@ -364,7 +364,7 @@ describe('editor information', () => {
   })
 
   it('finds definitions with settings for the result', () => {
-    const withSettings = 'ang(y, x):3:deg = atan(y/x)\ndef polar(x, y):3\n    return @tuple(x, y)'
+    const withSettings = 'ang(y, x):3:deg = atan(y/x)\npolar(x, y):3 = @tuple(x, y)'
     expect([...collectDefinitions(sheet(withSettings).blocks)]).toEqual([['ang', [1]], ['polar', [2]]])
     expect(collectSymbols(sheet(withSettings), withSettings).find((s) => s.name === 'polar')?.params).toBe('x, y')
   })
@@ -373,7 +373,6 @@ describe('editor information', () => {
     const symbols = collectSymbols(sheet(src), src)
     const find = (name: string) => symbols.filter((s) => s.name === name)
     expect(find('local')).toEqual([expect.objectContaining({ kind: SYMBOL_KIND.variable, line: 8, from: 9, to: 9 })])
-    expect(find('b')).toEqual([expect.objectContaining({ kind: SYMBOL_KIND.parameter, from: 7, to: 7 })])
     expect(find('h')[0]).toMatchObject({ kind: SYMBOL_KIND.function, params: 'a, b to m', to: 9 })
     expect(find('y')[0]).toMatchObject({ kind: SYMBOL_KIND.variable, from: 12, tex: expect.stringContaining('2.0') })
   })

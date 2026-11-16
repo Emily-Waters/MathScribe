@@ -138,12 +138,6 @@ export const NODE_KIND = {
   constantLine: 'constantLine',
   /** An `@constants` block: its opener, its lines, and its `}`. */
   constants: 'constants',
-  /** `def f(a, b)`. */
-  defLine: 'defLine',
-  /** A line of a function's body, indented under its `def`. */
-  functionLine: 'functionLine',
-  /** A function: its `def`, and its body. */
-  function: 'function',
   /** `@import("run1.csv")`. */
   importLine: 'importLine',
   /** Imported data's rows, indented under it, as one node. */
@@ -178,8 +172,6 @@ export const LINE_CONTEXT = {
   latex: 'latex',
   /** An `@constants { }` block. */
   constants: 'constants',
-  /** A function's body. */
-  functionBody: 'functionBody',
   /** Imported data's rows. */
   data: 'data',
 } as const

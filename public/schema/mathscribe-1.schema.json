@@ -86,15 +86,6 @@
           "$ref": "#/$defs/node.constants"
         },
         {
-          "$ref": "#/$defs/node.defLine"
-        },
-        {
-          "$ref": "#/$defs/node.functionLine"
-        },
-        {
-          "$ref": "#/$defs/node.function"
-        },
-        {
           "$ref": "#/$defs/node.importLine"
         },
         {
@@ -729,87 +720,6 @@
       "properties": {
         "kind": {
           "const": "constants"
-        },
-        "parts": {
-          "type": "array",
-          "items": {
-            "oneOf": [
-              {
-                "$ref": "#/$defs/token"
-              },
-              {
-                "$ref": "#/$defs/node"
-              }
-            ]
-          }
-        }
-      }
-    },
-    "node.defLine": {
-      "description": "A function’s def line: def f(a, b) (core)",
-      "type": "object",
-      "required": [
-        "kind",
-        "parts"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "kind": {
-          "const": "defLine"
-        },
-        "parts": {
-          "type": "array",
-          "items": {
-            "oneOf": [
-              {
-                "$ref": "#/$defs/token"
-              },
-              {
-                "$ref": "#/$defs/node"
-              }
-            ]
-          }
-        }
-      }
-    },
-    "node.functionLine": {
-      "description": "A line of a function’s body (core)",
-      "type": "object",
-      "required": [
-        "kind",
-        "parts"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "kind": {
-          "const": "functionLine"
-        },
-        "parts": {
-          "type": "array",
-          "items": {
-            "oneOf": [
-              {
-                "$ref": "#/$defs/token"
-              },
-              {
-                "$ref": "#/$defs/node"
-              }
-            ]
-          }
-        }
-      }
-    },
-    "node.function": {
-      "description": "A function: its def line, and its body (core)",
-      "type": "object",
-      "required": [
-        "kind",
-        "parts"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "kind": {
-          "const": "function"
         },
         "parts": {
           "type": "array",

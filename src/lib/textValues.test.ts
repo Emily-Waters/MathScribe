@@ -24,12 +24,11 @@ describe('comments', () => {
       'm = 2.0 kg',
       '    // indented, between calculations',
       'F = m * 9.81 m/s^2',
-      'def KE(m, v)',
-      '    // inside a function',
-      '    return 1/2 * m * v^2',
+      'KE(m, v) = 1/2 * m * v^2',
+      '    // between a function and its use',
       'K = KE(m, 3.0 m/s)',
     ].join('\n')
-    expect(lines(source).map((l) => l.source)).toEqual(['m = 2.0 kg', 'F = m * 9.81 m/s^2', 'K = KE(m, 3.0 m/s)'])
+    expect(lines(source).map((l) => l.source)).toEqual(['m = 2.0 kg', 'F = m * 9.81 m/s^2', 'KE(m, v) = 1/2 * m * v^2', 'K = KE(m, 3.0 m/s)'])
     expect([...collectDiagnostics(sheet(source).blocks)]).toEqual([])
   })
 

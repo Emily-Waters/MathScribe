@@ -64,7 +64,6 @@ describe('highlighting', () => {
 
   it('colours a function’s result unit as a unit, and still sees a definition', () => {
     expect(tokens('ang(y, x):3:deg = atan(y/x)').slice(0, 5)).toEqual(['ang:def', 'y:var', 'x:var', '3:num', 'deg:unit'])
-    expect(tokens('def polar(x, y):deg')).toEqual(['def:kw', 'polar:def', 'x:var', 'y:var', 'deg:unit'])
   })
 
   it('colours @tuple(a, b) = … as unpacking, not a function definition', () => {
@@ -92,7 +91,6 @@ describe('highlighting', () => {
 
   it('tells definitions from calls', () => {
     expect(tokens('E_k(n, m to kg) = n * m')[0]).toBe('E_k:def')
-    expect(tokens('def KE(mass)').slice(0, 2)).toEqual(['def:kw', 'KE:def'])
     expect(tokens('s = sin(30.0 deg)')).toEqual(['s:var', 'sin:fn', '30.0:num', 'deg:unit'])
   })
 
@@ -175,11 +173,10 @@ describe('indentation', () => {
     return getIndentation(state, doc.length)
   }
 
-  it('goes one level deeper after a block opener or def', () => {
+  it('goes one level deeper after a block opener', () => {
     expect(indentAfter('@layout.numbered Steps {')).toBe(4)
     expect(indentAfter('Steps:')).toBe(0)
     expect(indentAfter('What if {')).toBe(4)
-    expect(indentAfter('def f(x)')).toBe(4)
     expect(indentAfter('    x = 1')).toBe(4)
     expect(indentAfter('x = 1')).toBe(0)
   })
@@ -198,7 +195,6 @@ describe('indentation', () => {
   }
 
   it('indents when Enter is pressed after a block opener, and not after a line or an import’s rows', () => {
-    expect(enter('x = 1\ndef f(x)')).toBe('\n    ')
     expect(enter('@layout.numbered Steps {  # note')).toBe('\n    ')
     expect(enter('a = 1\nBlock {')).toBe('\n    ')
     expect(enter('Block {\n    x = 1')).toBe('\n    ')
@@ -238,10 +234,6 @@ describe('folding', () => {
     const range = foldable(state, line.from, line.to)
     return range && [state.doc.lineAt(range.from).number, state.doc.lineAt(range.to).number]
   }
-
-  it('folds a def body by indentation', () => {
-    expect(foldsAt('def f(x)\n    y = x\n    return y\nz = 1', 1)).toEqual([1, 3])
-  })
 
   it('folds a { } block up to its closing brace, a built-in one too', () => {
     expect(foldsAt('W {\n  a = 1\n  b = 2\n}', 1)).toEqual([1, 3])

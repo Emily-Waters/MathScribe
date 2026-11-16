@@ -4,12 +4,12 @@
  *
  *   LineSyntax   a kind of line: where it can be (its contexts), how to tell
  *                one (matches), and what it opens, if anything (a body)
- *   Context      what a line is inside (the sheet, prose, raw LaTeX, a
- *                function's body, imported data), and the kind its lines are
+ *   Context      what a line is inside (the sheet, prose, raw LaTeX,
+ *                constants, imported data), and the kind its lines are
  *
  * A line is offered to the syntaxes of its context in order (a module's first,
  * as a module's readers are), and the first that matches is its kind; a line
- * that opens a body (`Title {`, `def f(x)`, `@import(…)`) makes a node holding
+ * that opens a body (`Title {`, `@import(…)`) makes a node holding
  * itself and the lines of its body, up to where the body ends.
  */
 /** A line split into what it says and its #commands and note (as splitNote splits it): what a syntax needs of it. */
@@ -27,8 +27,6 @@ export const BODY_END = {
   braceAlone: 'braceAlone',
   /** The first line that's blank or not indented further (imported data's rows). */
   indent: 'indent',
-  /** The first non-blank line not indented further (a function's body: blank lines are in it). */
-  indentOrBlank: 'indentOrBlank',
 } as const
 export type BodyEnd = (typeof BODY_END)[keyof typeof BODY_END]
 
@@ -36,7 +34,7 @@ export type BodyEnd = (typeof BODY_END)[keyof typeof BODY_END]
 export const CONTENT = {
   /** Its text, then its #commands and note (`m = 2.0 kg  #val  # mass`). */
   noted: 'noted',
-  /** As `noted`, its text read as an expression into tokens (lexer.ts): a calculation, a function's line, a `def`. */
+  /** As `noted`, its text read as an expression into tokens (lexer.ts): a calculation, a constant. */
   expression: 'expression',
   /** All one token: raw LaTeX, imported data (a `#` in it is the text's). */
   whole: 'whole',

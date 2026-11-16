@@ -99,7 +99,7 @@ amber one; hover the bar to read the message.
 | --- | --- |
 | Tab / Shift+Tab | Indent / dedent by one level (4 spaces) |
 | Backspace in the indentation | Removes a whole level |
-| Enter | Keeps the indentation; one level deeper after a line ending in `{`, a `def`, or an `if` / `else` in one |
+| Enter | Keeps the indentation; one level deeper after a line ending in `{` |
 | `}` | Dedents itself to match its block |
 | Ctrl+X / Ctrl+C, nothing selected | Cut / copy the whole line (pasting it puts it above the current line) |
 | Alt+↑ / Alt+↓ | Move the line (or selected lines) up / down |
@@ -109,7 +109,7 @@ amber one; hover the bar to read the message.
 | Ctrl+/ | Comment or uncomment the line (or selected lines) with `//` |
 | Ctrl+Z / Ctrl+Y | Undo / redo |
 
-On a Mac, use ⌘ for Ctrl. `def` bodies and `{ }` blocks (`@layout.list { }` too) fold
+On a Mac, use ⌘ for Ctrl. `{ }` blocks (`@layout.list { }` too) and an import's rows fold
 from the arrows in the gutter.
 
 The output follows as you type. A sheet that takes a while to work out (thousands
@@ -466,45 +466,32 @@ F = 2.00 kg * 9.81 m/s^2   #center        (a single calculation, centered)
 
 ### Functions
 
-Write a one-line function the way it's written in maths:
+Write a function the way it's written in maths, on one line:
 
 ```
 radialProb(r, psi) = 4 * pi * r^2 * psi^2
 P = radialProb(r, psi_200)
 ```
 
-or, for several steps, Python-style: `def`, a name and parameters (a trailing `:` is
-optional), then an indented body of `name = …` lines, usually ending in
-`return …`. The two styles behave the same.
-
-A `def` without a `return` gives no value, as in Python. Call it on a line of its
-own (`steps(1.0, 2.0)`) to show its working; using it in a calculation
-(`r = steps(1.0, 2.0)`) is an error, since there's nothing to store.
+A call is shown in terms of **what you passed in** (here `r` and `psi_200`, not the
+parameter names):
 
 ```
-def KE(mass, speed)
-    E = 1/2 * mass * speed^2     # local to the function
-    return E
-
-K = KE(m, v)
+KE(mass, speed) = 1/2 * mass * speed^2
+K = KE(m, v)          → K = ½ · m · v² = ½ · 2.0 kg · (3.00 m/s)² = (9.0 ± 0.5) J
 ```
 
-A call shows the working inside the function, in terms of **what you passed in**
-(here `m` and `v`, not `mass` and `speed`), followed by the line itself:
-
-```
-E = ½ · m · v² = ½ · 2.0 kg · (3.00 m/s)² = (9.0 ± 0.5) J
-K = E = (9.0 ± 0.5) J
-```
-
-- Each body line shows its own substitution and result, with sig figs and
-  uncertainties carried through.
-- When the right-hand side is just the call, the line reads `K = E = …` (the return
-  expression); when the call is part of a bigger expression (`w = 2 * KE(m, v)`), the
-  working is shown above and the line is shown as usual.
-- Functions that call functions show their working too, innermost first.
-- `#sym` on the calling line shows the body equations without values; `#val` skips
-  the working and shows just `K = (9.0 ± 0.5) J`.
+- When the right-hand side is just the call, the line reads `K = ½ · m · v² = …`
+  (the function's expression); when the call is part of a bigger expression
+  (`w = 2 * KE(m, v)`), the line is shown as usual.
+- `#sym` on the calling line shows the equation without values; `#val` shows just
+  `K = (9.0 ± 0.5) J`. `#multiline` on the definition lays out every line that calls
+  it one `=` per row.
+- A function can read variables from where it was defined, and one defined inside a
+  `{ }` block is only visible in that block.
+- Calls work like any other function: units, sig figs and uncertainties carry
+  through, so `KE(m, v)` propagates the uncertainties of `m` and `v`.
+- Your function takes precedence over a built-in of the same name (e.g. `sum(a, b) = …`).
 
 **Casting parameters:** write `name to unit` in the parameter list to convert that
 argument when the function is called, so the working shows it in that unit:
@@ -524,75 +511,23 @@ a variable, and every call's result is shown (and kept) that way:
 ```
 ang(y, x):3:deg = atan(y/x)
 phi = ang(1.0, 2.0)               # 26.6°, to 3 sig figs
-
-def polar(x, y):3                 # each value of the returned tuple to 3 sig figs
-    …
+polar(x, y):3 = @tuple(sqrt(x^2 + y^2), atan2(y, x))   # each value to 3 sig figs
 ```
 
 The definition shows the unit as ang(y, x) → [°]. A tuple result takes the unit
-on each value. Settings on the calling line still win: `w:2 = ang(y, x)`. A plain
-trailing colon (`def f(x):`) works as before.
+on each value. Settings on the calling line still win: `w:2 = ang(y, x)`.
 
-Body lines can have their own notes and commands, which apply whenever the function
-is called:
-
-```
-def calc(a, b)
-    s = a + b          # the sum             → s = a + b = 2.0 + 3.0 = 5.0   (the sum)
-    p = a * b  #val    # the product         → p = 6.0                       (the product)
-    q = s / p  #sym                          → q = s / p
-    h = q * 2  #hide                         → (runs, not shown)
-    return h + 1       # final answer        → r = h + 1 = 1.7 + 1 = 2.7     (final answer)
-```
-
-- A body line's command decides how that step is shown; lines without one follow the
-  calling line (or its block's command). `#multiline` on the `def` line or a body
-  line lays out that working one `=` per row.
-- `#hide` still runs the step, since later lines may use it, but leaves it out of the
-  working. If it has an error, it's shown anyway.
-- The `return` line's note goes on the calling line, unless that line has its own
-  note. Its command sets how the calling line is shown, unless the calling line (or
-  its block) has a command of its own.
-- The body is every following line indented further than `def` (spaces or tabs).
-  Blank lines and `#` comment lines inside it are fine; notes after a line work too.
-- Each call gets its own local scope: assignments in the body stay inside it. The
-  body can read variables from where the function was defined, and a function
-  defined inside a `{ }` block is only visible in that block.
-- Calls work like any other function: units, sig figs and uncertainties carry
-  through, so `KE(m, v)` propagates the uncertainties of `m` and `v`.
-- Your function takes precedence over a built-in of the same name (e.g. `def sum(a, b)`).
-- The definition is shown as a card with each body line as an equation, the return
-  line reading `KE(mass, speed) = E`. `#hide` on the `def` line hides the card.
-
-**Conditions:** in a line, `condition ? a : b` gives `a` if the condition holds and
-`b` otherwise, so a one-line function can be piecewise; it's typeset with a brace,
-as piecewise functions are, and the result has the sig figs of the one it came to:
+**Conditions:** `condition ? a : b` gives `a` if the condition holds and `b`
+otherwise, so a function can be piecewise; it's typeset with a brace, as piecewise
+functions are, and the result has the sig figs of the one it came to. Conditions
+nest, for more than two cases:
 
 ```
 F = x > 0 m ? k * x : 0 N
 ramp(x) = x > 0 ? x : 0
+friction(v) = v > 0 m/s ? -mu * N : (v < 0 m/s ? mu * N : 0 N)
 ```
 
-In a `def`, write `if`, `else if` and `else`, with the lines of each indented under
-it (a trailing `:` is optional, as on `def`):
-
-```
-def friction(v)
-    if v > 0 m/s
-        f = -mu * N
-        return f
-    else if v < 0 m/s
-        return mu * N
-    else
-        return 0 N
-
-F_f = friction(-1.0 m/s)      # working: −1.0 m/s > 0 m/s = false, −1.0 m/s < 0 m/s = true, then μN
-```
-
-- The first branch whose condition holds runs; `else` runs if none did. Branches
-  nest, and lines after them carry on as usual.
-- A call's working shows each comparison it made, with its values, then the lines
-  of the branch taken. The definition's card shows the branches indented.
 - Conditions compare values (`<`, `<=`, `>`, `>=`, `==`, `!=`), with units, and
   combine with `and`, `or` and `not`. A comparison on a line of its own shows
   true or false: `ok = sigma < sigma_allow`.
@@ -689,8 +624,8 @@ mag = norm(F)                    # 5.0 N
 - Each typed component keeps its own sig figs: `<0.50, -9.81>` shows as typed.
   What's worked out from it has the fewest sig figs of its components, as with
   tuples.
-- `<` only starts a vector where a value can start (after `=`, `(`, a comma, an
-  operator or `return`) and when there's a comma inside, so `a < b` is still a
+- `<` only starts a vector where a value can start (after `=`, `(`, a comma or an
+  operator) and when there's a comma inside, so `a < b` is still a
   comparison.
 - **`:ijk`** shows a vector with unit vectors: `v:ijk = <2.0, -1.5, 4.0> m/s` shows
   (2.0 î − 1.5 ĵ + 4.0 k̂) m/s. Vectors worked out from it are shown that way too, and
@@ -823,9 +758,8 @@ k:exact = 2.5       # exact: never limits a result
 - Only on the left of `=`: inside expressions, `:` means something else to the
   calculator (a range, as in `1:4`). It works in blocks, function bodies, `@constants`
   and with `solve` (`d:3 = @solve(…, d)`).
-- A function's result takes its sig figs from its `return` line, so a declared
-  `q:2 = …` inside a function, or a measured number in its body, carries through to
-  the calling line.
+- A function's result takes its sig figs from its expression, so a measured number
+  in it carries through to the calling line.
 
 #### Scientific or decimal notation
 
@@ -1528,7 +1462,7 @@ renamed, change it there too.
   the reader of its kind and holds what readers share (the Calculator, the open
   blocks, blank lines, section numbers); `reader.ts`: `NodeReader` (one per kind
   of node) and `TreeItem` (a node, where its lines are: a block's opener, body
-  and `}`); `readers.ts`: the core's readers (a heading, `@latex { }`, `def`, a
+  and `}`); `readers.ts`: the core's readers (a heading, `@latex { }`, a
   layout block, a calculation, …), with the sheet-wide ones (`@constants`,
   `@c:4` declarations) read before everything else. A module with kinds of node
   of its own (`ReadsLines`: chemistry's `@chem.species { }`) adds their readers;

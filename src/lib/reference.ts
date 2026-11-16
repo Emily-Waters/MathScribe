@@ -171,24 +171,13 @@ export const REFERENCE: ReferenceSection[] = [
     examples: [
       { source: 'f(x) = 2 * x^2 + 1\ny = f(3.0)', explain: 'A one-line function, written as in maths.' },
       {
-        source: 'def KE(mass, speed)\n    E = 1/2 * mass * speed^2\n    return E\nE_k = KE(2.00 kg, 3.00 m/s)',
-        explain: 'def with an indented body for several steps. Assignments inside are local.',
-      },
-      {
         source: [
-          'def friction(v, f_k)',
-          '    if v > 0 m/s',
-          '        return -f_k',
-          '    else if v < 0 m/s',
-          '        return f_k',
-          '    else',
-          '        return 0 N',
-          'F_f = friction(-1.5 m/s, 6.0 N)',
           'ramp(x) = x > 0 ? x : 0',
           'y = ramp(3.0)',
+          'friction(v, f_k) = v > 0 m/s ? -f_k : (v < 0 m/s ? f_k : 0 N)',
+          'F_f = friction(-1.5 m/s, 6.0 N)',
         ].join('\n'),
-        explain: 'if, else if and else in a def, with their lines indented under them: the first whose condition holds runs. '
-          + 'In a line, condition ? a : b gives a if the condition holds and b otherwise.',
+        explain: 'condition ? a : b gives a if the condition holds and b otherwise; conditions nest, for more than two cases.',
       },
       {
         source: 'area(r) = pi * r^2\nr_1 = 2.0 cm\nA = area(r_1)',
@@ -201,22 +190,11 @@ export const REFERENCE: ReferenceSection[] = [
       },
       {
         source: 'ang(y, x):3:deg = atan(y / x)\nphi = ang(1.0, 2.0)',
-        explain: 'Settings after the parameters, f(x):3:deg (or def f(x):3:deg), apply to every call’s result: '
+        explain: 'Settings after the parameters, f(x):3:deg, apply to every call’s result: '
           + 'its sig figs and unit, as on a variable.',
       },
       {
-        source: 'def steps(a, b)\n    s = a + b\n    p = 2 * s\nsteps(1.0, 2.0)',
-        explain: 'A def without return gives no value, as in Python: call it on a line of its own to show its working. '
-          + 'Using it in a calculation (r = steps(…)) is an error.',
-      },
-      {
-        source: [
-          'def polar(x, y)',
-          '    r = sqrt(x^2 + y^2)',
-          '    theta:deg = atan2(y, x)',
-          '    return @tuple(r, theta)',
-          'P = polar(1.00 m, 1.00 m)',
-        ].join('\n'),
+        source: 'polar(x, y) = @tuple(sqrt(x^2 + y^2), atan2(y, x))\nP = polar(1.00 m, 1.00 m)',
         explain: 'A function can return a tuple of values, such as coordinates.',
       },
     ],
@@ -318,7 +296,7 @@ export const REFERENCE: ReferenceSection[] = [
       },
       {
         source: 'area(r) = pi * r^2   #multiline\nr_1 = 2.0 cm\nA = area(r_1)',
-        explain: 'On a function (f(x) = … or a def line), every line that calls it is shown multiline.',
+        explain: 'On a function (f(x) = …), every line that calls it is shown multiline.',
       },
       {
         source: 'Results only {   #val\n  F = 2.00 kg * 9.81 m/s^2\n  p = 2.00 kg * 3.00 m/s   #full\n}',

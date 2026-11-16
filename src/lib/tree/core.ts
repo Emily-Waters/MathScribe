@@ -3,7 +3,7 @@
  * is offered them (after any module's), as the reading layer reads them.
  */
 import {
-  BLOCK_CLOSE, BLOCK_OPEN, CONSTANTS_OPENER, DEF, IMPORT, LATEX_OPENER, PROSE_LAYOUTS,
+  BLOCK_CLOSE, BLOCK_OPEN, CONSTANTS_OPENER, IMPORT, LATEX_OPENER, PROSE_LAYOUTS,
 } from '../syntax.ts'
 import { layoutOpener, splitNote } from '../reading/lineSyntax.ts'
 import { BODY_END, CONTENT, GRAMMAR_CORE, declareContexts, declareLineSyntaxes, type LineSyntax } from './grammar.ts'
@@ -43,11 +43,6 @@ const SYNTAXES: LineSyntax[] = [
     matches: (_, split) => IMPORT.test(split().body),
     opens: { node: NODE_KIND.import, context: LINE_CONTEXT.data, ends: BODY_END.indent },
   },
-  {
-    kind: NODE_KIND.defLine, contexts: SHEET, content: CONTENT.expression,
-    matches: (_, split) => DEF.test(split().body),
-    opens: { node: NODE_KIND.function, context: LINE_CONTEXT.functionBody, ends: BODY_END.indentOrBlank },
-  },
   { kind: NODE_KIND.blockCloser, contexts: SHEET, content: CONTENT.noted, matches: (_, split) => split().body === BLOCK_CLOSE },
   {
     kind: NODE_KIND.proseOpener, contexts: SHEET, content: CONTENT.noted,
@@ -78,7 +73,6 @@ declareContexts([
   { name: LINE_CONTEXT.prose, lineKind: NODE_KIND.proseLine, content: CONTENT.text },
   { name: LINE_CONTEXT.latex, lineKind: NODE_KIND.latexLine, content: CONTENT.whole },
   { name: LINE_CONTEXT.constants, lineKind: NODE_KIND.constantLine, content: CONTENT.expression },
-  { name: LINE_CONTEXT.functionBody, lineKind: NODE_KIND.functionLine, content: CONTENT.expression },
   { name: LINE_CONTEXT.data, lineKind: NODE_KIND.data, content: CONTENT.whole, raw: true },
 ])
 declareLineSyntaxes(GRAMMAR_CORE, SYNTAXES)

@@ -188,18 +188,17 @@ describe('the kinds of line, and the blocks they open', () => {
     ])
   })
 
-  it('reads lines in a block by what the block holds: prose, raw LaTeX, constants, a function’s body', () => {
+  it('reads lines in a block by what the block holds: prose, raw LaTeX, constants', () => {
     const source = [
       '@layout.text Notes {', 'Some prose, x = 1 # not a note', '}',
       '@latex {', '\frac{a}{b}', '}',
       '@constants {', 'rho = 1000 kg/m^3', '}',
-      'def f(x)', '    y = 2 * x', '', '    return y', 'z = f(1)',
+      'z = 1',
     ].join('\n')
     expect(shape(encode(source).body)).toEqual([
       NODE_KIND.prose, `  ${NODE_KIND.proseOpener}`, `  ${NODE_KIND.proseLine}`, `  ${NODE_KIND.blockCloser}`,
       NODE_KIND.latexBlock, `  ${NODE_KIND.latexOpener}`, `  ${NODE_KIND.latexLine}`, `  ${NODE_KIND.blockCloser}`,
       NODE_KIND.constants, `  ${NODE_KIND.constantsOpener}`, `  ${NODE_KIND.constantLine}`, `  ${NODE_KIND.blockCloser}`,
-      NODE_KIND.function, `  ${NODE_KIND.defLine}`, `  ${NODE_KIND.functionLine}`, `  ${NODE_KIND.blank}`, `  ${NODE_KIND.functionLine}`,
       NODE_KIND.calc,
     ])
   })

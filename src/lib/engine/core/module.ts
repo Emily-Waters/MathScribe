@@ -306,7 +306,7 @@ export abstract class EngineModule {
     return undefined
   }
 
-  /** The look a function's body gives what it returns, from how it's written (a vector typed in it). */
+  /** The look a function's expression gives what it returns, from how it's written (a vector typed in it). */
   lookOfWritten(_text: string): TupleLook | undefined {
     return undefined
   }

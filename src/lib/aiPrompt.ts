@@ -123,13 +123,7 @@ export const SNIPPETS = {
   conditions: [
     'k = 250. N/m',
     'F(x) = x > 0 m ? k * x : 0 N',
-    'def friction(v, f_k)',
-    '    if v > 0 m/s',
-    '        return -f_k',
-    '    else if v < 0 m/s',
-    '        return f_k',
-    '    else',
-    '        return 0 N',
+    'friction(v, f_k) = v > 0 m/s ? -f_k : (v < 0 m/s ? f_k : 0 N)',
     'F_s = F(0.120 m)',
     'F_f = friction(-1.5 m/s, 6.0 N)',
   ].join('\n'),
@@ -259,10 +253,9 @@ ${constantNames}. 3 sig figs by default; \`@c:5\` for 5, \`@c:exact\` for every 
 
 ## Functions and solving
 ${code(SNIPPETS.function)}
-- Several steps: \`def KE(mass, speed)\`, an indented body of \`name = …\` lines, then
-  \`return E\`. No loops.
-- A condition in a line is \`cond ? a : b\`; in a def, \`if\`, \`else if\` and \`else\` with their
-  lines indented under them. Conditions compare values (\`<\`, \`>=\`, \`==\`, \`and\`, \`or\`).
+- A function is one line, \`f(x) = …\`; it can use variables from above it. No loops.
+- A condition is \`cond ? a : b\`, and conditions nest: \`c1 ? a : (c2 ? b : c)\`. Conditions
+  compare values (\`<\`, \`>=\`, \`==\`, \`and\`, \`or\`).
 ${code(SNIPPETS.conditions)}
 ${code(SNIPPETS.solve)}
 - \`@solve(equation, unknown)\` rearranges and evaluates. Give a guess for hard ones:

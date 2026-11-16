@@ -85,17 +85,10 @@ export const LEADING_NAME = new RegExp(`^${NAME}`)
 
 /** Words with a meaning of their own in a line. */
 export const KEYWORD = {
-  /** Starts a multi-line function: `def f(a, b)`. */
-  def: 'def',
-  /** A function's result: `return E`. */
-  return: 'return',
   /** A conversion: `2.0 m to cm`. */
   to: 'to',
   /** An uncertainty: `2.0 kg pm 0.1 kg`. */
   pm: 'pm',
-  /** A branch in a function's body: `if v > 0`, `else if v < 0`, `else`. */
-  if: 'if',
-  else: 'else',
 } as const
 
 /**
@@ -137,35 +130,6 @@ export const LABEL_WORDS = new RegExp(String.raw`^${LABEL_QUOTE}([^"]*)${LABEL_Q
 
 /** A display name made with a template, as a setting: `massName(H2O)` (1: the template, 2: its arguments). */
 export const TEMPLATE_USE = new RegExp(String.raw`^(${NAME})${PARAMETERS}$`)
-
-/**
- * A `def` line: `def f(a, b)`, `def f(a, b):3:deg`, optionally with a trailing
- * `:` (1: name, 2: parameters, 3: settings for the result).
- */
-export const DEF = new RegExp(String.raw`^${KEYWORD.def}\s+(${NAME})\s*\(([^)]*)\)((?::[^:\s]+)*)\s*:?$`)
-
-/** The parameters of a `def` line as written in the sheet, indentation and all (1: name, 2: parameters). */
-export const DEF_HEAD = new RegExp(String.raw`^\s*${KEYWORD.def}\s+(${NAME})\s*\(([^)]*)\)`)
-
-/** A `def` line, as it starts (for telling the kind of a line). */
-export const DEF_START = new RegExp(String.raw`^${KEYWORD.def}\s`)
-
-/** A function's `return` line (1: what it returns). */
-export const RETURN_LINE = new RegExp(String.raw`^${KEYWORD.return}\s+(.+)$`)
-
-/**
- * A branch in a function's body, with the lines it holds indented under it
- * (a trailing `:` is optional, as on `def`):
- *   `if v > 0`        (1: the condition)
- *   `else if v < 0`   (1: the condition)
- *   `else`
- */
-export const IF_LINE = new RegExp(String.raw`^${KEYWORD.if}\s+(.+?)\s*:?$`)
-export const ELSE_IF_LINE = new RegExp(String.raw`^${KEYWORD.else}\s+${KEYWORD.if}\s+(.+?)\s*:?$`)
-export const ELSE_LINE = new RegExp(String.raw`^${KEYWORD.else}\s*:?$`)
-
-/** A line that starts a branch (for the editor: the next line is indented). */
-export const BRANCH_START = new RegExp(String.raw`^(?:${KEYWORD.if}|${KEYWORD.else})(?:\s|:|$)`)
 
 /** An unpacking being typed, before its `=`: `@tuple(a, b` (for the editor). */
 export const UNPACK_SO_FAR = new RegExp(String.raw`^\s*${builtinOpening(CALL.tuple)}[^()=]*$`)

@@ -34,12 +34,9 @@ t_count
 a_exp = 2 * d / t_avg^2  # measured acceleration, with uncertainty
 
 ## Functions
-> Define a function with def and an indented body; values and uncertainties flow through it.
-def KE(mass, speed)
-    E = 1/2 * mass * speed^2   # local to the function
-    return E
+> A function is written the way it is in maths; values and uncertainties flow through it.
+KE(mass, speed) = 1/2 * mass * speed^2
 E_bottom = KE(m, v_f)    # same as E_k above
-> A one-line function can be written the way it is in maths.
 p(mass, speed) = mass * speed
 p_bottom = p(m, v_f)
 

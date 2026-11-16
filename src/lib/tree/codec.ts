@@ -5,7 +5,7 @@
  * A tree is plain data, so it goes through JSON (or an HTTP request) and back unchanged.
  *
  * The tree's top level is the sheet's lines; a line that opens a body
- * (`Title {`, `def f(x)`, `@import(…)`) is a node holding the line, the lines of
+ * (`Title {`, `@import(…)`) is a node holding the line, the lines of
  * its body (blocks inside it as nodes of their own), and its closing line. It's
  * built from the sheet's lines read one at a time (stream.ts), as the editor reads them.
  */

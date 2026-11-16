@@ -8,7 +8,7 @@ import { EXACT, MAX_DIGITS, countSigFigs, formatExact, formatSigFigs, formatWith
 import { AGGREGATE_KIND, Variable, type Aggregate, type Contributions, type VariableFields, type VariableSummary } from '../../values.ts'
 import { DEFAULT_CONSTANT_SIG_FIGS, isNamespaceConstant, suggestConstant } from '../../constants.ts'
 import { builtinConstant, builtinConstantKeys, isReservedConstantName } from '../../builtins.ts'
-import { CONSTANT_REF, EXACT_SETTING, IS_NAME, PERCENT, ELSE_IF_LINE, ELSE_LINE, IF_LINE, KEYWORD, RETURN_LINE, DISPLAY_MODE, LINE_COMMAND, VALUE_IN_TEXT, CONSTANTS_BLOCK, LABEL_WORDS, SIGIL, type DisplayMode, type Notation, type Precision, type UncertaintyWord } from '../../syntax.ts'
+import { CONSTANT_REF, EXACT_SETTING, IS_NAME, PERCENT, DISPLAY_MODE, VALUE_IN_TEXT, CONSTANTS_BLOCK, LABEL_WORDS, SIGIL, type DisplayMode, type Notation, type Precision, type UncertaintyWord } from '../../syntax.ts'
 import { INLINE_VALUE_NAME, JOIN, TUPLE_FUNCTION, RESERVED_NAMESPACES, constantKey, constantRefName, expandDots, typedConstant, isHiddenName, isUncertaintyName, memberName, parseNumberedName, parseUncertaintyName, readableMembers, seriesMemberName, uncertaintyName, unpackedName } from '../../names.ts'
 import { COMPARISONS, FN, OP, OP_SYMBOL, UNIT, isOp } from '../../mathjsNames.ts'
 
@@ -21,17 +21,17 @@ import { outsideMaths, wordsTex } from './text.ts'
 import { expandNamespaceCalls, strayLineFormCall } from './builtinCalls.ts'
 import { BUILTIN_CONSTANT_NAMES, NAME_IN_LINE } from './literals.ts'
 import { preprocess, typedNumbers } from './writer.ts'
-import { AUTO_PRECISION, ExplainedError, builtinCallHint, FIXED_UNCERTAINTY_SIG_FIGS, type CalcOptions, type EquationParts, layoutEquation, type FunctionResult, type FunctionLine, type TraceLine, type CalcResult, unexpectedError, fitHint, type DataColumn, type LineNotation, type LineResult, type ParsedLine, TO_PERCENT, RAW, rawNode, STEP, readableUnitError } from './results.ts'
+import { AUTO_PRECISION, ExplainedError, builtinCallHint, FIXED_UNCERTAINTY_SIG_FIGS, type CalcOptions, type EquationParts, layoutEquation, type TraceLine, type CalcResult, unexpectedError, fitHint, type DataColumn, type LineNotation, type LineResult, type ParsedLine, TO_PERCENT, RAW, rawNode, STEP, readableUnitError } from './results.ts'
 import { NAME_THEN_SETTINGS, DELTA_REF, expandParenPm, splitPm } from './uncertainty.ts'
 import { parseAggregateName, escapeRegExp } from './series.ts'
 import { symbolTex, numberTex, unitTex, attachUnit, isUnitCall, unitCallText, isLitCall } from './tex.ts'
 import { unwrap, isLiteral, isTupleLiteral, isPureNumber, isConversion } from './nodes.ts'
 import { NODE_KIND } from '../../tree/nodes.ts'
-import { ASSIGN, SETTING_MARK, lineShape } from '../../tree/shapes.ts'
+import { ASSIGN, lineShape } from '../../tree/shapes.ts'
 import { normalise, displayUnit, magnitudeOf } from './normalise.ts'
 import { Scope, Views, type Variables, Values, innerValues } from './scope.ts'
-import { STATEMENT_KIND, type Guarded, BranchRun, holds, type UserFunction, type CustomConstant, MAX_TRACE_DEPTH } from './functions.ts'
-import { isAngleUnit, toDisplayUnit, type TupleName, parseTupleName, parseDeclaration, declarationOf } from './declarations.ts'
+import { type UserFunction, type CustomConstant, MAX_TRACE_DEPTH } from './functions.ts'
+import { isAngleUnit, toDisplayUnit, type TupleName, parseTupleName, declarationOf } from './declarations.ts'
 import { withRows } from './rows.ts'
 import { bracketed } from './tuples.ts'
 import { EXACT_DISPLAY_DIGITS, FIXED_FORMAT, FLOAT_NOISE, TINY, PERCENT_SCALE, parseParam, isValidUnit, castArgument } from './numbers.ts'
@@ -58,7 +58,7 @@ export class Calculator {
    * worked out from it is a new value, at the fewest sig figs of its inputs.
    */
   private readonly typedSfs = new WeakMap<object, number[]>()
-  /** Sig figs of each call to a user function's result, from its return line. */
+  /** Sig figs of each call to a sheet's function's result, from its expression. */
   private readonly callSigFigs = new WeakMap<MathNode, number>()
   /** Uncertainty source for each series mean, so repeated uses stay correlated. */
   private readonly aggregateSources = new Map<string, number>()
@@ -566,7 +566,7 @@ export class Calculator {
       const f = this.scope.get(node.fn.name)
       const declared = typeof f === 'function' ? this.userFunctions.get(f)?.returnSf : undefined
       if (declared !== undefined) return declared
-      // Otherwise its return line's, as worked out when its working was traced.
+      // Otherwise its expression's, as worked out when its working was traced.
       const traced = this.callSigFigs.get(node)
       if (traced !== undefined) return traced
     }
@@ -1186,170 +1186,60 @@ export class Calculator {
   }
 
   // -------------------------------------------------------------------------
-  // Multi-line functions
+  // Functions
   // -------------------------------------------------------------------------
 
   /**
-   * Define a Python-style function:
-   *
-   *   def f(a, b)
-   *       c = a * b
-   *       return c + 1
-   *
-   * Each call runs the body in a fresh local scope whose parent is the scope the
-   * function was defined in, so the body can read variables from around the
-   * definition, and its own assignments stay local. Calls go through mathjs like
-   * any other function, so units, sig figs and uncertainty propagation apply.
+   * Define a one-line function, `f(a, b) = a * b + 1`. Each call works out its
+   * expression in a fresh local scope whose parent is the scope the function was
+   * defined in, so it can read variables from around the definition. Calls go
+   * through mathjs like any other function, so units, sig figs and uncertainty
+   * propagation apply. `returnSettings`: settings for the result, written after
+   * the parameters as on a variable (`f(x):3:deg`), each without its `:`: every
+   * call's result is shown (and kept) that way.
    */
-  /**
-   * `returnSpec`: settings for the result, written after the parameters as on a
-   * variable (`f(x):3:deg`, `def polar(x, y):3`): every call's result is shown
-   * (and kept) that way.
-   */
-  defineFunction(name: string, paramSpecs: string[], given: FunctionLine[], multiline = false, returnSpec = ''): FunctionResult {
-    // (Its body is read as any line is: a species' name in it is its formula.)
-    const lines = given.map((l) => ({ ...l, text: this.rewriteLine(l.text) }))
+  private defineFunction(name: string, paramSpecs: readonly string[], expression: string, multiline: boolean, returnSettings: readonly string[]): LineResult {
     // `m to kg`: the argument is converted to kg on the way in.
     const parsed = paramSpecs.map(parseParam)
     const params = parsed.map((p) => p?.name ?? '')
     const casts = parsed.map((p) => p?.unit)
-    const ret = returnSpec ? parseDeclaration(`${name}${returnSpec} = 0`) : null
-    const returnSettings = ret && !('error' in ret) ? ret : null
-    const shownUnit = returnSettings?.unit && returnSettings.unit !== PERCENT ? returnSettings.unit : undefined
+    const ret = returnSettings.length ? declarationOf(name, returnSettings) : null
+    const settings = ret && !('error' in ret) ? ret : null
+    const shownUnit = settings?.unit && settings.unit !== PERCENT ? settings.unit : undefined
     const signature = `${symbolTex(name)}\\left(${parsed.map((p, i) => (p
       ? `${symbolTex(p.name)}${p.unit ? `\\,[${unitTex(p.unit)}]` : ''}`
       : paramSpecs[i])).join(', ')}\\right)${shownUnit ? `\\to[${unitTex(shownUnit)}]` : ''}`
-    const body: FunctionResult['body'] = []
-    if (ret && 'error' in ret) return { signature, body, error: ret.error }
-    if (returnSettings?.unit === PERCENT) {
-      return { signature, body, error: `${name}:percent isn't available on a function; show a result as a percentage where it's used.` }
-    }
-    for (const setting of returnSettings?.moduleSettings ?? []) {
+    const fail = (error: string): LineResult => ({ tex: signature, error })
+    if (ret && 'error' in ret) return fail(ret.error)
+    if (settings?.unit === PERCENT) return fail(`${name}:percent isn't available on a function; show a result as a percentage where it's used.`)
+    for (const setting of settings?.moduleSettings ?? []) {
       const problem = moduleSettingProblem(name, setting, SETTING_PLACE.functionResult)
-      if (problem) return { signature, body, error: problem }
+      if (problem) return fail(problem)
     }
     const returnUnit = shownUnit
-    const returnSf = returnSettings?.sf === EXACT_SETTING ? EXACT : returnSettings?.sf
-    const returnNotation = returnSettings?.notation
-    const returnLook = this.lookSettingOf(returnSettings?.moduleSettings)?.look
-      ?? this.modules.flatMap((m) => lines.map((l) => m.lookOfWritten(l.text))).find((l) => l !== undefined)
+    const returnSf = settings?.sf === EXACT_SETTING ? EXACT : settings?.sf
+    const returnNotation = settings?.notation
+    const returnLook = this.lookSettingOf(settings?.moduleSettings)?.look
+      ?? this.modules.map((m) => m.lookOfWritten(expression)).find((l) => l !== undefined)
     const bad = paramSpecs.find((_, i) => !parsed[i])
-    if (bad !== undefined) return { signature, body, error: `"${bad}" isn't a valid parameter: write a name, or "name to unit".` }
+    if (bad !== undefined) return fail(`"${bad}" isn't a valid parameter: write a name, or "name to unit".`)
     const badUnit = casts.find((u) => u !== undefined && !isValidUnit(u))
-    if (badUnit) return { signature, body, error: `"${badUnit}" isn't a unit MathScribe knows.` }
-    type Statement = Guarded & (
-      // `unit`: a display unit on the name (`th:deg = …`), which the value keeps.
-      | { kind: typeof STATEMENT_KIND.assign; name: string; code: math.EvalFunction; unit?: string; settings?: string[] }
-      | { kind: typeof STATEMENT_KIND.unpack; targets: TupleName[]; code: math.EvalFunction }
-      | { kind: typeof STATEMENT_KIND.return; code: math.EvalFunction }
-      | { kind: typeof STATEMENT_KIND.branch; text: string }
-    )
-    const statements: Statement[] = []
-    const sources: UserFunction['statements'] = []
-
+    if (badUnit) return fail(`"${badUnit}" isn't a unit MathScribe knows.`)
     const duplicate = params.find((p, i) => params.indexOf(p) !== i)
-    if (duplicate) return { signature, body, error: `The parameter "${duplicate}" is listed twice.` }
+    if (duplicate) return fail(`The parameter "${duplicate}" is listed twice.`)
 
-    // Branches open at this line (each with its `if`/`else` line's indentation),
-    // and the chains an `else` could still continue, by their `if`'s indentation.
-    const open: { indent: number; id: number }[] = []
-    const chains: { indent: number; chain: number }[] = []
-    let nextBranch = 0
-
-    for (const { line, text, note, command, multiline: lineMultiline, indent = 0 } of lines) {
-      // A line indented no further than a branch's own line ends that branch.
-      while (open.length && indent <= open.at(-1)!.indent) open.pop()
-      while (chains.length && indent < chains.at(-1)!.indent) chains.pop()
-      const guards = open.map((b) => b.id)
-      // How far in the definition's card shows it: one step per branch around it.
-      const inset = '\\quad '.repeat(guards.length)
-
-      // `if …`, `else if …`, `else`: a branch, holding the lines indented under it.
-      const elseIf = ELSE_IF_LINE.exec(text)
-      const ifLine = elseIf ? null : IF_LINE.exec(text)
-      const isElse = ELSE_LINE.test(text)
-      if (ifLine || elseIf || isElse) {
-        const continues = chains.at(-1)?.indent === indent
-        if (!ifLine && !continues) {
-          return { signature, body, error: `Line ${line}: this ${KEYWORD.else} has no ${KEYWORD.if} before it at the same indentation.` }
-        }
-        if (ifLine && continues) chains.pop()
-        const id = nextBranch++
-        const chain = ifLine ? id : chains.at(-1)!.chain
-        if (ifLine) chains.push({ indent, chain })
-        // (After an `else`, the chain is over: another `else` has nothing to continue.)
-        if (isElse) chains.pop()
-        const condition = ifLine?.[1] ?? elseIf?.[1]
-        try {
-          let code: math.EvalFunction | undefined
-          let tex = '\\text{otherwise}'
-          if (condition !== undefined) {
-            const literals = typedNumbers(condition)
-            const expanded = this.expandConstants(condition)
-            if (expanded.error) throw new Error(expanded.error)
-            const node = math.parse(preprocess(expanded.text, this.isVariable).text)
-            code = node.compile()
-            tex = `\\text{${ifLine ? KEYWORD.if : `${KEYWORD.else} ${KEYWORD.if}`} }${this.toTex(node, literals)}`
-          }
-          const branch = { id, chain, code }
-          statements.push({ kind: STATEMENT_KIND.branch, text: condition ?? '', guards, branch })
-          sources.push({ kind: STATEMENT_KIND.branch, text: condition ?? '', note, command, multiline: lineMultiline, guards, branch })
-          body.push({ tex: `${inset}${tex}`, note, line })
-        } catch (e) {
-          return { signature, body, error: `Line ${line}: ${(e as Error).message}` }
-        }
-        open.push({ indent, id })
-        continue
-      }
-      // Any other line ends the chain at its indentation: an `else` after it has no `if`.
-      if (chains.at(-1)?.indent === indent) chains.pop()
-
-      const ret = RETURN_LINE.exec(text)
-      // `x = …`, or with display settings: `x:3 = …`, `theta:deg = …`; or `@tuple(a, b) = …`, which unpacks a tuple.
-      const shape = lineShape(text)
-      const assigned = shape.target?.kind === NODE_KIND.assigned && shape.value ? shape.target : undefined
-      const unpackNames = shape.target?.kind === NODE_KIND.unpack && shape.value ? shape.target.entries : undefined
-      const source = ret?.[1] ?? ((assigned || unpackNames) ? shape.value : undefined)
-      if (!source) {
-        return { signature, body, error: `Line ${line}: inside a function, each line is "name = …", "@tuple(a, b) = …", "return …", or an if / else with lines indented under it.` }
-      }
-      // Each unpacked name, with any settings (`@tuple(r:3, th:deg) = …`).
-      const unpackTargets = unpackNames?.map(parseTupleName)
-      const badTarget = unpackTargets?.find((t) => 'error' in t)
-      if (badTarget && 'error' in badTarget) return { signature, body, error: `Line ${line}: ${badTarget.error}` }
-      const targets = unpackTargets as TupleName[] | undefined
-      const literals = typedNumbers(source)
-      try {
-        // Constants resolve where the function is defined, so calls can see them.
-        const expanded = this.expandConstants(source)
-        if (expanded.error) throw new Error(expanded.error)
-        const node = math.parse(preprocess(expanded.text, this.isVariable).text)
-        const code = node.compile()
-        if (unpackNames) {
-          statements.push({ kind: STATEMENT_KIND.unpack, targets: targets!, code, guards })
-          sources.push({ kind: STATEMENT_KIND.assign, text, note, command, multiline: lineMultiline, guards })
-          const names = targets!.map((t) => symbolTex(t.name)).join(', ')
-          body.push({ tex: `${inset}\\left(${names}\\right) = ${this.toTex(node, literals)}`, note, line })
-        } else if (ret) {
-          statements.push({ kind: STATEMENT_KIND.return, code, guards })
-          sources.push({ kind: STATEMENT_KIND.return, text: source, note, command, multiline: lineMultiline, guards })
-          body.push({ tex: `${inset}${signature} = ${this.toTex(node, literals)}`, note, line })
-        } else {
-          const declared = parseDeclaration(text)
-          const unit = declared && !('error' in declared) && declared.unit !== PERCENT ? declared.unit : undefined
-          const settings = declared && !('error' in declared) ? declared.moduleSettings : undefined
-          statements.push({ kind: STATEMENT_KIND.assign, name: assigned!.name, code, unit, settings, guards })
-          // Keep the line as written, so a declared `x:3 =` applies when its working is shown.
-          sources.push({ kind: STATEMENT_KIND.assign, text, note, command, multiline: lineMultiline, guards })
-          body.push({ tex: `${inset}${symbolTex(assigned!.name)} = ${this.toTex(node, literals)}`, note, line })
-        }
-      } catch (e) {
-        return { signature, body, error: `Line ${line}: ${(e as Error).message}` }
-      }
+    let code: math.EvalFunction
+    let tex: string
+    try {
+      // Constants resolve where the function is defined, so calls can see them.
+      const expanded = this.expandConstants(expression)
+      if (expanded.error) throw new Error(expanded.error)
+      const node = math.parse(preprocess(expanded.text, this.isVariable).text)
+      code = node.compile()
+      tex = `${signature} = ${this.toTex(node, typedNumbers(expression))}`
+    } catch (e) {
+      return fail((e as Error).message)
     }
-    // No `return`: like Python, the function gives no value. Called on a line of
-    // its own, it just shows its working; used in a calculation, it's an error.
-    const returns = statements.some((s) => s.kind === STATEMENT_KIND.return)
 
     const definedIn = this.vars
     const fn = (...args: unknown[]) => {
@@ -1359,39 +1249,15 @@ export class Calculator {
       }
       const local = innerValues(definedIn)
       params.forEach((p, i) => local.set(p, castArgument(p, casts[i], args[i])))
-      const run = new BranchRun()
-      for (const s of statements) {
-        if (!run.reaches(s)) continue
-        if (s.kind === STATEMENT_KIND.branch) {
-          const code = s.branch?.code
-          if (run.open(s) && (!code || holds(code.evaluate(local), s.text))) run.take(s)
-          continue
-        }
-        const v = s.code.evaluate(local)
-        if (s.kind === STATEMENT_KIND.return) return returnUnit ? toDisplayUnit(v, returnUnit) : v
-        if (s.kind === STATEMENT_KIND.unpack) {
-          const values = isTuple(v) ? v.toArray() as unknown[] : null
-          if (!values || values.length !== s.targets.length) {
-            const names = s.targets.map((t) => t.name).join(', ')
-            throw new Error(`In ${name}, @tuple(${names}) = … needs a tuple of ${s.targets.length} values.`)
-          }
-          s.targets.forEach((t, i) => local.set(t.name, t.unit ? toDisplayUnit(values[i], t.unit) : values[i]))
-          continue
-        }
-        const value = s.unit ? toDisplayUnit(v, s.unit) : v
-        local.set(s.name, value)
-        for (const d of this.derivedVariables(s.name, value, s.settings)) local.set(d.name, d.value)
-      }
-      return undefined
+      const v = code.evaluate(local)
+      return returnUnit ? toDisplayUnit(v, returnUnit) : v
     }
-    this.userFunctions.set(fn, {
-      params, casts, statements: sources, definedIn, multiline, returns, returnSf, returnNotation, returnLook, returnUnit,
-    })
+    this.userFunctions.set(fn, { params, casts, expression, definedIn, multiline, returnSf, returnNotation, returnLook, returnUnit })
     this.store(name, { value: fn, sf: EXACT })
-    return { signature, body: body.map((b) => ({ ...b, tex: nestBrackets(b.tex) })) }
+    return { tex: nestBrackets(tex) }
   }
 
-  /** Calls to multi-line functions in `node`, innermost first (arguments before the call). */
+  /** Calls to the sheet's own functions in `node`, innermost first (arguments before the call). */
   private userCalls(node: MathNode): FunctionNode[] {
     const out: FunctionNode[] = []
     const visit = (n: MathNode) => {
@@ -1406,33 +1272,11 @@ export class Calculator {
   }
 
   /**
-   * Show what happens inside a call: replay the function's body through the
-   * normal line evaluator, in a scope like the function's own, with each
-   * parameter bound to its argument's value, sig figs and uncertainty. Each body
-   * line then shows as `x = a + b = 2 + 3 = 5`. Returns the body's equations and
-   * the pieces of the return expression, with its note and command.
-   *
-   * A body line's own command (`#sym`, `#val`, `#full`) decides how that step is
-   * shown; otherwise the calling line's mode applies. `#hide` still runs the step
-   * (later lines may need it) but leaves it out, unless it has an error.
+   * Show what happens inside a call: work out the function's expression through
+   * the normal line evaluator, in a scope like the function's own, with each
+   * parameter bound to its argument's value, sig figs and uncertainty. Returns
+   * the working of the calls inside it, and the pieces of its expression.
    */
-  /**
-   * A line that's only a call to a function without `return`: show the working
-   * inside it, with the call itself as the line (there's no value to show).
-   */
-  private showWorking(call: FunctionNode, ctx: ParsedLine): LineResult {
-    const tex = this.toTex(call, ctx.literals)
-    const warning = ctx.warnings.join(' ') || undefined
-    try {
-      // Run it, so mistakes (an argument that doesn't fit a cast, say) are reported.
-      call.compile().evaluate(this.scope)
-    } catch (e) {
-      return { tex, warning, error: (e as Error).message }
-    }
-    const traced = ctx.mode === DISPLAY_MODE.val ? null : this.traceCall(call, ctx.literals, ctx.mode, ctx.explicit)
-    return { tex, warning, trace: traced?.lines, info: ctx.info }
-  }
-
   private traceCall(call: FunctionNode, literals: Map<number, string>, mode: DisplayMode, explicit: boolean) {
     const fn = this.scope.get(call.fn.name)
     const def = typeof fn === 'function' ? this.userFunctions.get(fn) : undefined
@@ -1478,46 +1322,16 @@ export class Calculator {
           look: isTuple(args[i].value) ? argLooks[i] : undefined,
         })
       })
-      const lines: TraceLine[] = []
-      const run = new BranchRun()
-      for (const s of def.statements) {
-        if (!run.reaches(s)) continue
-        if (s.kind === STATEMENT_KIND.branch) {
-          if (!run.open(s)) continue
-          const code = s.branch?.code
-          if (!code) {
-            run.take(s)
-            continue
-          }
-          // The comparison, with its values: v > 0 = 2.0 m/s > 0 = true.
-          const shown = this.evaluateLine(s.text, mode, explicit)
-          if (s.command !== LINE_COMMAND.hide || shown.error) lines.push({ tex: shown.tex, note: s.note })
-          if (shown.error) break
-          if (holds(code.evaluate(this.scope), s.text)) run.take(s)
-          continue
-        }
-        const own = s.command && s.command !== LINE_COMMAND.hide ? s.command : undefined
-        // The function's own #multiline (or the body line's) lays out its working too.
-        const outerMultiline = this.multiline
-        this.multiline = outerMultiline || def.multiline || !!s.multiline
-        let r: LineResult
-        try {
-          r = this.evaluateLine(s.text, own ?? mode, explicit || !!own)
-        } finally {
-          this.multiline = outerMultiline
-        }
-        const hidden = s.command === LINE_COMMAND.hide && !r.error
-        if (!hidden) lines.push(...(r.trace ?? []))
-        if (s.kind === STATEMENT_KIND.return) {
-          return { lines, ret: r.parts, retNote: s.note, retCommand: own, retSf: def.returnSf ?? r.sf }
-        }
-        if (!hidden) lines.push({ tex: r.tex, note: s.note })
-        if (r.error) break
-        // A parameter reassigned in the body is now its own value, not the argument.
-        const { target } = lineShape(s.text)
-        if (target?.kind === NODE_KIND.assigned) aliases.delete(target.name)
+      // The function's own #multiline lays out its working too.
+      const outerMultiline = this.multiline
+      this.multiline = outerMultiline || def.multiline
+      let r: LineResult
+      try {
+        r = this.evaluateLine(def.expression, mode, explicit)
+      } finally {
+        this.multiline = outerMultiline
       }
-      return { lines, ret: undefined, retNote: undefined, retCommand: undefined, retSf: undefined }
+      return { lines: r.trace ?? [], ret: r.parts, retSf: def.returnSf ?? r.sf }
     } finally {
       this.paramAliases = callerAliases
       this.traceDepth--
@@ -1549,13 +1363,13 @@ export class Calculator {
     this.lineNotation = notation
     for (const m of this.modules) m.beginLine()
     try {
-      const { tex, error, warning, info, trace, returnNote, plot, defines } = this.evaluateLine(this.rewriteLine(input), mode, explicit)
+      const { tex, error, warning, info, trace, plot, defines } = this.evaluateLine(this.rewriteLine(input), mode, explicit)
       // Messages name a namespace's members as typed, a.x_1 (not a__x_1), and a module's inside names as the sheet does.
       // (And one of MathScribe's functions written without its @ is explained.)
       const readable = (s: string | undefined) => (s === undefined ? s : builtinCallHint(moduleReadableMessage(s.includes(JOIN) ? fitHint(readableMembers(s)) : s)))
       // Brackets by nesting, ( ) inside [ ] inside { }, once each equation is finished.
       return {
-        tex: nestBrackets(tex), error: readable(error), warning: readable(warning), info: readable(info), returnNote, plot, defines,
+        tex: nestBrackets(tex), error: readable(error), warning: readable(warning), info: readable(info), plot, defines,
         trace: trace?.length ? trace.map((t) => ({ ...t, tex: nestBrackets(t.tex) })) : undefined,
       }
     } catch (e) {
@@ -1690,14 +1504,9 @@ export class Calculator {
       // `massName(x) = "m_{{x}}"`: a display-name template, words in quotes.
       const words = target.settings.length ? undefined : LABEL_WORDS.exec(shape.value)?.[1]
       if (words !== undefined) return this.defineTemplate(target.name, params, words)
-      // `f(x, y) = …` is a one-line function, the same as a `def` whose body is just the return;
+      // `f(x, y) = …`: a function;
       // `f(x):3:deg = …`: settings for what the function gives back.
-      const settings = target.settings.map((s) => `${SETTING_MARK}${s}`).join('')
-      const result = this.defineFunction(target.name, params, [{ line: 0, text: `${KEYWORD.return} ${shape.value}` }], this.multiline, settings)
-      return {
-        tex: result.body[0]?.tex ?? result.signature,
-        error: result.error?.replace(/^Line 0: /, ''),
-      }
+      return this.defineFunction(target.name, params, shape.value, this.multiline, target.settings)
     }
 
     // `m:3 = …`, `phi:3:deg = …` set how what's assigned is shown; take them off the name.
@@ -1813,28 +1622,9 @@ export class Calculator {
    * sig figs, uncertainty, and storing the result.
    */
   private evaluateParsed(node: MathNode, ctx: ParsedLine): LineResult {
-    const { uncNode, percent, literals, warnings, explicit } = ctx
-    let mode = ctx.mode
+    const { uncNode, percent, literals, warnings, explicit, mode } = ctx
     const assigned = isAssignmentNode(node) ? node.object.name : undefined
     const expr = isAssignmentNode(node) ? node.value : node
-    // A function without `return` gives no value: it can only be called on a line of its own.
-    const valueless = this.userCalls(expr).find((c) => {
-      const f = this.scope.get(c.fn.name)
-      return typeof f === 'function' && this.userFunctions.get(f)?.returns === false
-    })
-    if (valueless) {
-      const name = valueless.fn.name
-      if (assigned || unwrap(expr) !== valueless) {
-        return {
-          tex: this.toTex(node, ctx.literals),
-          warning: ctx.warnings.join(' ') || undefined,
-          error: `${name} has no return line, so it doesn't give a value to ${assigned ? `store in ${assigned}` : 'calculate with'}. `
-            + `Add a "return …" line to ${name}, or call it on a line of its own to show its working.`,
-        }
-      }
-      return this.showWorking(valueless, ctx)
-    }
-
     // #multiline on the line, or a call to a function defined with #multiline.
     const multiline = this.multiline || this.userCalls(expr).some((c) => {
       const f = this.scope.get(c.fn.name)
@@ -1857,13 +1647,12 @@ export class Calculator {
     const parts = (result?: string): EquationParts =>
       ({ lhs: lhsTex, expr: exprTex, steps, result, bareSymbol: isSymbolNode(bare) })
 
-    // Calls to multi-line functions: show the working inside each one first.
+    // Calls to the sheet's functions: show the working inside each one first.
     // When the whole right-hand side is one call, the line itself then reads
     // `r = <return expression> = … = result` instead of `r = f(y, z) = …`.
     // Lines shown before this one (e.g. the equation being solved), except for #val.
     const trace: TraceLine[] = mode === DISPLAY_MODE.val ? [] : [...(ctx.prelude ?? [])]
     let wholeLineTraced = false
-    let returnNote: string | undefined
     /** For a line that's just a function call: the sig figs of what it returns. */
     let returnSf: number | undefined
     // (Worked out with #val too: each call's result has the sig figs of its return
@@ -1878,11 +1667,7 @@ export class Calculator {
           exprTex = t.ret.expr
           steps.push(...t.ret.steps)
           wholeLineTraced = true
-          returnNote = t.retNote
           returnSf = t.retSf
-          // A command on the return line sets how this line is shown, unless
-          // this line asked for something itself.
-          if (t.retCommand && !explicit) mode = t.retCommand
         }
       }
     }
@@ -1912,8 +1697,8 @@ export class Calculator {
       steps.push(this.toTex(substituted, literals))
     }
     this.precisionLost = false
-    // A function call's precision comes from its return line (including any
-    // `x:3 =` declarations and measured numbers inside the body).
+    // A function call's precision comes from its expression (the measured numbers in it),
+    // or its declared settings.
     const sf = returnSf ?? this.sigFigsOf(expr, literals, false)
     if (this.autoSigFigs && this.precisionLost) {
       warnings.push('This sum or difference is smaller than the precision of the values in it, '
@@ -2093,7 +1878,7 @@ export class Calculator {
     }))
     const finalParts = { ...parts(result), approx }
     return {
-      tex: layoutEquation(mode, finalParts, multiline), parts: finalParts, warning, trace, returnNote,
+      tex: layoutEquation(mode, finalParts, multiline), parts: finalParts, warning, trace,
       info: ctx.info, sf: shownSf, notation,
     }
   }

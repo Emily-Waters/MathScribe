@@ -34,9 +34,9 @@ describe('equations', () => {
     expect(tex).toContain('\\vspace{\\baselineskip}')
   })
 
-  it('show a function’s working indented and smaller, above the line', () => {
-    const tex = body(exportOf('def KE(mass, speed)\n    E = 1/2 * mass * speed^2\n    return E\nK = KE(2.00 kg, 3.00 m/s)'))
-    expect(tex).toMatch(/\\begin\{msworking\}\n\\begin\{gather\*\}\n {2}E = [^\n]*\n\\end\{gather\*\}\n\\end\{msworking\}\n\\begin\{gather\*\}\n {2}K = E/)
+  it('show working (the equation being solved) indented and smaller, above the line', () => {
+    const tex = body(exportOf('d = @solve(2 * d = 4.0 m, d)'))
+    expect(tex).toMatch(/\\begin\{msworking\}\n\\begin\{gather\*\}\n {2}[^\n]*\n\\end\{gather\*\}\n\\end\{msworking\}\n\\begin\{gather\*\}\n {2}d = /)
     expect(exportOf('x = 1')).toContain('\\newenvironment{msworking}{\\par\\small\\addtolength{\\mathindent}{1.5em}}{\\par}')
   })
 })
@@ -56,7 +56,7 @@ describe('spacing', () => {
 })
 
 describe('blocks', () => {
-  const src = 'What if {\n  x = 2\n}\n@constants {\n    rho = 998 kg/m^3\n}\ndef f(a)\n    return a'
+  const src = 'What if {\n  x = 2\n}\n@constants {\n    rho = 998 kg/m^3\n}'
 
   it('are cards by default', () => {
     const tex = exportOf(src)
@@ -64,7 +64,6 @@ describe('blocks', () => {
     expect(tex).toContain('\\usepackage{xcolor}\n\\usepackage{mdframed}')
     expect(tex).toContain('\\begin{mdframed}[style=msblock, frametitle={What if}]')
     expect(tex).toContain('\\begin{mdframed}[style=msblock, frametitle={Constants}]')
-    expect(tex).toMatch(/\\begin\{mdframed\}\[style=msblock, frametitle=\{Function \$f\\left\(a\\right\)\$\}\]/)
   })
 
   it('are headed paragraphs with cards off, with no extra package', () => {

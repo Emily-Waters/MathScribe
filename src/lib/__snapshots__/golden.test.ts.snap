@@ -45,23 +45,23 @@ exports[`golden sheets > the sample sheet 1`] = `
 31: \\bart = \\frac14\\sum_i=1^4 t_i = \\fract_1 + t_2 + t_3 + t_44 = \\frac1.21 s + 1.17 s + 1.24 s + 1.19 s4 = (1.203 ± 0.015) s
 32: n_t = 4
 33: a_exp = \\frac2 d\\bart^2 = \\frac2 (3.50 m)(1.203 s)^2 = (4.84 ± 0.12) m/s^2
-40: E_bottom = E = (34.3 ± 0.6) J
-     ↳ E = \\frac12 m v_f^2 = \\frac12 (2.00 kg) (5.86 m/s)^2 = (34.3 ± 0.6) J
-42: p(mass, speed) = mass speed
-43: p_bottom = m v_f = (2.00 kg) (5.86 m/s) = (11.72 ± 0.09) kg· m/s
-48: \\rho_w = 998 kg/m^3
-50: P_water = \\rho_w g (0.250 m) = (998 kg/m^3) (9.81 m/s^2) (0.250 m) = 2.45 kPa
-51: E_photon = \\frach c532 nm = \\frac(6.63e-34 J· s) (3.00e8 m/s)532 nm = 2.33 eV
-55: d_stop = \\fracv_f^22 a = \\frac(5.86 m/s)^22 (4.91 m/s^2) = (3.500 ± 0.020) m
+37: KE(mass, speed) = \\frac12 mass speed^2
+38: E_bottom = \\frac12 m v_f^2 = \\frac12 (2.00 kg) (5.86 m/s)^2 = (34.3 ± 0.6) J
+39: p(mass, speed) = mass speed
+40: p_bottom = m v_f = (2.00 kg) (5.86 m/s) = (11.72 ± 0.09) kg· m/s
+45: \\rho_w = 998 kg/m^3
+47: P_water = \\rho_w g (0.250 m) = (998 kg/m^3) (9.81 m/s^2) (0.250 m) = 2.45 kPa
+48: E_photon = \\frach c532 nm = \\frac(6.63e-34 J· s) (3.00e8 m/s)532 nm = 2.33 eV
+52: d_stop = \\fracv_f^22 a = \\frac(5.86 m/s)^22 (4.91 m/s^2) = (3.500 ± 0.020) m
      ↳ v_f^2 = 2 a d_stop
-56: h_0 = 2.00 m
-57: t_fall = \\frac\\sqrtv_f^2+ 2 g h_0- v_fg = \\frac\\sqrt(5.86 m/s)^2+ 2 (9.81 m/s^2) (2.00 m)- 5.86 m/s9.81 m/s^2 = (0.2771 ± 0.0015) s
+53: h_0 = 2.00 m
+54: t_fall = \\frac\\sqrtv_f^2+ 2 g h_0- v_fg = \\frac\\sqrt(5.86 m/s)^2+ 2 (9.81 m/s^2) (2.00 m)- 5.86 m/s9.81 m/s^2 = (0.2771 ± 0.0015) s
      ↳ h_0 = \\frac12 g t_fall^2+ v_f t_fall
      INFO Also a solution: $t_{\\mathrm{fall}} = -1.47\\,\\mathrm{s}$. Give a guess to choose it: @solve(…, t_fall, guess).
-62: \\theta = 45°
-63: a = g \\sin(\\theta) = (9.81 m/s^2) \\sin(45°) = 6.9 m/s^2
-64: v_f = \\sqrt2 a d = \\sqrt2 (6.9 m/s^2) (3.50 m) = (6.968 ± 0.020) m/s
-66: v_f = (5.86 ± 0.05) m/s"
+59: \\theta = 45°
+60: a = g \\sin(\\theta) = (9.81 m/s^2) \\sin(45°) = 6.9 m/s^2
+61: v_f = \\sqrt2 a d = \\sqrt2 (6.9 m/s^2) (3.50 m) = (6.968 ± 0.020) m/s
+63: v_f = (5.86 ± 0.05) m/s"
 `;
 
 exports[`golden sheets > the sample sheet’s LaTeX export 1`] = `
@@ -148,27 +148,11 @@ Numbered variables form a series: t is their sum, t\\_avg the mean ± σ/√n.
 
 \\subsection{Functions}
 
-Define a function with def and an indented body; values and uncertainties flow through it.
-
-\\begin{mdframed}[style=msblock, frametitle={Function $\\mathrm{KE}\\left(\\mathrm{mass}, \\mathrm{speed}\\right)$}]
-\\begin{gather*}
-  E = \\frac{1}{2}\\,\\mathrm{mass}\\,{\\mathrm{speed}}^{2} \\tag*{local to the function} \\\\
-  \\mathrm{KE}\\left(\\mathrm{mass}, \\mathrm{speed}\\right) = E
-\\end{gather*}
-\\end{mdframed}
-
-\\begin{msworking}
-\\begin{gather*}
-  E = \\frac{1}{2} m {v_{f}}^{2} = \\frac{1}{2} \\left(2.00\\,\\mathrm{kg}\\right) {\\left(5.86\\,\\mathrm{m}/\\mathrm{s}\\right)}^{2} = \\left(34.3 \\pm 0.6\\right)\\,\\mathrm{J} \\tag*{local to the function}
-\\end{gather*}
-\\end{msworking}
-\\begin{gather*}
-  E_{\\mathrm{bottom}} = E = \\left(34.3 \\pm 0.6\\right)\\,\\mathrm{J} \\tag*{same as E\\_k above}
-\\end{gather*}
-
-A one-line function can be written the way it is in maths.
+A function is written the way it is in maths; values and uncertainties flow through it.
 
 \\begin{gather*}
+  \\mathrm{KE}\\left(\\mathrm{mass}, \\mathrm{speed}\\right) = \\frac{1}{2}\\,\\mathrm{mass}\\,{\\mathrm{speed}}^{2} \\\\
+  E_{\\mathrm{bottom}} = \\frac{1}{2} m {v_{f}}^{2} = \\frac{1}{2} \\left(2.00\\,\\mathrm{kg}\\right) {\\left(5.86\\,\\mathrm{m}/\\mathrm{s}\\right)}^{2} = \\left(34.3 \\pm 0.6\\right)\\,\\mathrm{J} \\tag*{same as E\\_k above} \\\\
   p\\left(\\mathrm{mass}, \\mathrm{speed}\\right) = \\mathrm{mass}\\,\\mathrm{speed} \\\\
   p_{\\mathrm{bottom}} = m v_{f} = \\left(2.00\\,\\mathrm{kg}\\right) \\left(5.86\\,\\mathrm{m}/\\mathrm{s}\\right) = \\left(11.72 \\pm 0.09\\right)\\,\\mathrm{kg}\\cdot \\mathrm{m}/\\mathrm{s}
 \\end{gather*}
@@ -357,34 +341,21 @@ exports[`the Reference tab’s examples > Functions: area(r) = pi * r^2 1`] = `
 3: A = \\pi r_1^2 = \\pi (2.0 cm)^2 = 13 cm^2"
 `;
 
-exports[`the Reference tab’s examples > Functions: def KE(mass, speed) 1`] = `
-"4: E_k = E = 9.00 J
-     ↳ E = \\frac12 (2.00 kg) (3.00 m/s)^2 = 9.00 J"
-`;
-
-exports[`the Reference tab’s examples > Functions: def friction(v, f_k) 1`] = `
-"8: F_f = 6.0 N
-     ↳ (-1.5 m/s)> 0 m/s = \\textfalse
-     ↳ (-1.5 m/s)< 0 m/s = \\texttrue
-9: ramp(x) = \\begincases x, \\quad\\textif \\; x> 0 0, \\quad\\textotherwise\\endcases
-10: y = \\begincases 3.0, \\quad\\textif \\; 3.0> 0 0, \\quad\\textotherwise\\endcases = 3.0"
-`;
-
-exports[`the Reference tab’s examples > Functions: def polar(x, y) 1`] = `
-"5: P = (r, \\theta) = (1.41 m, 45.0°)
-     ↳ r = \\sqrt(1.00 m)^2+(1.00 m)^2 = 1.41 m
-     ↳ \\theta = atan2(1.00 m, 1.00 m) = 45.0°"
-`;
-
-exports[`the Reference tab’s examples > Functions: def steps(a, b) 1`] = `
-"4: steps(1.0, 2.0)
-     ↳ s = 1.0+ 2.0 = 3.0
-     ↳ p = 2 s = 2· 3.0 = 6.0"
-`;
-
 exports[`the Reference tab’s examples > Functions: f(x) = 2 * x^2 + 1 1`] = `
 "1: f(x) = 2 x^2+ 1
 2: y = 2· 3.0^2+ 1 = 19"
+`;
+
+exports[`the Reference tab’s examples > Functions: polar(x, y) = @tuple(sqrt(x^2 + y^2), atan2(y, x)) 1`] = `
+"1: polar(x, y) = (\\sqrtx^2+y^2, atan2(y, x))
+2: P = (\\sqrt(1.00 m)^2+(1.00 m)^2, atan2(1.00 m, 1.00 m)) = (1.41 m, 0.785)"
+`;
+
+exports[`the Reference tab’s examples > Functions: ramp(x) = x > 0 ? x : 0 1`] = `
+"1: ramp(x) = \\begincases x, \\quad\\textif \\; x> 0 0, \\quad\\textotherwise\\endcases
+2: y = \\begincases 3.0, \\quad\\textif \\; 3.0> 0 0, \\quad\\textotherwise\\endcases = 3.0
+3: friction(v, f_k) = \\begincases - f_k, \\quad\\textif \\; v> 0 m/s \\begincases f_k, \\quad\\textif \\; v< 0 m/s 0 N, \\quad\\textotherwise\\endcases, \\quad\\textotherwise\\endcases
+4: F_f = \\begincases -6.0 N, \\quad\\textif \\; (-1.5 m/s)> 0 m/s \\begincases 6.0 N, \\quad\\textif \\; (-1.5 m/s)< 0 m/s 0 N, \\quad\\textotherwise\\endcases, \\quad\\textotherwise\\endcases = 6.0 N"
 `;
 
 exports[`the Reference tab’s examples > Layout: @layout.center Key result { 1`] = `"2: E = (2.00 kg) (3.00e8 m/s)^2 = 1.80e17 J"`;

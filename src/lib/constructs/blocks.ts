@@ -1,17 +1,17 @@
 /**
  * The constructs for blocks over several lines that aren't layouts: an
- * `@constants { }` block, a `def` function, imported data, and a scoped
+ * `@constants { }` block, imported data, and a scoped
  * `Title { }` block.
  */
 import {
-  BLOCK_KIND, HEADING_LEVEL, type Block, type ConstantsBlock, type FunctionBlock, type GroupBlock, type ImportBlock, type SpeciesBlock,
+  BLOCK_KIND, HEADING_LEVEL, type Block, type ConstantsBlock, type GroupBlock, type ImportBlock, type SpeciesBlock,
   type HeadingLevel, type SpeciesEntry,
 } from '../blocks.ts'
 import { formulaTex } from '../engine/modules/chemistry/chemistry.ts'
 import { LINE_COMMAND } from '../syntax.ts'
 import { errorComment, gather, heading as latexHeading, titleToLatex, titled as latexTitled } from '../latexKit.ts'
 import { equation, heading as docxHeading, run, titled as docxTitled, type Ctx, type Item } from '../docxKit.ts'
-import { EM_SPACE, texToOmml } from '../omml.ts'
+import { EM_SPACE } from '../omml.ts'
 import { Construct, type DocxOut, type LatexOut } from './construct.ts'
 
 /** The title of an `@constants { }` block, in the exports. */
@@ -23,9 +23,6 @@ const SECTION_COUNTER: Record<HeadingLevel, string | undefined> = {
   [HEADING_LEVEL.subsection]: 'subsection',
   [HEADING_LEVEL.paragraph]: undefined,
 }
-
-/** The words before a function's signature, in the exports' titles. */
-const FUNCTION_TITLE = 'Function'
 
 /** `@constants { … }`: constants usable anywhere as `@name`, shown as a card. */
 export class ConstantsConstruct extends Construct<ConstantsBlock> {
@@ -47,27 +44,6 @@ export class ConstantsConstruct extends Construct<ConstantsBlock> {
 
   notes(b: ConstantsBlock): string[] {
     return b.entries.map((e) => e.note).filter((n): n is string => !!n)
-  }
-}
-
-/** `def f(a, b)` with its body: its working, as a card titled with its signature. */
-export class FunctionConstruct extends Construct<FunctionBlock> {
-  readonly kind = BLOCK_KIND.function
-
-  latex(b: FunctionBlock, out: LatexOut): string {
-    if (b.error) return errorComment(b.line, `function ${b.name}`, b.error)
-    if (b.hidden) return ''
-    return latexTitled(out.o, latexHeading(`${FUNCTION_TITLE} $${b.signature}$`, b.note), gather(b.body))
-  }
-
-  docx(b: FunctionBlock, ctx: Ctx): Item[] {
-    if (b.error || b.hidden) return []
-    const title = `${run(`${FUNCTION_TITLE} `, { bold: true })}${texToOmml(b.signature)}${b.note ? run(` — ${b.note}`, { bold: true }) : ''}`
-    return docxTitled(ctx, title, (inner) => b.body.map((l) => equation(inner, l.tex, l.note)))
-  }
-
-  notes(b: FunctionBlock): string[] {
-    return b.body.map((l) => l.note).filter((n): n is string => !!n)
   }
 }
 

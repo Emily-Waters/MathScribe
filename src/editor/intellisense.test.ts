@@ -12,9 +12,9 @@ import { sheet } from '../test/helpers.ts'
 const SOURCE = [
   'a_0 = 0.530 angstrom', // 1
   'psi_prob(r, psi) = 4 * pi * r^2 * psi^2', // 2
-  'def KE(mass to kg, speed)', // 3
-  '    E = 1/2 * mass * sp', // 4
-  '    return E', // 5
+  'KE(mass to kg, speed) = 1/2 * mass * speed^2', // 3
+  'E_0 = 1.0 J', // 4
+  'E_1 = 2.0 J', // 5
   'Hydrogen 1s {', // 6
   '    psi_100 = 2', // 7
   '    p = psi_', // 8
@@ -37,7 +37,7 @@ const SOURCE = [
   'Steps:', // 25
   '@tuple(r:3, theta:de', // 26
   'ang(y, x):3:de', // 27
-  'def polar(x, y):de', // 28
+  'polar(x, y):3:de', // 28
   '@layout.text Notes {', // 29
   '    the mass ps', // 30
   '}', // 31
@@ -58,10 +58,6 @@ function suggestions(n: number): string[] | null {
 }
 
 describe('suggestions', () => {
-  it('offer a function’s parameters inside its body', () => {
-    expect(suggestions(4)).toEqual(['speed'])
-  })
-
   it('follow block scope', () => {
     expect(suggestions(8)).toEqual(['psi_prob', 'psi_100'])
     expect(suggestions(10)).toEqual(['psi_prob']) // psi_100 is local to the block

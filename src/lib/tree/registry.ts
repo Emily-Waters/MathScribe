@@ -47,16 +47,44 @@ export const declaredTokenKinds = (): readonly KindInfo[] => [...tokenKinds.valu
 export const isNodeKind = (kind: string) => nodeKinds.has(kind)
 export const isTokenKind = (kind: string) => tokenKinds.has(kind)
 
-// The core's own.
+// The core's own (every one described: TypeScript checks none is left out).
 declareNodeKinds(CORE_OWNER, {
   [NODE_KIND.blank]: 'A line with nothing on it but spaces',
   [NODE_KIND.comment]: 'A comment line, // …, never shown or worked out',
-  [NODE_KIND.line]: 'A line whose content isn’t read into parts yet',
-})
+  [NODE_KIND.calc]: 'A calculation: m = 2.0 kg, with any #commands and note',
+  [NODE_KIND.heading]: 'A heading: # Title, ## Title, ### Title',
+  [NODE_KIND.paragraph]: 'A paragraph of prose: > Some prose',
+  [NODE_KIND.latex]: 'Raw LaTeX on one line: @latex { \\frac{a}{b} }',
+  [NODE_KIND.blockCloser]: 'The end of a block: }',
+  [NODE_KIND.blockOpener]: 'A block’s opener: Title {, or # Title { for one titled as a section',
+  [NODE_KIND.block]: 'A { } block: its opener, its lines, and its }',
+  [NODE_KIND.layoutOpener]: 'An @layout block’s opener: @layout.list Title {',
+  [NODE_KIND.layout]: 'An @layout block: its opener, its lines, and its }',
+  [NODE_KIND.proseOpener]: 'A prose block’s opener: @layout.text Title {, @layout.titlepage {',
+  [NODE_KIND.proseLine]: 'A line of prose in a prose block',
+  [NODE_KIND.prose]: 'A prose block: its opener, its lines, and its }',
+  [NODE_KIND.latexOpener]: 'A raw LaTeX block’s opener: @latex {',
+  [NODE_KIND.latexLine]: 'A line of raw LaTeX in a raw LaTeX block',
+  [NODE_KIND.latexBlock]: 'A raw LaTeX block: its opener, its lines, and its } on its own',
+  [NODE_KIND.constantsOpener]: 'An @constants block’s opener: @constants {',
+  [NODE_KIND.constantLine]: 'A constant in an @constants block: rho = 1000 kg/m^3',
+  [NODE_KIND.constants]: 'An @constants block: its opener, its constants, and its }',
+  [NODE_KIND.defLine]: 'A function’s def line: def f(a, b)',
+  [NODE_KIND.functionLine]: 'A line of a function’s body',
+  [NODE_KIND.function]: 'A function: its def line, and its body',
+  [NODE_KIND.importLine]: 'An import line: @import("run1.csv")',
+  [NODE_KIND.data]: 'Imported data’s rows, as one node',
+  [NODE_KIND.import]: 'An import: its line, and its data',
+} satisfies Record<(typeof NODE_KIND)[keyof typeof NODE_KIND], string>)
 declareTokenKinds(CORE_OWNER, {
   [TOKEN_KIND.indent]: 'The spaces and tabs a line starts with',
   [TOKEN_KIND.space]: 'Spaces and tabs between parts, or after the last',
   [TOKEN_KIND.eol]: 'What ends a line: \\n, \\r\\n or \\r',
-  [TOKEN_KIND.text]: 'Text not read into finer parts',
+  [TOKEN_KIND.text]: 'Text not read into finer parts: prose, raw LaTeX, a heading’s title',
   [TOKEN_KIND.comment]: 'A comment, // …',
-})
+  [TOKEN_KIND.body]: 'What a line says, before its #commands and note',
+  [TOKEN_KIND.command]: 'A display command: #val, #multiline, #sci, #center',
+  [TOKEN_KIND.note]: 'A note, # …, to the end of the line',
+  [TOKEN_KIND.marks]: 'A heading’s #s',
+  [TOKEN_KIND.rows]: 'Imported data’s rows, as they are',
+} satisfies Record<(typeof TOKEN_KIND)[keyof typeof TOKEN_KIND], string>)

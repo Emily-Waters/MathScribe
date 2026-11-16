@@ -16,6 +16,8 @@
 import type { FunctionNode, MathNode } from 'mathjs'
 import type { Values } from './scope.ts'
 import { BUILTINS, type Member } from '../../builtins.ts'
+import { declareNodeKinds, declareTokenKinds } from '../../tree/registry.ts'
+import { declareContexts, declareLineSyntaxes, type ContextInfo, type LineSyntax } from '../../tree/grammar.ts'
 import type { BuiltinConstant, NamespaceConstant } from '../../constants.ts'
 import type { Contributions, Variable, VariableFields } from '../../values.ts'
 import type { DisplayMode, Notation, Precision } from '../../syntax.ts'
@@ -174,6 +176,14 @@ export interface DerivedVariable {
 export const SETTING_PLACE = { functionResult: 'functionResult', unpacked: 'unpacked' } as const
 export type SettingPlace = (typeof SETTING_PLACE)[keyof typeof SETTING_PLACE]
 
+/** A module's part of a sheet's tree (see tree/): kinds it declares (each with what it is), its contexts, and its kinds of line. */
+export interface ModuleGrammar {
+  readonly nodeKinds?: Record<string, string>
+  readonly tokenKinds?: Record<string, string>
+  readonly contexts?: readonly ContextInfo[]
+  readonly syntaxes?: readonly LineSyntax[]
+}
+
 /** A kind of module: its class, by which another module says it needs it. */
 // (Whatever its constructor takes: a module makes its own state.)
 export type ModuleClass = abstract new (...args: never[]) => EngineModule
@@ -192,6 +202,11 @@ export abstract class EngineModule {
 
   /** Add its functions to mathjs: called once, when the first module of its class is installed. */
   install(): void {}
+
+  /** Its part of a sheet's tree: its kinds of node and token, its contexts and its kinds of line (declared when it's installed). */
+  grammar(): ModuleGrammar | undefined {
+    return undefined
+  }
 
   /** Its own members of the `@` tree (`@chem`, `@vector(…)`), made fresh: put in @ when it's installed. */
   builtinMembers(): Member[] {
@@ -392,6 +407,13 @@ export function installModule(module: EngineModule): void {
   installed.set(kind, module)
   module.install()
   for (const member of module.builtinMembers()) BUILTINS.add(member)
+  const grammar = module.grammar()
+  if (grammar) {
+    declareNodeKinds(kind.name, grammar.nodeKinds ?? {})
+    declareTokenKinds(kind.name, grammar.tokenKinds ?? {})
+    declareContexts(grammar.contexts ?? [])
+    declareLineSyntaxes(kind.name, grammar.syntaxes ?? [])
+  }
 }
 
 const shared = (): EngineModule[] => [...installed.values()]

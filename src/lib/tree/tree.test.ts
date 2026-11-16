@@ -4,10 +4,13 @@ import { SAMPLE } from '../sample.ts'
 import { REFERENCE } from '../reference.ts'
 import { LIBRARY } from '../library.ts'
 import {
-  NODE_KIND, SCHEMA, TOKEN_KIND, declareNodeKinds, declaredNodeKinds, decode, encode, isSheetTree, schemaId, splitLines,
-  textOf, treeProblems, type SheetTree,
+  NODE_KIND, SCHEMA, TOKEN_KIND, declareNodeKinds, declaredNodeKinds, decode, encode, isSheetTree, isToken, schemaId, splitLines,
+  textOf, treeProblems, type SheetTree, type SyntaxNode,
 } from './index.ts'
 import { clearLineCache } from './lines.ts'
+import { CHEM_NODE } from '../engine/modules/chemistry/grammar.ts'
+// (The engine installs its modules as it loads: chemistry's kinds of line are then the tree's.)
+import '../engine/index.ts'
 
 /** Text → tree → text, and text → tree → JSON → tree → text. */
 const roundTrips = (source: string) => {
@@ -71,9 +74,9 @@ describe('a sheet as a tree', () => {
   it('reads a line into its parts', () => {
     const [line, blank, comment] = encode('  m = 2.0 kg  \r\n\t\n// note').body
     expect(line).toEqual({
-      kind: NODE_KIND.line,
+      kind: NODE_KIND.calc,
       parts: [
-        { t: TOKEN_KIND.indent, text: '  ' }, { t: TOKEN_KIND.text, text: 'm = 2.0 kg' }, { t: TOKEN_KIND.space, text: '  ' },
+        { t: TOKEN_KIND.indent, text: '  ' }, { t: TOKEN_KIND.body, text: 'm = 2.0 kg' }, { t: TOKEN_KIND.space, text: '  ' },
         { t: TOKEN_KIND.eol, text: '\r\n' },
       ],
     })
@@ -124,7 +127,9 @@ describe('the schema', () => {
 
   it('declares every kind a tree uses, with what it is and whose it is', () => {
     const kinds = new Set(declaredNodeKinds().map((k) => k.kind))
-    for (const [, source] of SHEETS) for (const line of encode(source).body) expect(kinds.has(line.kind)).toBe(true)
+    const walk = (nodes: readonly SyntaxNode[]): string[] =>
+      nodes.flatMap((n) => [n.kind, ...walk(n.parts.filter((p): p is SyntaxNode => !isToken(p)))])
+    for (const [, source] of SHEETS) for (const kind of walk(encode(source).body)) expect(kinds.has(kind)).toBe(true)
     expect(declaredNodeKinds().every((k) => k.description && k.owner)).toBe(true)
   })
 
@@ -132,7 +137,7 @@ describe('the schema', () => {
     declareNodeKinds('a test module', { testOnlyNode: 'A node only this test declares' })
     expect(declaredNodeKinds().find((k) => k.kind === 'testOnlyNode')?.owner).toBe('a test module')
     expect(() => declareNodeKinds('another module', { testOnlyNode: 'Again' })).toThrow(/a test module's already/)
-    expect(() => declareNodeKinds('another module', { [NODE_KIND.line]: 'Mine' })).toThrow(/core's already/)
+    expect(() => declareNodeKinds('another module', { [NODE_KIND.calc]: 'Mine' })).toThrow(/core's already/)
   })
 
   it('checks a tree from elsewhere: its shape, and that its kinds are declared', () => {
@@ -142,5 +147,81 @@ describe('the schema', () => {
       'body[0].parts[0]: a token without its text',
     ])
     expect(treeProblems([])).toEqual(['the tree: not an object'])
+  })
+})
+
+/** A tree's shape: each node's kind, indented by depth, its lines' first token's text after it (for the lines). */
+function shape(nodes: readonly SyntaxNode[], depth = 0): string[] {
+  return nodes.flatMap((n) => {
+    const own = `${'  '.repeat(depth)}${n.kind}`
+    const children = n.parts.filter((p): p is SyntaxNode => !isToken(p))
+    return children.length ? [own, ...shape(children, depth + 1)] : [own]
+  })
+}
+
+describe('the kinds of line, and the blocks they open', () => {
+  it('reads each kind of line in the sheet', () => {
+    const source = [
+      '# Setup', '> Prose', '@latex { \frac{a}{b} }', 'm = 2.0 kg  #val  # mass', '}', 'r = @tuple(1, 2)',
+    ].join('\n')
+    expect(shape(encode(source).body)).toEqual([
+      NODE_KIND.heading, NODE_KIND.paragraph, NODE_KIND.latex, NODE_KIND.calc, NODE_KIND.blockCloser, NODE_KIND.calc,
+    ])
+  })
+
+  it('holds a block’s lines in it, blocks inside it too, with its }', () => {
+    const source = 'Outer {\n  a = 1\n  # Inner {  #val\n    b = 2\n  }\n}\nc = 3'
+    expect(shape(encode(source).body)).toEqual([
+      NODE_KIND.block,
+      `  ${NODE_KIND.blockOpener}`, `  ${NODE_KIND.calc}`,
+      `  ${NODE_KIND.block}`, `    ${NODE_KIND.blockOpener}`, `    ${NODE_KIND.calc}`, `    ${NODE_KIND.blockCloser}`,
+      `  ${NODE_KIND.blockCloser}`,
+      NODE_KIND.calc,
+    ])
+  })
+
+  it('reads lines in a block by what the block holds: prose, raw LaTeX, constants, a function’s body', () => {
+    const source = [
+      '@layout.text Notes {', 'Some prose, x = 1 # not a note', '}',
+      '@latex {', '\frac{a}{b}', '}',
+      '@constants {', 'rho = 1000 kg/m^3', '}',
+      'def f(x)', '    y = 2 * x', '', '    return y', 'z = f(1)',
+    ].join('\n')
+    expect(shape(encode(source).body)).toEqual([
+      NODE_KIND.prose, `  ${NODE_KIND.proseOpener}`, `  ${NODE_KIND.proseLine}`, `  ${NODE_KIND.blockCloser}`,
+      NODE_KIND.latexBlock, `  ${NODE_KIND.latexOpener}`, `  ${NODE_KIND.latexLine}`, `  ${NODE_KIND.blockCloser}`,
+      NODE_KIND.constants, `  ${NODE_KIND.constantsOpener}`, `  ${NODE_KIND.constantLine}`, `  ${NODE_KIND.blockCloser}`,
+      NODE_KIND.function, `  ${NODE_KIND.defLine}`, `  ${NODE_KIND.functionLine}`, `  ${NODE_KIND.blank}`, `  ${NODE_KIND.functionLine}`,
+      NODE_KIND.calc,
+    ])
+  })
+
+  it('keeps imported data’s rows as one node, up to the first line not indented under it', () => {
+    const tree = encode('@import("run.csv")\n    t (s), x (m)\n    0.1, 0.2\n\nx_avg')
+    expect(shape(tree.body)).toEqual([NODE_KIND.import, `  ${NODE_KIND.importLine}`, `  ${NODE_KIND.data}`, NODE_KIND.blank, NODE_KIND.calc])
+    const data = (tree.body[0].parts[1] as SyntaxNode).parts
+    expect(data).toEqual([{ t: TOKEN_KIND.rows, text: '    t (s), x (m)\n    0.1, 0.2\n' }])
+  })
+
+  it('reads a line’s #commands and note as tokens of their own', () => {
+    const tokens = encode('F = m * a  #val #sci  # the force #sym').body[0].parts.map((p) => (isToken(p) ? `${p.t}:${p.text}` : ''))
+    expect(tokens).toEqual([
+      `${TOKEN_KIND.body}:F = m * a`, `${TOKEN_KIND.space}:  `, `${TOKEN_KIND.command}:#val`, `${TOKEN_KIND.space}: `,
+      `${TOKEN_KIND.command}:#sci`, `${TOKEN_KIND.space}:  `, `${TOKEN_KIND.note}:# the force #sym`,
+    ])
+  })
+
+  it('reads a block that isn’t closed to the end, and a } with none open as a line', () => {
+    expect(shape(encode('Open {\n  a = 1').body)).toEqual([NODE_KIND.block, `  ${NODE_KIND.blockOpener}`, `  ${NODE_KIND.calc}`])
+    expect(shape(encode('}\na = 1').body)).toEqual([NODE_KIND.blockCloser, NODE_KIND.calc])
+  })
+
+  it('reads a module’s own kinds of line: chemistry’s', () => {
+    const source = '@chem.species {\n  dietzeite = {7Ca(IO3)2*8CaCrO4}\n}\n@chem.species edta = {EDTA^4-}\n{2 H2 + O2 -> 2 H2O}'
+    expect(shape(encode(source).body)).toEqual([
+      CHEM_NODE.species, `  ${CHEM_NODE.speciesOpener}`, `  ${CHEM_NODE.speciesEntry}`, `  ${NODE_KIND.blockCloser}`,
+      CHEM_NODE.speciesLine, CHEM_NODE.reaction,
+    ])
+    expect(declaredNodeKinds().find((k) => k.kind === CHEM_NODE.species)?.owner).toBe('ChemistryModule')
   })
 })

@@ -206,6 +206,19 @@ edit reads again only what it changed, and nodes are shared between trees.
       modules' readers give their own kinds (chemistry's species block and
       reaction line). Blocks become nodes that hold their lines. Imported data is
       one node, not a token per cell.
+
+      **Progress (2026-11-15), the first half: text → tree.** A grammar
+      (`tree/grammar.ts`) of contexts and kinds of line, declared as data by the
+      core (`tree/core.ts`, in the reading layer's order) and by modules
+      (`EngineModule.grammar()`: chemistry's species block, species line and
+      reaction line). A line is read by its context's syntaxes into its kind,
+      with its content as tokens (body, #commands and note; a heading's `#`s and
+      title; prose and raw LaTeX whole); a line that opens a body becomes a node
+      holding it, its body's lines (nested blocks as nodes) and its closing line.
+      Bodies end at their `}`, a `}` on its own (raw LaTeX), or where the
+      indentation does (a function's body, imported data, whose rows are one
+      node). Still to do: the reading layer reads blocks from the tree rather than
+      from the text.
 - [ ] **The editor reads the same tree**: highlighting, folding and indentation
       from the tokens, so the editor's own line rules (`language.ts`) go.
 - [ ] **Introspection and validation**: a JSON Schema made from the registry,

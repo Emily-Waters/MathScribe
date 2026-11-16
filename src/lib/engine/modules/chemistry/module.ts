@@ -9,13 +9,14 @@ import type { Member } from '../../../builtins.ts'
 import type { BuiltinConstant, NamespaceConstant } from '../../../constants.ts'
 
 import { math } from '../../core/math.ts'
-import { EngineModule, type LineForm, type ReadUnit } from '../../core/module.ts'
+import { EngineModule, type LineForm, type ModuleGrammar, type ReadUnit } from '../../core/module.ts'
 
 import { isLitCall } from '../../core/tex.ts'
 import { unwrap } from '../../core/nodes.ts'
 import { SPECIES_AFTER_UNIT, SpeciesNames, formulaTex, isFormulaSubscript, isSpeciesUnit, readableSpecies, setSpeciesNames, showSpeciesOnLine, speciesOf, speciesTex, withFormulas } from './chemistry.ts'
 import { SPECIES_RATIO_UNIT, expandSpeciesAfterValues, isOneMole, isSpeciesCount, speciesOfConstant, speciesProblem, speciesUnits, withSpecies, withoutSpecies, withoutSpeciesUnits } from './species.ts'
 import { chemNamespace } from './namespace.ts'
+import { CHEM_GRAMMAR } from './grammar.ts'
 import { ReactionForm } from './reaction.ts'
 import { ReactionLineReader, SpeciesReader } from './readers.ts'
 import type { LineReader, ReadsLines } from '../../../reading/reader.ts'
@@ -50,6 +51,11 @@ export class ChemistryModule extends EngineModule implements ReadsLines {
   }
 
   /** `@chem`: molar masses, @chem.total, @chem.reaction and the @chem.species block. */
+  /** Its part of a sheet's tree: species blocks and lines, and reactions on lines of their own. */
+  override grammar(): ModuleGrammar {
+    return CHEM_GRAMMAR
+  }
+
   override builtinMembers(): Member[] {
     return [chemNamespace()]
   }

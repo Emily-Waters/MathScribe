@@ -61,18 +61,91 @@ export const TOKEN_KIND = {
   space: 'space',
   /** What ends a line: `\n`, `\r\n` or `\r` (none on the last line, unless the text ends with one). */
   eol: 'eol',
-  /** Text not read into finer parts (yet). */
+  /** Text not read into finer parts: prose, raw LaTeX, a heading's title. */
   text: 'text',
   /** A comment, `// …`, kept as written. */
   comment: 'comment',
+  /** What a line says, before its #commands and note: `m = 2.0 kg`, `Title {`. */
+  body: 'body',
+  /** A display command: `#val`, `#multiline`, `#sci`, `#center`. */
+  command: 'command',
+  /** A note: `# the mass`, to the end of the line. */
+  note: 'note',
+  /** A heading's `#`s. */
+  marks: 'marks',
+  /** Imported data's rows, as they are (indentation and line endings too). */
+  rows: 'rows',
 } as const
 
-/** The core's kinds of node. */
+/** The core's kinds of node: lines, and the nodes holding a line and its body. */
 export const NODE_KIND = {
   /** A line with nothing on it but spaces. */
   blank: 'blank',
   /** A line that's a comment: `// check the units`. */
   comment: 'comment',
-  /** A line whose content isn't read into parts yet: one `text` token. */
-  line: 'line',
+  /** A calculation, or anything else no other kind of line is: `m = 2.0 kg  #val`. */
+  calc: 'calc',
+  /** `# Title`: a heading. */
+  heading: 'heading',
+  /** `> Some prose`. */
+  paragraph: 'paragraph',
+  /** `@latex { \frac{a}{b} }`: raw LaTeX on one line. */
+  latex: 'latex',
+  /** `}`: the end of a block. */
+  blockCloser: 'blockCloser',
+
+  /** `Title {`: a block's opener (`# Title {` too). */
+  blockOpener: 'blockOpener',
+  /** A `{ }` block: its opener, its lines, and its `}`. */
+  block: 'block',
+  /** `@layout.list Title {`. */
+  layoutOpener: 'layoutOpener',
+  /** An `@layout` block: its opener, its lines, and its `}`. */
+  layout: 'layout',
+  /** `@layout.text Title {`, `@layout.titlepage {`: prose up to its `}`. */
+  proseOpener: 'proseOpener',
+  /** A line of prose in one. */
+  proseLine: 'proseLine',
+  /** A prose block: its opener, its lines, and its `}`. */
+  prose: 'prose',
+  /** `@latex {`: raw LaTeX up to a `}` on its own. */
+  latexOpener: 'latexOpener',
+  /** A line of raw LaTeX in one. */
+  latexLine: 'latexLine',
+  /** A raw LaTeX block: its opener, its lines, and its `}`. */
+  latexBlock: 'latexBlock',
+  /** `@constants {`. */
+  constantsOpener: 'constantsOpener',
+  /** A constant's line in one: `rho = 1000 kg/m^3`. */
+  constantLine: 'constantLine',
+  /** An `@constants` block: its opener, its lines, and its `}`. */
+  constants: 'constants',
+  /** `def f(a, b)`. */
+  defLine: 'defLine',
+  /** A line of a function's body, indented under its `def`. */
+  functionLine: 'functionLine',
+  /** A function: its `def`, and its body. */
+  function: 'function',
+  /** `@import("run1.csv")`. */
+  importLine: 'importLine',
+  /** Imported data's rows, indented under it, as one node. */
+  data: 'data',
+  /** An import: its line, and its data. */
+  import: 'import',
+} as const
+
+/** The core's contexts: what a line can be inside, which decides how it's read. */
+export const LINE_CONTEXT = {
+  /** The sheet, or a `{ }` or `@layout` block in it. */
+  sheet: 'sheet',
+  /** An `@layout.text` or `@layout.titlepage` block. */
+  prose: 'prose',
+  /** An `@latex { }` block. */
+  latex: 'latex',
+  /** An `@constants { }` block. */
+  constants: 'constants',
+  /** A function's body. */
+  functionBody: 'functionBody',
+  /** Imported data's rows. */
+  data: 'data',
 } as const

@@ -6,10 +6,14 @@
  * (migrations.ts) when it's from an older schema.
  */
 import './registry.ts'
+import './core.ts'
 
-export { NODE_KIND, SCHEMA, TOKEN_KIND, isToken, schemaId, type Part, type SheetTree, type SyntaxNode, type Token } from './nodes.ts'
+export { LINE_CONTEXT, NODE_KIND, SCHEMA, TOKEN_KIND, isToken, schemaId, type Part, type SheetTree, type SyntaxNode, type Token } from './nodes.ts'
 export { decode, encode, textOf } from './codec.ts'
-export { LINE_CONTEXT, readLine, splitLines, type LineContext, type SourceLine } from './lines.ts'
+export { readLine, splitLines, type ReadLine, type SourceLine } from './lines.ts'
+export {
+  BODY_END, CONTENT, declareContexts, declareLineSyntaxes, declaredLineSyntaxes, type Body, type ContextInfo, type LineSyntax,
+} from './grammar.ts'
 export { CORE_OWNER, declareNodeKinds, declareTokenKinds, declaredNodeKinds, declaredTokenKinds, type KindInfo } from './registry.ts'
 export { isSheetTree, treeProblems } from './check.ts'
 export { MIGRATIONS, upgrade, versionOf, type Migration } from './migrations.ts'

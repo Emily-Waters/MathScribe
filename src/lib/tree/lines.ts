@@ -1,20 +1,19 @@
 /**
  * A sheet's lines, each read into a node. A line is read the same way wherever
- * it is, given its context (what it's inside: the sheet, prose, raw LaTeX,
- * imported data), so a line's node depends only on its text and its context:
- * that's what's cached, and an edit reads again only the lines it changed.
+ * it is, given its context (what it's inside: the sheet, prose, raw LaTeX, a
+ * function's body), so what's read of a line depends only on its text and its
+ * context: that's what's cached, and an edit reads again only the lines it changed.
  *
  * Nodes are frozen, so one node can stand for the same line in every tree it's
  * in (a sheet read again after an edit shares every unchanged line's node), and
  * anything worked out from a node can be kept by the node itself (a WeakMap):
  * its text (codec.ts), and later its evaluation.
  */
-import { isComment } from '../syntax.ts'
+import { LINE_COMMANDS, LINE_LAYOUTS, MULTILINE, NOTATIONS, commandPattern, isComment } from '../syntax.ts'
+import { splitNote, type SplitLine } from '../reading/lineSyntax.ts'
+import { CONTENT, contextInfo, syntaxesIn, type Body, type Content } from './grammar.ts'
+import { HEADING_MARKS } from './core.ts'
 import { NODE_KIND, TOKEN_KIND, type Part, type SyntaxNode, type Token } from './nodes.ts'
-
-/** What a line is inside, which decides how it's read. (More come with blocks: prose, raw LaTeX, imported data.) */
-export const LINE_CONTEXT = { sheet: 'sheet' } as const
-export type LineContext = (typeof LINE_CONTEXT)[keyof typeof LINE_CONTEXT]
 
 /** A line, and what ends it: `\n`, `\r\n`, `\r`, or '' (the last line, if the text doesn't end with one). */
 export interface SourceLine {
@@ -40,23 +39,114 @@ export function splitLines(source: string): SourceLine[] {
 /** A line's leading and trailing spaces and tabs, and what's between them. */
 const EDGES = /^([ \t]*)(.*?)([ \t]*)$/s
 
+/** Spaces and tabs at the start or end of a piece. */
+const LEADING_SPACE = /^[ \t]+/
+const TRAILING_SPACE = /[ \t]+$/
+
+/** Every display command a line can have, anywhere in it: `#val`, `#multiline`, `#sci`, `#center` (as splitNote reads them). */
+const COMMANDS = commandPattern([...LINE_COMMANDS, MULTILINE, ...NOTATIONS, ...LINE_LAYOUTS], 'gi')
+
 const token = (t: string, text: string): Token => Object.freeze({ t, text })
 
-/** A line read into a node (not cached: see readLine). */
-function parseLine(line: SourceLine, _context: LineContext): SyntaxNode {
+/** A piece of text as a token, with any spaces at its ends as space tokens. */
+function spaced(t: string, text: string, into: Part[]): void {
+  const lead = LEADING_SPACE.exec(text)?.[0] ?? ''
+  const trail = text.length > lead.length ? TRAILING_SPACE.exec(text)?.[0] ?? '' : ''
+  const middle = text.slice(lead.length, text.length - trail.length)
+  if (lead) into.push(token(TOKEN_KIND.space, lead))
+  if (middle) into.push(token(t, middle))
+  if (trail) into.push(token(TOKEN_KIND.space, trail))
+}
+
+/**
+ * Content with #commands and a note, as tokens: `m = 2.0 kg  #val  # mass` →
+ * body, space, command, space, note. A command is one wherever it is (as
+ * splitNote reads them); the note is from the first other `#` to the end.
+ */
+function notedTokens(content: string, into: Part[]): void {
+  const commands = [...content.matchAll(COMMANDS)].map((m) => {
+    const start = m.index + m[1].length
+    return { start, end: start + m[0].length - m[1].length }
+  })
+  const inCommand = (i: number) => commands.some((c) => i >= c.start && i < c.end)
+  let noteAt = -1
+  for (let i = content.indexOf('#'); i >= 0; i = content.indexOf('#', i + 1)) {
+    if (!inCommand(i)) {
+      noteAt = i
+      break
+    }
+  }
+  let at = 0
+  for (const c of commands) {
+    if (noteAt >= 0 && c.start > noteAt) break
+    spaced(TOKEN_KIND.body, content.slice(at, c.start), into)
+    into.push(token(TOKEN_KIND.command, content.slice(c.start, c.end)))
+    at = c.end
+  }
+  if (noteAt < 0) {
+    spaced(TOKEN_KIND.body, content.slice(at), into)
+    return
+  }
+  spaced(TOKEN_KIND.body, content.slice(at, noteAt), into)
+  // (A note is the rest of the line, commands written after it too, as they're kept in it.)
+  into.push(token(TOKEN_KIND.note, content.slice(noteAt)))
+}
+
+/** A line's content as tokens, read as its kind reads it. */
+function contentTokens(content: string, style: Content, into: Part[]): void {
+  if (style === CONTENT.whole) {
+    into.push(token(TOKEN_KIND.text, content))
+    return
+  }
+  if (style === CONTENT.noted) {
+    notedTokens(content, into)
+    return
+  }
+  const marks = HEADING_MARKS.exec(content)![0]
+  into.push(token(TOKEN_KIND.marks, marks))
+  const rest = content.slice(marks.length)
+  if (style === CONTENT.heading) spaced(TOKEN_KIND.text, rest, into)
+  else notedTokens(rest, into)
+}
+
+/** A line, read: its node, and what it opens, if anything. */
+export interface ReadLine {
+  readonly node: SyntaxNode
+  readonly body?: Body
+}
+
+/** A line read into a node, in a context (not cached: see readLine). */
+function parseLine(line: SourceLine, context: string): ReadLine {
   const [, indent, content, trailing] = EDGES.exec(line.text)!
   const parts: Part[] = []
   if (indent) parts.push(token(TOKEN_KIND.indent, indent))
-  let kind: string = NODE_KIND.line
+  let kind: string
+  let body: Body | undefined
   if (!content) kind = NODE_KIND.blank
   else if (isComment(content)) {
     kind = NODE_KIND.comment
     parts.push(token(TOKEN_KIND.comment, content))
-  } else parts.push(token(TOKEN_KIND.text, content))
+  } else {
+    let split: SplitLine | undefined
+    const splitOnce = () => (split ??= splitNote(content))
+    const syntax = syntaxesIn(context).find((s) => s.matches(content, splitOnce))
+    const info = contextInfo(context)
+    kind = syntax?.kind ?? info.lineKind
+    body = syntax?.opens?.(content, splitOnce)
+    contentTokens(content, syntax?.content ?? info.content, parts)
+  }
   if (trailing) parts.push(token(TOKEN_KIND.space, trailing))
   if (line.eol) parts.push(token(TOKEN_KIND.eol, line.eol))
-  return Object.freeze({ kind, parts: Object.freeze(parts) })
+  return Object.freeze({ node: Object.freeze({ kind, parts: Object.freeze(parts) }), body })
 }
+
+/** A block's closing line, `}` with any note: read the same wherever it is. */
+export function parseCloser(line: SourceLine): SyntaxNode {
+  return readLine(line, CLOSER_CONTEXT).node
+}
+
+/** The context closing lines are cached under (not one a body can be in). */
+const CLOSER_CONTEXT = 'closer'
 
 // ---------------------------------------------------------------------------
 // The cache
@@ -73,21 +163,32 @@ export const LINE_CACHE_SIZE = 20_000
 const KEY_JOIN = '\u0000'
 
 /** Lines read, by context, text and ending: least recently read first. */
-const cache = new Map<string, SyntaxNode>()
+const cache = new Map<string, ReadLine>()
 
-/** A line read into a node, the cached one if this line, in this context, has been read before. */
-export function readLine(line: SourceLine, context: LineContext): SyntaxNode {
+/** A line read, the cached one if this line, in this context, has been read before. */
+export function readLine(line: SourceLine, context: string): ReadLine {
   const key = [context, line.eol, line.text].join(KEY_JOIN)
-  let node = cache.get(key)
-  if (node) {
+  let read = cache.get(key)
+  if (read) {
     // (Read again: now the most recently read.)
     cache.delete(key)
   } else {
-    node = parseLine(line, context)
+    read = context === CLOSER_CONTEXT ? closerLine(line) : parseLine(line, context)
     if (cache.size >= LINE_CACHE_SIZE) cache.delete(cache.keys().next().value!)
   }
-  cache.set(key, node)
-  return node
+  cache.set(key, read)
+  return read
+}
+
+/** A closing line, `}  # end`: its brace and any note, as tokens. */
+function closerLine(line: SourceLine): ReadLine {
+  const [, indent, content, trailing] = EDGES.exec(line.text)!
+  const parts: Part[] = []
+  if (indent) parts.push(token(TOKEN_KIND.indent, indent))
+  notedTokens(content, parts)
+  if (trailing) parts.push(token(TOKEN_KIND.space, trailing))
+  if (line.eol) parts.push(token(TOKEN_KIND.eol, line.eol))
+  return Object.freeze({ node: Object.freeze({ kind: NODE_KIND.blockCloser, parts: Object.freeze(parts) }) })
 }
 
 /** Forget every line read (for tests). */

@@ -52,7 +52,7 @@ export function SheetTabs({ sheets, activeId, onSelect, onClose, onNew }: SheetT
           </div>
         )
       })}
-      <button className="sheet-tabs__new" onClick={onNew} aria-label="New sheet" title="New sheet">+</button>
+      <button className="sheet-tabs__new" onClick={() => onNew()} aria-label="New sheet" title="New sheet">+</button>
     </div>
   )
 }

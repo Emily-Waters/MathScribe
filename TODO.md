@@ -69,13 +69,14 @@ what's here better.
 - [ ] **Limiting reagent and yield**: which reactant runs out, theoretical and
       percent yield.
 - [ ] **Equilibrium and pH helpers**: ICE tables, pH/pOH, K from concentrations.
-- [ ] **A species as a value with members**: define one, `H2SO4 = @chem.something({H2SO4})`
-      (the member's name to be decided), then read data about it, `H2SO4.M`
+- [ ] **A species as a value with members**: define one, `H2SO4 = @chem.substance({H2SO4})`
+      (the name decided: `@chem.substance`), then read data about it, `H2SO4.M`
       (molar mass), and chain into its elements, `H2SO4.H.n` (mol of H per mol
       of the substance: 2). Setting an amount, `H2SO4.n = 2 mol`, fills in what
       follows from it: `H2SO4.m` (its mass), `H2SO4.H.n`, `H2SO4.H.m` (each
-      element's amount and mass in that much of it). Open: the name; whether
-      what's set is any one of n, m (or c with V) and the rest follow; how it
+      element's amount and mass in that much of it). Decided: any of its values
+      can be set (n, m, an element's n or m, …) and the rest follow. Open:
+      whether two can be set at once (only if they agree?); how it
       shows in the working (which member came from which); and how it sits with
       `{X}` species units and reactions' members (`r.H2O`), which this could
       grow from.
@@ -311,6 +312,10 @@ edit reads again only what it changed, and nodes are shared between trees.
       collecting a line's numbers as typed for the working (`NUMBER_LITERAL`);
       `(2.0 pm 0.1) kg` (which now copies the unit as the lexer reads it); and
       the Calculator's own line patterns (assignments, unpacking, functions).
+      Progress (5c, first part): a line's numbers as typed come from its number
+      tokens (`typedNumbers`, writer.ts), not a search of its text, which also
+      picked up digits in units (`m/s^2`), formulas (`{Ca^2+}`) and labels, and
+      could take `2` as typed `2` where the line says `2.00`.
 
 ## Done
 

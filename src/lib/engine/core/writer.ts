@@ -19,6 +19,7 @@ import { NODE_KIND, TOKEN_KIND, isToken, type Part } from '../../tree/nodes.ts'
 import { MORE_TERMS, readUnit } from './literals.ts'
 import { bareTupleHints, moduleWriters } from './module.ts'
 import { bareTuple } from './tuples.ts'
+import { addLiteral } from './numbers.ts'
 
 /** What's noticed while writing: units that are also variables' names, followed by more terms (`1/2 m v^2`: m is metres). */
 export interface WriteNotes {
@@ -108,6 +109,21 @@ const CORE_WRITERS: Readonly<Record<string, PartWriter>> = {
 
 /** A unit that's one word, which could be a variable's name. */
 const SINGLE_UNIT = /^[A-Za-z]+$/
+
+/**
+ * The numbers in an expression, each by its value, as typed (`2.0`, `1.50e3`),
+ * so the working shows them as they were written and counts their sig figs: its
+ * number tokens, at any depth (not digits in a name, a unit or a label).
+ */
+export function typedNumbers(src: string): Map<number, string> {
+  const literals = new Map<number, string>()
+  const visit = (parts: readonly Part[]) => parts.forEach((p) => {
+    if (!isToken(p)) visit(p.parts)
+    else if (p.t === TOKEN_KIND.number) addLiteral(literals, p.text)
+  })
+  visit(lexExpression(src))
+  return literals
+}
 
 /** Parts as mathjs reads them, each by its kind's writers: a module's, then the core's, else as typed. */
 export function writeParts(parts: readonly Part[], notes: WriteNotes): string {

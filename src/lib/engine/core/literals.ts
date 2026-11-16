@@ -1,5 +1,5 @@
 /** Unit literals (`9.81 m/s^2` as a number times a unit) and numbers kept as typed. */
-import { NAME, NAME_CHAR, NUMBER, KEYWORD } from '../../syntax.ts'
+import { NAME, NAME_CHAR, KEYWORD } from '../../syntax.ts'
 import { MATHJS_IN } from '../../mathjsNames.ts'
 import { math } from './math.ts'
 import { DERIVED_UNITS } from './normalise.ts'
@@ -113,8 +113,6 @@ export function readUnit(src: string, pos: number): { text: string; end: number 
   return { text, end }
 }
 
-/** Every number in a line, but not digits inside a name (`v_0`) or after a point. */
-export const NUMBER_LITERAL = new RegExp(String.raw`(?<!${NAME_CHAR}|\.)${NUMBER}`, 'g')
 /** Every name in a line that isn't a call: not part of a longer name, or after `.` or `\`. */
 export const NAME_IN_LINE = new RegExp(String.raw`(?<!${NAME_CHAR}|[\\.])(${NAME})(?!${NAME_CHAR}|\()`, 'g')
 /** After a unit, another term (a name or a bracket), not `to` or `in`: `1/2 m v^2`. */

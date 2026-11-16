@@ -1,6 +1,7 @@
 /** An expression written as mathjs reads it, from its tokens: the core's writers, and the modules'. */
 import { describe, expect, it } from 'vitest'
 import { preprocess } from '../index.ts'
+import { typedNumbers } from './writer.ts'
 import { VECTOR_FUNCTION } from '../modules/vectors/syntax.ts'
 import { SPECIES_FUNCTION } from '../modules/chemistry/syntax.ts'
 import { value } from '../../../test/helpers.ts'
@@ -29,6 +30,14 @@ describe('the core’s writers', () => {
 
   it('leaves a label in quotes as it is', () => {
     expect(written('"2 kg" + x')).toBe('"2 kg" + x')
+  })
+})
+
+describe('the numbers in an expression, as typed', () => {
+  it('are its number tokens: not digits in a unit, a formula or a label', () => {
+    expect(typedNumbers('F = 2.00 kg * 9.81 m/s^2')).toEqual(new Map([[2, '2.00'], [9.81, '9.81']]))
+    expect(typedNumbers('n = 1.0 mol {Ca^2+} + n_2')).toEqual(new Map([[1, '1.0']]))
+    expect(typedNumbers('@table(t, x; fit linear) + "run 3"')).toEqual(new Map())
   })
 })
 

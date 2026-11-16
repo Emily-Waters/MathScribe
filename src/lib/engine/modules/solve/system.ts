@@ -11,9 +11,8 @@ import { isSymbolNode, type MathNode } from 'mathjs'
 import { OP, OP_SYMBOL } from '../../../mathjsNames.ts'
 import { Solver, contains, countOccurrences, splitArgs, splitEquation } from '../../../solve.ts'
 import { math } from '../../core/math.ts'
-import { NUMBER_LITERAL } from '../../core/literals.ts'
+import { typedNumbers } from '../../core/writer.ts'
 import { LineForm, type FormLine, type ModuleHost } from '../../core/module.ts'
-import { addLiteral } from '../../core/numbers.ts'
 import { parseTupleName, type TupleName } from '../../core/declarations.ts'
 import type { LineResult, TraceLine } from '../../core/results.ts'
 import { symbolTex } from '../../core/tex.ts'
@@ -50,8 +49,7 @@ function solveSystem(namesText: string, equationsText: string, line: FormLine, h
     return fail(`${names.length} unknowns need ${names.length} equations, but there ${texts.length === 1 ? 'is' : 'are'} ${texts.length}: `
       + `@tuple(${names.join(', ')}) = @solve(${names.map((_, i) => `equation ${i + 1}`).join(', ')}).`)
   }
-  const literals = new Map<number, string>()
-  for (const m of constants.text.matchAll(NUMBER_LITERAL)) addLiteral(literals, m[0])
+  const literals = typedNumbers(constants.text)
 
   let equations: Equation[]
   try {

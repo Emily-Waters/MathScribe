@@ -19,8 +19,8 @@ import { isTuple, math } from './math.ts'
 import { EngineModule, LINE_STAGE, inDependencyOrder, installModule, moduleReadableMessage, type DerivedVariable, type LineForm, type LineStage, type LookSetting, type ModuleHost, type PreparedLine, type TupleLook, SETTING_PLACE, moduleSettingProblem } from './module.ts'
 import { outsideMaths, wordsTex } from './text.ts'
 import { expandNamespaceCalls, strayLineFormCall } from './builtinCalls.ts'
-import { BUILTIN_CONSTANT_NAMES, NUMBER_LITERAL, NAME_IN_LINE } from './literals.ts'
-import { preprocess } from './writer.ts'
+import { BUILTIN_CONSTANT_NAMES, NAME_IN_LINE } from './literals.ts'
+import { preprocess, typedNumbers } from './writer.ts'
 import { AUTO_PRECISION, ExplainedError, builtinCallHint, FIXED_UNCERTAINTY_SIG_FIGS, type CalcOptions, type EquationParts, layoutEquation, type FunctionResult, type FunctionLine, type TraceLine, type CalcResult, unexpectedError, fitHint, type DataColumn, type LineNotation, type LineResult, type ParsedLine, TO_PERCENT, RAW, rawNode, STEP, readableUnitError } from './results.ts'
 import { NAME_THEN_SETTINGS, DELTA_REF, expandParenPm, splitPm } from './uncertainty.ts'
 import { parseAggregateName, escapeRegExp } from './series.ts'
@@ -32,7 +32,7 @@ import { STATEMENT_KIND, type Guarded, BranchRun, holds, type UserFunction, type
 import { isAngleUnit, toDisplayUnit, type TupleName, parseTupleName, parseDeclaration } from './declarations.ts'
 import { withRows } from './rows.ts'
 import { bracketed } from './tuples.ts'
-import { EXACT_DISPLAY_DIGITS, FIXED_FORMAT, FLOAT_NOISE, TINY, PERCENT_SCALE, addLiteral, parseParam, isValidUnit, castArgument } from './numbers.ts'
+import { EXACT_DISPLAY_DIGITS, FIXED_FORMAT, FLOAT_NOISE, TINY, PERCENT_SCALE, parseParam, isValidUnit, castArgument } from './numbers.ts'
 import { isNumberWithUnit, SIDE, type Side, inScientificNotation, needsBrackets, productSeparator } from './products.ts'
 import { uncertaintyUnitError, columnValues } from './data.ts'
 
@@ -1282,8 +1282,7 @@ export class Calculator {
           let code: math.EvalFunction | undefined
           let tex = '\\text{otherwise}'
           if (condition !== undefined) {
-            const literals = new Map<number, string>()
-            for (const m of condition.matchAll(NUMBER_LITERAL)) addLiteral(literals, m[0])
+            const literals = typedNumbers(condition)
             const expanded = this.expandConstants(condition)
             if (expanded.error) throw new Error(expanded.error)
             const node = math.parse(preprocess(expanded.text, this.isVariable).text)
@@ -1318,8 +1317,7 @@ export class Calculator {
       const badTarget = unpackTargets?.find((t) => 'error' in t)
       if (badTarget && 'error' in badTarget) return { signature, body, error: `Line ${line}: ${badTarget.error}` }
       const targets = unpackTargets as TupleName[] | undefined
-      const literals = new Map<number, string>()
-      for (const m of source.matchAll(NUMBER_LITERAL)) addLiteral(literals, m[0])
+      const literals = typedNumbers(source)
       try {
         // Constants resolve where the function is defined, so calls can see them.
         const expanded = this.expandConstants(source)
@@ -1656,8 +1654,7 @@ export class Calculator {
 
   /** An expression as typed, as TeX (an unnamed table column's header). */
   private expressionTex(expr: string): string {
-    const literals = new Map<number, string>()
-    for (const m of expr.matchAll(NUMBER_LITERAL)) addLiteral(literals, m[0])
+    const literals = typedNumbers(expr)
     try {
       return this.toTex(math.parse(preprocess(expr, this.isVariable).text), literals)
     } catch {
@@ -1729,8 +1726,7 @@ export class Calculator {
     const line = expandParenPm(this.expandDeltaRefs(cleaned.replace(TO_PERCENT, '')))
 
     // Number literals as typed, so `2.0 kg` keeps its trailing zero.
-    const literals = new Map<number, string>()
-    for (const m of line.matchAll(NUMBER_LITERAL)) addLiteral(literals, m[0])
+    const literals = typedNumbers(line)
 
     // A line a module works out itself once it's read this far: `x = @solve(lhs = rhs, x)`.
     const expression = this.byForm(LINE_STAGE.expression, line, requestedMode, explicit, {

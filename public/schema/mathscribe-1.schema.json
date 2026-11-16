@@ -1,0 +1,1165 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mathscribe/1",
+  "title": "A MathScribe sheet",
+  "description": "A sheet as a tree of nodes: every character of its text is in one token, so joining the tokens in order gives the text exactly.",
+  "type": "object",
+  "required": [
+    "schema",
+    "body"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {
+      "const": "mathscribe/1",
+      "description": "The schema the tree is written in, by version"
+    },
+    "body": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/node"
+      },
+      "description": "The sheet’s lines (a block as one node holding its lines)"
+    }
+  },
+  "$defs": {
+    "node": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/node.blank"
+        },
+        {
+          "$ref": "#/$defs/node.comment"
+        },
+        {
+          "$ref": "#/$defs/node.calc"
+        },
+        {
+          "$ref": "#/$defs/node.heading"
+        },
+        {
+          "$ref": "#/$defs/node.paragraph"
+        },
+        {
+          "$ref": "#/$defs/node.latex"
+        },
+        {
+          "$ref": "#/$defs/node.blockCloser"
+        },
+        {
+          "$ref": "#/$defs/node.blockOpener"
+        },
+        {
+          "$ref": "#/$defs/node.block"
+        },
+        {
+          "$ref": "#/$defs/node.layoutOpener"
+        },
+        {
+          "$ref": "#/$defs/node.layout"
+        },
+        {
+          "$ref": "#/$defs/node.proseOpener"
+        },
+        {
+          "$ref": "#/$defs/node.proseLine"
+        },
+        {
+          "$ref": "#/$defs/node.prose"
+        },
+        {
+          "$ref": "#/$defs/node.latexOpener"
+        },
+        {
+          "$ref": "#/$defs/node.latexLine"
+        },
+        {
+          "$ref": "#/$defs/node.latexBlock"
+        },
+        {
+          "$ref": "#/$defs/node.constantsOpener"
+        },
+        {
+          "$ref": "#/$defs/node.constantLine"
+        },
+        {
+          "$ref": "#/$defs/node.constants"
+        },
+        {
+          "$ref": "#/$defs/node.defLine"
+        },
+        {
+          "$ref": "#/$defs/node.functionLine"
+        },
+        {
+          "$ref": "#/$defs/node.function"
+        },
+        {
+          "$ref": "#/$defs/node.importLine"
+        },
+        {
+          "$ref": "#/$defs/node.data"
+        },
+        {
+          "$ref": "#/$defs/node.import"
+        },
+        {
+          "$ref": "#/$defs/node.speciesOpener"
+        },
+        {
+          "$ref": "#/$defs/node.speciesEntry"
+        },
+        {
+          "$ref": "#/$defs/node.species"
+        },
+        {
+          "$ref": "#/$defs/node.speciesLine"
+        },
+        {
+          "$ref": "#/$defs/node.reaction"
+        }
+      ]
+    },
+    "token": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/token.indent"
+        },
+        {
+          "$ref": "#/$defs/token.space"
+        },
+        {
+          "$ref": "#/$defs/token.eol"
+        },
+        {
+          "$ref": "#/$defs/token.text"
+        },
+        {
+          "$ref": "#/$defs/token.comment"
+        },
+        {
+          "$ref": "#/$defs/token.body"
+        },
+        {
+          "$ref": "#/$defs/token.command"
+        },
+        {
+          "$ref": "#/$defs/token.note"
+        },
+        {
+          "$ref": "#/$defs/token.marks"
+        },
+        {
+          "$ref": "#/$defs/token.rows"
+        }
+      ]
+    },
+    "node.blank": {
+      "description": "A line with nothing on it but spaces (core)",
+      "type": "object",
+      "required": [
+        "kind",
+        "parts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "blank"
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/token"
+              },
+              {
+                "$ref": "#/$defs/node"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "node.comment": {
+      "description": "A comment line, // …, never shown or worked out (core)",
+      "type": "object",
+      "required": [
+        "kind",
+        "parts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "comment"
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/token"
+              },
+              {
+                "$ref": "#/$defs/node"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "node.calc": {
+      "description": "A calculation: m = 2.0 kg, with any #commands and note (core)",
+      "type": "object",
+      "required": [
+        "kind",
+        "parts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "calc"
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/token"
+              },
+              {
+                "$ref": "#/$defs/node"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "node.heading": {
+      "description": "A heading: # Title, ## Title, ### Title (core)",
+      "type": "object",
+      "required": [
+        "kind",
+        "parts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "heading"
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/token"
+              },
+              {
+                "$ref": "#/$defs/node"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "node.paragraph": {
+      "description": "A paragraph of prose: > Some prose (core)",
+      "type": "object",
+      "required": [
+        "kind",
+        "parts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "paragraph"
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/token"
+              },
+              {
+                "$ref": "#/$defs/node"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "node.latex": {
+      "description": "Raw LaTeX on one line: @latex { \\frac{a}{b} } (core)",
+      "type": "object",
+      "required": [
+        "kind",
+        "parts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "latex"
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/token"
+              },
+              {
+                "$ref": "#/$defs/node"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "node.blockCloser": {
+      "description": "The end of a block: } (core)",
+      "type": "object",
+      "required": [
+        "kind",
+        "parts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "blockCloser"
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/token"
+              },
+              {
+                "$ref": "#/$defs/node"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "node.blockOpener": {
+      "description": "A block’s opener: Title {, or # Title { for one titled as a section (core)",
+      "type": "object",
+      "required": [
+        "kind",
+        "parts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "blockOpener"
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/token"
+              },
+              {
+                "$ref": "#/$defs/node"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "node.block": {
+      "description": "A { } block: its opener, its lines, and its } (core)",
+      "type": "object",
+      "required": [
+        "kind",
+        "parts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "block"
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/token"
+              },
+              {
+                "$ref": "#/$defs/node"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "node.layoutOpener": {
+      "description": "An @layout block’s opener: @layout.list Title { (core)",
+      "type": "object",
+      "required": [
+        "kind",
+        "parts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "layoutOpener"
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/token"
+              },
+              {
+                "$ref": "#/$defs/node"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "node.layout": {
+      "description": "An @layout block: its opener, its lines, and its } (core)",
+      "type": "object",
+      "required": [
+        "kind",
+        "parts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "layout"
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/token"
+              },
+              {
+                "$ref": "#/$defs/node"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "node.proseOpener": {
+      "description": "A prose block’s opener: @layout.text Title {, @layout.titlepage { (core)",
+      "type": "object",
+      "required": [
+        "kind",
+        "parts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "proseOpener"
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/token"
+              },
+              {
+                "$ref": "#/$defs/node"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "node.proseLine": {
+      "description": "A line of prose in a prose block (core)",
+      "type": "object",
+      "required": [
+        "kind",
+        "parts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "proseLine"
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/token"
+              },
+              {
+                "$ref": "#/$defs/node"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "node.prose": {
+      "description": "A prose block: its opener, its lines, and its } (core)",
+      "type": "object",
+      "required": [
+        "kind",
+        "parts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "prose"
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/token"
+              },
+              {
+                "$ref": "#/$defs/node"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "node.latexOpener": {
+      "description": "A raw LaTeX block’s opener: @latex { (core)",
+      "type": "object",
+      "required": [
+        "kind",
+        "parts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "latexOpener"
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/token"
+              },
+              {
+                "$ref": "#/$defs/node"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "node.latexLine": {
+      "description": "A line of raw LaTeX in a raw LaTeX block (core)",
+      "type": "object",
+      "required": [
+        "kind",
+        "parts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "latexLine"
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/token"
+              },
+              {
+                "$ref": "#/$defs/node"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "node.latexBlock": {
+      "description": "A raw LaTeX block: its opener, its lines, and its } on its own (core)",
+      "type": "object",
+      "required": [
+        "kind",
+        "parts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "latexBlock"
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/token"
+              },
+              {
+                "$ref": "#/$defs/node"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "node.constantsOpener": {
+      "description": "An @constants block’s opener: @constants { (core)",
+      "type": "object",
+      "required": [
+        "kind",
+        "parts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "constantsOpener"
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/token"
+              },
+              {
+                "$ref": "#/$defs/node"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "node.constantLine": {
+      "description": "A constant in an @constants block: rho = 1000 kg/m^3 (core)",
+      "type": "object",
+      "required": [
+        "kind",
+        "parts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "constantLine"
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/token"
+              },
+              {
+                "$ref": "#/$defs/node"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "node.constants": {
+      "description": "An @constants block: its opener, its constants, and its } (core)",
+      "type": "object",
+      "required": [
+        "kind",
+        "parts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "constants"
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/token"
+              },
+              {
+                "$ref": "#/$defs/node"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "node.defLine": {
+      "description": "A function’s def line: def f(a, b) (core)",
+      "type": "object",
+      "required": [
+        "kind",
+        "parts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "defLine"
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/token"
+              },
+              {
+                "$ref": "#/$defs/node"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "node.functionLine": {
+      "description": "A line of a function’s body (core)",
+      "type": "object",
+      "required": [
+        "kind",
+        "parts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "functionLine"
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/token"
+              },
+              {
+                "$ref": "#/$defs/node"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "node.function": {
+      "description": "A function: its def line, and its body (core)",
+      "type": "object",
+      "required": [
+        "kind",
+        "parts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "function"
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/token"
+              },
+              {
+                "$ref": "#/$defs/node"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "node.importLine": {
+      "description": "An import line: @import(\"run1.csv\") (core)",
+      "type": "object",
+      "required": [
+        "kind",
+        "parts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "importLine"
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/token"
+              },
+              {
+                "$ref": "#/$defs/node"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "node.data": {
+      "description": "Imported data’s rows, as one node (core)",
+      "type": "object",
+      "required": [
+        "kind",
+        "parts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "data"
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/token"
+              },
+              {
+                "$ref": "#/$defs/node"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "node.import": {
+      "description": "An import: its line, and its data (core)",
+      "type": "object",
+      "required": [
+        "kind",
+        "parts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "import"
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/token"
+              },
+              {
+                "$ref": "#/$defs/node"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "node.speciesOpener": {
+      "description": "An @chem.species block’s opener: @chem.species { (ChemistryModule)",
+      "type": "object",
+      "required": [
+        "kind",
+        "parts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "speciesOpener"
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/token"
+              },
+              {
+                "$ref": "#/$defs/node"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "node.speciesEntry": {
+      "description": "A species’ name in an @chem.species block: dietzeite = {7Ca(IO3)2*8CaCrO4} (ChemistryModule)",
+      "type": "object",
+      "required": [
+        "kind",
+        "parts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "speciesEntry"
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/token"
+              },
+              {
+                "$ref": "#/$defs/node"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "node.species": {
+      "description": "An @chem.species block: its opener, its names, and its } (ChemistryModule)",
+      "type": "object",
+      "required": [
+        "kind",
+        "parts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "species"
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/token"
+              },
+              {
+                "$ref": "#/$defs/node"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "node.speciesLine": {
+      "description": "One species named on a line of its own: @chem.species dietzeite = {…} (ChemistryModule)",
+      "type": "object",
+      "required": [
+        "kind",
+        "parts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "speciesLine"
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/token"
+              },
+              {
+                "$ref": "#/$defs/node"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "node.reaction": {
+      "description": "A reaction on a line of its own, drawn: {2 H2 + O2 -> 2 H2O} (ChemistryModule)",
+      "type": "object",
+      "required": [
+        "kind",
+        "parts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "reaction"
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/token"
+              },
+              {
+                "$ref": "#/$defs/node"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "token.indent": {
+      "description": "The spaces and tabs a line starts with (core)",
+      "type": "object",
+      "required": [
+        "t",
+        "text"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "indent"
+        },
+        "text": {
+          "type": "string"
+        }
+      }
+    },
+    "token.space": {
+      "description": "Spaces and tabs between parts, or after the last (core)",
+      "type": "object",
+      "required": [
+        "t",
+        "text"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "space"
+        },
+        "text": {
+          "type": "string"
+        }
+      }
+    },
+    "token.eol": {
+      "description": "What ends a line: \\n, \\r\\n or \\r (core)",
+      "type": "object",
+      "required": [
+        "t",
+        "text"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "eol"
+        },
+        "text": {
+          "type": "string"
+        }
+      }
+    },
+    "token.text": {
+      "description": "Text not read into finer parts: prose, raw LaTeX, a heading’s title (core)",
+      "type": "object",
+      "required": [
+        "t",
+        "text"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "text"
+        },
+        "text": {
+          "type": "string"
+        }
+      }
+    },
+    "token.comment": {
+      "description": "A comment, // … (core)",
+      "type": "object",
+      "required": [
+        "t",
+        "text"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "comment"
+        },
+        "text": {
+          "type": "string"
+        }
+      }
+    },
+    "token.body": {
+      "description": "What a line says, before its #commands and note (core)",
+      "type": "object",
+      "required": [
+        "t",
+        "text"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "body"
+        },
+        "text": {
+          "type": "string"
+        }
+      }
+    },
+    "token.command": {
+      "description": "A display command: #val, #multiline, #sci, #center (core)",
+      "type": "object",
+      "required": [
+        "t",
+        "text"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "command"
+        },
+        "text": {
+          "type": "string"
+        }
+      }
+    },
+    "token.note": {
+      "description": "A note, # …, to the end of the line (core)",
+      "type": "object",
+      "required": [
+        "t",
+        "text"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "note"
+        },
+        "text": {
+          "type": "string"
+        }
+      }
+    },
+    "token.marks": {
+      "description": "A heading’s #s (core)",
+      "type": "object",
+      "required": [
+        "t",
+        "text"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "marks"
+        },
+        "text": {
+          "type": "string"
+        }
+      }
+    },
+    "token.rows": {
+      "description": "Imported data’s rows, as they are (core)",
+      "type": "object",
+      "required": [
+        "t",
+        "text"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "rows"
+        },
+        "text": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

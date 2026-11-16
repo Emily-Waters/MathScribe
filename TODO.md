@@ -248,8 +248,21 @@ edit reads again only what it changed, and nodes are shared between trees.
       (`lineKind`, `opensText`, the brace counting) are gone; an `if` / `else`
       in a function's body still folds by indentation, as the tree doesn't hold
       a function's branches yet.
-- [ ] **Introspection and validation**: a JSON Schema made from the registry,
+- [x] **Introspection and validation**: a JSON Schema made from the registry,
       for checking a tree from a request; the schema listed for the editor and docs.
+
+      **Resolved (2026-11-15):** `tree/schema.ts`. `introspect()` lists, as plain
+      data, every kind of node and token (what each is, whose), every context,
+      and every kind of line (where it can be, what it opens, in the order a line
+      is offered them); what a kind of line opens is declared data now, not a
+      function, so it can be listed. `jsonSchema()` is a JSON Schema (draft
+      2020-12) of a tree, one definition per kind with its description and
+      owner, exactly the fields a tree has. It's published with the app at
+      `/schema/mathscribe-1.schema.json` (`public/schema/`), kept up to date by a
+      test (a file snapshot: `npx vitest run -u` writes it). The tree's own check
+      (`check.ts`) agrees with it: it now also rejects fields a tree doesn't have,
+      and a schema newer than this MathScribe reads; a test checks both accept
+      every example's tree and reject the same broken ones.
 - [ ] **Expressions as tokens**: names, numbers, units, `{species}`, `<…>`, so
       the modules' text-rewriting hooks (`expandSyntax`, `readAfterUnit`) become
       kinds of token they declare.

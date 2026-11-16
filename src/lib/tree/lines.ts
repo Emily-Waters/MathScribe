@@ -132,7 +132,7 @@ function parseLine(line: SourceLine, context: string): ReadLine {
     const syntax = syntaxesIn(context).find((s) => s.matches(content, splitOnce))
     const info = contextInfo(context)
     kind = syntax?.kind ?? info.lineKind
-    body = syntax?.opens?.(content, splitOnce)
+    body = syntax?.opens
     contentTokens(content, syntax?.content ?? info.content, parts)
   }
   if (trailing) parts.push(token(TOKEN_KIND.space, trailing))

@@ -39,7 +39,7 @@ export const CHEM_GRAMMAR: ModuleGrammar = {
     {
       kind: CHEM_NODE.speciesOpener, contexts: [LINE_CONTEXT.sheet], content: CONTENT.noted,
       matches: (_, split) => SPECIES_OPENER.test(split().body),
-      opens: () => ({ node: CHEM_NODE.species, context: SPECIES_CONTEXT, ends: BODY_END.brace }),
+      opens: { node: CHEM_NODE.species, context: SPECIES_CONTEXT, ends: BODY_END.brace },
     },
     { kind: CHEM_NODE.reaction, contexts: [LINE_CONTEXT.sheet], content: CONTENT.noted, matches: (_, split) => REACTION_LINE.test(split().body) },
   ],

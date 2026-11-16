@@ -64,8 +64,8 @@ export interface LineSyntax {
   readonly content: Content
   /** Whether a line (trimmed, and split into its body, #commands and note) is one of these. */
   matches(trimmed: string, split: () => NotedLine): boolean
-  /** What it opens, if anything (and so whether it does, for this line: a one-line `@latex { … }` doesn't). */
-  opens?(trimmed: string, split: () => NotedLine): Body | undefined
+  /** What it opens, if anything: the lines after it are its body. (Declared, so the schema can list it.) */
+  readonly opens?: Body
 }
 
 /** A context: what a line is inside, and what its lines are when no syntax of it matches. */
@@ -110,5 +110,10 @@ export function contextInfo(name: string): ContextInfo {
   return c
 }
 
-/** Every syntax declared, with its owner (for the schema's listing). */
-export const declaredLineSyntaxes = () => syntaxes.map((s) => ({ owner: s.owner, kind: s.syntax.kind, contexts: s.syntax.contexts }))
+/** Every syntax declared, with its owner, in the order a line is offered them (for the schema's listing). */
+export const declaredLineSyntaxes = () => syntaxes.map(({ owner, syntax }) => ({
+  owner, kind: syntax.kind, contexts: syntax.contexts, content: syntax.content, opens: syntax.opens,
+}))
+
+/** Every context declared (for the schema's listing). */
+export const declaredContexts = (): readonly ContextInfo[] => [...contexts.values()]

@@ -13,8 +13,9 @@ export { decode, encode, textOf } from './codec.ts'
 export { readLine, splitLines, type ReadLine, type SourceLine } from './lines.ts'
 export { LINE_ROLE, TOP, stepLine, type Frame, type LineRole, type LineState, type Step } from './stream.ts'
 export {
-  BODY_END, CONTENT, declareContexts, declareLineSyntaxes, declaredLineSyntaxes, type Body, type ContextInfo, type LineSyntax,
+  BODY_END, CONTENT, declareContexts, declareLineSyntaxes, declaredContexts, declaredLineSyntaxes, type Body, type ContextInfo, type LineSyntax,
 } from './grammar.ts'
 export { CORE_OWNER, declareNodeKinds, declareTokenKinds, declaredNodeKinds, declaredTokenKinds, type KindInfo } from './registry.ts'
 export { isSheetTree, treeProblems } from './check.ts'
+export { JSON_SCHEMA_DRAFT, introspect, jsonSchema, type SchemaListing, type SyntaxInfo } from './schema.ts'
 export { MIGRATIONS, upgrade, versionOf, type Migration } from './migrations.ts'

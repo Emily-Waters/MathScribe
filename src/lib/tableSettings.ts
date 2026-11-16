@@ -12,9 +12,10 @@
  * The table's ⚙ button in the editor writes them, so they don't need typing.
  */
 
-/** How a table's lines are drawn. */
-export const TABLE_LINES = ['header', 'grid', 'none'] as const
-export type TableLines = (typeof TABLE_LINES)[number]
+/** How a table's lines are drawn: under the header (the default), around every cell, or none. */
+export const TABLE_LINE = { header: 'header', grid: 'grid', none: 'none' } as const
+export type TableLines = (typeof TABLE_LINE)[keyof typeof TABLE_LINE]
+export const TABLE_LINES: readonly TableLines[] = Object.values(TABLE_LINE)
 
 export interface TableSettings {
   /** The first and last row shown (either may be left open). */
@@ -27,7 +28,7 @@ export interface TableSettings {
   allRows: boolean
 }
 
-export const DEFAULT_TABLE_SETTINGS: TableSettings = { lines: 'header', numbers: true, allRows: false }
+export const DEFAULT_TABLE_SETTINGS: TableSettings = { lines: TABLE_LINE.header, numbers: true, allRows: false }
 
 // ---------------------------------------------------------------------------
 // The words settings are written with (shared by table, plot and select)

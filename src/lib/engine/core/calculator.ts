@@ -8,31 +8,29 @@ import { EXACT, MAX_DIGITS, countSigFigs, formatExact, formatSigFigs, formatWith
 import { AGGREGATE_KIND, Variable, type Aggregate, type Contributions, type VariableFields, type VariableSummary } from '../../values.ts'
 import { DEFAULT_CONSTANT_SIG_FIGS, isNamespaceConstant, suggestConstant } from '../../constants.ts'
 import { builtinConstant, builtinConstantKeys, isReservedConstantName } from '../../builtins.ts'
-import { ASSIGNMENT, ASSIGNMENT_WITH_VALUE, COMPONENTS_SETTING, CONSTANT_REF, EXACT_SETTING, IS_NAME, LEADING_NAME, ONE_LINE_FUNCTION, PERCENT, CALL, ELSE_IF_LINE, ELSE_LINE, IF_LINE, KEYWORD, PLOT_CALL, RETURN_LINE, SOLVE_SYSTEM, SELECT_CALL, SOLVE_CALL, SUBSCRIPT, TABLE_CALL, UNIT_VECTOR_SETTING, UNPACK, VECTOR_FUNCTION, DISPLAY_MODE, LINE_COMMAND, VALUE_IN_TEXT, CONSTANTS_BLOCK, LABEL_TEMPLATE, SIGIL, type DisplayMode, type Notation, type Precision, type UncertaintyWord, type VectorStyle } from '../../syntax.ts'
-import { FIT, INLINE_VALUE_NAME, JOIN, RESERVED_NAMESPACES, constantKey, constantRefName, expandDots, typedConstant, isHiddenName, isUncertaintyName, memberName, parseMemberName, parseNumberedName, parseUncertaintyName, readableMembers, seriesMemberName, solvedName, uncertaintyName, unpackedColumnName, unpackedName } from '../../names.ts'
+import { ASSIGNMENT, ASSIGNMENT_WITH_VALUE, COMPONENTS_SETTING, CONSTANT_REF, EXACT_SETTING, IS_NAME, LEADING_NAME, ONE_LINE_FUNCTION, PERCENT, CALL, ELSE_IF_LINE, ELSE_LINE, IF_LINE, KEYWORD, RETURN_LINE, SOLVE_SYSTEM, SOLVE_CALL, UNIT_VECTOR_SETTING, UNPACK, VECTOR_FUNCTION, DISPLAY_MODE, LINE_COMMAND, VALUE_IN_TEXT, CONSTANTS_BLOCK, LABEL_TEMPLATE, SIGIL, type DisplayMode, type Notation, type Precision, type UncertaintyWord, type VectorStyle } from '../../syntax.ts'
+import { INLINE_VALUE_NAME, JOIN, RESERVED_NAMESPACES, constantKey, constantRefName, expandDots, typedConstant, isHiddenName, isUncertaintyName, memberName, parseNumberedName, parseUncertaintyName, readableMembers, seriesMemberName, solvedName, uncertaintyName, unpackedName } from '../../names.ts'
 import { COMPARISONS, FN, OP, OP_SYMBOL, UNIT, isOp } from '../../mathjsNames.ts'
 import { POLYNOMIAL_KIND, Solver, contains, countOccurrences, matchingParen, splitArgs, splitEquation } from '../../solve.ts'
 import { nestBrackets } from '../../brackets.ts'
 import type { CsvColumn } from '../../csv.ts'
-import { SETTING, parseRowRange, parseTableSettings, settingParts, splitCallArgs } from '../../tableSettings.ts'
-import { parsePlotSettings } from '../../plotSettings.ts'
-import { linearFit, type LinearFit, type PlotData, type PlotPoint, type PlotSeries } from '../../plot.ts'
+
 import { isTuple, math } from './math.ts'
-import { EngineModule, installModule, moduleReadableMessage, type ModuleHost } from './module.ts'
+import { EngineModule, LINE_STAGE, installModule, moduleReadableMessage, type LineForm, type LineStage, type ModuleHost } from './module.ts'
 import { outsideMaths, wordsTex } from './text.ts'
 import { expandNamespaceCalls } from './builtinCalls.ts'
 import { VECTOR_PRODUCTS, hasVector } from './vectors.ts'
 import { BUILTIN_CONSTANT_NAMES, NUMBER_LITERAL, NAME_IN_LINE, CONVERSION_TAIL, preprocess } from './literals.ts'
-import { ExplainedError, type CalcOptions, type EquationParts, layoutEquation, type FunctionResult, type FunctionLine, type TraceLine, type CalcResult, type Definition, unexpectedError, fitHint, seriesDefinitions, type DataColumn, type LineNotation, type LineResult, type ParsedLine, TO_PERCENT, RAW, rawNode, STEP, readableUnitError } from './results.ts'
+import { ExplainedError, type CalcOptions, type EquationParts, layoutEquation, type FunctionResult, type FunctionLine, type TraceLine, type CalcResult, unexpectedError, fitHint, type DataColumn, type LineNotation, type LineResult, type ParsedLine, TO_PERCENT, RAW, rawNode, STEP, readableUnitError } from './results.ts'
 import { NAME_THEN_SETTINGS, DELTA_REF, expandParenPm, splitPm } from './uncertainty.ts'
-import { SELECT_RANGE, parseAggregateName, escapeRegExp } from './series.ts'
+import { parseAggregateName, escapeRegExp } from './series.ts'
 import { symbolTex, numberTex, unitTex, attachUnit, isUnitCall, unitCallText, isLitCall } from './tex.ts'
 import { unwrap, isLiteral, isVectorLiteral, isPureNumber, isConversion } from './nodes.ts'
 import { normalise, displayUnit, magnitudeOf, withMagnitude, isRealValue, sameValue } from './normalise.ts'
 import { Scope, Views, type Variables, Values, innerValues } from './scope.ts'
 import { STATEMENT_KIND, type Guarded, BranchRun, holds, type UserFunction, type CustomConstant, MAX_TRACE_DEPTH } from './functions.ts'
 import { isAngleUnit, toDisplayUnit, type TupleName, parseTupleName, parseDeclaration } from './declarations.ts'
-import { type SeriesColumn, TABLE_COLUMN, TABLE_ROWS, withRowValues, bracketed, UNIT_VECTOR_TEX, componentsOf, withRows } from './tables.ts'
+import { bracketed, UNIT_VECTOR_TEX, componentsOf, withRows } from './components.ts'
 import { EXACT_DISPLAY_DIGITS, FIXED_FORMAT, FLOAT_NOISE, TINY, PERCENT_SCALE, SOLVER, addLiteral, parseParam, isValidUnit, castArgument } from './numbers.ts'
 import { isNumberWithUnit, SIDE, type Side, inScientificNotation, needsBrackets, productSeparator } from './products.ts'
 import { uncertaintyUnitError, columnValues } from './data.ts'
@@ -79,8 +77,41 @@ export class Calculator {
   private options: CalcOptions
   /** What extends the engine (chemistry), each with its own hooks: see EngineModule. */
   private readonly modules: readonly EngineModule[]
-  /** What the modules can do to this Calculator. */
-  private readonly host: ModuleHost = { store: (name, v) => this.store(name, v) }
+  /** What the modules can do to this Calculator (see ModuleHost). */
+  private readonly host: ModuleHost = {
+    value: (name) => this.scope.get(name),
+    variable: (name) => this.vars.get(name),
+    has: (name) => this.scope.has(name),
+    names: () => this.scope.keys(),
+    store: (name, v) => this.store(name, v),
+    forget: (name) => this.forget(name),
+    seriesRows: (base) => this.seriesRows(base),
+    setView: (base, names) => this.views.set(base, names),
+    clearViews: (namespace) => this.views.clear(namespace),
+    newSource: () => this.nextSource++,
+    evaluateLine: (text, mode) => this.evaluateLine(text, mode, false),
+    evaluateExpression: (text) => math.evaluate(preprocess(text, this.isVariable).text, this.scope) as unknown,
+    total: (contributions, like) => this.total(contributions, like),
+    valueTex: (value, sf, unc, uncSf) => this.valueTex(value, sf, unc, uncSf),
+    split: (value, sf, forced) => this.split(value, sf, forced),
+    uncertainParts: (value, unc, uncSf) => this.uncertainParts(value, unc, uncSf),
+    inNotation: (notation, fn) => this.inNotation(notation, fn),
+    expressionTex: (expr) => this.expressionTex(expr),
+  }
+
+  /** The modules' line forms at a stage, in the order the modules were given. */
+  private formsAt(stage: LineStage): LineForm[] {
+    return this.modules.flatMap((m) => m.lineForms).filter((f) => f.stage === stage)
+  }
+
+  /** The line worked out by the first form at this stage that takes it, if one does. */
+  private byForm(stage: LineStage, input: string, mode: DisplayMode, explicit: boolean): LineResult | undefined {
+    for (const form of this.formsAt(stage)) {
+      const result = form.evaluate({ text: input.trim(), mode, explicit }, this.host)
+      if (result) return result
+    }
+    return undefined
+  }
 
   constructor(options: CalcOptions, modules: readonly EngineModule[] = []) {
     this.options = options
@@ -1920,423 +1951,10 @@ export class Calculator {
     return { ...result, parts, tex: layoutEquation(mode, parts, this.multiline) }
   }
 
-  /**
-   * `table(t, x, v = x / t)`: series side by side, one row per number (row 1 is
-   * t_1, x_1, v_1). A name is a series' values; `name = expression` is worked
-   * out row by row from the series it uses, and makes a series of its own (v_1,
-   * v_2, …, so v_avg works afterwards); an expression without a name is just
-   * shown. A long table shows its first and last rows.
-   */
-  private evaluateTable(argsText: string): LineResult {
-    // The settings come after a semicolon (see tableSettings.ts).
-    const parts = splitCallArgs(argsText)
-    const { settings, error: settingsError } = parseTableSettings(parts.settings)
-    if (settingsError) return { tex: '', error: settingsError }
-    const args = splitArgs(parts.columns).map((a) => a.trim()).filter(Boolean)
-    if (!args.length) {
-      return { tex: '', error: 'Name the series to show, table(t, x), and any columns worked out from them: table(t, x, v = x / t).' }
-    }
-    const made = this.seriesColumns(args, 'show it in a table')
-    if ('error' in made) return { tex: '', error: made.error }
-    const { columns, errors, hidden } = made
-
-    // Every row that any column has, in order (within the settings' rows); a long
-    // table shows its first and last rows, unless the settings ask for all of them.
-    const all = [...new Set(columns.flatMap((c) => [...c.rows.keys()]))].sort((a, b) => a - b)
-      .filter((n) => (settings.from === undefined || n >= settings.from) && (settings.to === undefined || n <= settings.to))
-    const shortened = !settings.allRows && all.length > TABLE_ROWS.max
-    const shown = shortened ? [...all.slice(0, TABLE_ROWS.first), ...all.slice(-TABLE_ROWS.last)] : all
-
-    // Each cell, with the column's unit taken out to its header when every value shares it.
-    const body = columns.map((c) => {
-      const cells = shown.map((n) => (c.rows.has(n) ? this.cellParts(c.rows.get(n)!) : undefined))
-      const units = new Set(cells.filter((p) => p).map((p) => p!.unit))
-      const shared = units.size === 1 ? [...units][0] : undefined
-      return {
-        header: shared ? `${c.header}\\,\\left[${unitTex(shared)}\\right]` : c.header,
-        cells: cells.map((p) => (!p ? '\\text{—}' : shared || !p.unit ? p.num : attachUnit(p.num, unitTex(p.unit)))),
-      }
-    })
-    for (const name of hidden) this.forget(name)
-
-    // The n column (unless it's turned off), then the columns.
-    const cellsOf = (n: number, r: number) => [...(settings.numbers ? [String(n)] : []), ...body.map((c) => c.cells[r])]
-    const header = [...(settings.numbers ? ['n'] : []), ...body.map((c) => c.header)].join(' & ')
-    // A line after each row in a grid; otherwise just after the header (none for lines none).
-    const rowEnd = settings.lines === 'grid' ? ' \\\\ \\hline ' : ' \\\\ '
-    const rowsTex = shown.map((n, r) => {
-      const row = cellsOf(n, r).join(' & ')
-      // The gap in a shortened table, before its last rows.
-      return shortened && r === TABLE_ROWS.first ? `\\vdots${rowEnd}${row}` : row
-    })
-    const count = columns.length + (settings.numbers ? 1 : 0)
-    const columnSpec = settings.lines === 'grid'
-      ? `|${'r|'.repeat(count)}`
-      : settings.lines === 'none' || !settings.numbers ? 'r'.repeat(count) : `r|${'r'.repeat(count - 1)}`
-    const top = settings.lines === 'grid' ? '\\hline ' : ''
-    const afterHeader = settings.lines === 'none' ? ' \\\\ ' : ' \\\\ \\hline '
-    const end = settings.lines === 'grid' ? ' \\\\ \\hline' : ''
-    const tex = `\\begin{array}{${columnSpec}} ${top}${header}${afterHeader}${rowsTex.join(rowEnd)}${end} \\end{array}`
-    const range = settings.from !== undefined || settings.to !== undefined
-    return {
-      tex,
-      error: errors.length ? `${errors[0]}${errors.length > 1 ? ` (and ${errors.length - 1} more row${errors.length > 2 ? 's' : ''})` : ''}` : undefined,
-      info: shortened
-        ? `${all.length} rows${range ? ' in range' : ''}: the first ${TABLE_ROWS.first} and the last ${TABLE_ROWS.last} are shown (the ⚙ button can show them all).`
-        : !all.length && range ? 'No rows in this range.' : undefined,
-    }
-  }
-
-  /**
-   * `plot(t, x, y)`: series plotted against the first one, a point per row
-   * (columns as in table(), so `plot(t, v = x / t)` works too). Values are
-   * converted to one unit per axis; uncertainties become error bars. With `fit
-   * linear` in the settings, each series gets a best-fit line, and its slope
-   * and intercept (with their uncertainties) become variables: x_slope,
-   * x_intercept. The line's text is the fits' equations.
-   */
-  private evaluatePlot(argsText: string, plotName?: string): LineResult {
-    if (plotName && RESERVED_NAMESPACES.has(plotName)) return { tex: '', error: `${plotName} is a reserved word: choose another name for the plot.` }
-    // A plot named again forgets what it held (p.slope from a fit since taken off).
-    if (plotName) {
-      this.views.clear(plotName)
-      // (Deleting while going through a Map is safe.)
-      const prefix = memberName(plotName, '')
-      for (const old of this.scope.keys()) if (old.startsWith(prefix)) this.forget(old)
-    }
-    const parts = splitCallArgs(argsText)
-    const { settings, error: settingsError } = parsePlotSettings(parts.settings)
-    if (settingsError) return { tex: '', error: settingsError }
-    const args = splitArgs(parts.columns).map((a) => a.trim()).filter(Boolean)
-    if (args.length < 2) return { tex: '', error: 'Give the x series, then what to plot against it: plot(t, x), or plot(t, x, y).' }
-    const made = this.seriesColumns(args, 'plot it')
-    if ('error' in made) return { tex: '', error: made.error }
-    const { columns, errors, hidden } = made
-    const [xColumn, ...yColumns] = columns
-    const inRange = (n: number) => (settings.from === undefined || n >= settings.from) && (settings.to === undefined || n <= settings.to)
-    const onAxis = (v: number, a: { from?: number; to?: number }) => (a.from === undefined || v >= a.from) && (a.to === undefined || v <= a.to)
-
-    // Each axis's unit (its first value's), and every value (and uncertainty) as a number in it.
-    const unitOf = (c: SeriesColumn) => this.split(this.scope.get([...c.rows.values()][0]), EXACT)?.unit
-    // Each unit's size in SI, worked out once: a value in it is then its SI value
-    // over that, rather than a mathjs conversion for each of thousands of points.
-    // (A unit with an offset, like degC, is converted by mathjs.)
-    const scales = new Map<string, { one: Unit; scale?: number }>()
-    const scaleOf = (unit: string) => {
-      let s = scales.get(unit)
-      if (!s) {
-        const one = math.unit(1, unit)
-        scales.set(unit, s = { one, scale: one.units.some((p) => p.unit.offset) ? undefined : (one.value as number) })
-      }
-      return s
-    }
-    const numbers = (name: string, unit: string | undefined): { v: number; d?: number } => {
-      const value = this.scope.get(name)
-      const contributions = this.vars.get(name)?.contributions
-      let sumSq = 0
-      if (contributions) for (const c of contributions.values()) sumSq += magnitudeOf(c) ** 2
-      if (!math.isUnit(value)) {
-        if (unit) throw new Error('no unit') // (caught: the series don't share a unit)
-        return { v: Number(value), d: Math.sqrt(sumSq) || undefined }
-      }
-      const u = value as Unit
-      const s = scaleOf(unit ?? '')
-      if (!u.equalBase(s.one)) throw new Error('units differ') // (caught: the series don't share a unit)
-      if (s.scale === undefined) return { v: u.toNumber(unit ?? ''), d: Math.sqrt(sumSq) / ((s.one.value as number) || 1) || undefined }
-      return { v: (u.value as number) / s.scale, d: Math.sqrt(sumSq) / s.scale || undefined }
-    }
-    const xUnit = unitOf(xColumn)
-    const yUnit = unitOf(yColumns[0])
-    const series: PlotSeries[] = []
-    try {
-      for (const c of yColumns) {
-        const points: PlotPoint[] = []
-        for (const [n, yName] of c.rows) {
-          const xName = xColumn.rows.get(n)
-          if (!xName || !inRange(n)) continue
-          const x = numbers(xName, xUnit)
-          const y = numbers(yName, yUnit)
-          // An axis's range is what's on the plot: a point outside it isn't drawn,
-          // fitted, or kept in a named plot's series.
-          if (!onAxis(x.v, settings.x) || !onAxis(y.v, settings.y)) continue
-          points.push({ n, x: x.v, y: y.v, dx: x.d, dy: y.d })
-        }
-        series.push({ name: c.name, expr: c.expr, points })
-      }
-    } catch {
-      for (const name of hidden) this.forget(name)
-      return { tex: '', error: 'The series plotted against x have different units, so they can\'t share the y axis: plot them separately.' }
-    }
-    for (const name of hidden) this.forget(name)
-
-    // A named plot holds the series it plots, p.t and p.x: the rows it draws, numbered from 1.
-    const defines: Definition[] = []
-    if (plotName) {
-      const drawn = [...new Set(series.flatMap((s) => s.points.map((p) => p.n)))].sort((a, b) => a - b)
-      const named = columns.filter((c) => c.name)
-      const shorts = named.map((c) => parseMemberName(c.name!)?.member ?? c.name!)
-      named.forEach((c, i) => {
-        // Two with the same name (run1.x, run2.x) keep their namespaces apart: p.run1_x, p.run2_x.
-        const clash = shorts.filter((s) => s === shorts[i]).length > 1
-        const base = memberName(plotName, clash ? c.name!.replace(JOIN, SUBSCRIPT) : shorts[i])
-        // A lookup into the variables drawn, not a copy (see Views).
-        const picked = drawn.map((n) => c.rows.get(n))
-        this.views.set(base, picked)
-        defines.push(...seriesDefinitions(base, picked.length))
-      })
-    }
-
-    // Best-fit lines, and their slopes and intercepts as variables.
-    const fits: string[] = []
-    if (settings.fit === 'linear') {
-      for (const [i, s] of series.entries()) {
-        const fit = linearFit(s.points)
-        if (!fit) {
-          errors.push(`A line needs two or more points with different x values${s.name ? ` (${s.name})` : ''}.`)
-          continue
-        }
-        s.fit = fit
-        // Where the fit's numbers go: p.slope for a named plot (p.x_slope when it
-        // has several series); x_slope for an unnamed plot's named series.
-        const own = parseMemberName(s.name ?? '')?.member ?? s.name ?? `y${i + 1}`
-        const target = (suffix: string) => (plotName
-          ? memberName(plotName, series.length === 1 ? suffix : `${own}${SUBSCRIPT}${suffix}`)
-          : s.name ? `${s.name}${SUBSCRIPT}${suffix}` : undefined)
-        fits.push(this.fitTex(s, fit, xColumn.name, xUnit, yUnit, target))
-        for (const [suffix, v] of [[FIT.r2, fit.r2], [FIT.chi2, fit.chi2]] as const) {
-          const to = plotName && v !== undefined ? target(suffix) : undefined
-          if (to) this.store(to, { value: v, sf: EXACT })
-        }
-        if (plotName) {
-          for (const suffix of [FIT.slope, FIT.intercept, FIT.r2, ...(fit.chi2 !== undefined ? [FIT.chi2] : [])]) defines.push({ name: target(suffix)! })
-        }
-      }
-    }
-
-    const points = series.reduce((sum, s) => sum + s.points.length, 0)
-    const plot: PlotData = {
-      x: { name: xColumn.name, expr: xColumn.expr, unit: xUnit },
-      // One series names the y axis; several share it, named in the legend.
-      y: series.length === 1 ? { name: series[0].name, expr: series[0].expr, unit: yUnit } : { unit: yUnit },
-      series,
-      settings,
-    }
-    return {
-      // (A weighted fit is two rows already, so it's gathered even on its own.)
-      tex: fits.length > 1 || fits[0]?.includes('\\\\') ? `\\begin{gathered}${fits.join(' \\\\ ')}\\end{gathered}` : fits[0] ?? '',
-      plot,
-      error: errors.length ? `${errors[0]}${errors.length > 1 ? ` (and ${errors.length - 1} more)` : ''}` : undefined,
-      info: points ? undefined : 'Nothing to plot: no row has both an x and a y value.',
-      defines: defines.length ? defines : undefined,
-    }
-  }
-
-  /**
-   * A series' best-fit line as an equation, y = (a ± δa) x + (b ± δb), R² = …;
-   * and its slope and intercept as variables, with their uncertainties, for
-   * later lines to use, named by `target` (p.slope, or y_slope; none if undefined).
-   */
-  private fitTex(
-    s: PlotSeries, fit: LinearFit, xName: string | undefined, xUnit: string | undefined, yUnit: string | undefined,
-    target: (suffix: string) => string | undefined,
-  ): string {
-    // The slope's unit is simplified (m/s, not m/s… as a ratio); the intercept stays in y's unit.
-    const slopeQuantity = (v: number, unit: string | undefined) => (unit ? normalise(math.unit(v, unit), false) : v)
-    const interceptQuantity = (v: number) => {
-      if (!yUnit) return v
-      const u = math.unit(v, yUnit)
-      u.fixPrefix = true
-      return u
-    }
-    const slopeUnit = yUnit && xUnit ? `(${yUnit}) / (${xUnit})` : yUnit ?? (xUnit ? `(${xUnit})^-1` : undefined)
-    const parts = [
-      { value: slopeQuantity(fit.slope, slopeUnit), unc: slopeQuantity(fit.slopeUnc, slopeUnit), suffix: FIT.slope },
-      { value: interceptQuantity(fit.intercept), unc: interceptQuantity(fit.interceptUnc), suffix: FIT.intercept },
-    ].map((p) => {
-      const sf = this.uncertainParts(p.value, p.unc)?.sf ?? EXACT
-      // Each is a measured result: its uncertainty is a source of its own.
-      const to = target(p.suffix)
-      if (to) this.store(to, { value: p.value, sf, contributions: new Map([[this.nextSource++, p.unc]]) })
-      return this.valueTex(p.value, sf, fit.slopeUnc || fit.interceptUnc ? p.unc : undefined)
-    })
-    const y = s.name ? symbolTex(s.name) : 'y'
-    const x = xName ? symbolTex(xName) : 'x'
-    // The slope in brackets with its unit, so the unit doesn't run into x: [(0.50 ± 0.01) m/s] t.
-    const line = `${y} = \\left(${parts[0]}\\right) ${x} + ${parts[1]}`
-    const r2 = `R^{2} = ${fit.r2.toFixed(4)}`
-    if (!fit.weighted) return `${line},\\quad ${r2}`
-    // A weighted fit says so, with its reduced χ² (how well the line matches the
-    // error bars), on a line of its own under the equation so it isn't too wide.
-    const chi2 = fit.chi2 !== undefined ? `,\\quad \\chi^{2}_{\\nu} = ${Number(fit.chi2.toPrecision(2))}` : ''
-    return `${line} \\\\ ${r2}${chi2}\\quad \\text{(weighted by }\\delta ${symbolTex(s.name ?? 'y')}\\text{)}`
-  }
-
-  /**
-   * The columns of a table or plot, from its arguments: a series by name, or a
-   * column worked out row by row (`v = x / t` makes the series v; `x / t` is
-   * held in hidden variables, listed in `hidden` to forget when done). Rows
-   * that can't be worked out are listed in `errors`; `purpose` finishes the
-   * message for a name that isn't a series ("show it in a table").
-   */
-  /**
-   * `a = select(t, x; t from 0.2 to 0.8)`: the rows of series where every
-   * condition holds, as new series under the name a: a.t, a.x, numbered from 1
-   * (a.x_1 is the first row that matched). Each value keeps its sig figs and
-   * uncertainty (the same source, so a slice and its data stay correlated).
-   *
-   * Conditions, after the semicolon, all of which must hold:
-   *   rows 5-20                 by row number
-   *   t from 0.2 to 0.8         a series' values in a range (either end can be left off);
-   *                             a bare number is in the series' unit, or give one: 200 ms
-   */
-  private evaluateSelect(name: string, argsText: string): LineResult {
-    if (RESERVED_NAMESPACES.has(name)) return { tex: '', error: `${name} is a reserved word: choose another name for the selection.` }
-    const parts = splitCallArgs(argsText)
-    const args = splitArgs(parts.columns).map((a) => a.trim()).filter(Boolean)
-    if (!args.length) return { tex: '', error: 'Give the series to select from: a = select(t, x; t from 0.2 to 0.8).' }
-    const notSeries = args.find((a) => !IS_NAME.test(a))
-    if (notSeries) return { tex: '', error: `${notSeries} isn't a series name: select takes series, like select(t, x; …).` }
-    const columns = args.map((arg) => ({ arg, rows: this.seriesRows(arg) }))
-    const missing = columns.find((c) => !c.rows.size)
-    if (missing) return { tex: '', error: `${missing.arg} isn't a series: define ${missing.arg}_1, ${missing.arg}_2, … (or import them) to select from it.` }
-
-    // The conditions.
-    const tests: ((n: number) => boolean)[] = []
-    const shown: string[] = []
-    for (const part of settingParts(parts.settings)) {
-      const rows = parseRowRange(part)
-      if (rows) {
-        const { from, to } = rows
-        tests.push((n) => (from === undefined || n >= from) && (to === undefined || n <= to))
-        shown.push(`\\text{${SETTING.rows} } ${from ?? 1}\\text{–}${to ?? '\\text{end}'}`)
-        continue
-      }
-      const range = SELECT_RANGE.exec(part)
-      if (!range || (!range[2] && !range[3])) {
-        return { tex: '', error: `"${readableMembers(part)}" isn't a condition: use t from 0.2 to 0.8 (either end can be left off), or rows 5-20.` }
-      }
-      // A name is one of the series selected first (t for run1.t), then any series.
-      const chosen = columns.find((c) => (parseMemberName(c.arg)?.member ?? c.arg) === range[1])
-      const series = chosen?.rows ?? this.seriesRows(range[1])
-      if (!series.size) return { tex: '', error: `${range[1]} isn't a series, so it can't choose rows.` }
-      const unit = this.split(this.scope.get([...series.values()][0]), EXACT)?.unit
-      const bound = (text: string | undefined) => {
-        if (text === undefined) return undefined
-        let q = math.evaluate(preprocess(text, this.isVariable).text, this.scope) as unknown
-        if (typeof q === 'number' && unit) q = math.unit(q, unit)
-        const fits = unit ? math.isUnit(q) && (q as Unit).equalBase(math.unit(unit)) : typeof q === 'number'
-        if (!fits) throw new Error(`${text} isn't in units of ${range[1]}${unit ? ` (${unit})` : ' (it has none)'}.`)
-        return q
-      }
-      let lo: unknown
-      let hi: unknown
-      try {
-        lo = bound(range[2])
-        hi = bound(range[3])
-      } catch (e) {
-        return { tex: '', error: readableUnitError((e as Error).message) }
-      }
-      // Compared as plain numbers, in SI (a Unit's value is held in SI), not through
-      // mathjs, which is slow over thousands of rows. (Units were checked above.)
-      const si = (q: unknown) => (math.isUnit(q) ? ((q as Unit).value as number) : typeof q === 'number' ? q : NaN)
-      const low = lo === undefined ? -Infinity : si(lo)
-      const high = hi === undefined ? Infinity : si(hi)
-      tests.push((n) => {
-        const member = series.get(n)
-        if (!member) return false
-        const v = si(this.scope.get(member))
-        return v >= low && v <= high
-      })
-      const ends = [lo !== undefined ? `${this.valueTex(lo)} \\le ` : '', symbolTex(chosen?.arg ?? range[1]), hi !== undefined ? ` \\le ${this.valueTex(hi)}` : '']
-      shown.push(ends.join(''))
-    }
-
-    // The rows every series has, and every condition keeps.
-    const all = [...columns[0].rows.keys()].filter((n) => columns.every((c) => c.rows.has(n))).sort((a, b) => a - b)
-    const kept = all.filter((n) => tests.every((t) => t(n)))
-
-    // Each series is a lookup into the variables it picks (see Views); a selection
-    // of the same name before is replaced (a sheet can redo one).
-    this.views.clear(name)
-    const names: string[] = []
-    for (const c of columns) {
-      const short = parseMemberName(c.arg)?.member ?? c.arg
-      const base = memberName(name, short)
-      names.push(base)
-      this.views.set(base, kept.map((n) => c.rows.get(n)!))
-    }
-
-    const conditions = shown.length ? `\\quad \\left(${shown.join(',\\ ')}\\right)` : ''
-    return {
-      tex: `${names.map(symbolTex).join(',\\ ')}${conditions}:\\ ${kept.length} \\text{ of } ${all.length} \\text{ rows}`,
-      info: kept.length ? undefined : 'No rows match, so the selection is empty.',
-      defines: names.flatMap((base) => seriesDefinitions(base, kept.length)),
-    }
-  }
-
-  private seriesColumns(args: string[], purpose: string):
-    { columns: SeriesColumn[]; errors: string[]; hidden: string[] } | { error: string } {
-    const columns: SeriesColumn[] = []
-    const errors: string[] = []
-    const hidden: string[] = []
-    for (const [i, arg] of args.entries()) {
-      // A series, by name.
-      if (IS_NAME.test(arg)) {
-        const rows = this.seriesRows(arg)
-        if (!rows.size) return { error: `${arg} isn't a series: define ${arg}_1, ${arg}_2, … (or import them) to ${purpose}.` }
-        columns.push({ name: arg, header: symbolTex(arg), rows })
-        continue
-      }
-      // A column worked out row by row: `v = x / t`, or just `x / t`.
-      const named = TABLE_COLUMN.exec(arg)
-      const name = named?.[1]
-      const expr = named ? named[2] : arg
-      // The series it uses, and the rows where all of them have a value.
-      const used = new Map<string, Map<number, string>>()
-      for (const m of expr.matchAll(NAME_IN_LINE)) {
-        const id = m[1]
-        if (used.has(id) || (this.scope.has(id) && !this.vars.get(id)?.agg)) continue
-        const rows = this.seriesRows(id)
-        if (rows.size) used.set(id, rows)
-      }
-      if (!used.size) return { error: `${expr} doesn't use any series, so it would be the same in every row.` }
-      const numbers = [...[...used.values()][0].keys()].filter((n) => [...used.values()].every((rows) => rows.has(n)))
-      const rows = new Map<number, string>()
-      for (const n of numbers) {
-        const target = name ? seriesMemberName(name, n) : unpackedColumnName(i, n)
-        const result = this.evaluateLine(`${target} = ${withRowValues(expr, used, n)}`, DISPLAY_MODE.val, false)
-        if (result.error) {
-          errors.push(`Row ${n}: ${result.error}`)
-          continue
-        }
-        rows.set(n, target)
-        if (!name) hidden.push(target)
-      }
-      columns.push({ name, expr: name ? undefined : expr, header: name ? symbolTex(name) : this.expressionTex(expr), rows })
-    }
-    return { columns, errors, hidden }
-  }
-
   /** A series' values by number: t_1, t_2, … (or t1, t2, …) as 1 → "t_1", 2 → "t_2", …. */
   private seriesRows(base: string): Map<number, string> {
     const number = new RegExp(`^${escapeRegExp(base)}_?(\\d+)$`)
     return new Map(this.seriesMembers(base).map((m) => [Number(number.exec(m)![1]), m]))
-  }
-
-  /** A table cell: a variable's value as a number (± its uncertainty), and its unit, in its own notation. */
-  private cellParts(name: string): { num: string; unit?: string } {
-    const value = this.scope.get(name)
-    const sf = this.vars.get(name)?.sf ?? EXACT
-    const unc = this.total(this.vars.get(name)?.contributions, value)
-    return this.inNotation(this.vars.get(name)?.notation, () => {
-      const u = unc !== undefined ? this.uncertainParts(value, unc, this.vars.get(name)?.uncSf) : null
-      if (u) {
-        const core = `${numberTex(u.num)} \\pm ${numberTex(u.unc)}`
-        return { num: u.exp !== undefined ? `\\left(${core}\\right) \\times 10^{${u.exp}}` : core, unit: u.unit }
-      }
-      const p = this.split(value, sf, this.vars.get(name)?.declared === true)
-      return p ? { num: numberTex(p.num), unit: p.unit } : { num: this.valueTex(value, sf) }
-    })
   }
 
   /** An expression as typed, as TeX (an unnamed table column's header). */
@@ -2356,21 +1974,14 @@ export class Calculator {
   }
 
   private evaluateLine(input: string, requestedMode: DisplayMode, explicit = false): LineResult {
-    // A line a module works out itself: a reaction, `r = @chem.reaction({2 H2 + O2 -> 2 H2O})`.
-    for (const m of this.modules) {
-      const own = m.evaluateLine(input, this.host)
-      if (own) return own
-    }
+    // A line a module works out itself, as written: a reaction, `r = @chem.reaction({2 H2 + O2 -> 2 H2O})`.
+    const raw = this.byForm(LINE_STAGE.raw, input, requestedMode, explicit)
+    if (raw) return raw
     // `a.x_1`, a namespace's member, is the variable a__x_1 inside.
     input = expandDots(input)
-    // `table(t, x, v = x / t)`: series in a table; `plot(t, x)`: plotted; `a = select(t, x; …)`: a slice.
-    const table = TABLE_CALL.exec(input.trim())
-    if (table) return this.evaluateTable(table[1])
-    const plotCall = PLOT_CALL.exec(input.trim())
-    if (plotCall) return this.evaluatePlot(plotCall[2], plotCall[1])
-    const select = SELECT_CALL.exec(input.trim())
-    if (select) return this.evaluateSelect(select[1], select[2])
-
+    // …and once its members are inside names: `table(t, x)`, `plot(t, x)`.
+    const form = this.byForm(LINE_STAGE.members, input, requestedMode, explicit)
+    if (form) return form
     // `tuple(x, y) = solve(eq, eq)`: a system of equations, solved for the names on the left.
     const system = SOLVE_SYSTEM.exec(input.trim())
     if (system && !this.isUserFunction(CALL.solve)) return this.evaluateSolveSystem(system[1], system[2], requestedMode, explicit)

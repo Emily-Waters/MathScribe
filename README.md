@@ -1569,11 +1569,14 @@ renamed, change it there too.
   selections, LaTeX generation. `index.ts` is all the rest of MathScribe imports;
   `core/` is split by concern, one file each: the `Calculator` class
   (`calculator.ts`), the mathjs instance (`math.ts`), scopes, unit literals,
-  vectors, uncertainty, series, tables, imported data and LaTeX. `modules/`
-  extends the core: each module is an `EngineModule` subclass (`core/module.ts`)
-  overriding the hooks it needs, given to the Calculator as
-  `new Calculator(options, [new ChemistryModule()])`. The core never imports a
-  module (`boundaries.test.ts` checks). Each variable is one record (`Variable`: value, sig figs,
+  vectors and their components, uncertainty, series, imported data and LaTeX.
+  `modules/` extends the core: each module is an `EngineModule` subclass
+  (`core/module.ts`) overriding the hooks it needs, where an exception to the
+  core's rules comes from; a module works through the `ModuleHost` the core
+  offers it (its variables, and how it works out and writes values), and can
+  add kinds of line as `LineForm`s (`table(…)`, `r = @chem.reaction(…)`).
+  `sheetModules()` in `index.ts` lists the modules a sheet is worked out with.
+  The core never imports a module (`boundaries.test.ts` checks). Each variable is one record (`Variable`: value, sig figs,
   uncertainty, how it's shown) in a scope per `{ }` block or function call; each
   scope keeps a series index, and selections and named plots are lookups into the
   variables they pick (`Views`). mathjs sees just the values, through `Values`.
@@ -1590,9 +1593,13 @@ renamed, change it there too.
   reactions and species names; `species.ts`: giving values their species and the
   strict rules; `namespace.ts`: its `@chem` members; `syntax.ts`: its names and
   line patterns (`@chem.species`, reactions); `elements.ts`: the elements
-  and their atomic weights; `module.ts`: `ChemistryModule`, where the engine's
-  hooks meet them. `src/lib/katex.ts`: KaTeX with mhchem, which everything that
-  draws maths imports
+  and their atomic weights; `reaction.ts`: `r = @chem.reaction(…)` as a line
+  form; `readers.ts`: its lines of a sheet (`@chem.species { }`, a reaction on
+  its own); `module.ts`: `ChemistryModule`, where the engine's hooks meet them.
+  `src/lib/katex.ts`: KaTeX with mhchem, which everything that draws maths imports
+- `src/lib/engine/modules/series/`: the series module: `table(…)`, `plot(…)`
+  and `select(…)` as line forms (`table.ts`, `plot.ts`, `select.ts`), and the
+  columns they share (`columns.ts`)
 - `src/components/ErrorBoundary.tsx`: keeps a failure drawing the output from
   blanking the app
 - `src/lib/aiPrompt.ts`: Create's prompt (what can be made, its tickboxes, and the
@@ -1605,8 +1612,10 @@ renamed, change it there too.
   they share (the Calculator, the open blocks, blank lines, section numbers);
   `readers.ts`: one `LineReader` class per kind of line (a heading, `@latex { }`,
   `def`, a layout block, a calculation, …), with `BracedReader` the base of
-  blocks closed by `}`, and the sheet-wide ones (`@constants`, species' names,
-  `@c:4` declarations) read before everything else; `lineSyntax.ts`: a line's
+  blocks closed by `}`, and the sheet-wide ones (`@constants`, `@c:4`
+  declarations) read before everything else. A module with lines of its own
+  (`ReadsLines`: chemistry's `@chem.species { }`) adds readers, offered each
+  line first; `lineSyntax.ts`: a line's
   #commands and note, and layout openers
 - `src/lib/constructs/`: one class per kind of block (a heading, a calculation,
   an `@layout` block, …) that writes its blocks to each export; `layout.ts` has a

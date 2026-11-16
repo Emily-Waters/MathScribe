@@ -19,11 +19,15 @@ import {
   SETTING, SETTINGS_SEPARATOR, formatRowRange, joinSettings, parseRowRange, tidySetting,
 } from './tableSettings.ts'
 
-export const PLOT_STYLES = ['points', 'lines', 'both'] as const
-export type PlotStyle = (typeof PLOT_STYLES)[number]
+/** How a plot's points are drawn: as points, joined by lines, or both. */
+export const PLOT_STYLE = { points: 'points', lines: 'lines', both: 'both' } as const
+export type PlotStyle = (typeof PLOT_STYLE)[keyof typeof PLOT_STYLE]
+export const PLOT_STYLES: readonly PlotStyle[] = Object.values(PLOT_STYLE)
 
-export const PLOT_FITS = ['none', 'linear'] as const
-export type PlotFit = (typeof PLOT_FITS)[number]
+/** A plot's best-fit line: none, or a straight line. */
+export const PLOT_FIT = { none: 'none', linear: 'linear' } as const
+export type PlotFit = (typeof PLOT_FIT)[keyof typeof PLOT_FIT]
+export const PLOT_FITS: readonly PlotFit[] = Object.values(PLOT_FIT)
 
 /** One axis's settings: its range (either end may be open), and a log scale. */
 export interface AxisSettings {
@@ -44,7 +48,7 @@ export interface PlotSettings {
 }
 
 export const defaultPlotSettings = (): PlotSettings => ({
-  style: 'points', fit: 'none', x: { log: false }, y: { log: false },
+  style: PLOT_STYLE.points, fit: PLOT_FIT.none, x: { log: false }, y: { log: false },
 })
 
 /** The axes, as written in settings: `x from 0 to 2`, `log y`. */

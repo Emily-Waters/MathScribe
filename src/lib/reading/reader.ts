@@ -10,7 +10,8 @@
  * constructs/.)
  */
 import { indentOf, isComment } from '../syntax.ts'
-import { splitNote, type SplitLine } from './lineSyntax.ts'
+import type { Block } from '../blocks.ts'
+import { closesBlock, splitNote, type SplitLine } from './lineSyntax.ts'
 import type { SheetReader } from './sheetReader.ts'
 
 /** The line being read. */
@@ -74,6 +75,18 @@ export interface Body {
   closed: boolean
 }
 
+/**
+ * What reads lines of a sheet besides MathScribe's own readers: an engine
+ * module with syntax of its own (chemistry's `@chem.species { }`). Its readers
+ * are offered each line before the core's, and prepare before them.
+ */
+export interface ReadsLines {
+  lineReaders(): LineReader[]
+}
+
+/** Whether something (an engine module) reads lines of its own. */
+export const readsLines = <T extends object>(x: T): x is T & ReadsLines => typeof (x as Partial<ReadsLines>).lineReaders === 'function'
+
 /** Reads a block opened on its line and closed by a `}` on a line after it: `@constants {`, `@latex {`, `@layout.text {`. */
 export abstract class BracedReader extends LineReader {
   /** Whether a line closes the block (as written). */
@@ -87,5 +100,34 @@ export abstract class BracedReader extends LineReader {
       if (!isComment(lines[i])) body.push({ index: i, text: lines[i].trim() })
     }
     return { lines: body, end: lines.length - 1, closed: false }
+  }
+}
+
+/** A block read before the rest of the sheet, placed when the line it opens on is reached. */
+interface Prepared<B> {
+  /** The index of its last line. */
+  end: number
+  block: B
+}
+
+/**
+ * A braced block that applies to the whole sheet, above where it's written too
+ * (`@constants { }`): read in `prepare`, before any line, then placed where it's written.
+ */
+export abstract class SheetWideReader<B extends Block> extends BracedReader {
+  /** The blocks read, by the index of the line each opens on. */
+  protected readonly prepared = new Map<number, Prepared<B>>()
+
+  protected closes(raw: string): boolean {
+    return closesBlock(raw)
+  }
+
+  /** Already read: just placed. */
+  read(line: Line, sheet: SheetReader): boolean {
+    const prepared = this.prepared.get(line.index)
+    if (!prepared) return false
+    sheet.add(prepared.block)
+    sheet.index = prepared.end
+    return true
   }
 }

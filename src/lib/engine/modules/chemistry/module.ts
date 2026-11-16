@@ -7,36 +7,34 @@
 import { isConstantNode, isSymbolNode, type FunctionNode, type MathNode, type MathType, type Unit } from 'mathjs'
 import type { Namespace } from '../../../builtins.ts'
 import type { BuiltinConstant, NamespaceConstant } from '../../../constants.ts'
-import { memberName } from '../../../names.ts'
-import { UNIT } from '../../../mathjsNames.ts'
-import { EXACT } from '../../../sigfigs.ts'
+
 import { math } from '../../core/math.ts'
-import { EngineModule, type ModuleHost, type ReadUnit } from '../../core/module.ts'
-import type { LineResult } from '../../core/results.ts'
-import { isLitCall, symbolTex } from '../../core/tex.ts'
+import { EngineModule, type LineForm, type ReadUnit } from '../../core/module.ts'
+
+import { isLitCall } from '../../core/tex.ts'
 import { unwrap } from '../../core/nodes.ts'
-import {
-  SPECIES_AFTER_UNIT, SPECIES_KIND, SpeciesNames, formulaTex, isFormulaSubscript, isSpeciesUnit,
-  parseReaction, reactionImbalance, reactionMemberName, readableSpecies, setSpeciesNames, showSpeciesOnLine, speciesOf,
-  speciesTex, withFormulas, type ReactionTerm,
-} from './chemistry.ts'
-import {
-  SPECIES_RATIO_UNIT, expandSpeciesAfterValues, isOneMole, isSpeciesCount, speciesOfConstant, speciesProblem,
-  speciesUnitName, speciesUnits, withSpecies, withoutSpecies, withoutSpeciesUnits,
-} from './species.ts'
+import { SPECIES_AFTER_UNIT, SpeciesNames, formulaTex, isFormulaSubscript, isSpeciesUnit, readableSpecies, setSpeciesNames, showSpeciesOnLine, speciesOf, speciesTex, withFormulas } from './chemistry.ts'
+import { SPECIES_RATIO_UNIT, expandSpeciesAfterValues, isOneMole, isSpeciesCount, speciesOfConstant, speciesProblem, speciesUnits, withSpecies, withoutSpecies, withoutSpeciesUnits } from './species.ts'
 import { chemNamespace } from './namespace.ts'
-import {
-  ANY_SPECIES_FUNCTION, REACTION_DEFINITION, SPECIES_DISPLAYS, SPECIES_FUNCTION, type SpeciesDisplay,
-} from './syntax.ts'
+import { ReactionForm } from './reaction.ts'
+import { ReactionLineReader, SpeciesReader } from './readers.ts'
+import type { LineReader, ReadsLines } from '../../../reading/reader.ts'
+import { ANY_SPECIES_FUNCTION, SPECIES_DISPLAYS, SPECIES_FUNCTION, type SpeciesDisplay } from './syntax.ts'
 
 /** Whether a setting on an assigned name says how its line's named species are shown (`m:formula`). */
 const isSpeciesDisplay = (setting: string): setting is SpeciesDisplay => (SPECIES_DISPLAYS as readonly string[]).includes(setting)
 
-export class ChemistryModule extends EngineModule {
-  readonly name = 'chemistry'
-
+export class ChemistryModule extends EngineModule implements ReadsLines {
   /** The species the sheet names (`@chem.species { dietzeite = {…} }`), named before anything else is worked out. */
   readonly names = new SpeciesNames()
+
+  /** A named reaction, `r = @chem.reaction({2 H2 + O2 -> 2 H2O})`. */
+  override readonly lineForms: readonly LineForm[] = [new ReactionForm(this.names)]
+
+  /** Its lines of a sheet: species' names, and a reaction on a line of its own (see ReadsLines). */
+  lineReaders(): LineReader[] {
+    return [new SpeciesReader(this.names), new ReactionLineReader(this.names)]
+  }
 
   // -------------------------------------------------------------------------
   // Shared
@@ -126,12 +124,6 @@ export class ChemistryModule extends EngineModule {
     showSpeciesOnLine(undefined)
   }
 
-  /** `r = @chem.reaction({2 H2 + O2 -> 2 H2O})`: a balanced reaction, whose coefficients are its members. */
-  override evaluateLine(input: string, host: ModuleHost): LineResult | undefined {
-    const reaction = REACTION_DEFINITION.exec(input.trim())
-    return reaction ? this.evaluateReaction(reaction[1], reaction[2], host) : undefined
-  }
-
   override functionTex(n: FunctionNode, tex: (n: MathNode) => string): string | undefined {
     switch (n.fn.name) {
       // Taking a species off (in `@chem.total(…)`) isn't written: n_Na + n_Cl.
@@ -169,46 +161,5 @@ export class ChemistryModule extends EngineModule {
   /** A value with species follows their rules, whatever it was worked out from. */
   override valueProblem(value: unknown): string | undefined {
     return speciesProblem(value)
-  }
-
-  /**
-   * A named reaction, `r = @chem.reaction({2 H2 + O2 -> 2 H2O})`: checked to
-   * balance (each element's atoms, and the charge), then each species'
-   * coefficient is a member, an exact amount of it: r.H2 is 2 mol H2, r.H2O
-   * 2 mol H2O, so r.H2O / r.H2 is the mole ratio from H2 to H2O. A formula
-   * that isn't a name (Ca(OH)2, Na^+) is a member by its letters and digits:
-   * r.CaOH2, r.Na.
-   */
-  private evaluateReaction(name: string, written: string, host: ModuleHost): LineResult {
-    const tex = `${symbolTex(name)}:\\quad ${formulaTex(written)}`
-    const parsed = parseReaction(written)
-    if ('error' in parsed) return { tex, error: parsed.error }
-    const imbalance = reactionImbalance(parsed)
-    if (imbalance) return { tex, error: `{${written.trim()}}: ${imbalance}` }
-    const terms = [...parsed.reactants, ...parsed.products]
-    const members = new Map<string, ReactionTerm>()
-    for (const t of terms) {
-      // A named species is a member by its name: r.dietzeite.
-      const member = this.names.nameOf(t.formula)?.name ?? reactionMemberName(t.formula)
-      const other = members.get(member)
-      if (other && other.formula !== t.formula) {
-        return { tex, error: `${other.formula} and ${t.formula} would both be ${name}.${member}: write one of them differently.` }
-      }
-      members.set(member, t)
-    }
-    for (const [member, t] of members) {
-      host.store(memberName(name, member), {
-        value: math.unit(t.coefficient, `${UNIT.mole} ${speciesUnitName(t.formula, SPECIES_KIND.amount)}`),
-        sf: EXACT,
-        // r.H2O is written r with H₂O below.
-        symbol: `${symbolTex(name)}_{${formulaTex(t.formula)}}`,
-      })
-    }
-    const listed = [...members].map(([member, t]) => `${name}.${member} = ${t.coefficient} mol ${t.formula}`).join(', ')
-    return {
-      tex,
-      info: `Balanced. Each species' coefficient is an amount of it: ${listed}. A mole ratio is one over another, as in ${name}.${[...members.keys()].at(-1)} / ${name}.${[...members.keys()][0]}.`,
-      defines: [...members.keys()].map((member) => ({ name: memberName(name, member) })),
-    }
   }
 }

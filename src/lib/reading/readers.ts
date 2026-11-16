@@ -3,97 +3,15 @@
  * the order lineReaders gives, and the first that reads it makes its block.
  */
 import { symbolTex, type FunctionLine } from '../engine/index.ts'
-import {
-  BLOCK_CLOSE, BLOCK_OPEN, CONSTANTS_BLOCK, CONSTANTS_OPENER, DEF, DISPLAY_MODE, EXACT_SETTING, IMPORT, LATEX_BLOCK, LATEX_OPENER,
-  LAYOUT_STYLE, LINE_COMMAND, PROSE_LAYOUTS, SIGIL, closesLatex, indentOf, isComment,
-} from '../syntax.ts'
-import { REACTION_LINE, formulaTex, setSpeciesNames } from '../engine/modules/chemistry/chemistry.ts'
-import {
-  CHEM_NAMESPACE, SPECIES_BLOCK, SPECIES_DISPLAY, SPECIES_ENTRY, SPECIES_LINE, SPECIES_OPENER, type SpeciesDisplay,
-} from '../engine/modules/chemistry/syntax.ts'
-import {
-  BLOCK_KIND, type ConstantsBlock, type GroupBlock, type ImportBlock, type LayoutBlock, type SpeciesBlock, type SpeciesEntry,
-} from '../blocks.ts'
+import { BLOCK_CLOSE, BLOCK_OPEN, CONSTANTS_BLOCK, CONSTANTS_OPENER, DEF, DISPLAY_MODE, EXACT_SETTING, IMPORT, LATEX_BLOCK, LATEX_OPENER, LAYOUT_STYLE, LINE_COMMAND, PROSE_LAYOUTS, SIGIL, closesLatex, indentOf, isComment } from '../syntax.ts'
+import { BLOCK_KIND, type ConstantsBlock, type GroupBlock, type ImportBlock, type LayoutBlock } from '../blocks.ts'
 import { bracesBalance, closesBlock, layoutOpener, openerText, parseConstantDeclaration, readCsv, splitNote } from './lineSyntax.ts'
-import { BracedReader, LineReader, type Line } from './reader.ts'
+import { BracedReader, LineReader, SheetWideReader, type Line } from './reader.ts'
 import type { SheetReader } from './sheetReader.ts'
 
 // ---------------------------------------------------------------------------
 // Read before anything else: what applies to the whole sheet
 // ---------------------------------------------------------------------------
-
-/** A block read before the rest of the sheet, placed when the line it opens on is reached. */
-interface Prepared<B> {
-  /** The index of its last line. */
-  end: number
-  block: B
-}
-
-/** A braced block read before the rest of the sheet, then placed where it's written. */
-abstract class SheetWideBlockReader<B extends SpeciesBlock | ConstantsBlock> extends BracedReader {
-  /** The blocks read, by the index of the line each opens on. */
-  protected readonly prepared = new Map<number, Prepared<B>>()
-
-  protected closes(raw: string): boolean {
-    return closesBlock(raw)
-  }
-
-  /** Already read: just placed. */
-  read(line: Line, sheet: SheetReader): boolean {
-    const prepared = this.prepared.get(line.index)
-    if (!prepared) return false
-    sheet.add(prepared.block)
-    sheet.index = prepared.end
-    return true
-  }
-}
-
-/**
- * Species' names, `@chem.species { dietzeite = {…} }`, or one on a line of its
- * own: they apply to the whole sheet, so they're read first, and `{dietzeite}`
- * then works anywhere braces take a formula, above the block too.
- */
-class SpeciesReader extends SheetWideBlockReader<SpeciesBlock> {
-  override prepare(sheet: SheetReader): void {
-    const names = sheet.chemistry.names
-    setSpeciesNames(names)
-    const name = (line: number, written: string, species: string, display: string | undefined, formula: string): SpeciesEntry => {
-      const { note } = splitNote(written)
-      const shownAs = (display as SpeciesDisplay | undefined) ?? SPECIES_DISPLAY.name
-      return { line, name: species, formula, display: shownAs, note, error: names.define(species, formula, shownAs) }
-    }
-    const { lines } = sheet
-    for (let i = 0; i < lines.length; i++) {
-      const opener = splitNote(lines[i].trim())
-      const single = SPECIES_LINE.exec(opener.body)
-      if (single) {
-        const entry = name(i + 1, lines[i].trim(), single[1], single[2], single[3])
-        this.prepared.set(i, {
-          end: i,
-          block: { kind: BLOCK_KIND.species, line: i + 1, endLine: i + 1, entries: [entry], single: true, hidden: opener.command === LINE_COMMAND.hide },
-        })
-        continue
-      }
-      if (!SPECIES_OPENER.test(opener.body)) continue
-      const body = this.body(lines, i)
-      const entries = body.lines.filter((l) => l.text).map(({ index, text }): SpeciesEntry => {
-        const m = SPECIES_ENTRY.exec(splitNote(text).body)
-        return m
-          ? name(index + 1, text, m[1], m[2], m[3])
-          : { line: index + 1, name: splitNote(text).body, formula: '', display: SPECIES_DISPLAY.name, error: `Inside ${SIGIL}${CHEM_NAMESPACE}.${SPECIES_BLOCK}, each line names a species: dietzeite = {7Ca(IO3)2*8CaCrO4}.` }
-      })
-      this.prepared.set(i, {
-        end: body.end,
-        block: {
-          kind: BLOCK_KIND.species, line: i + 1, endLine: body.end + 1, note: opener.note, entries, single: false,
-          hidden: opener.command === LINE_COMMAND.hide,
-          error: body.closed ? undefined : `The ${SIGIL}${CHEM_NAMESPACE}.${SPECIES_BLOCK} block on line ${i + 1} is missing its closing ${BLOCK_CLOSE}.`,
-        },
-      })
-      i = body.end
-    }
-  }
-}
 
 /**
  * Declarations, `@c:4` or `@a_0:3 to angstrom` on a line of its own: they apply
@@ -127,7 +45,7 @@ class DeclarationsReader extends LineReader {
 }
 
 /** Every `@constants { }` block's constants, defined first, so `@name` works anywhere in the sheet, above the block too. */
-class ConstantsReader extends SheetWideBlockReader<ConstantsBlock> {
+class ConstantsReader extends SheetWideReader<ConstantsBlock> {
   override prepare(sheet: SheetReader): void {
     const { lines, calc } = sheet
     for (let i = 0; i < lines.length; i++) {
@@ -232,17 +150,6 @@ class LatexReader extends BracedReader {
         : !latex ? `The ${SIGIL}${LATEX_BLOCK} block on line ${line.number} is empty: put the LaTeX before its ${BLOCK_CLOSE}.` : undefined,
     })
     sheet.blankRun = 0
-    return true
-  }
-}
-
-/** `{OH^- + H3O^+ -> 2 H2O}`: a formula on its own, a reaction, displayed (not worked out). */
-class ReactionLineReader extends LineReader {
-  read(line: Line, sheet: SheetReader): boolean {
-    const reaction = REACTION_LINE.exec(line.parts.body)
-    if (!reaction) return false
-    // (A species' name in it is its formula: a reaction is drawn atom by atom.)
-    sheet.add({ kind: BLOCK_KIND.latex, line: line.number, latex: formulaTex(sheet.chemistry.names.expandFormula(reaction[1])) })
     return true
   }
 }
@@ -493,13 +400,11 @@ class CalcReader extends LineReader {
  * then the constants that may use both.)
  */
 export const lineReaders = (): LineReader[] => [
-  new SpeciesReader(),
   new DeclarationsReader(),
   new ConstantsReader(),
   new HeadingReader(),
   new TextReader(),
   new LatexReader(),
-  new ReactionLineReader(),
   new ImportReader(),
   new DefReader(),
   new CloseReader(),

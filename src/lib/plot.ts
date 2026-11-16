@@ -5,7 +5,7 @@
  * shown in the output, in the app's colours, and exported as an image, in
  * fixed ones.
  */
-import type { PlotSettings } from './plotSettings.ts'
+import { PLOT_STYLE, type PlotSettings } from './plotSettings.ts'
 import { GREEK_BY_NAME, GREEK_CHARS, SUBSCRIPT } from './syntax.ts'
 import { parseMemberName } from './names.ts'
 import { UNIT_LOOKS } from './mathjsNames.ts'
@@ -359,10 +359,10 @@ export function plotSvg(plot: PlotData, palette: PlotPalette): string {
         out.push(`<path d="M${left},${f(y)}H${right}M${left},${f(y - MARK.cap)}V${f(y + MARK.cap)}M${right},${f(y - MARK.cap)}V${f(y + MARK.cap)}" stroke="${colour}" stroke-width="1" fill="none"/>`)
       }
     }
-    if (settings.style !== 'points' && points.length > 1) {
+    if (settings.style !== PLOT_STYLE.points && points.length > 1) {
       out.push(`<polyline points="${points.map((p) => `${f(X(p.x))},${f(Y(p.y))}`).join(' ')}" fill="none" stroke="${colour}" stroke-width="${MARK.line}"/>`)
     }
-    if (settings.style !== 'lines') {
+    if (settings.style !== PLOT_STYLE.lines) {
       for (const p of points) out.push(`<circle cx="${f(X(p.x))}" cy="${f(Y(p.y))}" r="${MARK.point}" fill="${colour}"/>`)
     }
   })

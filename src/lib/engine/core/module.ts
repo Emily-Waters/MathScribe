@@ -16,13 +16,97 @@
 import type { FunctionNode, MathNode } from 'mathjs'
 import { BUILTINS, type Namespace } from '../../builtins.ts'
 import type { BuiltinConstant, NamespaceConstant } from '../../constants.ts'
-import type { VariableFields } from '../../values.ts'
+import type { Contributions, Variable, VariableFields } from '../../values.ts'
+import type { DisplayMode, Notation } from '../../syntax.ts'
+import type { formatWithUncertainty } from '../../sigfigs.ts'
 import type { LineResult } from './results.ts'
 
-/** What a module can do to the Calculator that called it. */
+/** A value as shown: its number (in its display unit), formatted, and its unit. */
+export interface ValueParts {
+  x: number
+  num: string
+  unit?: string
+}
+
+/** A value and its uncertainty as shown, rounded by the uncertainty convention, with its unit. */
+export type UncertainParts = ReturnType<typeof formatWithUncertainty> & { unit?: string }
+
+/**
+ * What the core offers its modules: the Calculator's variables, and how it
+ * works out, rounds and writes values. A module builds on these rather than
+ * doing any of it its own way, so what it adds behaves as the rest of the sheet does.
+ */
 export interface ModuleHost {
+  // Variables
+  /** A variable's value (undefined if there's none). */
+  value(name: string): unknown
+  /** Everything kept about a variable: sig figs, uncertainty, how it's shown. */
+  variable(name: string): Variable | undefined
+  /** Whether a name is a variable here. */
+  has(name: string): boolean
+  /** Every variable's name, here. */
+  names(): Iterable<string>
   /** Store a variable, as a line assigning it would. */
   store(name: string, v: VariableFields): void
+  /** Remove a variable, and everything kept about it. */
+  forget(name: string): void
+  /** A series' values by number: t_1, t_2, … as 1 → "t_1", 2 → "t_2". */
+  seriesRows(base: string): Map<number, string>
+  /** Make `base` a series that looks up these variables (a selection; see Views), or forget those under a namespace. */
+  setView(base: string, names: (string | undefined)[]): void
+  clearViews(namespace: string): void
+  /** A new source of uncertainty, uncorrelated with every other. */
+  newSource(): number
+
+  // Working out
+  /** Work out a line, as the sheet would (in the scope here). */
+  evaluateLine(text: string, mode: DisplayMode): LineResult
+  /** An expression's value here, as a line would read it (`200 ms`, a variable). */
+  evaluateExpression(text: string): unknown
+  /** The total uncertainty from these sources, in the units of `like`. */
+  total(contributions: Contributions | undefined, like: unknown): unknown
+
+  // Showing values
+  /** A value as LaTeX, to `sf` sig figs, with its uncertainty. */
+  valueTex(value: unknown, sf?: number, unc?: unknown, uncSf?: number): string
+  /** A value's number and unit, to `sf` sig figs (null if it isn't a number or quantity); `forced`: its sig figs were declared. */
+  split(value: unknown, sf: number, forced?: boolean): ValueParts | null
+  /** A value and its uncertainty, rounded together (null if there's no uncertainty to show). */
+  uncertainParts(value: unknown, unc: unknown, uncSf?: number): UncertainParts | null
+  /** Run `fn` with numbers formatted in `notation`. */
+  inNotation<T>(notation: Notation | undefined, fn: () => T): T
+  /** An expression as typed, as LaTeX. */
+  expressionTex(expr: string): string
+}
+
+/**
+ * When in reading a line a form is offered it: as written (`raw`), or once a
+ * namespace's members are inside names (`a.x_1` → a__x_1, `members`).
+ */
+export const LINE_STAGE = { raw: 'raw', members: 'members' } as const
+export type LineStage = (typeof LINE_STAGE)[keyof typeof LINE_STAGE]
+
+/** A line being worked out, as a form sees it. */
+export interface FormLine {
+  /** Its text, at the form's stage, without spaces at either end. */
+  text: string
+  mode: DisplayMode
+  /** Whether the mode was asked for (on the line, or by its block). */
+  explicit: boolean
+}
+
+/**
+ * A kind of line the engine works out as a whole, rather than as an
+ * assignment or expression: `table(t, x)`, `r = @chem.reaction({…})`. A module
+ * adds its own (EngineModule.lineForms); a line goes to the first whose
+ * `evaluate` takes it.
+ */
+export abstract class LineForm {
+  /** When it's offered the line. */
+  readonly stage: LineStage = LINE_STAGE.members
+
+  /** The line worked out, if it's this form's; undefined if it isn't. */
+  abstract evaluate(line: FormLine, host: ModuleHost): LineResult | undefined
 }
 
 /** A unit literal read so far: the unit as mathjs reads it, and where the text after it starts. */
@@ -32,9 +116,6 @@ export interface ReadUnit {
 }
 
 export abstract class EngineModule {
-  /** What it's known by, for messages and tests. */
-  abstract readonly name: string
-
   // -------------------------------------------------------------------------
   // Shared
   // -------------------------------------------------------------------------
@@ -114,10 +195,8 @@ export abstract class EngineModule {
   /** After a line is worked out, whatever happened. */
   endLine(): void {}
 
-  /** A line this module works out itself (a reaction), or undefined if it isn't one. */
-  evaluateLine(_input: string, _host: ModuleHost): LineResult | undefined {
-    return undefined
-  }
+  /** The kinds of line this module works out itself (a reaction, a table), offered before the core's. */
+  readonly lineForms: readonly LineForm[] = []
 
   /** A call as LaTeX, if it's one of this module's functions; `tex` writes a node. */
   functionTex(_node: FunctionNode, _tex: (n: MathNode) => string): string | undefined {

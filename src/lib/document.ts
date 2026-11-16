@@ -1,7 +1,7 @@
-import { type CalcOptions, unexpectedError } from './engine/index.ts'
+import { type CalcOptions, moduleSubscriptTex, unexpectedError } from './engine/index.ts'
 import type { VariableSummary } from './values.ts'
 import { ASSIGNMENT, DEF_HEAD, FUNCTION_HEAD, LEADING_NAME, LINE_COMMAND, NAME_WITH_SETTINGS, PLOT_CALL, SELECT_CALL, UNPACK_HEAD, TEXT_SUBSCRIPT, subscriptOf, unescapeUnderscores } from './syntax.ts'
-import { formulaTex, isFormulaSubscript } from './engine/modules/chemistry/chemistry.ts'
+import { formulaTex } from './engine/modules/chemistry/chemistry.ts'
 import { BLOCK_KIND, isContainer, type Block } from './blocks.ts'
 import { SheetReader, type Sheet } from './reading/sheetReader.ts'
 
@@ -105,9 +105,10 @@ export function titleSegments(text: string): TitleSegment[] {
     for (const m of seg.value.matchAll(TEXT_SUBSCRIPT)) {
       plain(seg.value.slice(last, m.index))
       const sub = subscriptOf(m[1])
-      // A formula (`m_{H2O}`) is chemistry, as a subscript in maths; anything else is a subscript of text.
-      out.push(isFormulaSubscript(sub)
-        ? { kind: TITLE_SEGMENT.math, value: `${EMPTY_BASE}_{${formulaTex(sub)}}` }
+      // A subscript in a module's notation (`m_{H2O}`, chemistry) is drawn as it says, in maths; anything else is a subscript of text.
+      const tex = moduleSubscriptTex(sub)
+      out.push(tex !== undefined
+        ? { kind: TITLE_SEGMENT.math, value: `${EMPTY_BASE}_{${tex}}` }
         : { kind: TITLE_SEGMENT.sub, value: sub })
       last = m.index + m[0].length
     }

@@ -1,11 +1,7 @@
-/** Series aggregates (`t_avg`, `t_std`, …) and selection ranges. */
+/** Series aggregates (`t_avg`, `t_std`, …). */
 import { AGGREGATE_KIND, type AggregateKind } from '../../values.ts'
-import { NAME, SERIES_SUFFIXES } from '../../syntax.ts'
+import { SERIES_SUFFIXES } from '../../syntax.ts'
 import { parseSeriesStatName } from '../../names.ts'
-import { SETTING } from '../../tableSettings.ts'
-
-/** A select condition on a series' values: `t from 0.2 to 0.8`, `t from 0.2`, `t to 0.8` (1: the series, 2: from, 3: to). */
-export const SELECT_RANGE = new RegExp(String.raw`^(${NAME})\s+(?:${SETTING.from}\s+(.+?))?\s*(?:\b${SETTING.to}\s+(.+))?$`)
 
 // ---------------------------------------------------------------------------
 // Series aggregates

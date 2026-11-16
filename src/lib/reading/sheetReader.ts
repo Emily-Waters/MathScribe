@@ -4,13 +4,12 @@
  * Calculator, the blocks open around the line, the blank lines before it, and
  * the section numbers so far.
  */
-import { Calculator, ChemistryModule, outsideMaths, type CalcOptions } from '../engine/index.ts'
+import { Calculator, markupText, outsideMaths, sheetModules, type CalcOptions } from '../engine/index.ts'
 import type { VariableSummary } from '../values.ts'
 import { BLOCK_CLOSE, EXACT_SETTING, LAYOUT_STYLE, LINE_COMMAND, SIGIL, VALUE_IN_TEXT, isComment, type Notation } from '../syntax.ts'
-import { withFormulas } from '../engine/modules/chemistry/chemistry.ts'
 import { BLOCK_KIND, type Block, type Command, type GroupBlock, type LayoutBlock } from '../blocks.ts'
 import { closesBlock, openerText, parseConstantDeclaration } from './lineSyntax.ts'
-import { Line, type LineReader } from './reader.ts'
+import { Line, readsLines, type LineReader } from './reader.ts'
 import { lineReaders } from './readers.ts'
 
 /** A whole sheet, evaluated: its blocks, and the variables it ends with. */
@@ -24,8 +23,6 @@ export type OpenBlock = GroupBlock | LayoutBlock
 
 export class SheetReader {
   readonly lines: readonly string[]
-  /** Chemistry extends the engine: species, their names and reactions. */
-  readonly chemistry = new ChemistryModule()
   readonly calc: Calculator
   /** The sheet's blocks at the top. */
   readonly root: Block[] = []
@@ -42,11 +39,14 @@ export class SheetReader {
   readonly declaredAt = new Map<string, number>()
   /** Lines declaring a constant that's declared already, with the warning each gets. */
   readonly duplicateDeclarations = new Map<number, string>()
-  private readonly readers: readonly LineReader[] = lineReaders()
+  /** The readers each line is offered to: the modules' first (chemistry's `@chem.species { }`), then MathScribe's own. */
+  private readonly readers: readonly LineReader[]
 
   constructor(source: string, options: CalcOptions) {
     this.lines = source.split(/\r?\n/)
-    this.calc = new Calculator(options, [this.chemistry])
+    const modules = sheetModules()
+    this.calc = new Calculator(options, modules)
+    this.readers = [...modules.filter(readsLines).flatMap((m) => m.lineReaders()), ...lineReaders()]
   }
 
   /** Read and evaluate the whole sheet, line by line, into blocks. */
@@ -109,7 +109,7 @@ export class SheetReader {
 
   /**
    * Text with each `{{x}}` (outside `$…$`) as x's value at this point in the
-   * sheet, and each formula `{Na^+}` as chemistry, in inline maths; and what's
+   * sheet, and the modules' notation (a formula, `{Na^+}`) as they draw it, in inline maths; and what's
    * wrong with the first value that can't be worked out.
    */
   withValues(text: string): { text: string; error?: string } {
@@ -121,7 +121,7 @@ export class SheetReader {
       error ??= `${whole}: ${v.error}`
       return whole
     }))
-    return { text: withFormulas(filled), error }
+    return { text: markupText(filled), error }
   }
 
   /** The command the nearest open block that has one gives the lines inside it. */

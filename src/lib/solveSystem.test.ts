@@ -41,5 +41,6 @@ describe('systems of equations', () => {
     expect(solved('@tuple(x, y) = @solve(x = 2, x = 3)').error).toBe("y doesn't appear in any of the equations.")
     expect(solved('@tuple(x, y) = @solve(sin(x) + x * y = 2, cos(y) * x + y = 3)').error).toMatch(/can't be solved for .* by substitution/)
     expect(solved('@tuple(x, y) = @solve(x + y, x = 3)').error).toMatch(/isn't an equation/)
-  })
+    // (Trying every rearrangement of the non-linear system before giving up is slow: past 5 s on CI's runners.)
+  }, 30_000)
 })

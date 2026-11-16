@@ -11,7 +11,8 @@ import type { Completion, CompletionResult } from '@codemirror/autocomplete'
 import type { EditorState } from '@codemirror/state'
 import { EditorView, type Command } from '@codemirror/view'
 import { GREEK_BY_NAME, GREEK_LETTERS } from '../lib/syntax.ts'
-import { inNamelessBlock, inNote, isProseLine } from './language.ts'
+import { inNote, isProseLine } from './language.ts'
+import { inNamelessBlock } from './sheetLines.ts'
 
 /** A Greek letter's name being typed after a backslash (`\Del`). */
 const BEING_TYPED = /\\[A-Za-z]*$/

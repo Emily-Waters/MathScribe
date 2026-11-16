@@ -1504,7 +1504,7 @@ renamed, change it there too.
   core's kinds; `registry.ts`: every kind of node and token, declared once by the
   core or a module; `grammar.ts`: contexts and kinds of line, declared as data
   (the core's in `core.ts`, a module's by `EngineModule.grammar()`); `lines.ts`:
-  lines read into nodes, cached by text and context; `codec.ts`: the tree, with
+  lines read into nodes, cached by text and context; `stream.ts`: reading one line at a time, in its place (`stepLine`), as the editor does too; `codec.ts`: the tree, built from those steps, with
   blocks as nodes holding their lines; `check.ts`: checking a tree from elsewhere; `migrations.ts`: the
   schema's version, and bringing an older tree up to date
 - `src/lib/reading/`: reading a sheet's tree (`src/lib/tree`) into blocks.
@@ -1544,7 +1544,10 @@ renamed, change it there too.
 - `src/lib/files.ts`, `src/useSheets.ts`: the open sheets (tabs), opening, saving,
   auto-saving and the browser's copy; `src/components/SheetTabs.tsx`: the tab bar
 - `src/editor/language.ts`: the MathScribe language for CodeMirror (highlighting,
-  indentation, folding)
+  indentation, folding), reading each line as the sheet's tree does (`stepLine`);
+  `src/editor/sheetLines.ts`: the document's lines read in their places (what
+  each is and is inside, where each block ends), for folding, indentation,
+  imported data's rows and where suggestions stay quiet
 - `src/editor/themes.ts`: syntax colour themes; `src/appTheme.ts`: app themes
   (both sets of colours are in `App.css`; `index.html` applies the saved app
   theme before the page draws)

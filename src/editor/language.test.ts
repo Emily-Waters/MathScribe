@@ -7,7 +7,8 @@ import { EditorState } from '@codemirror/state'
 import { codeFolding, ensureSyntaxTree, foldEffect, foldable, getIndentation } from '@codemirror/language'
 import { insertNewlineAndIndent } from '@codemirror/commands'
 import { highlightTree, tagHighlighter, tags as t } from '@lezer/highlight'
-import { inLatexBlock, inTextBlock, mathscribeFolding, mathscribeIndent, mathscribeLanguage } from './language.ts'
+import { mathscribeFolding, mathscribeIndent, mathscribeLanguage } from './language.ts'
+import { inLatexBlock, inTextBlock } from './sheetLines.ts'
 
 const names = tagHighlighter([
   { tag: t.number, class: 'num' }, { tag: t.unit, class: 'unit' }, { tag: t.variableName, class: 'var' },

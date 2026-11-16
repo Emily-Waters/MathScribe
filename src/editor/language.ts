@@ -1,43 +1,26 @@
 /**
- * The MathScribe sheet language for CodeMirror: a line-by-line tokenizer for
- * highlighting, plus indentation and folding that follow the sheet's own rules.
+ * The MathScribe sheet language for CodeMirror: highlighting, indentation and
+ * folding, all from the sheet's tree (src/lib/tree), so the editor reads a sheet
+ * exactly as the engine does.
  *
- * The tokenizer reads lines the way the engine does (document.ts / engine.ts):
- * a line's first character decides what kind of line it is, a unit name right
- * after a number is a unit (`9.81 m/s^2`), and `#` starts either a display
- * command (`#sym`, `#numbered`, …) or a note. A line ending in `{` opens a
- * block: `Title {`, or a built-in one, `@layout.list Title {`; inside `@layout.text { }`,
- * every line up to the `}` is prose.
+ * Each line is read in its place, as the tree reads it (stepLine: what it is,
+ * what it's inside), into its tokens: its indentation, a heading's `#`s, what it
+ * says, its #commands and note. What it says is then coloured by its kind: a
+ * calculation's numbers, units and names; a block opener's title; prose with its
+ * values and formulas; raw LaTeX.
  */
 import { StreamLanguage, foldService, foldedRanges, indentService, type StringStream } from '@codemirror/language'
 import { tags } from '@lezer/highlight'
 import { closesVector, isUnitName } from '../lib/engine/index.ts'
-import { REACTION_LINE } from '../lib/engine/modules/chemistry/chemistry.ts'
 import { SPECIES_TOKEN } from '../lib/engine/modules/chemistry/syntax.ts'
+import { CHEM_NODE } from '../lib/engine/modules/chemistry/grammar.ts'
 import {
-  BRANCH_START, COMMAND_NAMES, CONSTANT_TOKEN, DEF_START, FUNCTION_HEAD, GREEK_CHARS, IMPORT, INDENT_WIDTH, KEYWORD, NAME, NAME_CHAR,
-  BLOCK_CLOSE, BLOCK_OPEN, CONSTANTS_TOKEN, LATEX_OPENER, LATEX_TOKEN, closesLatex, LAYOUT_NAME_TOKEN, LAYOUT_OPENER, LAYOUT_STYLES, PROSE_LAYOUTS, layoutMembers, COMMENT_START, NAMESPACE_CALL_TOKEN, NUMBER, SETTINGS,
-  UNPACK_SO_FAR, VALUE_IN_TEXT, indentOf, isComment,
+  CONSTANT_TOKEN, FUNCTION_HEAD, GREEK_CHARS, INDENT_WIDTH, KEYWORD, NAME, NAME_CHAR, CONSTANTS_TOKEN, LATEX_OPENER, LATEX_TOKEN,
+  LAYOUT_NAME_TOKEN, COMMENT_START, NAMESPACE_CALL_TOKEN, NUMBER, SETTINGS, UNPACK_SO_FAR, VALUE_IN_TEXT, COMMAND_NAMES, indentOf, isComment,
 } from '../lib/syntax.ts'
-
-/** What a line is, from how it starts and ends (as document.ts reads it). */
-const LINE_KIND = {
-  calc: 'calc',
-  heading: 'heading',
-  text: 'text',
-  latex: 'latex',
-  /** A block's first line: `Title {`, or a built-in block's, `@layout.list Title {`. */
-  opener: 'opener',
-  def: 'def',
-  /** An import's rows. */
-  data: 'data',
-  comment: 'comment',
-  /** A formula on its own: `{OH^- + H3O^+ -> 2 H2O}`. */
-  reaction: 'reaction',
-  /** `@latex {`, or a whole `@latex { \frac{a}{b} }` on one line. */
-  latexOpener: 'latexOpener',
-} as const
-type LineKind = (typeof LINE_KIND)[keyof typeof LINE_KIND]
+import { LINE_ROLE, NODE_KIND, TOKEN_KIND, TOP, isToken, stepLine, type LineState } from '../lib/tree/index.ts'
+import { BODY_END } from '../lib/tree/grammar.ts'
+import { dataBlocks, foldRange, opensBody, readAs, sheetLine } from './sheetLines.ts'
 
 /** What each piece of a line is coloured as (the keys of the language's tokenTable). */
 const TOKEN = {
@@ -65,37 +48,140 @@ const TOKEN = {
 } as const
 type Token = (typeof TOKEN)[keyof typeof TOKEN]
 
+/** How what a line says is coloured, by its kind (from the tree). */
+const SAYS = {
+  /** Numbers, units, names, operators. */
+  expression: 'expression',
+  /** A block's title, up to its `{` (after a layout's name, `@layout.list`, or `@constants`). */
+  title: 'title',
+  /** Prose, with its maths, values and formulas. */
+  prose: 'prose',
+  /** Raw LaTeX. */
+  latex: 'latex',
+  /** `@latex`, its `{`, then (on one line) the LaTeX and its `}`. */
+  latexOpener: 'latexOpener',
+  /** A heading's title. */
+  heading: 'heading',
+  /** A reaction's formula. */
+  formula: 'formula',
+  /** Imported data: numbers, and the column names (with units) in the first row. */
+  rows: 'rows',
+} as const
+type Says = (typeof SAYS)[keyof typeof SAYS]
+
+/** A piece of the line being coloured: one of the tree's tokens, where it ends on the line. */
+interface Piece {
+  readonly t: string
+  readonly end: number
+}
+
 /** The tokenizer's state, carried from one token (and line) to the next. */
 interface State {
-  kind: LineKind
+  /** The bodies the next line is inside (the tree's). */
+  lines: LineState
+  /** The line's pieces, and how what it says is coloured. */
+  pieces: readonly Piece[]
+  says: Says
+  /** It defines a function: `def f(…)` (its name is a definition). */
+  defines: boolean
   /** The previous token was a number, so a unit name now is a unit. */
   afterNumber: boolean
   /** Inside a unit (`m/s^2`): `/unit`, `*unit` and `^2` continue it. */
   inUnit: boolean
   /** After `to`: what follows is a unit. */
   afterTo: boolean
-  /** On an opener line, before its `{`: words are the block's title. */
-  inTitle: boolean
-  /** Inside an `@layout.text { }` block: every line up to its `}` is prose. */
-  inText: boolean
-  /** Inside an `@latex { }` block: every line up to a `}` alone is LaTeX. */
-  inLatex: boolean
-  /** Under an `@import(…)` line: its indentation (lines indented further are the file's rows). */
-  dataIndent: number | null
 }
 
-/** A display command at the current position: `#sym`, `#numbered`, … */
-const COMMAND = new RegExp(String.raw`#(?:${COMMAND_NAMES.join('|')})(?=\s|$)`)
-/** Whether a line opens a block whose lines are prose: `@layout.text { }`, `@layout.titlepage { }`. */
-const opensText = (line: string) => {
-  const members = LAYOUT_OPENER.exec(bodyOf(line.trim()))?.[1]
-  // (As in the sheet, the first layout among its members is the one used.)
-  const style = members && layoutMembers(members).find((m) => (LAYOUT_STYLES as readonly string[]).includes(m))
-  return style !== undefined && (PROSE_LAYOUTS as ReadonlySet<string>).has(style)
+/** How a line's text (`text`) is coloured, by its kind and role. */
+function saysOf(kind: string, role: string, opensTitled: boolean): Says {
+  if (role === LINE_ROLE.row) return SAYS.rows
+  if (opensTitled) return SAYS.title
+  switch (kind) {
+    case NODE_KIND.heading: return SAYS.heading
+    case NODE_KIND.paragraph:
+    case NODE_KIND.proseLine: return SAYS.prose
+    case NODE_KIND.latexLine: return SAYS.latex
+    case NODE_KIND.latex:
+    case NODE_KIND.latexOpener: return SAYS.latexOpener
+    case CHEM_NODE.reaction: return SAYS.formula
+    default: return SAYS.expression
+  }
 }
 
-/** Whether a line closes a block: it starts with `}`. */
-const closesBlock = (line: string) => line.trimStart().startsWith(BLOCK_CLOSE)
+/** Read the line at the stream's start in its place, and set the state for colouring it. */
+function startLine(stream: StringStream, state: State): void {
+  const step = stepLine(state.lines, { text: stream.string, eol: '' })
+  state.lines = step.state
+  let end = 0
+  state.pieces = step.node.parts.filter(isToken).map((p) => ({ t: p.t, end: (end += p.text.length) }))
+  // A block opener with a title: one whose body is braced and isn't raw LaTeX (`Title {`, `@layout.list Title {`).
+  const titled = step.role === LINE_ROLE.opener && (step.body?.ends === BODY_END.closer || step.body?.ends === BODY_END.brace)
+  state.says = saysOf(step.node.kind, step.role, titled)
+  state.defines = step.node.kind === NODE_KIND.defLine
+  state.afterNumber = state.inUnit = state.afterTo = false
+}
+
+/** The kind of the piece at a position on the line. */
+const pieceAt = (pieces: readonly Piece[], pos: number) => pieces.find((p) => pos < p.end)?.t
+
+/** The next token on the line, and its kind (a key of tokenTable below). */
+function token(stream: StringStream, state: State): Token | null {
+  if (stream.sol()) startLine(stream, state)
+  if (stream.eatSpace()) {
+    // A space ends a compound unit (`5 kg * m` multiplies by a variable m).
+    state.inUnit = false
+    return null
+  }
+  // (Imported data's rows are rows, whatever's in them: a `#` or `//` in one is the file's.)
+  const piece = state.says === SAYS.rows ? TOKEN_KIND.rows : pieceAt(state.pieces, stream.pos)
+  switch (piece) {
+    case TOKEN_KIND.comment:
+      stream.skipToEnd()
+      return TOKEN.comment
+    case TOKEN_KIND.marks:
+      // (A heading is all one: its `#`s and its title. A block titled as a section has its title after.)
+      if (state.says === SAYS.heading) stream.skipToEnd()
+      else stream.match(/^#+/)
+      return TOKEN.heading
+    case TOKEN_KIND.command:
+      stream.match(/^#\S+/)
+      return TOKEN.command
+    case TOKEN_KIND.note:
+      stream.skipToEnd()
+      return TOKEN.note
+  }
+  switch (state.says) {
+    case SAYS.heading:
+      stream.skipToEnd()
+      return TOKEN.heading
+    case SAYS.prose:
+      return proseToken(stream)
+    case SAYS.latex:
+      stream.skipToEnd()
+      return TOKEN.latex
+    case SAYS.latexOpener:
+      if (stream.match(LATEX_TOKEN)) return TOKEN.keyword
+      if (stream.match(/^\{\s*$/)) return TOKEN.brace
+      stream.skipToEnd()
+      return TOKEN.latex
+    case SAYS.formula:
+      if (stream.match(FORMULA_TOKEN)) return TOKEN.formula
+      stream.skipToEnd()
+      return TOKEN.note
+    case SAYS.rows:
+      if (stream.match(NUMBER_TOKEN)) return TOKEN.number
+      if (stream.match(WORD)) return TOKEN.variable
+      stream.next()
+      return null
+    case SAYS.title:
+      if (stream.match(LAYOUT_NAME_TOKEN) || stream.match(CONSTANTS_TOKEN) || stream.match(SPECIES_TOKEN)) return TOKEN.keyword
+      if (stream.match(/\{\s*(?=#|$)/)) return TOKEN.brace
+      if (!stream.match(/[^#]+?(?=\s*\{\s*(?:#|$))/)) stream.next()
+      return TOKEN.title
+  }
+  return expressionToken(stream, state)
+}
+
 /** A word at the current position: a name (Greek letters included), keyword or unit (µm starts with the micro sign). */
 const WORD = new RegExp(`[A-Za-z_µ${GREEK_CHARS}]${NAME_CHAR}*`)
 /** A number at the current position. */
@@ -111,123 +197,8 @@ const NAME_SETTINGS_SO_FAR = new RegExp(String.raw`^\s*${NAME}${SETTINGS}$`)
 /** …on a function's result: `f(x):3:`, `def polar(x, y):`. */
 const FUNCTION_SETTINGS_SO_FAR = new RegExp(String.raw`^\s*(?:${KEYWORD.def}\s+)?${NAME}\s*\([^()]*\)${SETTINGS}$`)
 
-/** A heading's `#`s, at the start of a line. */
-const HEADING_MARKS = /^#+/
-
-/**
- * The line without its note and commands, to see how it ends. (A heading's `#`s
- * start it, not a note: `# Kinematics {` opens a block titled as a section.)
- */
-function bodyOf(line: string): string {
-  return line.trim().replace(HEADING_MARKS, '').replace(/#.*$/, '').trim()
-}
-
-/** What kind of line `line` (trimmed of nothing) is, from how it starts and ends. */
-function lineKind(line: string): LineKind {
-  const t = line.trim()
-  // (`# Kinematics {` opens a block titled as a section.)
-  if (t.startsWith('#')) return bodyOf(t).endsWith(BLOCK_OPEN) ? LINE_KIND.opener : LINE_KIND.heading
-  if (t.startsWith('>')) return LINE_KIND.text
-  if (LATEX_OPENER.test(t)) return LINE_KIND.latexOpener
-  if (DEF_START.test(t)) return LINE_KIND.def
-  const body = bodyOf(t)
-  if (REACTION_LINE.test(body)) return LINE_KIND.reaction
-  // `if v > 0:` in a function's body is a branch, not a block's title.
-  if (BRANCH_START.test(t)) return LINE_KIND.calc
-  if (body.endsWith(BLOCK_OPEN)) return LINE_KIND.opener
-  return LINE_KIND.calc
-}
-
-/** The next token on the line, and its kind (a key of tokenTable below). */
-function token(stream: StringStream, state: State): Token | null {
-  if (stream.sol() && isComment(stream.string) && state.dataIndent === null) {
-    // A comment, anywhere (a text block's comment, even indented less, doesn't end it).
-    state.kind = LINE_KIND.comment
-  } else if (stream.sol()) {
-    const indent = indentOf(stream.string)
-    // A text block ends at its `}`; imported data at the first line indented no
-    // further than its import, or a blank line (see blankLine below).
-    if (state.inText && closesBlock(stream.string)) state.inText = false
-    const closingLatex = state.inLatex && closesLatex(stream.string)
-    if (closingLatex) state.inLatex = false
-    if (state.dataIndent !== null && (indent <= state.dataIndent || !stream.string.trim())) state.dataIndent = null
-    if (state.inText) {
-      state.kind = LINE_KIND.text
-    } else if (state.inLatex) {
-      state.kind = LINE_KIND.latex
-    } else if (closingLatex) {
-      state.kind = LINE_KIND.calc
-    } else if (state.dataIndent !== null) {
-      state.kind = LINE_KIND.data
-    } else {
-      state.kind = lineKind(stream.string)
-      // `@layout.text Title {`: the lines up to its `}` are prose.
-      if (state.kind === LINE_KIND.opener && opensText(stream.string)) state.inText = true
-      // `@latex {` with nothing after it: the lines up to a `}` alone are LaTeX.
-      if (state.kind === LINE_KIND.latexOpener && !LATEX_OPENER.exec(stream.string.trim())![1].trim()) state.inLatex = true
-      // `@import("run1.csv")`: the lines indented under it are the file's rows.
-      if (isImport(stream.string)) state.dataIndent = indent
-    }
-    state.afterNumber = state.inUnit = state.afterTo = false
-    state.inTitle = state.kind === LINE_KIND.opener
-  }
-  if (stream.eatSpace()) {
-    // A space ends a compound unit (`5 kg * m` multiplies by a variable m).
-    state.inUnit = false
-    return null
-  }
-
-  switch (state.kind) {
-    case LINE_KIND.comment:
-      stream.skipToEnd()
-      return TOKEN.comment
-    case LINE_KIND.heading:
-      stream.skipToEnd()
-      return TOKEN.heading
-    case LINE_KIND.text:
-      return proseToken(stream)
-    case LINE_KIND.latex:
-      stream.skipToEnd()
-      return TOKEN.latex
-    case LINE_KIND.latexOpener:
-      // `@latex`, its `{`, then (on one line) the LaTeX and its `}`.
-      if (stream.match(LATEX_TOKEN)) return TOKEN.keyword
-      if (stream.match(/^\{\s*$/)) return TOKEN.brace
-      stream.skipToEnd()
-      return TOKEN.latex
-    case LINE_KIND.reaction:
-      if (stream.match(FORMULA_TOKEN)) return TOKEN.formula
-      stream.skipToEnd()
-      return TOKEN.note
-    case LINE_KIND.data:
-      // A file's rows: numbers, and the column names (with units) in the first row.
-      if (stream.match(NUMBER_TOKEN)) return TOKEN.number
-      if (stream.match(WORD)) return TOKEN.variable
-      stream.next()
-      return null
-  }
-
-  // A block titled as a section: its heading's `#`s, at the start of the line.
-  if (state.inTitle && !stream.string.slice(0, stream.pos).trim() && stream.match(HEADING_MARKS)) return TOKEN.heading
-
-  // Commands and notes, on any other line.
-  if (stream.peek() === '#') {
-    if (stream.match(COMMAND)) return TOKEN.command
-    stream.skipToEnd()
-    return TOKEN.note
-  }
-
-  // An opener's title, up to its `{` (after a layout's name, `@layout.list`, or `@constants`).
-  if (state.inTitle) {
-    if (stream.match(LAYOUT_NAME_TOKEN) || stream.match(CONSTANTS_TOKEN) || stream.match(SPECIES_TOKEN)) return TOKEN.keyword
-    if (stream.match(/\{\s*(?=#|$)/)) {
-      state.inTitle = false
-      return TOKEN.brace
-    }
-    if (!stream.match(/[^#]+?(?=\s*\{\s*(?:#|$))/)) stream.next()
-    return TOKEN.title
-  }
-
+/** What a calculation (or a function's line, a def, an import, a constant) says: numbers, units, names, operators. */
+function expressionToken(stream: StringStream, state: State): Token | null {
   const wasAfterNumber = state.afterNumber
   state.afterNumber = false
 
@@ -236,7 +207,7 @@ function token(stream: StringStream, state: State): Token | null {
     state.inUnit = false
     return TOKEN.number
   }
-  // `@chem.mm(…)`: a namespace's function (before constants, which `@chem.mm` would also look like).
+  // `@chem.mm(…)`, `@tuple(…)`: a built-in function (before constants, which `@chem.mm` would also look like).
   if (stream.match(NAMESPACE_CALL_TOKEN)) return TOKEN.function
   // `@chem.species name = {…}`: naming a species, on a line of its own.
   if (stream.match(SPECIES_TOKEN)) return TOKEN.keyword
@@ -277,7 +248,7 @@ function token(stream: StringStream, state: State): Token | null {
       // `def f(…)`, or `f(…) = …` at the start of a line: a definition.
       const oneLiner = stream.start === /^\s*/.exec(stream.string)![0].length
         && FUNCTION_HEAD.test(stream.string.trimStart())
-      return state.kind === LINE_KIND.def || oneLiner ? TOKEN.definition : TOKEN.function
+      return state.defines || oneLiner ? TOKEN.definition : TOKEN.function
     }
     return TOKEN.variable
   }
@@ -306,8 +277,7 @@ const PROSE_RUN = /^[^${]+/
 
 /** `> prose with $inline maths$ and {{values}}`: the maths and values are set off from the prose. */
 function proseToken(stream: StringStream): Token {
-  if (stream.sol()) {
-    stream.eatSpace()
+  if (stream.sol() || !stream.string.slice(0, stream.pos).trim()) {
     if (stream.eat('>')) return TOKEN.marker
   }
   if (stream.match(/\$[^$]*\$/)) return TOKEN.latex
@@ -321,12 +291,12 @@ function proseToken(stream: StringStream): Token {
 export const mathscribeLanguage = StreamLanguage.define<State>({
   name: 'mathscribe',
   startState: () => ({
-    kind: LINE_KIND.calc, afterNumber: false, inUnit: false, afterTo: false, inTitle: false, inText: false, inLatex: false, dataIndent: null,
+    lines: TOP, pieces: [], says: SAYS.expression, defines: false, afterNumber: false, inUnit: false, afterTo: false,
   }),
   copyState: (s) => ({ ...s }),
-  // An empty line ends an import's rows.
+  // An empty line is read in its place too (it ends an import's rows).
   blankLine: (s) => {
-    s.dataIndent = null
+    s.lines = stepLine(s.lines, { text: '', eol: '' }).state
   },
   token,
   tokenTable: {
@@ -359,55 +329,9 @@ export const mathscribeLanguage = StreamLanguage.define<State>({
   },
 })
 
-/** Whether a line opens an indented block: `Title {`, `@layout.list Title {`, a `def`, or an if / else in one. */
-const opensBlock = (text: string) => {
-  const t = text.trim()
-  return DEF_START.test(t) || BRANCH_START.test(t) || bodyOf(t).endsWith(BLOCK_OPEN)
-}
-
-/**
- * Whether a line is an `@import(…)`. Its file's rows are indented under it, but
- * only by choosing the file, so a new line after it isn't indented.
- */
-export const isImport = (text: string) => IMPORT.test(bodyOf(text))
-
-/** An `@import(…)` line and the lines of its data: the header row, then the first and last data rows. */
-export interface DataBlock {
-  line: number
-  header: number
-  rows: { first: number; last: number } | null
-}
-
-/** Every `@import(…)` line with data under it, and where its rows are (line numbers, 1-based). */
-export function dataBlocks(doc: { lines: number; line(n: number): { text: string } }): DataBlock[] {
-  const out: DataBlock[] = []
-  for (let n = 1; n <= doc.lines; n++) {
-    const text = doc.line(n).text
-    if (!isImport(text)) continue
-    const base = indentOf(text)
-    const filled: number[] = []
-    let m = n + 1
-    // The rows straight under it, indented further; a blank line ends them.
-    for (; m <= doc.lines; m++) {
-      const row = doc.line(m).text
-      if (!row.trim() || indentOf(row) <= base) break
-      filled.push(m)
-    }
-    if (filled.length) {
-      out.push({ line: n, header: filled[0], rows: filled.length > 1 ? { first: filled[1], last: filled.at(-1)! } : null })
-    }
-    n = Math.max(n, (filled.at(-1) ?? n))
-  }
-  return out
-}
-
-/** Whether line `n` is a row of imported data (where nothing is suggested). */
-export const inDataBlock = (doc: { lines: number; line(n: number): { text: string } }, n: number) =>
-  dataBlocks(doc).some((b) => n >= b.header && n <= (b.rows?.last ?? b.header))
-
 /**
  * Indentation for a new or re-indented line: the line above's, one level deeper
- * after a line that opens a block, and one level shallower for a closing `}`.
+ * after a line that opens a body, and one level shallower for a closing `}`.
  *
  * A new line straight after a folded block (Enter at the end of a folded
  * `@import(…)`, whose data rows are hidden) takes the folded line's
@@ -437,50 +361,24 @@ export const mathscribeIndent = indentService.of((cx, pos) => {
       const block = dataBlocks(doc).find((b) => n >= b.header && n <= (b.rows?.last ?? b.header))
       if (block) return indentOf(doc.line(block.line).text)
     }
-    let indent = indentOf(above) + (opensBlock(above) ? INDENT_WIDTH : 0)
+    // (The line above as it is now: up to the cursor, if Enter is splitting it.)
+    const step = breaking && n === at.number ? readAs(doc, n, above) : sheetLine(doc, n).step
+    let indent = indentOf(above) + (opensBody(step, above) ? INDENT_WIDTH : 0)
     if (/^\s*\}/.test(lineText)) indent -= INDENT_WIDTH
     return Math.max(0, indent)
   }
   return 0
 })
 
-/**
- * Folding: a `def` or `@import(…)` folds its indented lines; a `{` block folds to
- * its matching `}`.
- */
+/** Folding: a block folds up to its `}`; a `def`, an `@import(…)` or a branch, its indented lines. */
 export const mathscribeFolding = foldService.of((state, lineStart, lineEnd) => {
-  const doc = state.doc
+  const { doc } = state
   const first = doc.lineAt(lineStart)
-  if (!opensBlock(first.text) && !isImport(first.text)) return null
-  let last = first.number
-  if (bodyOf(first.text).endsWith(BLOCK_OPEN) && !DEF_START.test(first.text.trim())) {
-    let depth = 0
-    for (let n = first.number; n <= doc.lines; n++) {
-      const body = bodyOf(doc.line(n).text)
-      depth += (body.match(/\{/g) ?? []).length - (body.match(/\}/g) ?? []).length
-      if (n > first.number && depth <= 0) {
-        last = n
-        break
-      }
-    }
-    // Fold up to (not including) the closing brace, so `}` stays visible.
-    if (last === first.number) return null
-    const end = doc.line(last - 1).to
-    return end > lineEnd ? { from: lineEnd, to: end } : null
-  }
-  const base = indentOf(first.text)
-  // (An import's rows end at a blank line; other blocks can have blank lines inside.)
-  const data = isImport(first.text)
-  for (let n = first.number + 1; n <= doc.lines; n++) {
-    const text = doc.line(n).text
-    if (!text.trim()) {
-      if (data) break
-      continue
-    }
-    if (indentOf(text) <= base) break
-    last = n
-  }
-  return last > first.number ? { from: lineEnd, to: doc.line(last).to } : null
+  // (The editor's document is a new object for each version, so what's read of it is kept until it changes.)
+  const range = foldRange(doc, first.number)
+  if (!range) return null
+  const end = doc.line(range.to).to
+  return end > lineEnd ? { from: lineEnd, to: end } : null
 })
 
 /** Whether a line (or the start of it) is a heading, prose, raw LaTeX or a comment, where there are no names. */
@@ -495,35 +393,3 @@ const TYPED_COMMAND = new RegExp(String.raw`(?:^|\s)#(?:${COMMAND_NAMES.join('|'
 /** Whether a `#` note has started on the line before this point (not one of the commands). */
 export const inNote = (before: string) => /(?:^|\s)#/.test(before.replace(TYPED_COMMAND, ' '))
 
-/**
- * Whether line `n` is prose inside an `@layout.text { }` block: going up from it, an
- * `@layout.text … {` opener comes before any line closing a block (prose never starts
- * with `}`). (For the editor's suggestions, which stay quiet in prose.)
- */
-export function inTextBlock(doc: { line(n: number): { text: string } }, n: number): boolean {
-  if (closesBlock(doc.line(n).text)) return false
-  for (let i = n - 1; i >= 1; i--) {
-    const text = doc.line(i).text
-    if (closesBlock(text)) return false
-    if (opensText(text)) return true
-  }
-  return false
-}
-
-/**
- * Whether line `n` is LaTeX inside an `@latex { }` block: going up from it, an
- * `@latex {` opener with nothing after it comes before any `}` on its own.
- */
-export function inLatexBlock(doc: { line(n: number): { text: string } }, n: number): boolean {
-  if (closesLatex(doc.line(n).text)) return false
-  for (let i = n - 1; i >= 1; i--) {
-    const text = doc.line(i).text
-    if (closesLatex(text)) return false
-    const opener = LATEX_OPENER.exec(text.trim())
-    if (opener) return !opener[1].trim()
-  }
-  return false
-}
-
-/** Whether line `n` is one where there are no names (prose, LaTeX), so the editor's suggestions stay quiet. */
-export const inNamelessBlock = (doc: { line(n: number): { text: string } }, n: number) => inTextBlock(doc, n) || inLatexBlock(doc, n)

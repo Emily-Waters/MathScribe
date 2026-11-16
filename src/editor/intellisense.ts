@@ -35,7 +35,8 @@ import { readStored, writeStored } from '../lib/storage.ts'
 import { CALL, GREEK_CHARS, KEYWORD, MEMBER_DOT, NAME, NAME_CHAR, PERCENT, SETTINGS, SIGIL } from '../lib/syntax.ts'
 import { memberName, parseMemberName, parseNumberedName, seriesMemberName } from '../lib/names.ts'
 import { BUILTIN_FUNCTIONS, COMMANDS, KEYWORDS, MATH_CONSTANTS, SERIES_SUFFIXES, SETTING_WORDS } from './vocabulary.ts'
-import { inDataBlock, inNamelessBlock, inNote, inValue, isProseLine } from './language.ts'
+import { inNote, inValue, isProseLine } from './language.ts'
+import { inDataBlock, inNamelessBlock } from './sheetLines.ts'
 import { greekCompletions, greekOnSpace } from './greek.ts'
 
 // ---------------------------------------------------------------------------

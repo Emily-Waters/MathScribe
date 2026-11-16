@@ -17,7 +17,7 @@ import {
   Decoration, EditorView, GutterMarker, ViewPlugin, lineNumberMarkers, type DecorationSet, type ViewUpdate,
 } from '@codemirror/view'
 import { foldEffect, foldedRanges, foldable } from '@codemirror/language'
-import { dataBlocks, isImport } from './language.ts'
+import { dataBlocks, isImport } from './sheetLines.ts'
 
 /** A data row's number (or the header's dash), shown in place of its line number. */
 class RowNumber extends GutterMarker {

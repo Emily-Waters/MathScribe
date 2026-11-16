@@ -6,87 +6,63 @@
  *
  * The tree's top level is the sheet's lines; a line that opens a body
  * (`Title {`, `def f(x)`, `@import(…)`) is a node holding the line, the lines of
- * its body (blocks inside it as nodes of their own), and its closing line.
+ * its body (blocks inside it as nodes of their own), and its closing line. It's
+ * built from the sheet's lines read one at a time (stream.ts), as the editor reads them.
  */
-import { BLOCK_CLOSE, closesLatex, indentOf } from '../syntax.ts'
-import { BODY_END, contextInfo, type Body } from './grammar.ts'
-import { LINE_CONTEXT, NODE_KIND, SCHEMA, TOKEN_KIND, isToken, schemaId, type Part, type SheetTree, type SyntaxNode } from './nodes.ts'
-import { parseCloser, readLine, splitLines, type SourceLine } from './lines.ts'
+import { contextInfo } from './grammar.ts'
+import { SCHEMA, TOKEN_KIND, isToken, schemaId, type Part, type SheetTree, type SyntaxNode } from './nodes.ts'
+import { splitLines } from './lines.ts'
+import { LINE_ROLE, TOP, stepLine } from './stream.ts'
 import { upgrade } from './migrations.ts'
 import './core.ts'
 
+/** A node being built: its kind (none: the sheet's top), its parts so far, and rows being gathered. */
+interface Builder {
+  readonly kind?: string
+  readonly parts: Part[]
+  rows?: { kind: string; text: string }
+}
+
 /** A sheet's text as a tree, in the current schema. */
 export function encode(source: string): SheetTree {
-  const reader = { lines: splitLines(source), at: 0 }
-  return { schema: schemaId(SCHEMA.version), body: readBody(reader, LINE_CONTEXT.sheet) }
-}
-
-/** The lines being read, and the next one. */
-interface Reader {
-  readonly lines: readonly SourceLine[]
-  at: number
-}
-
-/** How a body being read ends, and the line that opened it's indentation. */
-interface Ending {
-  readonly ends: Body['ends']
-  readonly indent: number
-}
-
-/** Whether a line (blank or not) ends a body before it: one that isn't indented further, for a body that ends so. */
-function endsBefore(line: SourceLine, ending: Ending): boolean {
-  const blank = !line.text.trim()
-  if (ending.ends === BODY_END.indent) return blank || indentOf(line.text) <= ending.indent
-  if (ending.ends === BODY_END.indentOrBlank) return !blank && indentOf(line.text) <= ending.indent
-  return false
-}
-
-/** Whether a line is a body's closing line, which ends it (and is its). */
-function closes(line: SourceLine, ending: Ending): boolean {
-  if (ending.ends === BODY_END.brace) return line.text.trimStart().startsWith(BLOCK_CLOSE)
-  if (ending.ends === BODY_END.braceAlone) return closesLatex(line.text)
-  return false
-}
-
-/**
- * Lines read into nodes, in a context, until the body they're in ends (or the
- * text does); a closing line it ends at is left for the caller.
- */
-function readBody(reader: Reader, context: string, ending?: Ending): SyntaxNode[] {
-  const nodes: SyntaxNode[] = []
-  const { lines } = reader
-  // Lines kept as they are, as one node (imported data's rows).
-  if (contextInfo(context).raw) {
-    const start = reader.at
-    while (reader.at < lines.length && !(ending && endsBefore(lines[reader.at], ending))) reader.at++
-    if (reader.at > start) {
-      const text = lines.slice(start, reader.at).map((l) => l.text + l.eol).join('')
-      nodes.push(Object.freeze({ kind: contextInfo(context).lineKind, parts: Object.freeze([Object.freeze({ t: TOKEN_KIND.rows, text })]) }))
+  const open: Builder[] = [{ parts: [] }]
+  let state = TOP
+  /** The innermost node being built: its rows gathered into one node, and it's done. */
+  const finish = () => {
+    const builder = open.pop()!
+    flushRows(builder)
+    open.at(-1)!.parts.push(Object.freeze({ kind: builder.kind!, parts: Object.freeze(builder.parts) }))
+  }
+  for (const line of splitLines(source)) {
+    const step = stepLine(state, line)
+    // (A body that ended before this line, where the indentation did: one builder each.)
+    step.ended.forEach(() => finish())
+    const top = open.at(-1)!
+    if (step.role === LINE_ROLE.row) {
+      // (Rows are gathered into one node: its text is theirs, one token.)
+      top.rows ??= { kind: contextInfo(step.context).lineKind, text: '' }
+      top.rows.text += textOf(step.node)
+    } else {
+      flushRows(top)
+      // (An opener is the first part of the node it opens; a closer, the last of the one it closes.)
+      if (step.role === LINE_ROLE.opener) open.push({ kind: step.body!.node, parts: [step.node] })
+      else top.parts.push(step.node)
+      if (step.role === LINE_ROLE.closer) finish()
     }
-    return nodes
+    state = step.state
   }
-  while (reader.at < lines.length) {
-    const line = lines[reader.at]
-    if (ending && (endsBefore(line, ending) || closes(line, ending))) break
-    const { node, body } = readLine(line, context)
-    // A `}` of its own ends the block it's in (one at the top, with none open, is just a line).
-    if (ending?.ends === BODY_END.closer && node.kind === NODE_KIND.blockCloser) break
-    reader.at++
-    nodes.push(body ? readOpened(reader, node, body, indentOf(line.text)) : node)
-  }
-  return nodes
+  // Bodies still open at the end (not closed, or running to it).
+  while (open.length > 1) finish()
+  flushRows(open[0])
+  return { schema: schemaId(SCHEMA.version), body: open[0].parts as SyntaxNode[] }
 }
 
-/** The node holding a line that opens a body: the line, its body, and its closing line if it has one. */
-function readOpened(reader: Reader, opener: SyntaxNode, body: Body, indent: number): SyntaxNode {
-  const ending = { ends: body.ends, indent }
-  const parts: Part[] = [opener, ...readBody(reader, body.context, ending)]
-  const next = reader.lines[reader.at]
-  if (next && (closes(next, ending) || (body.ends === BODY_END.closer && readLine(next, body.context).node.kind === NODE_KIND.blockCloser))) {
-    parts.push(parseCloser(next))
-    reader.at++
-  }
-  return Object.freeze({ kind: body.node, parts: Object.freeze(parts) })
+/** Rows gathered in a node being built, as one node in its parts. */
+function flushRows(builder: Builder): void {
+  if (!builder.rows) return
+  const { kind, text } = builder.rows
+  builder.parts.push(Object.freeze({ kind, parts: Object.freeze([Object.freeze({ t: TOKEN_KIND.rows, text })]) }))
+  builder.rows = undefined
 }
 
 /**

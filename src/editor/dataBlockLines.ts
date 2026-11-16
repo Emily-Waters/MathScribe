@@ -19,7 +19,7 @@
 import { EditorSelection, EditorState, Facet, type Extension, type StateEffect } from '@codemirror/state'
 import { Decoration, EditorView, WidgetType, keymap, type Command, type KeyBinding } from '@codemirror/view'
 import { foldEffect, foldState, foldable, foldedRanges, unfoldEffect } from '@codemirror/language'
-import { dataBlocks, isImport } from './language.ts'
+import { dataBlocks, isImport } from './sheetLines.ts'
 import { IMPORT_CALL } from '../lib/syntax.ts'
 
 /** A data block's lines: its import line, then its rows (1-based, inclusive). */

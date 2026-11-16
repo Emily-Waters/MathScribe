@@ -231,8 +231,23 @@ edit reads again only what it changed, and nodes are shared between trees.
       names) find their blocks by walking the tree. Chemistry's readers read its
       own kinds. Output unchanged (every golden test), and as fast: a 3,800-row
       import sheet evaluates in about 50 ms, before and after.
-- [ ] **The editor reads the same tree**: highlighting, folding and indentation
+- [x] **The editor reads the same tree**: highlighting, folding and indentation
       from the tokens, so the editor's own line rules (`language.ts`) go.
+
+      **Resolved (2026-11-15):** reading one line at a time is the tree's own
+      now (`tree/stream.ts`, `stepLine`: a line and the bodies open above it →
+      what it is, its role, and the bodies after it), and `encode` builds the
+      tree from those steps. The editor's highlighting carries the same small
+      state from line to line, reads each line with `stepLine`, and colours its
+      tree tokens (indentation, a heading's `#`s, #commands, note) by kind, with
+      what a line says coloured by its kind (a calculation's numbers, units and
+      names; a block's title; prose; raw LaTeX; imported data's rows). Folding,
+      indentation, imported data's rows and where suggestions stay quiet come
+      from `editor/sheetLines.ts`, the document's lines read in their places
+      (once per version of the document). The editor's own line rules
+      (`lineKind`, `opensText`, the brace counting) are gone; an `if` / `else`
+      in a function's body still folds by indentation, as the tree doesn't hold
+      a function's branches yet.
 - [ ] **Introspection and validation**: a JSON Schema made from the registry,
       for checking a tree from a request; the schema listed for the editor and docs.
 - [ ] **Expressions as tokens**: names, numbers, units, `{species}`, `<…>`, so

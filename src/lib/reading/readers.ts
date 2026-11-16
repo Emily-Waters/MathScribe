@@ -1,12 +1,13 @@
 /**
- * Every kind of line a sheet has, and its reader. A line is offered to them in
- * the order lineReaders gives, and the first that reads it makes its block.
+ * The reader of each kind of node in a sheet's tree (the core's: a module's are
+ * its own). The tree says what each line is, and which lines a block holds.
  */
 import { symbolTex, type FunctionLine } from '../engine/index.ts'
-import { BLOCK_CLOSE, BLOCK_OPEN, CONSTANTS_BLOCK, CONSTANTS_OPENER, DEF, DISPLAY_MODE, EXACT_SETTING, IMPORT, LATEX_BLOCK, LATEX_OPENER, LAYOUT_STYLE, LINE_COMMAND, PROSE_LAYOUTS, SIGIL, closesLatex, indentOf, isComment } from '../syntax.ts'
+import { BLOCK_CLOSE, BLOCK_OPEN, CONSTANTS_BLOCK, DEF, DISPLAY_MODE, EXACT_SETTING, IMPORT, LATEX_BLOCK, LATEX_OPENER, LAYOUT_STYLE, LINE_COMMAND, SIGIL } from '../syntax.ts'
 import { BLOCK_KIND, HEADING_LEVEL, type ConstantsBlock, type GroupBlock, type HeadingLevel, type SectionTitle, type ImportBlock, type LayoutBlock } from '../blocks.ts'
-import { bracesBalance, closesBlock, layoutOpener, openerText, parseConstantDeclaration, readCsv, splitNote, type SplitLine } from './lineSyntax.ts'
-import { BracedReader, LineReader, SheetWideReader, type Line } from './reader.ts'
+import { NODE_KIND } from '../tree/index.ts'
+import { bracesBalance, layoutOpener, openerText, parseConstantDeclaration, readCsv, splitNote, type SplitLine } from './lineSyntax.ts'
+import { NodeReader, SheetWideReader, bodyLines, type Line, type TreeItem } from './reader.ts'
 import type { SheetReader } from './sheetReader.ts'
 
 // ---------------------------------------------------------------------------
@@ -19,7 +20,10 @@ import type { SheetReader } from './sheetReader.ts'
  * before the constants. The first declaration of a constant wins; later ones get
  * a warning. (The line itself is worked out as a calculation, where it's written.)
  */
-class DeclarationsReader extends LineReader {
+class DeclarationsReader extends NodeReader {
+  // (It reads no node: a declaration is worked out as a calculation where it's written.)
+  readonly kinds = []
+
   override prepare(sheet: SheetReader): void {
     sheet.lines.forEach((text, i) => {
       // (Only a line starting with @ can be one; most lines, such as imported data, can be passed over quickly.)
@@ -39,31 +43,30 @@ class DeclarationsReader extends LineReader {
     })
   }
 
-  read(): boolean {
-    return false
-  }
+  read(): void {}
 }
 
 /** Every `@constants { }` block's constants, defined first, so `@name` works anywhere in the sheet, above the block too. */
 class ConstantsReader extends SheetWideReader<ConstantsBlock> {
+  readonly kinds = [NODE_KIND.constants]
+
   override prepare(sheet: SheetReader): void {
-    const { lines, calc } = sheet
-    for (let i = 0; i < lines.length; i++) {
-      const opener = splitNote(lines[i].trim())
-      if (!CONSTANTS_OPENER.test(opener.body)) continue
-      const body = this.body(lines, i)
+    const { calc } = sheet
+    for (const item of sheet.allItems()) {
+      if (item.node.kind !== NODE_KIND.constants) continue
+      const opener = item.line.parts
       const entries: ConstantsBlock['entries'] = []
       /** Precision declarations in the block, shown once all its constants exist. */
       const declarations: number[] = []
-      for (const { index, text } of body.lines) {
+      for (const { number, trimmed: text } of bodyLines(item)) {
         if (!text || text.startsWith('#')) continue
         const entry = splitNote(text)
         if (parseConstantDeclaration(entry.body)) {
           declarations.push(entries.length)
-          entries.push({ line: index + 1, source: entry.body, note: entry.note, tex: '' })
+          entries.push({ line: number, source: entry.body, note: entry.note, tex: '' })
           continue
         }
-        entries.push({ line: index + 1, source: entry.body, note: entry.note, ...calc.defineConstant(entry.body) })
+        entries.push({ line: number, source: entry.body, note: entry.note, ...calc.defineConstant(entry.body) })
       }
       for (const k of declarations) {
         const e = entries[k]
@@ -74,14 +77,11 @@ class ConstantsReader extends SheetWideReader<ConstantsBlock> {
           warning: sheet.duplicateDeclarations.get(e.line) ?? result.warning,
         }
       }
-      this.prepared.set(i, {
-        end: body.end,
-        block: {
-          kind: BLOCK_KIND.constants, line: i + 1, endLine: body.end + 1, note: opener.note, entries, hidden: opener.command === LINE_COMMAND.hide,
-          error: body.closed ? undefined : `The ${SIGIL}${CONSTANTS_BLOCK} block on line ${i + 1} is missing its closing ${BLOCK_CLOSE}.`,
-        },
+      const line = item.line.number
+      this.prepared.set(item, {
+        kind: BLOCK_KIND.constants, line, endLine: item.last + 1, note: opener.note, entries, hidden: opener.command === LINE_COMMAND.hide,
+        error: item.closer ? undefined : `The ${SIGIL}${CONSTANTS_BLOCK} block on line ${line} is missing its closing ${BLOCK_CLOSE}.`,
       })
-      i = body.end
     }
   }
 }
@@ -91,12 +91,12 @@ class ConstantsReader extends SheetWideReader<ConstantsBlock> {
 // ---------------------------------------------------------------------------
 
 /** `# Title`, `## Title`, `### Title`: a heading, numbered as LaTeX numbers sections and subsections. */
-class HeadingReader extends LineReader {
-  read(line: Line, sheet: SheetReader): boolean {
-    const heading = headingOf(line.trimmed)
-    if (!heading) return false
+class HeadingReader extends NodeReader {
+  readonly kinds = [NODE_KIND.heading]
+
+  read({ line }: TreeItem, sheet: SheetReader): void {
+    const heading = headingOf(line.trimmed)!
     addHeading(sheet, line, heading.level, heading.text)
-    return true
   }
 }
 
@@ -130,60 +130,38 @@ function addHeading(sheet: SheetReader, line: Line, level: HeadingLevel, text: s
   sheet.add({ kind: BLOCK_KIND.heading, line: line.number, level, number: headingNumber(sheet, level), ...sheet.withValues(text) })
 }
 
-/**
- * `# Kinematics {` … `}`: a block whose title is a section's (`##`, a
- * subsection's): numbered with the headings, and set as one in its title bar.
- * (Commands and a note go after the `{`, as on any block: `# Kinematics {  #val`.)
- */
-class SectionBlockReader extends LineReader {
-  read(line: Line, sheet: SheetReader): boolean {
-    const heading = headingOf(line.trimmed)
-    if (!heading) return false
-    const parts = splitNote(heading.text)
-    if (!parts.body.endsWith(BLOCK_OPEN)) return false
-    openGroup(sheet, line, parts, { level: heading.level, number: headingNumber(sheet, heading.level) })
-    return true
-  }
-}
-
 /** `> Some prose`: a paragraph. */
-class TextReader extends LineReader {
-  read(line: Line, sheet: SheetReader): boolean {
-    if (!line.trimmed.startsWith('>')) return false
+class TextReader extends NodeReader {
+  readonly kinds = [NODE_KIND.paragraph]
+
+  read({ line }: TreeItem, sheet: SheetReader): void {
     sheet.add({ kind: BLOCK_KIND.text, line: line.number, ...sheet.withValues(line.trimmed.slice(1).trim()) })
-    return true
   }
 }
 
 /** `@latex { … }`: raw LaTeX, up to a `}` on its own line, or all on this one. */
-class LatexReader extends BracedReader {
-  protected closes(raw: string): boolean {
-    return closesLatex(raw)
-  }
+class LatexReader extends NodeReader {
+  readonly kinds = [NODE_KIND.latex, NODE_KIND.latexBlock]
 
-  read(line: Line, sheet: SheetReader): boolean {
-    const opener = LATEX_OPENER.exec(line.trimmed)
-    if (!opener) return false
-    const rest = opener[1].trim()
-    if (rest) {
+  read(item: TreeItem, sheet: SheetReader): void {
+    const { line } = item
+    const rest = LATEX_OPENER.exec(line.trimmed)![1].trim()
+    if (item.node.kind === NODE_KIND.latex) {
       // (Its `}` is the one after the LaTeX's own braces: `\frac{a}{b}` alone isn't closed.)
       const closed = rest.endsWith(BLOCK_CLOSE) && bracesBalance(rest.slice(0, -BLOCK_CLOSE.length))
       sheet.add({
         kind: BLOCK_KIND.latex, line: line.number, latex: closed ? rest.slice(0, -BLOCK_CLOSE.length).trim() : rest,
         error: closed ? undefined : `${SIGIL}${LATEX_BLOCK} on one line ends with its ${BLOCK_CLOSE}: ${SIGIL}${LATEX_BLOCK} ${BLOCK_OPEN} \\frac{a}{b} ${BLOCK_CLOSE}.`,
       })
-      return true
+      return
     }
-    const body = this.body(sheet.lines, line.index)
-    sheet.index = body.end
-    const latex = body.lines.map((l) => l.text).filter(Boolean).join('\n')
+    const latex = bodyLines(item).map((l) => l.trimmed).filter(Boolean).join('\n')
     sheet.add({
-      kind: BLOCK_KIND.latex, line: line.number, endLine: body.end + 1, latex,
-      error: !body.closed ? `The ${SIGIL}${LATEX_BLOCK} block on line ${line.number} is missing its closing ${BLOCK_CLOSE}.`
+      kind: BLOCK_KIND.latex, line: line.number, endLine: item.last + 1, latex,
+      error: !item.closer ? `The ${SIGIL}${LATEX_BLOCK} block on line ${line.number} is missing its closing ${BLOCK_CLOSE}.`
         : !latex ? `The ${SIGIL}${LATEX_BLOCK} block on line ${line.number} is empty: put the LaTeX before its ${BLOCK_CLOSE}.` : undefined,
     })
     sheet.blankRun = 0
-    return true
   }
 }
 
@@ -192,21 +170,18 @@ class LatexReader extends BracedReader {
 // ---------------------------------------------------------------------------
 
 /** `@import("run1.csv")`: the file's rows are every following line indented further. */
-class ImportReader extends LineReader {
-  read(line: Line, sheet: SheetReader): boolean {
+class ImportReader extends NodeReader {
+  readonly kinds = [NODE_KIND.import]
+
+  read(item: TreeItem, sheet: SheetReader): void {
+    const { line } = item
     const { body, note, command } = line.parts
-    const imported = IMPORT.exec(body)
-    if (!imported) return false
-    const { lines } = sheet
-    const rows: string[] = []
-    let endLine = line.number
-    // The rows are the lines straight under it, indented further; a blank line ends them.
-    while (sheet.index + 1 < lines.length && lines[sheet.index + 1].trim() && indentOf(lines[sheet.index + 1]) > line.indent) {
-      sheet.index++
-      sheet.blankRun = 0
-      rows.push(lines[sheet.index].trim())
-      endLine = sheet.index + 1
-    }
+    const imported = IMPORT.exec(body)!
+    // The rows are the lines straight under it, indented further (the tree's: a blank line ends them).
+    const rowLines = item.body.flatMap((b) => b.rows)
+    const rows = rowLines.map((r) => r.trimmed)
+    if (rows.length) sheet.blankRun = 0
+    const endLine = item.last + 1
     const block: ImportBlock = {
       kind: BLOCK_KIND.import, line: line.number, endLine, name: imported[1], file: imported[2], columns: [], rows: 0, note,
       hidden: (command ?? sheet.inheritedCommand) === LINE_COMMAND.hide,
@@ -219,7 +194,6 @@ class ImportReader extends LineReader {
       block.error = `The data from ${imported[2]} is missing: choose the file again.`
     }
     sheet.add(block)
-    return true
   }
 }
 
@@ -227,22 +201,22 @@ class ImportReader extends LineReader {
  * `def f(a, b)`: the function body is every following line indented further.
  * (`def f(x):3:deg`: settings for the result after the parameters; a lone trailing `:` is fine too.)
  */
-class DefReader extends LineReader {
-  read(line: Line, sheet: SheetReader): boolean {
+class DefReader extends NodeReader {
+  readonly kinds = [NODE_KIND.function]
+
+  read(item: TreeItem, sheet: SheetReader): void {
+    const { line } = item
     const { body, note, command, multiline } = line.parts
-    const def = DEF.exec(body)
-    if (!def) return false
-    const { lines } = sheet
+    const def = DEF.exec(body)!
     const bodyLines: FunctionLine[] = []
-    while (sheet.index + 1 < lines.length && (!lines[sheet.index + 1].trim() || indentOf(lines[sheet.index + 1]) > line.indent)) {
-      sheet.index++
-      const text = lines[sheet.index].trim()
-      if (isComment(text)) continue
+    for (const b of item.body) {
+      if (b.node.kind === NODE_KIND.comment) continue
+      const text = b.line.trimmed
       // Blank lines at the end of the body count toward the gap after the function.
       sheet.blankRun = text ? 0 : sheet.blankRun + 1
       if (!text || text.startsWith('#')) continue // blank lines and comments
       const split = splitNote(text)
-      bodyLines.push({ line: sheet.index + 1, text: split.body, note: split.note, command: split.command, multiline: split.multiline, indent: indentOf(lines[sheet.index]) })
+      bodyLines.push({ line: b.line.number, text: split.body, note: split.note, command: split.command, multiline: split.multiline, indent: b.line.indent })
     }
     const params = def[2].split(',').map((p) => p.trim()).filter(Boolean)
     // Parameters (`m`, or `m to kg`) are checked by defineFunction.
@@ -253,7 +227,6 @@ class DefReader extends LineReader {
       kind: BLOCK_KIND.function, line: line.number, endLine: bodyLines.at(-1)?.line ?? line.number, name: def[1], note,
       hidden: (command ?? sheet.inheritedCommand) === LINE_COMMAND.hide, ...result,
     })
-    return true
   }
 }
 
@@ -261,24 +234,12 @@ class DefReader extends LineReader {
 // Braced blocks: opened with `{`, closed by `}`
 // ---------------------------------------------------------------------------
 
-/** `}`: closes the innermost open block (and any sub-lists in it). */
-class CloseReader extends LineReader {
-  read(line: Line, sheet: SheetReader): boolean {
-    const { body } = line.parts
-    if (body !== BLOCK_CLOSE) return false
-    // Sub-lists inside the block end with it; then the block itself, a `{ }` group or an `@layout.list { }`.
-    while (sheet.inSubList()) sheet.closeLayout()
-    const block = sheet.open.at(-1)
-    if (block?.kind === BLOCK_KIND.layout) {
-      sheet.closeLayout(line.number)
-    } else if (block) {
-      sheet.open.pop()
-      block.locals = sheet.calc.popScope()
-      block.endLine = line.number
-    } else {
-      sheet.add({ kind: BLOCK_KIND.calc, line: line.number, source: body, tex: '', error: `Unmatched ${BLOCK_CLOSE}: no block is open here.` })
-    }
-    return true
+/** `}` with no block open (a block's own `}` is read with the block: see SheetReader.closeAt). */
+class CloseReader extends NodeReader {
+  readonly kinds = [NODE_KIND.blockCloser]
+
+  read({ line }: TreeItem, sheet: SheetReader): void {
+    sheet.add({ kind: BLOCK_KIND.calc, line: line.number, source: line.parts.body, tex: '', error: `Unmatched ${BLOCK_CLOSE}: no block is open here.` })
   }
 }
 
@@ -289,16 +250,14 @@ class CloseReader extends LineReader {
  * its own, a blank line leaves a gap, and the first line is the title (unless
  * the opener has one).
  */
-class ProseLayoutReader extends BracedReader {
-  protected closes(raw: string): boolean {
-    return closesBlock(raw)
-  }
+class ProseLayoutReader extends NodeReader {
+  readonly kinds = [NODE_KIND.prose]
 
-  read(line: Line, sheet: SheetReader): boolean {
+  read(item: TreeItem, sheet: SheetReader): void {
+    const { line } = item
     const { body: opened, note, command } = line.parts
-    const opener = layoutOpener(opened)
-    if (!opener?.style || !PROSE_LAYOUTS.has(opener.style)) return false
-    const style = opener.style
+    const opener = layoutOpener(opened)!
+    const style = opener.style!
     const titlePage = style === LAYOUT_STYLE.titlepage
     const block: LayoutBlock = {
       kind: BLOCK_KIND.layout, line: line.number, title: '', note, style, members: opener.members, children: [], indent: line.indent,
@@ -313,15 +272,14 @@ class ProseLayoutReader extends BracedReader {
       if (paragraph) block.children.push({ kind: BLOCK_KIND.text, line: paragraph.line, ...sheet.withValues(paragraph.text.join(' ')) })
       paragraph = null
     }
-    const body = this.body(sheet.lines, line.index)
-    for (const { index, text } of body.lines) {
+    for (const { number, trimmed: text } of bodyLines(item)) {
       if (!text) {
         endParagraph()
         gap = block.children.length > 0
         continue
       }
       if (!titlePage) {
-        paragraph ??= { line: index + 1, text: [] }
+        paragraph ??= { line: number, text: [] }
         paragraph.text.push(text)
         continue
       }
@@ -329,23 +287,21 @@ class ProseLayoutReader extends BracedReader {
         titleSource = text
         continue
       }
-      if (gap) block.children.push({ kind: BLOCK_KIND.spacer, line: index + 1 })
+      if (gap) block.children.push({ kind: BLOCK_KIND.spacer, line: number })
       gap = false
-      block.children.push({ kind: BLOCK_KIND.text, line: index + 1, ...sheet.withValues(text) })
+      block.children.push({ kind: BLOCK_KIND.text, line: number, ...sheet.withValues(text) })
     }
     endParagraph()
-    sheet.index = body.end
     const title = sheet.withValues(titleSource)
     block.title = title.text
     block.error = title.error
     sheet.blankRun = 0
-    block.endLine = body.end + 1
-    if (!body.closed) block.error = `${openerText(block)} is missing its closing ${BLOCK_CLOSE}.`
+    block.endLine = item.last + 1
+    if (!item.closer) block.error = `${openerText(block)} is missing its closing ${BLOCK_CLOSE}.`
     else if (!block.children.length && !(titlePage && block.title)) {
       block.error = `${openerText(block)} is empty: put the text that belongs to it before its ${BLOCK_CLOSE}.`
     }
     sheet.add(block)
-    return true
   }
 }
 
@@ -354,11 +310,13 @@ class ProseLayoutReader extends BracedReader {
  * laid out together, shown as its members say (and stay in scope after it).
  * Its members' settings win over the #commands on its opener.
  */
-class LayoutReader extends LineReader {
-  read(line: Line, sheet: SheetReader): boolean {
+class LayoutReader extends NodeReader {
+  readonly kinds = [NODE_KIND.layout]
+
+  read(item: TreeItem, sheet: SheetReader): void {
+    const { line } = item
     const { body, note, command, multiline, notation } = line.parts
-    const opener = layoutOpener(body)
-    if (!opener) return false
+    const opener = layoutOpener(body)!
     const title = sheet.withValues(opener.title)
     const block: LayoutBlock = {
       kind: BLOCK_KIND.layout, line: line.number, title: title.text, note, style: opener.style, members: opener.members, children: [], indent: line.indent,
@@ -370,17 +328,32 @@ class LayoutReader extends LineReader {
     }
     sheet.add(block)
     sheet.open.push(block)
-    return true
+    readBody(item, sheet)
   }
 }
 
-/** `Title {`: a block whose variables are its own, gone after its `}`. */
-class GroupReader extends LineReader {
-  read(line: Line, sheet: SheetReader): boolean {
-    if (!line.parts.body.endsWith(BLOCK_OPEN)) return false
-    openGroup(sheet, line, line.parts)
-    return true
+/**
+ * `Title {`: a block whose variables are its own, gone after its `}`. Its title
+ * can be a section's (`# Kinematics {`, `##` a subsection's): numbered with the
+ * headings, and set as one in its title bar. (Commands and a note go after the
+ * `{`, as on any block: `# Kinematics {  #val`.)
+ */
+class GroupReader extends NodeReader {
+  readonly kinds = [NODE_KIND.block]
+
+  read(item: TreeItem, sheet: SheetReader): void {
+    const { line } = item
+    const heading = headingOf(line.trimmed)
+    if (heading) openGroup(sheet, line, splitNote(heading.text), { level: heading.level, number: headingNumber(sheet, heading.level) })
+    else openGroup(sheet, line, line.parts)
+    readBody(item, sheet)
   }
+}
+
+/** A `{ }` or `@layout` block's lines, read in it, then its `}` (left open, to the end of the sheet, if it has none). */
+function readBody(item: TreeItem, sheet: SheetReader): void {
+  sheet.readItems(item.body)
+  if (item.closer) sheet.closeAt(item.closer)
 }
 
 /** Open a `{ }` block from its opener's parts (its body is its title and the `{`), titled as a section or not. */
@@ -406,8 +379,10 @@ function openGroup(sheet: SheetReader, line: Line, parts: SplitLine, section?: S
 // ---------------------------------------------------------------------------
 
 /** `m = 2.0 kg  # note`: a calculation, shown as its #commands (or the blocks around it) say. */
-class CalcReader extends LineReader {
-  read(line: Line, sheet: SheetReader): boolean {
+class CalcReader extends NodeReader {
+  readonly kinds = [NODE_KIND.calc]
+
+  read({ line }: TreeItem, sheet: SheetReader): void {
     const { body, note, command, multiline, notation, layout } = line.parts
     // A line's own command wins; otherwise the nearest enclosing block's.
     const inherited = sheet.inheritedCommand
@@ -428,20 +403,17 @@ class CalcReader extends LineReader {
       info: result.info ?? (result.error ? undefined : sheet.declarationInfo(body, line.number)),
       warning: sheet.duplicateDeclarations.get(line.number) ?? result.warning,
     })
-    return true
   }
 }
 
 /**
- * The readers, fresh for a sheet (the sheet-wide ones keep what they read), in
- * the order a line is offered to them: the first that reads it makes its block.
- * (Their `prepare`s run in this order too: species' names, then declarations,
- * then the constants that may use both.)
+ * The core's readers, fresh for a sheet (the sheet-wide ones keep what they
+ * read), one for each kind of node. Their `prepare`s run in this order, after
+ * the modules' (species' names): declarations, then the constants that may use both.
  */
-export const lineReaders = (): LineReader[] => [
+export const lineReaders = (): NodeReader[] => [
   new DeclarationsReader(),
   new ConstantsReader(),
-  new SectionBlockReader(),
   new HeadingReader(),
   new TextReader(),
   new LatexReader(),

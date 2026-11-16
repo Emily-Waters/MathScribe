@@ -19,7 +19,7 @@ import { chemNamespace } from './namespace.ts'
 import { CHEM_GRAMMAR } from './grammar.ts'
 import { ReactionForm } from './reaction.ts'
 import { ReactionLineReader, SpeciesReader } from './readers.ts'
-import type { LineReader, ReadsLines } from '../../../reading/reader.ts'
+import type { NodeReader, ReadsLines } from '../../../reading/reader.ts'
 import { ANY_SPECIES_FUNCTION, SPECIES_DISPLAYS, SPECIES_FUNCTION, type SpeciesDisplay } from './syntax.ts'
 
 /** Whether a setting on an assigned name says how its line's named species are shown (`m:formula`). */
@@ -33,7 +33,7 @@ export class ChemistryModule extends EngineModule implements ReadsLines {
   override readonly lineForms: readonly LineForm[] = [new ReactionForm(this.names)]
 
   /** Its lines of a sheet: species' names, and a reaction on a line of its own (see ReadsLines). */
-  lineReaders(): LineReader[] {
+  lineReaders(): NodeReader[] {
     return [new SpeciesReader(this.names), new ReactionLineReader(this.names)]
   }
 

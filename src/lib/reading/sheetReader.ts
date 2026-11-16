@@ -1,15 +1,16 @@
 /**
- * Reading a sheet: its lines, one at a time, each offered to the readers in turn
- * (readers.ts), into blocks; and what the readers share while it's read: the
- * Calculator, the blocks open around the line, the blank lines before it, and
- * the section numbers so far.
+ * Reading a sheet: its tree (src/lib/tree), node by node, each read by the
+ * reader of its kind (readers.ts), into blocks; and what the readers share while
+ * it's read: the Calculator, the blocks open around the line, the blank lines
+ * before it, and the section numbers so far.
  */
 import { Calculator, markupText, outsideMaths, sheetModules, type CalcOptions } from '../engine/index.ts'
 import type { VariableSummary } from '../values.ts'
-import { BLOCK_CLOSE, EXACT_SETTING, LAYOUT_STYLE, LINE_COMMAND, SIGIL, VALUE_IN_TEXT, isComment, type Notation } from '../syntax.ts'
+import { BLOCK_CLOSE, EXACT_SETTING, LAYOUT_STYLE, LINE_COMMAND, SIGIL, VALUE_IN_TEXT, type Notation } from '../syntax.ts'
 import { BLOCK_KIND, type Block, type Command, type GroupBlock, type LayoutBlock } from '../blocks.ts'
+import { NODE_KIND, TOKEN_KIND, encode, isToken, splitLines, type SyntaxNode } from '../tree/index.ts'
 import { closesBlock, openerText, parseConstantDeclaration } from './lineSyntax.ts'
-import { Line, readsLines, type LineReader } from './reader.ts'
+import { Line, readsLines, type NodeReader, type TreeItem } from './reader.ts'
 import { lineReaders } from './readers.ts'
 
 /** A whole sheet, evaluated: its blocks, and the variables it ends with. */
@@ -22,14 +23,15 @@ export interface Sheet {
 export type OpenBlock = GroupBlock | LayoutBlock
 
 export class SheetReader {
+  /** The sheet's lines, as written (without what ends each). */
   readonly lines: readonly string[]
+  /** The sheet's tree, as items: where each node is (its lines), at the top. */
+  readonly items: readonly TreeItem[]
   readonly calc: Calculator
   /** The sheet's blocks at the top. */
   readonly root: Block[] = []
   /** Blocks currently open, innermost last: `{ }` groups, `@layout.list { }` layout blocks, and the sub-lists indented inside lists. */
   readonly open: OpenBlock[] = []
-  /** The index of the line being read; a reader that takes the lines after it moves this to its last. */
-  index = 0
   /** Consecutive blank lines just before the line being read. */
   blankRun = 0
   /** Sections and subsections so far, as LaTeX numbers them. */
@@ -39,21 +41,30 @@ export class SheetReader {
   readonly declaredAt = new Map<string, number>()
   /** Lines declaring a constant that's declared already, with the warning each gets. */
   readonly duplicateDeclarations = new Map<number, string>()
-  /** The readers each line is offered to: the modules' first (chemistry's `@chem.species { }`), then MathScribe's own. */
-  private readonly readers: readonly LineReader[]
+  /** The readers: the modules' first (chemistry's `@chem.species { }`), then MathScribe's own. */
+  private readonly readers: readonly NodeReader[]
+  /** The reader of each kind of node. */
+  private readonly readerOf = new Map<string, NodeReader>()
 
   constructor(source: string, options: CalcOptions) {
-    this.lines = source.split(/\r?\n/)
+    this.lines = splitLines(source).map((l) => l.text)
+    this.items = itemsOf(encode(source).body, { at: 0 })
     const modules = sheetModules()
     this.calc = new Calculator(options, modules)
     this.readers = [...modules.filter(readsLines).flatMap((m) => m.lineReaders()), ...lineReaders()]
+    for (const reader of this.readers) {
+      for (const kind of reader.kinds) {
+        if (this.readerOf.has(kind)) throw new Error(`Two readers read "${kind}" nodes.`)
+        this.readerOf.set(kind, reader)
+      }
+    }
   }
 
-  /** Read and evaluate the whole sheet, line by line, into blocks. */
+  /** Read and evaluate the whole sheet, node by node, into blocks. */
   read(): Sheet {
     // What applies to the whole sheet, above where it's written too, first.
     for (const r of this.readers) r.prepare(this)
-    for (this.index = 0; this.index < this.lines.length; this.index++) this.readLine(new Line(this.index, this.lines[this.index]))
+    this.readItems(this.items)
     this.closeAll()
     // The variables are listed when first asked for (for hover information): with
     // imported data there can be thousands, and most edits never need them. (Not
@@ -64,13 +75,34 @@ export class SheetReader {
     }) as Sheet
   }
 
-  private readLine(line: Line): void {
-    if (!line.trimmed) {
+  /** Nodes read in order (a block's body, or the sheet's top), each by its kind's reader. */
+  readItems(items: readonly TreeItem[]): void {
+    for (const item of items) this.readItem(item)
+  }
+
+  /** Every item, at any depth, in the order they're written (for what's read before the rest). */
+  *allItems(items: readonly TreeItem[] = this.items): Generator<TreeItem> {
+    for (const item of items) {
+      yield item
+      yield* this.allItems(item.body)
+    }
+  }
+
+  private readItem(item: TreeItem): void {
+    const { line } = item
+    if (item.node.kind === NODE_KIND.blank) {
       this.blankRun++
       return
     }
     // A comment is as if it weren't there: it doesn't end a block, or break up blank lines.
-    if (isComment(line.trimmed)) return
+    if (item.node.kind === NODE_KIND.comment) return
+    this.beforeLine(line)
+    // (A kind with no reader, which the sheet's grammar doesn't put here, is read as a calculation.)
+    ;(this.readerOf.get(item.node.kind) ?? this.readerOf.get(NODE_KIND.calc)!).read(item, this)
+  }
+
+  /** Before a line that's read (not blank, not a comment): sub-lists that end or start at it, and the gap blank lines before it leave. */
+  private beforeLine(line: Line): void {
     // A sub-list ends at the first line indented no further than the items it's under.
     while (this.inSubList() && line.indent <= (this.open.at(-1) as LayoutBlock).indent) this.closeLayout()
     // In a list, a line indented further than the items starts a sub-list.
@@ -94,8 +126,23 @@ export class SheetReader {
     const inList = parent?.kind === BLOCK_KIND.layout && isList(parent)
     if (this.blankRun >= 2 && container.length && !closesBlock(line.trimmed) && !inList) this.add({ kind: BLOCK_KIND.spacer, line: line.number })
     this.blankRun = 0
+  }
 
-    for (const r of this.readers) if (r.read(line, this)) return
+  /**
+   * A block's closing line, `}`: it ends the innermost open block (and any
+   * sub-lists in it), a `{ }` group or an `@layout.list { }`.
+   */
+  closeAt(closer: Line): void {
+    this.beforeLine(closer)
+    while (this.inSubList()) this.closeLayout()
+    const block = this.open.at(-1)
+    if (block?.kind === BLOCK_KIND.layout) {
+      this.closeLayout(closer.number)
+    } else if (block) {
+      this.open.pop()
+      block.locals = this.calc.popScope()
+      block.endLine = closer.number
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -187,6 +234,42 @@ export class SheetReader {
       block.error = `Block opened on line ${block.line} is missing its closing ${BLOCK_CLOSE}.`
     }
   }
+}
+
+/** A line node's text, as written, without what ends it. */
+const rawOf = (node: SyntaxNode): string =>
+  node.parts.map((p) => (isToken(p) && p.t !== TOKEN_KIND.eol ? p.text : '')).join('')
+
+/** A node kept as rows (imported data's): each row, as written. */
+function rowsOf(node: SyntaxNode): string[] {
+  const text = node.parts.map((p) => (isToken(p) ? p.text : '')).join('')
+  const rows = splitLines(text).map((l) => l.text)
+  // (Its last row's line ending is its own: nothing comes after it.)
+  if (rows.length > 1 && rows.at(-1) === '') rows.pop()
+  return rows
+}
+
+/** Nodes as items, where each is in the sheet: `cursor.at` is the index of the next line, moved on past theirs. */
+function itemsOf(nodes: readonly SyntaxNode[], cursor: { at: number }): TreeItem[] {
+  return nodes.map((node): TreeItem => {
+    const children = node.parts.filter((p): p is SyntaxNode => !isToken(p))
+    // A line.
+    if (!children.length) {
+      if (node.parts.some((p) => isToken(p) && p.t === TOKEN_KIND.rows)) {
+        const rows = rowsOf(node).map((text) => new Line(cursor.at++, text))
+        return { node, line: rows[0], body: [], rows, last: cursor.at - 1 }
+      }
+      const line = new Line(cursor.at++, rawOf(node))
+      return { node, line, body: [], rows: [], last: line.index }
+    }
+    // A block: its opener, its body, and its closing line if its last part is one.
+    const [opener, ...rest] = children
+    const closerNode = rest.at(-1)?.kind === NODE_KIND.blockCloser ? rest.pop() : undefined
+    const line = new Line(cursor.at++, rawOf(opener))
+    const body = itemsOf(rest, cursor)
+    const closer = closerNode ? new Line(cursor.at++, rawOf(closerNode)) : undefined
+    return { node, line, body, closer, rows: [], last: cursor.at - 1 }
+  })
 }
 
 /** A block's last line: where it ends, or the line it's on. */

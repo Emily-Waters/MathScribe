@@ -1507,16 +1507,16 @@ renamed, change it there too.
   lines read into nodes, cached by text and context; `codec.ts`: the tree, with
   blocks as nodes holding their lines; `check.ts`: checking a tree from elsewhere; `migrations.ts`: the
   schema's version, and bringing an older tree up to date
-- `src/lib/reading/`: reading a sheet into blocks. `sheetReader.ts`: the
-  `SheetReader`, which offers each line to the readers in turn and holds what
-  they share (the Calculator, the open blocks, blank lines, section numbers);
-  `readers.ts`: one `LineReader` class per kind of line (a heading, `@latex { }`,
-  `def`, a layout block, a calculation, …), with `BracedReader` the base of
-  blocks closed by `}`, and the sheet-wide ones (`@constants`, `@c:4`
-  declarations) read before everything else. A module with lines of its own
-  (`ReadsLines`: chemistry's `@chem.species { }`) adds readers, offered each
-  line first; `lineSyntax.ts`: a line's
-  #commands and note, and layout openers
+- `src/lib/reading/`: reading a sheet's tree (`src/lib/tree`) into blocks.
+  `sheetReader.ts`: the `SheetReader`, which reads each node of the tree with
+  the reader of its kind and holds what readers share (the Calculator, the open
+  blocks, blank lines, section numbers); `reader.ts`: `NodeReader` (one per kind
+  of node) and `TreeItem` (a node, where its lines are: a block's opener, body
+  and `}`); `readers.ts`: the core's readers (a heading, `@latex { }`, `def`, a
+  layout block, a calculation, …), with the sheet-wide ones (`@constants`,
+  `@c:4` declarations) read before everything else. A module with kinds of node
+  of its own (`ReadsLines`: chemistry's `@chem.species { }`) adds their readers;
+  `lineSyntax.ts`: a line's #commands and note, and layout openers
 - `src/lib/constructs/`: one class per kind of block (a heading, a calculation,
   an `@layout` block, …) that writes its blocks to each export; `layout.ts` has a
   class per layout. The exports ask each block's construct to write it, and the

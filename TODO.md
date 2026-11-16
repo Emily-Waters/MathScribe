@@ -199,7 +199,7 @@ edit reads again only what it changed, and nodes are shared between trees.
       sheet (4,000 rows of imported data): 3.6 ms to encode cold, 1.4 ms after an
       edit, 0.4 ms to decode; its JSON is about 5 times the text (it compresses
       well, and imported data will become one node).
-- [ ] **Line parsers**: reading splits in two, text → tree, then tree → blocks.
+- [x] **Line parsers**: reading splits in two, text → tree, then tree → blocks.
       Each line reader's matching becomes a parser that gives a node of its kind
       (assignment, heading, block opener and closer, …), with contexts for what a
       line is inside (prose, raw LaTeX, imported data, a function's body); the
@@ -219,6 +219,18 @@ edit reads again only what it changed, and nodes are shared between trees.
       indentation does (a function's body, imported data, whose rows are one
       node). Still to do: the reading layer reads blocks from the tree rather than
       from the text.
+
+      **Resolved (2026-11-15), the second half: tree → blocks.** The
+      `SheetReader` encodes the sheet, turns its tree into items (each node with
+      its line numbers: a block's opener, body and `}`), and reads each with the
+      reader of its kind (`NodeReader.kinds`; two readers for one kind is an
+      error). Block readers take their lines from their node instead of looking
+      ahead through the text (`BracedReader` and moving the sheet's place along
+      are gone); a `{ }` or `@layout` block reads its body, then its `}`
+      (`SheetReader.closeAt`); the sheet-wide readers (`@constants`, species'
+      names) find their blocks by walking the tree. Chemistry's readers read its
+      own kinds. Output unchanged (every golden test), and as fast: a 3,800-row
+      import sheet evaluates in about 50 ms, before and after.
 - [ ] **The editor reads the same tree**: highlighting, folding and indentation
       from the tokens, so the editor's own line rules (`language.ts`) go.
 - [ ] **Introspection and validation**: a JSON Schema made from the registry,

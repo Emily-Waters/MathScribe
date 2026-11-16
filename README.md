@@ -1498,6 +1498,13 @@ renamed, change it there too.
   answer back; `src/components/CreateDialog.tsx`: the dialog
 - `src/lib/document.ts`: evaluating a sheet, diagnostics, definitions and
   symbols for the editor
+- `src/lib/tree/`: a sheet as a tree of nodes, every character in a token, so
+  text → tree → text gives back the text exactly (`encode`, `decode`), through
+  JSON too. `nodes.ts`: the shapes (`Token`, `SyntaxNode`, `SheetTree`) and the
+  core's kinds; `registry.ts`: every kind of node and token, declared once by the
+  core or a module; `lines.ts`: lines read into nodes, cached by text and
+  context; `check.ts`: checking a tree from elsewhere; `migrations.ts`: the
+  schema's version, and bringing an older tree up to date
 - `src/lib/reading/`: reading a sheet into blocks. `sheetReader.ts`: the
   `SheetReader`, which offers each line to the readers in turn and holds what
   they share (the Calculator, the open blocks, blank lines, section numbers);

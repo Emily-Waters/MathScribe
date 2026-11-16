@@ -169,6 +169,51 @@ what's here better.
       sheets and the golden tests first, and decide on the rules before changing
       them.
 
+## 8. The sheet's schema: a tree of nodes
+
+One structure for what a sheet says, shared by the engine, the editor and every
+module (as GraphQL's schema is by its services): a sheet as a tree of nodes,
+every character in a token, so text → tree → text gives back the text exactly.
+Plain data, so it goes through JSON (and an HTTP request) unchanged; its kinds
+declared once, the core's and each module's; versioned, with migrations.
+Built for caching: a line's node depends only on its text and context, so an
+edit reads again only what it changed, and nodes are shared between trees.
+
+- [x] **Foundations**: the tree's shapes (`Token`, `SyntaxNode`, `SheetTree`),
+      a registry of kinds that modules declare into, encode and decode, and a test
+      that every sheet (and any text) round-trips exactly, through JSON too.
+
+      **Resolved (2026-11-15):** `src/lib/tree/`. `encode` splits the text into
+      lines (each keeps its own ending: `\n`, `\r\n`, `\r`, or none) and reads
+      each into a frozen node (indent, content, trailing spaces, ending as
+      tokens); for now a line is `blank`, `comment`, or `line` (content not read
+      into parts yet). `decode` joins the tokens back. Lines are cached by
+      context and text (least recently used dropped past 20,000), so an unchanged
+      line is the same node in the next tree, and a node's text is kept by the
+      node (a WeakMap). Kinds are declared in `registry.ts` with what each is and
+      whose (a clash between owners is an error); `check.ts` checks a tree from
+      elsewhere (its shape, its kinds declared); `migrations.ts` has the schema's
+      version (`mathscribe/1`) and the place for migrations. The test
+      round-trips the sample, every Reference and Library example, every file in
+      the repository and 500 random texts, each through JSON too. A 4,070-line
+      sheet (4,000 rows of imported data): 3.6 ms to encode cold, 1.4 ms after an
+      edit, 0.4 ms to decode; its JSON is about 5 times the text (it compresses
+      well, and imported data will become one node).
+- [ ] **Line parsers**: reading splits in two, text → tree, then tree → blocks.
+      Each line reader's matching becomes a parser that gives a node of its kind
+      (assignment, heading, block opener and closer, …), with contexts for what a
+      line is inside (prose, raw LaTeX, imported data, a function's body); the
+      modules' readers give their own kinds (chemistry's species block and
+      reaction line). Blocks become nodes that hold their lines. Imported data is
+      one node, not a token per cell.
+- [ ] **The editor reads the same tree**: highlighting, folding and indentation
+      from the tokens, so the editor's own line rules (`language.ts`) go.
+- [ ] **Introspection and validation**: a JSON Schema made from the registry,
+      for checking a tree from a request; the schema listed for the editor and docs.
+- [ ] **Expressions as tokens**: names, numbers, units, `{species}`, `<…>`, so
+      the modules' text-rewriting hooks (`expandSyntax`, `readAfterUnit`) become
+      kinds of token they declare.
+
 ## Done
 
 - [x] **The `@` namespace**: `@layout` blocks (`@layout.text Title { … }`, and

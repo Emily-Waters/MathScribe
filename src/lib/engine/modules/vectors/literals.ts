@@ -1,7 +1,11 @@
-/** Vectors typed `<3.0, 4.0> N`: where one opens and closes, and as mathjs reads it, `vector(3.0, 4.0) * N`. */
+/** Vectors typed `<3.0, 4.0> N`: where one opens and closes, and as mathjs reads it, VECTOR_FUNCTION(3.0, 4.0) * N. */
 import { FN } from '../../../mathjsNames.ts'
+import { builtinOpening } from '../../../syntax.ts'
 import { readUnit } from '../../core/literals.ts'
-import { VECTOR_FUNCTION } from './syntax.ts'
+import { VECTOR_CALL, VECTOR_FUNCTION } from './syntax.ts'
+
+/** `@vector(` in some text. */
+const VECTOR_CALL_OPENING = new RegExp(builtinOpening(VECTOR_CALL))
 
 /** Characters after which a `<` opens a vector rather than comparing: the start, `=`, `(`, `[`, `,`, an operator. */
 export const VECTOR_OPENS_AFTER = /(?:^|[=([,+\-*/^<]|\breturn)\s*$/
@@ -31,7 +35,7 @@ export function vectorEnd(src: string, start: number): number {
 }
 
 /**
- * `<3.0, 4.0> N` → `(vector(3.0, 4.0) * N)`. A unit right after the `>` applies
+ * `<3.0, 4.0> N` → `(VECTOR_FUNCTION(3.0, 4.0) * N)`. A unit right after the `>` applies
  * to every component; other `<` and `>` (comparisons) are left alone.
  */
 export function expandVectors(src: string): string {
@@ -59,6 +63,5 @@ export function closesVector(src: string, end: number): boolean {
   return false
 }
 
-/** Whether some text has a vector written `<…>` or `vector(…)` in it. */
-export const hasVector = (src: string) =>
-  expandVectors(src) !== src || new RegExp(`\\b${VECTOR_FUNCTION}\\s*\\(`).test(src)
+/** Whether some text has a vector written `<…>` or `@vector(…)` in it. */
+export const hasVector = (src: string) => expandVectors(src) !== src || VECTOR_CALL_OPENING.test(src)

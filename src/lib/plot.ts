@@ -1,5 +1,5 @@
 /**
- * Plots: `plot(t, x)` draws x against t, one point per row of the series.
+ * Plots: `@plot(t, x)` draws x against t, one point per row of the series.
  * This module has what a plot is (the engine works out its data; see
  * evaluatePlot), the linear fit, and drawing it as SVG. The same drawing is
  * shown in the output, in the app's colours, and exported as an image, in

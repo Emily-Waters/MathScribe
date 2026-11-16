@@ -66,7 +66,7 @@ describe('uncertainty columns', () => {
 
   it('show as error bars on a plot', () => {
     const src = data('t (s), x (m), dx (m)', '0.10, 0.051, 0.004', '0.20, 0.098, 0.006')
-    const plot = lines(`${src}plot(t, x)`).at(-1)!.plot!
+    const plot = lines(`${src}@plot(t, x)`).at(-1)!.plot!
     expect(plot.series[0].points.map((p) => p.dy)).toEqual([0.004, 0.006])
   })
 })

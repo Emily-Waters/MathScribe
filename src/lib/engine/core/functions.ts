@@ -4,7 +4,7 @@ import { type LineCommand, type Notation } from '../../syntax.ts'
 import type { TupleLook } from './module.ts'
 import { type Variables } from './scope.ts'
 
-/** Each kind of line in a function's body: `x = …`, `tuple(a, b) = …`, `return …`. */
+/** Each kind of line in a function's body: `x = …`, `@tuple(a, b) = …`, `return …`. */
 export const STATEMENT_KIND = { assign: 'assign', unpack: 'unpack', return: 'return', branch: 'branch' } as const
 
 /**

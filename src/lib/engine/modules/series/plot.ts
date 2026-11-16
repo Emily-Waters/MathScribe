@@ -1,14 +1,14 @@
 /**
- * `plot(t, x, y)`: series plotted against the first one, a point per row
- * (columns as in table(), so `plot(t, v = x / t)` works too). Values are
+ * `@plot(t, x, y)`: series plotted against the first one, a point per row
+ * (columns as in @table(), so `@plot(t, v = x / t)` works too). Values are
  * converted to one unit per axis; uncertainties become error bars. With `fit
  * linear` in the settings, each series gets a best-fit line, and its slope
  * and intercept (with their uncertainties) become variables: x_slope,
- * x_intercept. The line's text is the fits' equations. `p = plot(…)` names it:
+ * x_intercept. The line's text is the fits' equations. `p = @plot(…)` names it:
  * p.t and p.x are the rows it draws, and p.slope its fit's.
  */
 import type { Unit } from 'mathjs'
-import { PLOT_CALL, SUBSCRIPT } from '../../../syntax.ts'
+import { SUBSCRIPT } from '../../../syntax.ts'
 import { FIT, JOIN, RESERVED_NAMESPACES, memberName, parseMemberName } from '../../../names.ts'
 import { EXACT } from '../../../sigfigs.ts'
 import { splitCallArgs } from '../../../tableSettings.ts'
@@ -21,6 +21,7 @@ import { magnitudeOf, normalise } from '../../core/normalise.ts'
 import { seriesDefinitions, type Definition, type LineResult } from '../../core/results.ts'
 import { symbolTex } from '../../core/tex.ts'
 import { rowErrors, seriesColumns, type SeriesColumn } from './columns.ts'
+import { PLOT_CALL } from './syntax.ts'
 
 /** The digits a fit's R² is shown to, and its reduced χ²'s sig figs. */
 const FIT_DIGITS = { r2: 4, chi2: 2 } as const
@@ -84,7 +85,7 @@ export class PlotForm extends LineForm {
     const { settings, error: settingsError } = parsePlotSettings(parts.settings)
     if (settingsError) return { tex: '', error: settingsError }
     const args = splitArgs(parts.columns).map((a) => a.trim()).filter(Boolean)
-    if (args.length < 2) return { tex: '', error: 'Give the x series, then what to plot against it: plot(t, x), or plot(t, x, y).' }
+    if (args.length < 2) return { tex: '', error: 'Give the x series, then what to plot against it: @plot(t, x), or @plot(t, x, y).' }
     const made = seriesColumns(host, args, 'plot it')
     if ('error' in made) return { tex: '', error: made.error }
     const { columns, errors, hidden } = made

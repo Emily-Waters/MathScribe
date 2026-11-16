@@ -235,8 +235,8 @@ block's first line to hide it. The dialog remembers your last choices.
 | `N:sci = …`, `L:dec = …` | always scientific notation, or always plain digits |
 | `F = <3.0, 4.0> N` | a vector |
 | `F:ijk = …`, `F:xyz = …` | a vector with unit vectors, or broken into components F_x, F_y |
-| `r = tuple(x, y, z)` | a tuple, such as coordinates |
-| `tuple(a, b, c) = r` | unpack a tuple into variables |
+| `r = @tuple(x, y, z)` | a tuple, such as coordinates |
+| `@tuple(a, b, c) = r` | unpack a tuple into variables |
 | `x = 3  # note` | text after `#` becomes the line's description |
 | `x = 3  #val` | a display command (see below) |
 | `# Title` | `\section{Title}`, numbered 1, 2, … |
@@ -256,12 +256,15 @@ block's first line to hide it. The dialog remembers your last choices.
 | `@chem.mm.Na`, `@chem.mm({H2O})` | an element's molar mass, and a compound's |
 
 **`@` is MathScribe's own:** everything built in rather than written in the sheet
-starts with `@`: constants (`@c`), the `@constants { }` block, and namespaces,
-whose members are written with a dot: `@layout` holds the layout blocks
-(`@layout.text`, `@layout.list`, `@layout.numbered`, `@layout.center`,
-`@layout.titlepage`) and `@chem` the chemistry (`@chem.mm.Na`, `@chem.mm(…)`). Your
-own constants are `@name` too, so they can't be called `layout`, `chem` or
-`constants`.
+starts with `@`: constants (`@c`), the `@constants { }` block, MathScribe's own
+functions (`@tuple(…)`, `@vector(…)`, `@table(…)`, `@plot(…)`, `@select(…)`,
+`@solve(…)`), and namespaces, whose members are written with a dot: `@layout`
+holds the layout blocks (`@layout.text`, `@layout.list`, `@layout.numbered`,
+`@layout.center`, `@layout.titlepage`) and `@chem` the chemistry (`@chem.mm.Na`,
+`@chem.mm(…)`). mathjs's maths isn't (`sin`, `sqrt`, `norm`, `dot`, `cross`), and
+the names of MathScribe's functions are free for your own (`tuple(a, b) = …`
+defines a function of yours). Your own constants are `@name` too, so they can't
+be called `layout`, `chem`, `constants`, or one of MathScribe's functions.
 
 **Subscripts in headings and block titles:** as in variable names, `_` makes a
 subscript: `Hydrogen 2p_z orbital {` shows 2p with a subscript z, and `x_{max}`
@@ -674,7 +677,7 @@ mag = norm(F)                    # 5.0 N
 ```
 
 - A vector is a tuple (below), so everything that works on tuples works on it:
-  scaling, adding, `to`, `norm`, `dot`, `cross` and unpacking. `vector(…)` is the
+  scaling, adding, `to`, `norm`, `dot`, `cross` and unpacking. `@vector(…)` is the
   same as `<…>`.
 - What's worked out from a vector is a vector too, and so is a function's result
   when its body writes one (`f(x) = <x, 2*x>`). A plain tuple stays a tuple.
@@ -695,11 +698,11 @@ mag = norm(F)                    # 5.0 N
 
 ### Tuples and coordinates
 
-`tuple(…)` makes a **tuple**, such as a point's coordinates. It's shown in
+`@tuple(…)` makes a **tuple**, such as a point's coordinates. It's shown in
 brackets, as coordinates usually are:
 
 ```
-r = tuple(1.00 m, 2.00 m, 3.00 m)   # (1.00, 2.00, 3.00) m
+r = @tuple(1.00 m, 2.00 m, 3.00 m)   # (1.00, 2.00, 3.00) m
 s = 2 * r                            # (2.00, 4.00, 6.00) m
 d = norm(r)                          # 3.74 m
 ```
@@ -708,16 +711,16 @@ d = norm(r)                          # 3.74 m
   different units each keep their own: (1.41 m, 45.0°).
 - Tuples scale, add and convert with `to`; `norm` gives the length, and `dot` and
   `cross` work on them. A display unit (`r:cm = …`) applies to every value.
-- A function can return a tuple: `to_cart(r, th to rad) = tuple(r*cos(th), r*sin(th))`.
-- **Unpacking:** `tuple(a, b, c) = …` stores each value of a tuple as a variable
+- A function can return a tuple: `to_cart(r, th to rad) = @tuple(r*cos(th), r*sin(th))`.
+- **Unpacking:** `@tuple(a, b, c) = …` stores each value of a tuple as a variable
   of its own, shown as (a, b, c) = (1.00, 2.00, 3.00) m. The right-hand side can be
-  any tuple, such as a function's result: `tuple(r, theta) = polar(x, y)`. It works
+  any tuple, such as a function's result: `@tuple(r, theta) = polar(x, y)`. It works
   inside function bodies too.
 - Each name takes the same settings as a single assignment, sig figs and a unit
-  in any order: `tuple(r:3, theta:deg) = polar(x, y)` shows (1.41 m, 45.0°), and
+  in any order: `@tuple(r:3, theta:deg) = polar(x, y)` shows (1.41 m, 45.0°), and
   `r` and `theta` keep those settings afterwards.
 - A bracketed list with commas on its own, like `(1, 2)`, is an error that points
-  to `tuple(1, 2)`, so brackets only ever mean grouping or a function call.
+  to `@tuple(1, 2)`, so brackets only ever mean grouping or a function call.
 - For now, uncertainties don't carry into a tuple's values.
 
 ### Units
@@ -814,7 +817,7 @@ k:exact = 2.5       # exact: never limits a result
   ignored, with a warning.
 - Only on the left of `=`: inside expressions, `:` means something else to the
   calculator (a range, as in `1:4`). It works in blocks, function bodies, `@constants`
-  and with `solve` (`d:3 = solve(…, d)`).
+  and with `solve` (`d:3 = @solve(…, d)`).
 - A function's result takes its sig figs from its `return` line, so a declared
   `q:2 = …` inside a function, or a measured number in its body, carries through to
   the calling line.
@@ -837,7 +840,7 @@ x:3:sci:km = 2500. m     # combines with sig figs and a unit, in any order
   on a line of its own, `x to km`, `delta x`, and in a value assigned straight from
   it (`y = x`).
 - It works with uncertainties ((1.50 ± 0.02) × 10³ m), tuples and their unpacked
-  names (`tuple(a:sci, b) = …`), and a function's result (`f(x):sci = …`).
+  names (`@tuple(a:sci, b) = …`), and a function's result (`f(x):sci = …`).
 - For a line with no name, such as `psi_4^2`, or a whole block, use the `#sci` and
   `#dec` commands (see Display commands).
 
@@ -1132,10 +1135,10 @@ c_Na:conc(Na^+) = 0.100 M            → [Na⁺]
 
 ### Solving equations
 
-`solve(equation, unknown)` rearranges an equation for the unknown and evaluates it:
+`@solve(equation, unknown)` rearranges an equation for the unknown and evaluates it:
 
 ```
-d = solve(v_f^2 = 2*a*d, d)
+d = @solve(v_f^2 = 2*a*d, d)
 ```
 
 shows the equation, then the rearranged formula, the values and the answer:
@@ -1147,9 +1150,9 @@ d = v_f²/(2·a) = (5.86 m/s)²/(2 · 4.91 m/s²) = 3.50 m
 
 - The result is an ordinary formula, so units, sig figs, uncertainty and `#sym`/`#val`
   all work as usual.
-- `solve(…)` is the whole right-hand side, optionally followed by a conversion:
-  `theta = solve(sin(theta) = 0.500, theta) to deg`. Without an assignment
-  (`solve(v^2 = 2*a*d, d)` on its own) it shows the answer without storing it.
+- `@solve(…)` is the whole right-hand side, optionally followed by a conversion:
+  `theta = @solve(sin(theta) = 0.500, theta) to deg`. Without an assignment
+  (`@solve(v^2 = 2*a*d, d)` on its own) it shows the answer without storing it.
 - The unknown is solved for even if it already has a value; assigning the result
   replaces it.
 
@@ -1161,15 +1164,15 @@ How it solves:
 3. **The quadratic formula**, when it's quadratic (`h = v₀t + ½gt²` gives
    `t = (√(v₀² + 2gh) − v₀)/g`).
 4. **Numerically**, from a starting guess, for anything else:
-   `x = solve(x = cos(x), x, 0.5)`. The guess also sets the answer's units
-   (`solve(…, T, 300 K)`). The uncertainty still propagates.
+   `x = @solve(x = cos(x), x, 0.5)`. The guess also sets the answer's units
+   (`@solve(…, T, 300 K)`). The uncertainty still propagates.
 
-**Several unknowns:** put the unknowns in a `tuple(…)` on the left and give as many
+**Several unknowns:** put the unknowns in a `@tuple(…)` on the left and give as many
 equations:
 
 ```
-tuple(v_1, v_2) = solve(m_1 * u = m_1 * v_1 + m_2 * v_2, u = v_2 - v_1)
-tuple(T, a) = solve(T - m_1 * @g = m_1 * a, m_2 * @g - T = m_2 * a)
+@tuple(v_1, v_2) = @solve(m_1 * u = m_1 * v_1 + m_2 * v_2, u = v_2 - v_1)
+@tuple(T, a) = @solve(T - m_1 * @g = m_1 * a, m_2 * @g - T = m_2 * a)
 ```
 
 - They're solved by substitution, as by hand: one equation is rearranged for one
@@ -1178,7 +1181,7 @@ tuple(T, a) = solve(T - m_1 * @g = m_1 * a, m_2 * @g - T = m_2 * a)
   unknown's formula, values and result, and the line ends with them all:
   (v₁, v₂) = (−2.0 m/s, 4.00 m/s).
 - Each unknown is an ordinary variable afterwards, with its units, sig figs and
-  uncertainty. Settings go on the names, as when unpacking: `tuple(T:3, a:2) = …`.
+  uncertainty. Settings go on the names, as when unpacking: `@tuple(T:3, a:2) = …`.
 - Each step must be a rearrangement the single-equation solve can do (the unknown
   appears once, or in a linear or quadratic way); of a quadratic's two solutions,
   the first is used. Equations that contradict each other, or say the same thing
@@ -1186,7 +1189,7 @@ tuple(T, a) = solve(T - m_1 * @g = m_1 * a, m_2 * @g - T = m_2 * a)
 
 When there's more than one solution (from x², √, sin, cos, |x| or a quadratic), the
 principal or positive one is used and the others are noted below the line. Give a
-guess (`solve(…, x, -1)`) to choose the solution nearest it.
+guess (`@solve(…, x, -1)`) to choose the solution nearest it.
 
 Angles from asin, acos and atan are in radians; add `to deg` for degrees.
 
@@ -1225,11 +1228,11 @@ available:
 
 ### Tables
 
-`table(…)` on a line of its own shows series side by side, one row per number:
+`@table(…)` on a line of its own shows series side by side, one row per number:
 
 ```
-table(t, x)              # n | t [s] | x [m]
-table(t, x, v = x / t)   # adds a column v, worked out row by row
+@table(t, x)              # n | t [s] | x [m]
+@table(t, x, v = x / t)   # adds a column v, worked out row by row
 v_avg                    # v is a series now: v_1, v_2, …
 ```
 
@@ -1239,25 +1242,25 @@ v_avg                    # v is a series now: v_1, v_2, …
   that row's value (`x / t` is x₃ / t₃ in row 3), and any other name is used as it
   is (`h = 1/2 * g * t^2`). The column becomes a series of its own, with sig figs
   and uncertainties worked out as on any line, so `v_avg`, `v_std` and `v_3` work
-  afterwards. An expression without a name (`table(x / t)`) is just shown.
+  afterwards. An expression without a name (`@table(x / t)`) is just shown.
 - A table with more than 60 rows shows its first 50 and last 5, with ⋮ between.
 - **Settings:** the ⚙ after a table in the editor opens its settings: which rows to
   show (from and to), the lines (under the header, a grid, or none), the n column,
   and showing every row of a long table. They're kept in the sheet after a
-  semicolon in the brackets, `table(t, x; rows 5-20, lines grid, numbers off,
+  semicolon in the brackets, `@table(t, x; rows 5-20, lines grid, numbers off,
   all rows)`, so they can be typed too. Rows only limit what's shown: a computed
   column is still worked out for every row.
 - Tables go into the LaTeX and Word exports as arrays.
 
 ### Plots
 
-`plot(…)` on a line of its own draws a graph: the first series is the x axis,
+`@plot(…)` on a line of its own draws a graph: the first series is the x axis,
 the others are plotted against it.
 
 ```
-plot(t, x)                 # x against t, with error bars for uncertainties
-plot(t, x, y)              # two series on one graph, with a legend
-plot(t, x; fit linear)     # adds a best-fit line and its equation
+@plot(t, x)                 # x against t, with error bars for uncertainties
+@plot(t, x, y)              # two series on one graph, with a legend
+@plot(t, x; fit linear)     # adds a best-fit line and its equation
 v = x_slope                # the fit's slope, with its uncertainty
 ```
 
@@ -1276,34 +1279,34 @@ v = x_slope                # the fit's slope, with its uncertainty
   drawn but don't affect the fit.)
 - **Settings:** the ⚙ after a plot opens its settings: rows, style (points, lines,
   or both), fit, each axis's range and log scale, and a title. As with tables,
-  they're kept after a semicolon: `plot(t, x; rows 2-, style both, fit linear,
+  they're kept after a semicolon: `@plot(t, x; rows 2-, style both, fit linear,
   x from 0 to 1, log y, title "Run 1")`.
 - **What's on the axes is what's plotted:** a point outside an axis's range isn't
   drawn, isn't fitted, and isn't in a named plot's series. So `x from 0.15 to 0.45`
   fits just that stretch of the data, and `p.slope` is that stretch's slope.
 - In the LaTeX export a plot is a pgfplots graph (the package is added only when
   the sheet has one); in the Word export it's a picture.
-- A named plot, `p = plot(t, x; fit linear)`, keeps its fit under its name:
+- A named plot, `p = @plot(t, x; fit linear)`, keeps its fit under its name:
   `p.slope`, `p.intercept`, `p.r2` (and `p.chi2` for a weighted fit). With several
   series, each has its own: `p.x_slope`, `p.y_slope`. (An unnamed plot makes
   `x_slope` and `x_intercept` instead.)
 
 ### Selections and names with a dot
 
-`select(…)` takes the rows where conditions hold, as new series under a name:
+`@select(…)` takes the rows where conditions hold, as new series under a name:
 
 ```
-a = select(t, x; t from 0.2 to 0.8)   # a.t, a.x: just those rows
+a = @select(t, x; t from 0.2 to 0.8)   # a.t, a.x: just those rows
 a.x_1                                 # the first row that matched (numbered from 1)
 a.x_avg                               # statistics of the selection
-p = plot(a.t, a.x; fit linear)        # fit only the selected region
+p = @plot(a.t, a.x; fit linear)        # fit only the selected region
 v = p.slope
 ```
 
 - Conditions go after the semicolon, and all must hold: `t from 0.2 to 0.8` (either
   end can be left off), `x to 0.16`, `rows 5-20`. A bare number is in the series'
   unit; a bound can have its own, `t from 250 ms`. In a condition, a name means the
-  selected series of that name first, so `select(run1.t, run1.x; t from 0.2)` works.
+  selected series of that name first, so `@select(run1.t, run1.x; t from 0.2)` works.
 - A selection doesn't copy its values: each member is the variable it picks
   (`a.x_1` *is* `x_2`), so it keeps its sig figs and uncertainty, and a selection
   stays correlated with the data it came from (`x_2 - a.x_1` is exactly 0). That
@@ -1314,9 +1317,9 @@ Names with a dot work the same everywhere they're made:
 
 | Made by | Holds |
 | --- | --- |
-| `a = select(t, x; …)` | `a.t`, `a.x`, their members and statistics |
+| `a = @select(t, x; …)` | `a.t`, `a.x`, their members and statistics |
 | `run1 = import("run1.csv")` | each column: `run1.t`, `run1.x_3`, `run1.x_avg` |
-| `p = plot(t, x; fit linear)` | the series it plots, `p.t`, `p.x` (the rows drawn, numbered from 1), and its fit: `p.slope`, `p.intercept`, `p.r2`, `p.chi2` |
+| `p = @plot(t, x; fit linear)` | the series it plots, `p.t`, `p.x` (the rows drawn, numbered from 1), and its fit: `p.slope`, `p.intercept`, `p.r2`, `p.chi2` |
 
 Naming imports keeps two files with the same columns apart:
 `d = run2.x_avg - run1.x_avg`. Typing a name and a dot suggests what it holds.
@@ -1426,7 +1429,7 @@ what's here better.
 
 ### 3. Plots and data
 
-- [ ] **Plot functions**, not just data: `plot(t, x, f(t))`, or a curve over a range.
+- [ ] **Plot functions**, not just data: `@plot(t, x, f(t))`, or a curve over a range.
 - [ ] **Non-linear fits**: quadratic, exponential and power-law fits, alongside the
       linear one, and a fit over part of the data.
 - [ ] **More plots**: bar charts and histograms, two y axes, residuals under a fit.
@@ -1468,6 +1471,37 @@ what's here better.
 - [ ] **Narrow screens**: a stacked layout, or an Input / Output switch.
 - [ ] **Evaluate in a web worker**, if very long sheets still lag once typing pauses.
 
+### 7. Sheets and output
+
+- [ ] **No placeholder title on untitled blocks**: an untitled `{ }` block
+      shouldn't show "Block" as its title; with no title, there's no title line.
+- [ ] **Blocks titled as sections**: a block's title written with `#` or `##`
+      (`# Kinematics {` … `}`) makes it a numbered section or subsection, taking
+      part in the numbering as headings do.
+- [ ] **One Export button instead of the LaTeX tab**: a single Export button opens
+      a dialog to choose the format (Word `.docx`, LaTeX `.tex`, more later), with
+      each format's options in it (what the LaTeX tab's Document menu holds now).
+- [ ] **An `@format` namespace** for how a value is *shown*, without changing the
+      value or the maths. First: `@format.inv(x)`, a value shown flipped, as its
+      reciprocal written out (a ratio a/b shown as b/a, 1/(2.0 s) as 0.50 s⁻¹),
+      rather than ^-1 appended. Others that may belong there:
+      - `@format.frac`: as a fraction (0.75 → 3/4; π/4 kept symbolic);
+      - `@format.eng`: engineering notation (exponents in multiples of 3), beside sci and dec;
+      - `@format.prefix(k)`: in a chosen SI prefix (kN, mm);
+      - `@format.sci`, `@format.dec`, `@format.percent`, `@format.exact`: the `:`
+        settings on a name, as functions on an expression, where a `:` can't go
+        (in `{{…}}` text, a table column);
+      - `@format.polar`: a 2D vector as magnitude and angle (5.0 N ∠ 53.1°), from
+        the vectors module;
+      - `@format.abs`, `@format.sign`: a magnitude, or a forced sign (+2.0);
+      - `@format.ratio(a, b)`: a ratio as a : b.
+
+      To settle first: whether `@format` holds functions on values
+      (`@format.inv(x)`), settings that chain like `@layout`'s
+      (`@format.sci.frac`), or both; and whether the `:` settings on names become
+      the same words (`x:sci` ≡ `@format.sci`), so how a value is shown has one
+      vocabulary.
+
 ### Done
 
 - [x] **The `@` namespace**: `@layout` blocks (`@layout.text Title { … }`, and
@@ -1477,7 +1511,7 @@ what's here better.
       several lines too).
 - [x] **Display names**: subscripts (`m_ball`, and `m_{H2O}` drawn as chemistry),
       and templates, `massName(x) = "m_{{x}}"` used as `m_w:massName(H2O)`.
-- [x] **Systems of equations**: `tuple(x, y) = solve(eq, eq)`, solved by substitution
+- [x] **Systems of equations**: `@tuple(x, y) = @solve(eq, eq)`, solved by substitution
       with the working shown.
 - [x] **Conditions**: `condition ? a : b` in a line, and `if` / `else if` / `else`
       in a function's body, with the comparisons shown in the working.
@@ -1485,11 +1519,11 @@ what's here better.
       (`M`), species as units that cancel in mole ratios, and display names.
 - [x] **Values in text** (`{{name}}`) and `//` comments.
 - [x] **Create with AI**: a prompt for any AI to write a sheet, and its answer opened.
-- [x] **Tables**: `table(…)`, with computed columns that become series, and settings.
-- [x] **Plots**: `plot(…)`, with error bars, a linear fit (weighted by the error bars
+- [x] **Tables**: `@table(…)`, with computed columns that become series, and settings.
+- [x] **Plots**: `@plot(…)`, with error bars, a linear fit (weighted by the error bars
       when there are some), settings, and both exports.
 - [x] **Importing from CSV**, with units from the headers and uncertainty columns.
-- [x] **Selections and names with a dot**: `select(…)`, named imports and named plots.
+- [x] **Selections and names with a dot**: `@select(…)`, named imports and named plots.
 - [x] **Speed on long sheets**: a slow sheet is worked out once typing pauses, and
       the engine keeps each variable as one record, with a series index and
       selections as lookups (a 3800-row import: from ~105 ms to ~34 ms an evaluation).
@@ -1575,7 +1609,7 @@ renamed, change it there too.
   (`core/module.ts`) overriding the hooks it needs, where an exception to the
   core's rules comes from; a module works through the `ModuleHost` the core
   offers it (its variables, and how it works out and writes values), and can
-  add kinds of line as `LineForm`s (`table(…)`, `r = @chem.reaction(…)`).
+  add kinds of line as `LineForm`s (`@table(…)`, `r = @chem.reaction(…)`).
   `sheetModules()` in `index.ts` lists the modules a sheet is worked out with.
   A module that builds on another says so (`requires`): it's installed after
   it, and may import from it and no other module. The core never imports a
@@ -1600,15 +1634,15 @@ renamed, change it there too.
   form; `readers.ts`: its lines of a sheet (`@chem.species { }`, a reaction on
   its own); `module.ts`: `ChemistryModule`, where the engine's hooks meet them.
   `src/lib/katex.ts`: KaTeX with mhchem, which everything that draws maths imports
-- `src/lib/engine/modules/series/`: the series module: `table(…)`, `plot(…)`
-  and `select(…)` as line forms (`table.ts`, `plot.ts`, `select.ts`), and the
+- `src/lib/engine/modules/series/`: the series module: `@table(…)`, `@plot(…)`
+  and `@select(…)` as line forms (`table.ts`, `plot.ts`, `select.ts`), and the
   columns they share (`columns.ts`)
-- `src/lib/engine/modules/solve/`: the solve module: `x = solve(eq, x)`, by
-  rearranging or numerically from a guess (`solve.ts`), and `tuple(x, y) =
-  solve(eq_1, eq_2)` by substitution (`system.ts`); `src/lib/solve.ts` has the
+- `src/lib/engine/modules/solve/`: the solve module: `x = @solve(eq, x)`, by
+  rearranging or numerically from a guess (`solve.ts`), and `@tuple(x, y) =
+  @solve(eq_1, eq_2)` by substitution (`system.ts`); `src/lib/solve.ts` has the
   algebra they use (isolating an unknown, polynomials)
 - `src/lib/engine/modules/vectors/`: the vectors module: a vector is a tuple
-  with a look of its own. `syntax.ts`: `<…>`, `vector(…)`, `:ijk` and `:xyz`;
+  with a look of its own. `syntax.ts`: `<…>`, `@vector(…)`, `:ijk` and `:xyz`;
   `literals.ts`: reading `<3.0, 4.0> N`; `components.ts`: F_x, F_y from `F:xyz`;
   `module.ts`: `VectorModule`, how vectors are drawn (⟨…⟩, î ĵ k̂) and dot and
   cross products
@@ -1641,7 +1675,7 @@ renamed, change it there too.
   its look, paragraphs, equations and cards, which the constructs write with;
   `src/lib/omml.ts`: LaTeX → Word equations (OMML), by way of KaTeX's MathML
 - `src/lib/sigfigs.ts`: counting, propagating and formatting significant figures
-- `src/lib/solve.ts`: `solve(…)`: rearranging, linear, quadratic and numeric solving
+- `src/lib/solve.ts`: `@solve(…)`: rearranging, linear, quadratic and numeric solving
 - `src/lib/builtins.ts`: everything built in under `@` as one tree of members
   (constants, functions, blocks, namespaces), which the engine and the editor's
   suggestions and hovers read. An engine module adds its own namespace (`@chem`)

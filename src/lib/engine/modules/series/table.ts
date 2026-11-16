@@ -1,11 +1,10 @@
 /**
- * `table(t, x, v = x / t)`: series side by side, a row per number (t_1, x_1,
+ * `@table(t, x, v = x / t)`: series side by side, a row per number (t_1, x_1,
  * v_1 in the first). A name is a series' values; `name = expression` is worked
  * out row by row from the series it uses, and makes a series of its own (v_1,
  * v_2, …, so v_avg works afterwards); an expression without a name is just
  * shown. A long table shows its first and last rows.
  */
-import { TABLE_CALL } from '../../../syntax.ts'
 import { EXACT } from '../../../sigfigs.ts'
 import { TABLE_LINE, parseTableSettings, splitCallArgs } from '../../../tableSettings.ts'
 import { splitArgs } from '../../../solve.ts'
@@ -13,6 +12,7 @@ import { LineForm, type FormLine, type ModuleHost } from '../../core/module.ts'
 import type { LineResult } from '../../core/results.ts'
 import { attachUnit, numberTex, unitTex } from '../../core/tex.ts'
 import { rowErrors, seriesColumns } from './columns.ts'
+import { TABLE_CALL } from './syntax.ts'
 
 /** How many rows a table shows: all of them up to `max`; past that, the `first` and the `last`, with ⋮ between. */
 export const TABLE_ROWS = { max: 60, first: 50, last: 5 } as const
@@ -61,7 +61,7 @@ export class TableForm extends LineForm {
     if (settingsError) return { tex: '', error: settingsError }
     const args = splitArgs(parts.columns).map((a) => a.trim()).filter(Boolean)
     if (!args.length) {
-      return { tex: '', error: 'Name the series to show, table(t, x), and any columns worked out from them: table(t, x, v = x / t).' }
+      return { tex: '', error: 'Name the series to show, @table(t, x), and any columns worked out from them: @table(t, x, v = x / t).' }
     }
     const made = seriesColumns(host, args, 'show it in a table')
     if ('error' in made) return { tex: '', error: made.error }

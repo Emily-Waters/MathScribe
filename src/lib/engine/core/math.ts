@@ -1,6 +1,7 @@
 /** The engine's own mathjs instance, and the functions it adds to it or replaces. */
 import { all, create, type MathType, type Unit } from 'mathjs'
 import { FN, OP, UNIT } from '../../mathjsNames.ts'
+import { TUPLE_FUNCTION } from '../../names.ts'
 import { isLabelUnit } from './module.ts'
 
 /** Our own mathjs instance, with the functions below added or replaced. */
@@ -22,12 +23,12 @@ math.createUnit(UNIT.molar, { definition: `1 ${UNIT.mole}/${UNIT.litre}`, prefix
 math.import({ [FN.literal]: (text: string) => Number(text) })
 
 /**
- * `tuple(x, y, z)`: a tuple of values, such as coordinates. It's a
+ * `@tuple(x, y, z)`: a tuple of values, such as coordinates. It's a
  * one-dimensional matrix, so `2 * r`, `r1 + r2`, `norm(r)`, `dot` and `cross` all
- * work, and it's shown as (1.0, 2.0, 3.0) m. `tuple(a, b, c) = …` unpacks one
+ * work, and it's shown as (1.0, 2.0, 3.0) m. `@tuple(a, b, c) = …` unpacks one
  * into separate variables (see evaluateUnpack).
  */
-math.import({ [FN.tuple]: (...values: MathType[]) => math.matrix(values as never) })
+math.import({ [TUPLE_FUNCTION]: (...values: MathType[]) => math.matrix(values as never) })
 
 /**
  * atan2(y, x) of two lengths (or any matching units), such as a point's

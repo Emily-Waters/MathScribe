@@ -9,7 +9,7 @@ import { REFERENCE } from './reference.ts'
 import { BLOCK_KIND } from './blocks.ts'
 
 describe('plots', () => {
-  const source = 't1 = 0.10 s\nt2 = 0.20 s\nt3 = 0.30 s\nx1 = 0.05 m\nx2 = 0.10 m\nx3 = 0.16 m\nplot(t, x; fit linear)'
+  const source = 't1 = 0.10 s\nt2 = 0.20 s\nt3 = 0.30 s\nx1 = 0.05 m\nx2 = 0.10 m\nx3 = 0.16 m\n@plot(t, x; fit linear)'
 
   it('are pictures, drawn beforehand, with their fit equations under them', () => {
     const blocks = sheet(source).blocks

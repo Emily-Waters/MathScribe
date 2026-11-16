@@ -5,7 +5,7 @@
  * meets it, through EngineModule's hooks.
  */
 import { isConstantNode, isSymbolNode, type FunctionNode, type MathNode, type MathType, type Unit } from 'mathjs'
-import type { Namespace } from '../../../builtins.ts'
+import type { Member } from '../../../builtins.ts'
 import type { BuiltinConstant, NamespaceConstant } from '../../../constants.ts'
 
 import { math } from '../../core/math.ts'
@@ -50,8 +50,8 @@ export class ChemistryModule extends EngineModule implements ReadsLines {
   }
 
   /** `@chem`: molar masses, @chem.total, @chem.reaction and the @chem.species block. */
-  override namespace(): Namespace {
-    return chemNamespace()
+  override builtinMembers(): Member[] {
+    return [chemNamespace()]
   }
 
   override isLabelUnit(unitName: string): boolean {

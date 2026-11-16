@@ -1,5 +1,5 @@
 /**
- * Symbolic equation solving for `solve(lhs = rhs, x)`.
+ * Symbolic equation solving for `@solve(lhs = rhs, x)`.
  *
  *   1. If x appears once, undo the operations around it, outermost first:
  *      v² = 2·a·d  →  d = v² / (2·a)
@@ -22,7 +22,7 @@ import {
 } from 'mathjs'
 import { FN, MATH_CONSTANT, OP, OP_SYMBOL, isOp } from './mathjsNames.ts'
 
-/** What kind of polynomial solve(…) found f to be in x. */
+/** What kind of polynomial @solve(…) found f to be in x. */
 export const POLYNOMIAL_KIND = { linear: 'linear', quadratic: 'quadratic' } as const
 export type PolynomialKind = (typeof POLYNOMIAL_KIND)[keyof typeof POLYNOMIAL_KIND]
 

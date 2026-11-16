@@ -15,7 +15,7 @@
  */
 import type { FunctionNode, MathNode } from 'mathjs'
 import type { Values } from './scope.ts'
-import { BUILTINS, type Namespace } from '../../builtins.ts'
+import { BUILTINS, type Member } from '../../builtins.ts'
 import type { BuiltinConstant, NamespaceConstant } from '../../constants.ts'
 import type { Contributions, Variable, VariableFields } from '../../values.ts'
 import type { DisplayMode, Notation, Precision } from '../../syntax.ts'
@@ -132,7 +132,7 @@ export interface FormLine {
 
 /**
  * A kind of line the engine works out as a whole, rather than as an
- * assignment or expression: `table(t, x)`, `r = @chem.reaction({…})`. A module
+ * assignment or expression: `@table(t, x)`, `r = @chem.reaction({…})`. A module
  * adds its own (EngineModule.lineForms); a line goes to the first whose
  * `evaluate` takes it.
  */
@@ -193,9 +193,9 @@ export abstract class EngineModule {
   /** Add its functions to mathjs: called once, when the first module of its class is installed. */
   install(): void {}
 
-  /** Its own namespace in the `@` tree (`@chem`), made fresh: put in @ when it's installed. */
-  namespace(): Namespace | undefined {
-    return undefined
+  /** Its own members of the `@` tree (`@chem`, `@vector(…)`), made fresh: put in @ when it's installed. */
+  builtinMembers(): Member[] {
+    return []
   }
 
   /**
@@ -218,7 +218,7 @@ export abstract class EngineModule {
     return undefined
   }
 
-  /** An expression's text, rewritten before its unit literals are read (`<3.0, 4.0> N` → vector(3.0, 4.0) * N). */
+  /** An expression's text, rewritten before its unit literals are read (`<3.0, 4.0> N` → @vector(3.0, 4.0) * N). */
   expandSyntax(src: string): string {
     return src
   }
@@ -288,7 +288,7 @@ export abstract class EngineModule {
 
   // Tuples: a module can give a tuple a look of its own (a vector, ⟨3.0, 4.0⟩ N).
 
-  /** Functions that make a tuple of what they're given, which typed as numbers keeps each one's sig figs: `vector(0.50, -9.81)`. */
+  /** Functions that make a tuple of what they're given, which typed as numbers keeps each one's sig figs: `@vector(0.50, -9.81)`. */
   readonly typedTupleFunctions: readonly string[] = []
 
   /** The look a call to one of this module's functions gives the tuple it makes. */
@@ -391,8 +391,7 @@ export function installModule(module: EngineModule): void {
   if (missing) throw new Error(`${kind.name} requires ${missing.name}: install it first.`)
   installed.set(kind, module)
   module.install()
-  const namespace = module.namespace()
-  if (namespace) BUILTINS.add(namespace)
+  for (const member of module.builtinMembers()) BUILTINS.add(member)
 }
 
 const shared = (): EngineModule[] => [...installed.values()]

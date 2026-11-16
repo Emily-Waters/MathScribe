@@ -1,5 +1,5 @@
 /**
- * `a = select(t, x; t from 0.2 to 0.8)`: the rows of series where every
+ * `a = @select(t, x; t from 0.2 to 0.8)`: the rows of series where every
  * condition holds, as new series under the name a: a.t, a.x, numbered from 1
  * (a.x_1 is the first row that matched). Each value keeps its sig figs and
  * uncertainty (the same source, so a slice and its data stay correlated).
@@ -10,7 +10,7 @@
  *                             a bare number is in the series' unit, or give one: 200 ms
  */
 import type { Unit } from 'mathjs'
-import { IS_NAME, NAME, SELECT_CALL } from '../../../syntax.ts'
+import { IS_NAME, NAME } from '../../../syntax.ts'
 import { RESERVED_NAMESPACES, memberName, parseMemberName, readableMembers } from '../../../names.ts'
 import { EXACT } from '../../../sigfigs.ts'
 import { SETTING, parseRowRange, settingParts, splitCallArgs } from '../../../tableSettings.ts'
@@ -19,6 +19,7 @@ import { math } from '../../core/math.ts'
 import { LineForm, type FormLine, type ModuleHost } from '../../core/module.ts'
 import { readableUnitError, seriesDefinitions, type LineResult } from '../../core/results.ts'
 import { symbolTex } from '../../core/tex.ts'
+import { SELECT_CALL } from './syntax.ts'
 
 /** A condition on a series' values: `t from 0.2 to 0.8`, `t from 0.2`, `t to 0.8` (1: the series, 2: from, 3: to). */
 const SELECT_RANGE = new RegExp(String.raw`^(${NAME})\s+(?:${SETTING.from}\s+(.+?))?\s*(?:\b${SETTING.to}\s+(.+))?$`)
@@ -31,9 +32,9 @@ export class SelectForm extends LineForm {
     if (RESERVED_NAMESPACES.has(name)) return { tex: '', error: `${name} is a reserved word: choose another name for the selection.` }
     const parts = splitCallArgs(argsText)
     const args = splitArgs(parts.columns).map((a) => a.trim()).filter(Boolean)
-    if (!args.length) return { tex: '', error: 'Give the series to select from: a = select(t, x; t from 0.2 to 0.8).' }
+    if (!args.length) return { tex: '', error: 'Give the series to select from: a = @select(t, x; t from 0.2 to 0.8).' }
     const notSeries = args.find((a) => !IS_NAME.test(a))
-    if (notSeries) return { tex: '', error: `${notSeries} isn't a series name: select takes series, like select(t, x; …).` }
+    if (notSeries) return { tex: '', error: `${notSeries} isn't a series name: select takes series, like @select(t, x; …).` }
     const columns = args.map((arg) => ({ arg, rows: host.seriesRows(arg) }))
     const missing = columns.find((c) => !c.rows.size)
     if (missing) return { tex: '', error: `${missing.arg} isn't a series: define ${missing.arg}_1, ${missing.arg}_2, … (or import them) to select from it.` }

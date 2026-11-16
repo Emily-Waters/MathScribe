@@ -4,22 +4,23 @@
  *
  *   @                     the root
  *   ├─ c, h, e, …         physics constants (constants.ts)
+ *   ├─ tuple              values in order, @tuple(1.0, 2.0) m; and unpacked, @tuple(a, b) = …
  *   ├─ layout             layout blocks, @layout.list { }, whose members chain: @layout.numbered.val
  *   │  ├─ text, list, …   the layouts
  *   │  └─ hidden, sym, …  the display settings
  *   ├─ constants          the @constants { } block
  *   ├─ latex              the @latex { } block
- *   └─ chem, …            an engine module's own namespace, added when it's installed
- *                         (EngineModule.namespace; @chem is the chemistry module's)
+ *   └─ chem, vector, …    an engine module's own members, added when it's installed
+ *                         (EngineModule.builtinMembers: @chem, @vector, @table, @solve)
  *
  * The engine (constants and calls), the sheet (reserved names) and the editor
  * (suggestions and hovers after any dot) all read this tree, so a new member is
  * added once, and each of them knows about it.
  */
 import { BUILTIN_CONSTANTS, type BuiltinConstant, type NamespaceConstant } from './constants.ts'
-import { JOIN } from './names.ts'
+import { JOIN, TUPLE_FUNCTION } from './names.ts'
 import {
-  CONSTANTS_BLOCK, LATEX_BLOCK, LAYOUT_MODIFIER, LAYOUT_STYLE, MEMBER_DOT, NAMESPACE, SIGIL,
+  CALL, CONSTANTS_BLOCK, LATEX_BLOCK, LAYOUT_MODIFIER, LAYOUT_STYLE, MEMBER_DOT, NAMESPACE, SIGIL,
   type LayoutModifier, type LayoutStyle,
 } from './syntax.ts'
 
@@ -95,6 +96,13 @@ export abstract class FunctionMember extends Member {
 
   /** The namespace it's the call of, if it's one (`@chem.mm` is both): its path is the namespace's. */
   callOf: Namespace | undefined
+
+  /**
+   * Whether it's a line of its own (or the whole right-hand side), worked out by
+   * a module's line form, rather than written out in an expression: `@table(…)`,
+   * `x = @solve(…)`. A call to one is left as it is.
+   */
+  readonly standsAlone: boolean = false
 
   override get path(): string[] {
     return this.callOf ? this.callOf.path : super.path
@@ -217,6 +225,45 @@ export class Namespace extends Member {
   }
 }
 
+/**
+ * A function that's a line of its own (or the whole right-hand side), worked out
+ * by a module's line form: `@table(t, x)`, `x = @solve(…)`. Anywhere else in an
+ * expression, it's explained.
+ */
+export class LineFormMember extends FunctionMember {
+  override readonly standsAlone = true
+  readonly parameters: string
+  /** How it's written, for the explanation: `x = @solve(equation, x)`. */
+  private readonly usage: string
+
+  constructor(name: string, parameters: string, description: string, usage: string) {
+    super(name, description)
+    this.parameters = parameters
+    this.usage = usage
+  }
+
+  expand(): Expansion {
+    return { error: `${this.typed}(…) is written on a line of its own: ${this.usage}.` }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// The core's functions
+// ---------------------------------------------------------------------------
+
+/** `@tuple(1.0, 2.0) m`: values in order, such as coordinates. (`@tuple(a, b) = …` unpacks one: a line form of the core's.) */
+class TupleFunction extends FunctionMember {
+  readonly parameters = 'x, y, …'
+
+  constructor() {
+    super(CALL.tuple, 'A tuple of values, such as coordinates; @tuple(a, b) = … unpacks one')
+  }
+
+  expand(args: string): Expansion {
+    return { text: `${TUPLE_FUNCTION}(${args})` }
+  }
+}
+
 // ---------------------------------------------------------------------------
 // @layout's members
 // ---------------------------------------------------------------------------
@@ -248,6 +295,7 @@ const LAYOUT_MODIFIER_DESCRIPTIONS: Record<LayoutModifier, string> = {
 /** `@`: everything built in. */
 export const BUILTINS = new Namespace('', 'Built in', [
   ...Object.entries(BUILTIN_CONSTANTS).map(([name, c]) => new ConstantMember(name, c)),
+  new TupleFunction(),
   new Namespace(NAMESPACE.layout, 'Blocks that arrange lines (text, list, numbered, center, titlepage) or set how they’re shown (hidden, sym, val, multiline, …)', [
     ...Object.values(LAYOUT_STYLE).map((style) => new LayoutMember(style, LAYOUT_DESCRIPTIONS[style])),
     ...Object.values(LAYOUT_MODIFIER).map((modifier) => new ModifierMember(modifier, LAYOUT_MODIFIER_DESCRIPTIONS[modifier])),

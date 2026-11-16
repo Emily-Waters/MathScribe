@@ -15,7 +15,7 @@ import { closesVector, isUnitName } from '../lib/engine/index.ts'
 import { REACTION_LINE } from '../lib/engine/modules/chemistry/chemistry.ts'
 import { SPECIES_TOKEN } from '../lib/engine/modules/chemistry/syntax.ts'
 import {
-  BRANCH_START, CALL, COMMAND_NAMES, CONSTANT_TOKEN, DEF_START, FUNCTION_HEAD, GREEK_CHARS, IMPORT, INDENT_WIDTH, KEYWORD, NAME, NAME_CHAR,
+  BRANCH_START, COMMAND_NAMES, CONSTANT_TOKEN, DEF_START, FUNCTION_HEAD, GREEK_CHARS, IMPORT, INDENT_WIDTH, KEYWORD, NAME, NAME_CHAR,
   BLOCK_CLOSE, BLOCK_OPEN, CONSTANTS_TOKEN, LATEX_OPENER, LATEX_TOKEN, closesLatex, LAYOUT_NAME_TOKEN, LAYOUT_OPENER, LAYOUT_STYLES, PROSE_LAYOUTS, layoutMembers, COMMENT_START, NAMESPACE_CALL_TOKEN, NUMBER, SETTINGS,
   UNPACK_SO_FAR, VALUE_IN_TEXT, indentOf, isComment,
 } from '../lib/syntax.ts'
@@ -107,7 +107,7 @@ const KEYWORDS: ReadonlySet<string> = new Set(Object.values(KEYWORD))
 // (a unit after `:`, as in `phi:3:deg`):
 /** …on the name being assigned: `phi:3:`. */
 const NAME_SETTINGS_SO_FAR = new RegExp(String.raw`^\s*${NAME}${SETTINGS}$`)
-// …on a name being unpacked, `tuple(r:3, theta:`: UNPACK_SO_FAR.
+// …on a name being unpacked, `@tuple(r:3, theta:`: UNPACK_SO_FAR.
 /** …on a function's result: `f(x):3:`, `def polar(x, y):`. */
 const FUNCTION_SETTINGS_SO_FAR = new RegExp(String.raw`^\s*(?:${KEYWORD.def}\s+)?${NAME}\s*\([^()]*\)${SETTINGS}$`)
 
@@ -250,7 +250,7 @@ function token(stream: StringStream, state: State): Token | null {
     const id = word[0]
     const call = /^\s*\(/.test(stream.string.slice(stream.pos))
     // A display unit on the assigned name: the deg in `phi:3:deg = …`.
-    // (Also a name being unpacked: the deg in `tuple(r:3, theta:deg) = …`.)
+    // (Also a name being unpacked: the deg in `@tuple(r:3, theta:deg) = …`.)
     const lhsSoFar = stream.string.slice(0, stream.pos)
     const displayUnit = stream.string[stream.start - 1] === ':'
       && (NAME_SETTINGS_SO_FAR.test(lhsSoFar) || UNPACK_SO_FAR.test(lhsSoFar)
@@ -265,8 +265,7 @@ function token(stream: StringStream, state: State): Token | null {
     if (KEYWORDS.has(id)) return TOKEN.keyword
     if (call) {
       // `def f(…)`, or `f(…) = …` at the start of a line: a definition.
-      // (Not `tuple(a, b) = …`, which unpacks a tuple rather than defining a function.)
-      const oneLiner = stream.start === /^\s*/.exec(stream.string)![0].length && id !== CALL.tuple
+      const oneLiner = stream.start === /^\s*/.exec(stream.string)![0].length
         && FUNCTION_HEAD.test(stream.string.trimStart())
       return state.kind === LINE_KIND.def || oneLiner ? TOKEN.definition : TOKEN.function
     }

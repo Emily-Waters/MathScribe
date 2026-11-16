@@ -54,7 +54,7 @@ const LineLink = createContext<{ activeLine: number | null; onJump: (line: numbe
   onJump: () => {},
 })
 
-/** A `plot(…)` line's plot, drawn in the app's colours (it follows the theme). */
+/** A `@plot(…)` line's plot, drawn in the app's colours (it follows the theme). */
 function PlotView({ plot }: { plot: PlotData }) {
   const svg = useMemo(() => plotSvg(plot, THEME_PALETTE), [plot])
   return <div className="plot" dangerouslySetInnerHTML={{ __html: svg }} />

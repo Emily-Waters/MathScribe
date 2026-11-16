@@ -5,7 +5,7 @@
  *   Variable           a name's value, its sig figs, uncertainty, display settings, …
  *   └─ value, one of:
  *      quantity        a number, with or without a unit: 2.0 kg, 0.5, 3.00e8 m/s
- *      tuple           values in order: tuple(1.0, 2.0) m (a vector is a tuple
+ *      tuple           values in order: @tuple(1.0, 2.0) m (a vector is a tuple
  *                      with a look of its own: <3.0, 4.0> N)
  *      condition       true or false: x > 2
  *      callable        a function: f(x) = x^2, def g(a)

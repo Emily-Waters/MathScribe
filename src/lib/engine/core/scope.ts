@@ -100,7 +100,7 @@ export class Scope<T = unknown> extends Map<string, T> {
 }
 
 /**
- * The series of selections and named plots (`a = select(t, x; …)`), as lookups:
+ * The series of selections and named plots (`a = @select(t, x; …)`), as lookups:
  * a.x is the list of variables it picks, [x_2, x_5, …], so a.x_1 is x_2 itself,
  * with its sig figs and uncertainty, and nothing is copied (a selection of
  * thousands of rows is redone on every edit). Scoped by `{ }` blocks, as

@@ -197,8 +197,8 @@ function symbolInfo(s: SheetSymbol): HTMLElement {
 // A display setting being typed after a `:` (`phi:3:de`), 1: what's typed of it so far:
 /** …on the name being assigned. */
 const SETTING_ON_NAME = new RegExp(String.raw`^\s*${NAME}${SETTINGS}:([A-Za-z]*)$`)
-/** …on a name being unpacked: `tuple(r:3, theta:de`. */
-const SETTING_ON_UNPACKED = new RegExp(String.raw`^\s*${CALL.tuple}\s*\((?:[^()=]*,)?\s*${NAME}(?::[^:=\s,()]+)*:([A-Za-z]*)$`)
+/** …on a name being unpacked: `@tuple(r:3, theta:de`. */
+const SETTING_ON_UNPACKED = new RegExp(String.raw`^\s*${SIGIL}${CALL.tuple}\s*\((?:[^()=]*,)?\s*${NAME}(?::[^:=\s,()]+)*:([A-Za-z]*)$`)
 /** …on a function's result: `f(x):3:de`, `def polar(x, y):de`. */
 const SETTING_ON_RESULT = new RegExp(String.raw`^\s*(?:${KEYWORD.def}\s+)?${NAME}\s*\([^()]*\)${SETTINGS}:([A-Za-z]*)$`)
 

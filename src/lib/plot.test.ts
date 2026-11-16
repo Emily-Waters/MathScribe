@@ -1,4 +1,4 @@
-/** plot(): its settings, its linear fit, the engine's plot data, and its drawings. */
+/** @plot(): its settings, its linear fit, the engine's plot data, and its drawings. */
 import { describe, expect, it } from 'vitest'
 import { last, value } from '../test/helpers.ts'
 import { formatPlotSettings, parsePlotSettings } from './plotSettings.ts'
@@ -59,9 +59,9 @@ describe('linearFit', () => {
   })
 })
 
-describe('plot()', () => {
+describe('@plot()', () => {
   it('plots one series against another, with error bars for uncertainties', () => {
-    const r = last(`${data}plot(t, x)`)
+    const r = last(`${data}@plot(t, x)`)
     expect(r.error).toBeUndefined()
     expect(r.plot?.x).toMatchObject({ name: 't', unit: 's' })
     expect(r.plot?.y).toMatchObject({ name: 'x', unit: 'm' })
@@ -70,24 +70,24 @@ describe('plot()', () => {
   })
 
   it('fits a line, shows its equation and makes its slope and intercept variables', () => {
-    const r = last(`${data}plot(t, x; fit linear)`)
+    const r = last(`${data}@plot(t, x; fit linear)`)
     expect(r.plot?.series[0].fit?.slope).toBeCloseTo(0.494, 2)
     expect(r.tex).toContain('R^{2}')
-    expect(value(`${data}plot(t, x; fit linear)\nv = x_slope`)).toBe('(0.498 ± 0.018) m/s')
-    expect(value(`${data}plot(t, x; fit linear)\nx0 = x_intercept`)).toMatch(/ m$/)
+    expect(value(`${data}@plot(t, x; fit linear)\nv = x_slope`)).toBe('(0.498 ± 0.018) m/s')
+    expect(value(`${data}@plot(t, x; fit linear)\nx0 = x_intercept`)).toMatch(/ m$/)
   })
 
   it('keeps to the rows asked for', () => {
-    expect(last(`${data}plot(t, x; rows 2-3)`).plot?.series[0].points.map((p) => p.n)).toEqual([2, 3])
+    expect(last(`${data}@plot(t, x; rows 2-3)`).plot?.series[0].points.map((p) => p.n)).toEqual([2, 3])
   })
 
   it('says what’s wrong with its settings or series', () => {
-    expect(last(`${data}plot(t, x; colour red)`).error).toMatch(/isn't a plot setting/)
-    expect(last(`${data}plot(t)`).error).toBeDefined()
+    expect(last(`${data}@plot(t, x; colour red)`).error).toMatch(/isn't a plot setting/)
+    expect(last(`${data}@plot(t)`).error).toBeDefined()
   })
 
   it('draws as an SVG, with its axes’ names', () => {
-    const svg = plotSvg(last(`${data}plot(t, x; fit linear, title "Run 1")`).plot!, PRINT_PALETTE)
+    const svg = plotSvg(last(`${data}@plot(t, x; fit linear, title "Run 1")`).plot!, PRINT_PALETTE)
     expect(svg).toMatch(/^<svg/)
     expect(svg).toContain('Run 1')
     expect(svg).toContain('stroke-dasharray') // the fit line

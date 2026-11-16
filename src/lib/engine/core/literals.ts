@@ -1,5 +1,5 @@
 /** Unit literals (`9.81 m/s^2` as a number times a unit) and numbers kept as typed. */
-import { NAME, NAME_CHAR, NUMBER, KEYWORD } from '../../syntax.ts'
+import { CALL, NAME, NAME_CHAR, NUMBER, KEYWORD, SIGIL } from '../../syntax.ts'
 import { FN, MATHJS_IN } from '../../mathjsNames.ts'
 import { math } from './math.ts'
 import { bareTupleHints, expandModuleSyntax, readAfterUnit, rewriteExpression } from './module.ts'
@@ -150,7 +150,8 @@ export function preprocess(src: string, isVariable: (id: string) => boolean): { 
   if (bare) {
     // (A module may have a way to write it: a vector, <a, b>.)
     const hints = bareTupleHints(bare)
-    const tuple = hints.length ? `for other coordinates, tuple${bare}` : `write tuple${bare}`
+    const written = `${SIGIL}${CALL.tuple}${bare}`
+    const tuple = hints.length ? `for other coordinates, ${written}` : `write ${written}`
     throw new Error(`A bracketed list with commas, ${bare}, isn't a value: ${[...hints, tuple].join('; ')}.`)
   }
   // A module's own syntax, read before unit literals: `<3.0, 4.0> N`.

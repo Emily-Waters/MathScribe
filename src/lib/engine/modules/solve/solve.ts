@@ -1,11 +1,12 @@
 /**
- * `d = solve(v_f^2 = 2*a*d, d)`: rearrange the equation for the unknown and
+ * `d = @solve(v_f^2 = 2*a*d, d)`: rearrange the equation for the unknown and
  * evaluate the result like any formula, showing the equation, the rearranged
  * formula, the values substituted in, and the answer. Equations that can't be
  * rearranged are solved numerically from a starting guess, if one is given.
  */
 import type { MathNode, Unit } from 'mathjs'
-import { CALL, IS_NAME, SOLVE_CALL } from '../../../syntax.ts'
+import { IS_NAME } from '../../../syntax.ts'
+import { SOLVE_CALL } from './syntax.ts'
 import { solvedName } from '../../../names.ts'
 import { FN, OP, OP_SYMBOL, UNIT } from '../../../mathjsNames.ts'
 import { EXACT } from '../../../sigfigs.ts'
@@ -18,7 +19,7 @@ import { isRealValue, magnitudeOf, normalise, sameValue, withMagnitude } from '.
 import type { LineResult, TraceLine } from '../../core/results.ts'
 import { symbolTex } from '../../core/tex.ts'
 
-/** Solving numerically (the secant method), for `solve(…, x, guess)`. */
+/** Solving numerically (the secant method), for `@solve(…, x, guess)`. */
 const SOLVER = {
   maxIterations: 100,
   /** The second starting point, relative to the guess (or absolute, if the guess is 0). */
@@ -40,8 +41,7 @@ export class SolveForm extends LineForm {
 
   evaluate(line: FormLine, host: ModuleHost): LineResult | undefined {
     const call = SOLVE_CALL.exec(line.text)
-    // (A sheet's own function called solve wins.)
-    if (!call || !line.prepared || host.isUserFunction(CALL.solve)) return undefined
+    if (!call || !line.prepared) return undefined
     return solve(line.text, call, line, line.prepared, host)
   }
 }
@@ -52,13 +52,13 @@ function solve(text: string, call: RegExpExecArray, line: FormLine, prepared: Pr
   const target = call[1]
   const open = call.index + call[0].length - 1
   const close = matchingParen(text, open)
-  if (close < 0) return fail('solve( is missing its closing bracket.')
+  if (close < 0) return fail('@solve( is missing its closing bracket.')
   const tail = text.slice(close + 1).trim()
   const conversion = CONVERSION_TAIL.exec(tail)?.[1]
-  if (tail && !conversion) return fail('solve(…) has to be the whole right-hand side, optionally followed by "to unit".')
+  if (tail && !conversion) return fail('@solve(…) has to be the whole right-hand side, optionally followed by "to unit".')
 
   const args = splitArgs(text.slice(open + 1, close))
-  if (args.length < 2 || args.length > 3) return fail('Write solve(equation, unknown), or solve(equation, unknown, guess).')
+  if (args.length < 2 || args.length > 3) return fail('Write @solve(equation, unknown), or @solve(equation, unknown, guess).')
   const [equation, x, guessText] = args
   if (!IS_NAME.test(x)) return fail(`The second part of solve is the unknown to solve for, like d (got "${x}").`)
   const sides = splitEquation(equation)
@@ -126,7 +126,7 @@ function solve(text: string, call: RegExpExecArray, line: FormLine, prepared: Pr
   if (!candidates) {
     if (guess === undefined) {
       return fail(`Can't rearrange this for ${x}. Give a starting guess to solve it numerically: `
-        + `solve(…, ${x}, guess).`, equationTex)
+        + `@solve(…, ${x}, guess).`, equationTex)
     }
     return solveNumerically(host, lhs, rhs, x, guess, literals, equationTex, finish)
   }
@@ -161,7 +161,7 @@ function solve(text: string, call: RegExpExecArray, line: FormLine, prepared: Pr
   }
   const info = others.length
     ? `Also a solution: ${others.map(otherTex).join(', ')}`
-      + (guess === undefined ? `. Give a guess to choose it: solve(…, ${x}, guess).` : '.')
+      + (guess === undefined ? `. Give a guess to choose it: @solve(…, ${x}, guess).` : '.')
     : undefined
   return finish(chosen.node, chosen.value, info)
 }

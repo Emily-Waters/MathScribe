@@ -79,7 +79,7 @@ export const CREATE_KIND_INFO: Record<CreateKind, {
     options: [
       { id: 'uncertainty', label: 'Uncertainties carried through', ticked: true, instruction: 'Give measured values uncertainties with `pm`, and show the uncertainty of the main result with a `delta` line.' },
       { id: 'repeats', label: 'Repeated measurements (mean and spread)', ticked: true, instruction: 'Include repeated measurements as a series (`T1`, `T2`, …) and use `T_avg` and `T_std`.' },
-      { id: 'graph', label: 'A graph with a best-fit line', ticked: false, instruction: 'Include a data series plotted with `p = plot(x, y; fit linear)`, and use `p.slope`.' },
+      { id: 'graph', label: 'A graph with a best-fit line', ticked: false, instruction: 'Include a data series plotted with `p = @plot(x, y; fit linear)`, and use `p.slope`.' },
       { id: 'discussion', label: 'Discussion and conclusion', ticked: true, instruction: 'End with `@layout.text Discussion {` and `@layout.text Conclusion {` blocks of prose, each closed by `}`.' },
     ],
   },
@@ -133,10 +133,10 @@ export const SNIPPETS = {
     'F_s = F(0.120 m)',
     'F_f = friction(-1.5 m/s, 6.0 N)',
   ].join('\n'),
-  system: 'm_1 = 2.00 kg\nm_2 = 4.00 kg\nu = 6.00 m/s\ntuple(v_1, v_2) = solve(m_1 * u = m_1 * v_1 + m_2 * v_2, u = v_2 - v_1)',
-  solve: 'v_0 = 0 m/s\nv_f = 5.86 m/s\na = 4.91 m/s^2\nd = solve(v_f^2 = v_0^2 + 2 * a * d, d)',
+  system: 'm_1 = 2.00 kg\nm_2 = 4.00 kg\nu = 6.00 m/s\n@tuple(v_1, v_2) = @solve(m_1 * u = m_1 * v_1 + m_2 * v_2, u = v_2 - v_1)',
+  solve: 'v_0 = 0 m/s\nv_f = 5.86 m/s\na = 4.91 m/s^2\nd = @solve(v_f^2 = v_0^2 + 2 * a * d, d)',
   series: 'T1 = 1.21 s\nT2 = 1.17 s\nT3 = 1.24 s\nT_avg\nT_std',
-  plot: 'x1 = 0.10 m\nx2 = 0.20 m\nx3 = 0.30 m\nF1 = 0.52 N\nF2 = 0.98 N\nF3 = 1.51 N\np = plot(x, F; fit linear)\nk = p.slope',
+  plot: 'x1 = 0.10 m\nx2 = 0.20 m\nx3 = 0.30 m\nF1 = 0.52 N\nF2 = 0.98 N\nF3 = 1.51 N\np = @plot(x, F; fit linear)\nk = p.slope',
 } as const
 
 /** An example of a test laid out as these rules ask (evaluated by a test). */
@@ -265,9 +265,9 @@ ${code(SNIPPETS.function)}
   lines indented under them. Conditions compare values (\`<\`, \`>=\`, \`==\`, \`and\`, \`or\`).
 ${code(SNIPPETS.conditions)}
 ${code(SNIPPETS.solve)}
-- \`solve(equation, unknown)\` rearranges and evaluates. Give a guess for hard ones:
-  \`solve(x = cos(x), x, 0.5)\`.
-- Several unknowns: \`tuple(x, y) = solve(equation, equation)\`, with as many equations as
+- \`@solve(equation, unknown)\` rearranges and evaluates. Give a guess for hard ones:
+  \`@solve(x = cos(x), x, 0.5)\`.
+- Several unknowns: \`@tuple(x, y) = @solve(equation, equation)\`, with as many equations as
   unknowns (linear ones, or ones easily rearranged).
 ${code(SNIPPETS.system)}
 
@@ -275,9 +275,9 @@ ${code(SNIPPETS.system)}
 ${code(SNIPPETS.series)}
 - \`T1\`, \`T2\`, … (or \`T_1\`, \`T_2\`) form a series \`T\`: \`T_avg\` (mean ± standard error),
   \`T_std\`, \`T_sem\`, \`T_count\`, and \`T\` (the sum) show their working on their own line.
-- \`table(T, x, v = x / T)\` shows series side by side; \`v = x / T\` makes a new series.
+- \`@table(T, x, v = x / T)\` shows series side by side; \`v = x / T\` makes a new series.
 ${code(SNIPPETS.plot)}
-- \`p = plot(x, y; fit linear)\` graphs y against x with a best-fit line; \`p.slope\`,
+- \`p = @plot(x, y; fit linear)\` graphs y against x with a best-fit line; \`p.slope\`,
   \`p.intercept\` and \`p.r2\` are its results.
 
 ## Chemistry
@@ -303,7 +303,7 @@ ${code(SNIPPETS.chemistry)}
 
 ## Don't
 - Don't write LaTeX in calculation lines (\`\\frac\`, \`\\cdot\`); write plain maths.
-- Don't write \`(a, b)\` for a pair: use \`tuple(a, b)\`. \`<3.0, 4.0> N\` is a vector.
+- Don't write \`(a, b)\` for a pair: use \`@tuple(a, b)\`. \`<3.0, 4.0> N\` is a vector.
 - Don't put a unit after a variable (\`m kg\`), or leave out \`*\`.
 - Don't use \`#\` for a comment on its own line: it makes a heading. Use \`//\`.
 - Don't type a computed number into prose: use \`{{name}}\`, so it stays right.

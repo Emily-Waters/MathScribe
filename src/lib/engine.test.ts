@@ -6,6 +6,7 @@
 import { describe, expect, it } from 'vitest'
 import { last, lineAt, lines, readable, sheet, shown, value } from '../test/helpers.ts'
 import { bareTuple, expandVectors, symbolTex } from './engine/index.ts'
+import { VECTOR_FUNCTION } from './engine/modules/vectors/syntax.ts'
 
 describe('basic calculation', () => {
   it('substitutes values and tidies the unit', () => {
@@ -213,7 +214,7 @@ describe('to an angle unit', () => {
     expect(value('v_x = 3.0 m/s\nv_y = 4.0 m/s\ntheta = atan(v_y / v_x) to deg')).toBe('53°')
     expect(value('v_x = 3.0 m/s\nv_y = 4.0 m/s\ntheta = atan2(v_y, v_x) to deg')).toBe('53°')
     expect(value('theta = atan(0.75)\nphi = theta to deg')).toBe('37°')
-    expect(value('p = tuple(0.50, 1.00) to deg')).toBe('(29, 57)°')
+    expect(value('p = @tuple(0.50, 1.00) to deg')).toBe('(29, 57)°')
   })
 
   it('still converts quantities, and explains a number with no unit', () => {
@@ -318,7 +319,7 @@ describe('functions', () => {
     })
 
     it('work on a def, including a tuple result', () => {
-      const polar = 'def polar(px, py):3\n    rr = sqrt(px^2 + py^2)\n    th = atan2(py, px)\n    return tuple(rr, th)\nQ = polar(1.0 m, 1.0 m)'
+      const polar = 'def polar(px, py):3\n    rr = sqrt(px^2 + py^2)\n    th = atan2(py, px)\n    return @tuple(rr, th)\nQ = polar(1.0 m, 1.0 m)'
       expect(value(polar)).toBe('(1.41 m, 0.785)')
       expect(value('def h(px, py):deg\n    th = atan2(py, px)\n    return th\nd = h(1.00 m, 1.00 m)')).toBe('45.0°')
     })
@@ -443,8 +444,8 @@ describe('notation on the name', () => {
   it('applies to uncertainties, tuples, unpacked names and function results', () => {
     expect(value('x:sci = 2.0 m pm 0.1 m\ny = x')).toBe('(2.0 ± 0.1) m')
     expect(value('x = 1500. m pm 20 m\ny:sci = x')).toBe('(1.50 ± 0.02)e3 m')
-    expect(value('r:sci = tuple(100., 2000.)')).toBe('(1.00e2, 2.00e3)')
-    expect(resultOfLine('tuple(a:sci, b) = tuple(150., 2.0)\na', 2)).toBe('1.5e2') // a tuple's values share its sig figs
+    expect(value('r:sci = @tuple(100., 2000.)')).toBe('(1.00e2, 2.00e3)')
+    expect(resultOfLine('@tuple(a:sci, b) = @tuple(150., 2.0)\na', 2)).toBe('1.5e2') // a tuple's values share its sig figs
     expect(value('f(x):sci = 2 * x\ny = f(150.)')).toBe('3.00e2')
   })
 })
@@ -476,9 +477,11 @@ describe('#sci and #dec', () => {
 
 describe('expandVectors', () => {
   it('reads <…> as a vector where a value can start, with any unit after it', () => {
-    expect(expandVectors('F = <3.0, 4.0> N')).toBe('F = (vector(3.0, 4.0) * unit("N"))')
-    expect(expandVectors('c = cross(<1, 0, 0>, <0, 1, 0>)')).toBe('c = cross(vector(1, 0, 0), vector(0, 1, 0))')
-    expect(expandVectors('r = <max(1, 2), <1, 2>>')).toBe('r = vector(max(1, 2), vector(1, 2))')
+    // (As a call to the function vectors are made with, as mathjs holds it: VECTOR_FUNCTION.)
+    const v = VECTOR_FUNCTION
+    expect(expandVectors('F = <3.0, 4.0> N')).toBe(`F = (${v}(3.0, 4.0) * unit("N"))`)
+    expect(expandVectors('c = cross(<1, 0, 0>, <0, 1, 0>)')).toBe(`c = cross(${v}(1, 0, 0), ${v}(0, 1, 0))`)
+    expect(expandVectors('r = <max(1, 2), <1, 2>>')).toBe(`r = ${v}(max(1, 2), ${v}(1, 2))`)
   })
 
   it('leaves comparisons alone', () => {
@@ -487,63 +490,63 @@ describe('expandVectors', () => {
   })
 })
 
-describe('table()', () => {
+describe('@table()', () => {
   const data = 't1 = 0.10 s\nt2 = 0.20 s\nt3 = 0.30 s\nx1 = 0.012 m\nx2 = 0.047 m\nx3 = 0.106 m\n'
   /** A table's rows as readable text, header first. */
   const rowsOf = (tex: string) => tex.replace(/\\begin\{array\}\{[^}]*\}|\\end\{array\}|\\hline/g, '')
     .split('\\\\').map((row) => row.split('&').map((cell) => readable(cell)).join(' & '))
 
   it('puts series side by side, one row per number, with a shared unit in the header', () => {
-    expect(rowsOf(last(`${data}table(t, x)`).tex)).toEqual([
+    expect(rowsOf(last(`${data}@table(t, x)`).tex)).toEqual([
       'n & t [s] & x [m]', '1 & 0.10 & 0.012', '2 & 0.20 & 0.047', '3 & 0.30 & 0.106',
     ])
   })
 
   it('works out a named column row by row, and makes it a series', () => {
-    expect(rowsOf(last(`${data}table(t, x, v = x / t)`).tex)[0]).toBe('n & t [s] & x [m] & v [m/s]')
-    expect(rowsOf(last(`${data}table(t, x, v = x / t)`).tex)[2]).toBe('2 & 0.20 & 0.047 & 0.24')
-    expect(value(`${data}table(t, x, v = x / t)\nv_count`)).toBe('3')
-    expect(value(`${data}table(t, x, v = x / t)\nw = v_3`)).toBe('0.35 m/s')
+    expect(rowsOf(last(`${data}@table(t, x, v = x / t)`).tex)[0]).toBe('n & t [s] & x [m] & v [m/s]')
+    expect(rowsOf(last(`${data}@table(t, x, v = x / t)`).tex)[2]).toBe('2 & 0.20 & 0.047 & 0.24')
+    expect(value(`${data}@table(t, x, v = x / t)\nv_count`)).toBe('3')
+    expect(value(`${data}@table(t, x, v = x / t)\nw = v_3`)).toBe('0.35 m/s')
   })
 
   it('shows an unnamed column without making a series, and uses other values as they are', () => {
-    expect(rowsOf(last(`${data}table(x / t)`).tex)[0]).toBe('n & \\fracxt [m/s]')
-    expect(last(`${data}table(x / t)\ny = unpacked__table0_1`).error).toMatch(/Undefined symbol/)
-    expect(rowsOf(last(`${data}g = 9.81 m/s^2\ntable(h = 1/2 * g * t^2)`).tex)[1]).toBe('1 & 0.049')
+    expect(rowsOf(last(`${data}@table(x / t)`).tex)[0]).toBe('n & \\fracxt [m/s]')
+    expect(last(`${data}@table(x / t)\ny = unpacked__table0_1`).error).toMatch(/Undefined symbol/)
+    expect(rowsOf(last(`${data}g = 9.81 m/s^2\n@table(h = 1/2 * g * t^2)`).tex)[1]).toBe('1 & 0.049')
   })
 
   it('shows uncertainties, and a gap where a series has no value', () => {
-    expect(rowsOf(last('d1 = 3.0 m pm 0.1 m\nd2 = 4.0 m pm 0.1 m\ntable(d)').tex)[1]).toBe('1 & 3.0 ± 0.1')
-    expect(rowsOf(last('a1 = 1.0\na2 = 2.0\nb1 = 5.0\ntable(a, b)').tex)[2]).toBe('2 & 2.0 & \\text—')
+    expect(rowsOf(last('d1 = 3.0 m pm 0.1 m\nd2 = 4.0 m pm 0.1 m\n@table(d)').tex)[1]).toBe('1 & 3.0 ± 0.1')
+    expect(rowsOf(last('a1 = 1.0\na2 = 2.0\nb1 = 5.0\n@table(a, b)').tex)[2]).toBe('2 & 2.0 & \\text—')
   })
 
   it('shortens a long table to its first and last rows', () => {
     const many = Array.from({ length: 80 }, (_, i) => `y${i + 1} = ${i + 1}.0`).join('\n')
-    const line = last(`${many}\ntable(y)`)
+    const line = last(`${many}\n@table(y)`)
     expect(line.info).toBe('80 rows: the first 50 and the last 5 are shown (the ⚙ button can show them all).')
     expect(line.tex).toContain('\\vdots')
     expect(line.tex).not.toContain(' 51 & ')
     // Unless the settings ask for all of them.
-    expect(last(`${many}\ntable(y; all rows)`).tex).toContain(' 51 & ')
+    expect(last(`${many}\n@table(y; all rows)`).tex).toContain(' 51 & ')
   })
 
   it('takes settings after a semicolon: rows, lines and the n column', () => {
-    const rows = rowsOf(last(`${data}table(t, x; rows 2-3)`).tex)
+    const rows = rowsOf(last(`${data}@table(t, x; rows 2-3)`).tex)
     expect(rows.slice(1).map((r) => r.split(' & ')[0])).toEqual(['2', '3'])
-    expect(rowsOf(last(`${data}table(t, x; rows 2)`).tex)).toHaveLength(2)
-    expect(rowsOf(last(`${data}table(t; numbers off)`).tex)[0]).toBe('t [s]')
-    expect(last(`${data}table(t; lines grid)`).tex).toMatch(/^\\begin\{array\}\{\|r\|r\|\} \\hline n/)
-    expect(last(`${data}table(t; lines none)`).tex).not.toContain('\\hline')
-    expect(last(`${data}table(t; rows 9-12)`).info).toBe('No rows in this range.')
-    expect(last(`${data}table(t; colour red)`).error).toMatch(/^"colour red" isn't a table setting/)
+    expect(rowsOf(last(`${data}@table(t, x; rows 2)`).tex)).toHaveLength(2)
+    expect(rowsOf(last(`${data}@table(t; numbers off)`).tex)[0]).toBe('t [s]')
+    expect(last(`${data}@table(t; lines grid)`).tex).toMatch(/^\\begin\{array\}\{\|r\|r\|\} \\hline n/)
+    expect(last(`${data}@table(t; lines none)`).tex).not.toContain('\\hline')
+    expect(last(`${data}@table(t; rows 9-12)`).info).toBe('No rows in this range.')
+    expect(last(`${data}@table(t; colour red)`).error).toMatch(/^"colour red" isn't a table setting/)
   })
 
   it('explains what doesn’t fit', () => {
-    expect(last('table()').error).toMatch(/^Name the series to show/)
-    expect(last('table(q)').error).toMatch(/^q isn't a series/)
-    expect(last(`${data}table(2 * t1)`).error).toMatch(/doesn't use any series/)
-    expect(last('a1 = 1.0\na2 = 0\ntable(r = 1 / a)').error).toBeUndefined()
-    expect(last('a1 = 1.0 m\na2 = 2.0 s\ntable(r = a + 1.0 m)').error).toMatch(/^Row 2: The units don't match/)
+    expect(last('@table()').error).toMatch(/^Name the series to show/)
+    expect(last('@table(q)').error).toMatch(/^q isn't a series/)
+    expect(last(`${data}@table(2 * t1)`).error).toMatch(/doesn't use any series/)
+    expect(last('a1 = 1.0\na2 = 0\n@table(r = 1 / a)').error).toBeUndefined()
+    expect(last('a1 = 1.0 m\na2 = 2.0 s\n@table(r = a + 1.0 m)').error).toMatch(/^Row 2: The units don't match/)
   })
 })
 
@@ -571,7 +574,7 @@ describe('vectors', () => {
     expect(readable(last(`${src}\ne = dot(F + F, F)`).tex).split(' = ')[1]).toBe('(F+ F) · F')
     expect(resultOfLine(src, 5)).toBe('⟨0, 0, 1⟩')
     // A plain tuple stays a tuple.
-    expect(value('p = 2 * tuple(1.0, 2.0)')).toBe('(2.0, 4.0)')
+    expect(value('p = 2 * @tuple(1.0, 2.0)')).toBe('(2.0, 4.0)')
   })
 
   it('come back from a function as vectors', () => {
@@ -610,17 +613,17 @@ describe('vectors', () => {
 
   it('explain settings that don’t fit', () => {
     expect(last('bad:xyz = 3').error).toBe('bad:xyz needs a vector of 2 or 3 values, like <3.0, 4.0> N.')
-    expect(last('tuple(a:ijk, b) = <1, 2>').error).toMatch(/a:ijk is for a vector/)
+    expect(last('@tuple(a:ijk, b) = <1, 2>').error).toMatch(/a:ijk is for a vector/)
     expect(last('f(x):xyz = <x, x>').error).toMatch(/isn't available on a function/)
   })
 })
 
 describe('tuples', () => {
-  const src = 'x = 1.00 m\ny = 2.00 m\nz = 3.00 m\nr = tuple(x, y, z)\ns = 2 * r\nt = r + r\nd = norm(r)\nrc = r to cm'
+  const src = 'x = 1.00 m\ny = 2.00 m\nz = 3.00 m\nr = @tuple(x, y, z)\ns = 2 * r\nt = r + r\nd = norm(r)\nrc = r to cm'
 
   it('show a shared unit once, after the bracket', () => {
     expect(shown(src.split('\n').slice(0, 4).join('\n'))).toBe('r = (x, y, z) = (1.00 m, 2.00 m, 3.00 m) = (1.00, 2.00, 3.00) m')
-    expect(shown('q = tuple(1.0 m, 2.0 s)')).toBe('q = (1.0 m, 2.0 s)')
+    expect(shown('q = @tuple(1.0 m, 2.0 s)')).toBe('q = (1.0 m, 2.0 s)')
   })
 
   it('calculate: scaling, adding, length and conversion', () => {
@@ -631,13 +634,13 @@ describe('tuples', () => {
   })
 
   it('can be a function’s result', () => {
-    expect(value('to_cart(rr, th to rad) = tuple(rr * cos(th), rr * sin(th))\nP = to_cart(2.00 m, 30.0 deg)')).toBe('(1.73, 1.00) m')
-    const polar = 'def polar(px, py)\n    rr = sqrt(px^2 + py^2)\n    th:deg = atan2(py, px)\n    return tuple(rr, th)\nQ = polar(1.00 m, 1.00 m)'
+    expect(value('to_cart(rr, th to rad) = @tuple(rr * cos(th), rr * sin(th))\nP = to_cart(2.00 m, 30.0 deg)')).toBe('(1.73, 1.00) m')
+    const polar = 'def polar(px, py)\n    rr = sqrt(px^2 + py^2)\n    th:deg = atan2(py, px)\n    return @tuple(rr, th)\nQ = polar(1.00 m, 1.00 m)'
     expect(value(polar)).toBe('(1.41 m, 45.0°)') // the body's :deg applies to what's returned
   })
 
-  it('must be written tuple(…): a bracketed list with commas is an error', () => {
-    expect(last('r = (1.0, 2.0)').error).toBe("A bracketed list with commas, (1.0, 2.0), isn't a value: for a vector, write <1.0, 2.0>; for other coordinates, tuple(1.0, 2.0).")
+  it('must be written @tuple(…): a bracketed list with commas is an error', () => {
+    expect(last('r = (1.0, 2.0)').error).toBe("A bracketed list with commas, (1.0, 2.0), isn't a value: for a vector, write <1.0, 2.0>; for other coordinates, @tuple(1.0, 2.0).")
     expect(value('f(a, b) = a + b\nk = f(1, 2)')).toBe('3')
     expect(value('n = (1 + 2) * 3')).toBe('9')
     expect(value('m = max(1, (2))')).toBe('2')
@@ -648,20 +651,20 @@ describe('bareTuple', () => {
   it('finds a bracketed list with commas, but not calls, grouping or matrices', () => {
     expect(bareTuple('r = (x, y, z)')).toBe('(x, y, z)')
     expect(bareTuple('f(a, b) + 2 * (1, (2, 3))')).toBe('(1, (2, 3))')
-    expect(bareTuple('(1 + 2) * max(3, 4) + [1, 2] + tuple(5, 6)')).toBeNull()
+    expect(bareTuple('(1 + 2) * max(3, 4) + [1, 2] + @tuple(5, 6)')).toBeNull()
   })
 })
 
 describe('unpacking a tuple', () => {
   it('stores each value as a variable of its own', () => {
-    const src = 'x = 1.00 m\ny = 2.00 m\nz = 3.00 m\ntuple(a, b, c) = tuple(x, y, z)\nd = a + b + c'
+    const src = 'x = 1.00 m\ny = 2.00 m\nz = 3.00 m\n@tuple(a, b, c) = @tuple(x, y, z)\nd = a + b + c'
     expect(readable(lineAt(src, 4).tex)).toBe('(a, b, c) = (x, y, z) = (1.00 m, 2.00 m, 3.00 m) = (1.00, 2.00, 3.00) m')
     expect(value(src)).toBe('6.00 m')
   })
 
   it('takes a function’s result, and keeps each value’s unit', () => {
-    const src = 'def polar(px, py)\n    rr = sqrt(px^2 + py^2)\n    th:deg = atan2(py, px)\n    return tuple(rr, th)\n'
-      + 'tuple(r, theta) = polar(1.00 m, 1.00 m)\nx2 = r * cos(theta)'
+    const src = 'def polar(px, py)\n    rr = sqrt(px^2 + py^2)\n    th:deg = atan2(py, px)\n    return @tuple(rr, th)\n'
+      + '@tuple(r, theta) = polar(1.00 m, 1.00 m)\nx2 = r * cos(theta)'
     const call = lineAt(src, 5)
     expect(readable(call.tex)).toBe('(r, \\theta) = (rr, th) = (1.41 m, 45.0°)')
     // The function's own working keeps its own names.
@@ -670,44 +673,44 @@ describe('unpacking a tuple', () => {
   })
 
   it('works inside a function', () => {
-    expect(value('def f(p)\n    tuple(u, v) = p\n    return u + v\nk = f(tuple(1.0, 2.0))')).toBe('3.0')
+    expect(value('def f(p)\n    @tuple(u, v) = p\n    return u + v\nk = f(@tuple(1.0, 2.0))')).toBe('3.0')
   })
 
   it('takes sig figs and a unit on each name, as a single assignment does', () => {
-    const src = 'def polar(px, py)\n    rr = sqrt(px^2 + py^2)\n    th = atan2(py, px)\n    return tuple(rr, th)\n'
-      + 'tuple(r:3, theta:deg) = polar(1.00 m, 1.00 m)\ntheta\nx2 = r * cos(theta)'
+    const src = 'def polar(px, py)\n    rr = sqrt(px^2 + py^2)\n    th = atan2(py, px)\n    return @tuple(rr, th)\n'
+      + '@tuple(r:3, theta:deg) = polar(1.00 m, 1.00 m)\ntheta\nx2 = r * cos(theta)'
     expect(readable(lineAt(src, 5).tex)).toBe('(r, \\theta) = (rr, th) = (1.41 m, 0.785) = (1.41 m, 45.0°)')
     expect(resultOfLine(src, 6)).toBe('45.0°') // theta keeps the unit
     expect(value(src)).toBe('1.00 m')
-    expect(value('tuple(a:km, b:2) = tuple(1500. m, 2.345 s)\nb')).toBe('2.3 s') // b keeps its sig figs
+    expect(value('@tuple(a:km, b:2) = @tuple(1500. m, 2.345 s)\nb')).toBe('2.3 s') // b keeps its sig figs
   })
 
   it('doesn’t warn about trailing zeros in a value whose name declares its sig figs', () => {
-    expect(last('tuple(r, theta:2:deg, phi:2:deg) = tuple(1, 45 deg, 90 deg)').warning).toBeUndefined()
-    expect(last('tuple(r, phi) = tuple(1, 90 deg)').warning).toMatch(/Trailing zeros in 90/)
+    expect(last('@tuple(r, theta:2:deg, phi:2:deg) = @tuple(1, 45 deg, 90 deg)').warning).toBeUndefined()
+    expect(last('@tuple(r, phi) = @tuple(1, 90 deg)').warning).toMatch(/Trailing zeros in 90/)
     // Only the values whose names don't declare sig figs are checked.
-    expect(last('tuple(a:2, b) = tuple(300 m, 400 m)').warning).toMatch(/Trailing zeros in 400 aren't/)
+    expect(last('@tuple(a:2, b) = @tuple(300 m, 400 m)').warning).toMatch(/Trailing zeros in 400 aren't/)
   })
 
   it('applies a name’s unit inside a function too', () => {
-    expect(value('def f(p)\n    tuple(u:cm, v) = p\n    return u\nk = f(tuple(1.00 m, 2.00))')).toBe('100. cm')
+    expect(value('def f(p)\n    @tuple(u:cm, v) = p\n    return u\nk = f(@tuple(1.00 m, 2.00))')).toBe('100. cm')
   })
 
   it('explains a setting that doesn’t fit', () => {
-    expect(last('tuple(a:deg, b) = tuple(1.0 m, 2.0)').error).toMatch(/can't be shown in deg/)
-    expect(last('tuple(a:zz, b) = tuple(1, 2)').error).toMatch(/"zz" isn't a number of sig figs, a unit, or a setting like sci or ijk/)
-    expect(last('tuple(a:percent, b) = tuple(1, 2)').error).toMatch(/isn't available when unpacking/)
+    expect(last('@tuple(a:deg, b) = @tuple(1.0 m, 2.0)').error).toMatch(/can't be shown in deg/)
+    expect(last('@tuple(a:zz, b) = @tuple(1, 2)').error).toMatch(/"zz" isn't a number of sig figs, a unit, or a setting like sci or ijk/)
+    expect(last('@tuple(a:percent, b) = @tuple(1, 2)').error).toMatch(/isn't available when unpacking/)
   })
 
   it('explains what doesn’t fit', () => {
-    expect(last('tuple(a, b) = 5').error).toMatch(/isn't a tuple, so it can't be unpacked into a, b/)
-    expect(last('tuple(a, b) = tuple(1, 2, 3)').error).toMatch(/has 3 values, but 2 names are given/)
-    expect(last('tuple(a, 2) = tuple(1, 2)').error).toMatch(/"2" isn't a variable name/)
-    expect(last('tuple(a, a) = tuple(1, 2)').error).toMatch(/a is listed twice/)
+    expect(last('@tuple(a, b) = 5').error).toMatch(/isn't a tuple, so it can't be unpacked into a, b/)
+    expect(last('@tuple(a, b) = @tuple(1, 2, 3)').error).toMatch(/has 3 values, but 2 names are given/)
+    expect(last('@tuple(a, 2) = @tuple(1, 2)').error).toMatch(/"2" isn't a variable name/)
+    expect(last('@tuple(a, a) = @tuple(1, 2)').error).toMatch(/a is listed twice/)
   })
 
   it('doesn’t leave its working variable behind', () => {
-    expect(sheet('tuple(a, b) = tuple(1, 2)').variables.map((v) => v.name)).toEqual(['a', 'b'])
+    expect(sheet('@tuple(a, b) = @tuple(1, 2)').variables.map((v) => v.name)).toEqual(['a', 'b'])
   })
 })
 
@@ -731,7 +734,7 @@ describe('display commands', () => {
 
 describe('solving and series', () => {
   it('rearranges and evaluates', () => {
-    expect(value('v = 5.00 m/s\na = 2.00 m/s^2\nd = solve(v^2 = 2*a*d, d)')).toBe('6.25 m')
+    expect(value('v = 5.00 m/s\na = 2.00 m/s^2\nd = @solve(v^2 = 2*a*d, d)')).toBe('6.25 m')
   })
 
   it('makes means, counts and sums of numbered variables', () => {
@@ -746,3 +749,20 @@ function resultOfLine(source: string, n: number): string {
   const parts = readable(lineAt(source, n).tex).split(/ = | ≈ /)
   return parts[parts.length - 1]
 }
+
+describe('MathScribe’s own functions, written with @', () => {
+  it('explains one written without its @', () => {
+    const data = 't1 = 1.0 s\nt2 = 2.0 s\n'
+    expect(last(`${data}table(t)`).error).toBe('There\'s no function table: MathScribe\'s is written with an @, as @table(…).')
+    expect(last('r = vector(3, 4)').error).toBe('There\'s no function vector: MathScribe\'s is written with an @, as @vector(…).')
+  })
+
+  it('leaves their names free for the sheet’s own', () => {
+    expect(value('tuple(a, b) = a + b\nx = tuple(2, 3)')).toBe('5')
+    expect(value('r = @tuple(1.0, 2.0) m')).toBe('(1.0, 2.0) m')
+  })
+
+  it('explains one that’s a line of its own, written inside an expression', () => {
+    expect(last('t1 = 1.0 s\nt2 = 2.0 s\nx = 2 * @table(t)').error).toMatch(/@table\(…\) is written on a line of its own/)
+  })
+})

@@ -43,8 +43,7 @@ export const FN = {
   unit: 'unit',
   /** A number kept as typed, so 2.00 keeps its sig figs: lit("2.00") (the engine adds it). */
   literal: 'lit',
-  tuple: 'tuple',
-  /** mathjs's own functions that solve(…) undoes, and the engine treats specially. */
+  /** mathjs's own functions that @solve(…) undoes, and the engine treats specially. */
   sqrt: 'sqrt',
   cbrt: 'cbrt',
   exp: 'exp',

@@ -1,7 +1,7 @@
 /**
  * A table's settings, kept in the sheet after a semicolon inside its brackets:
  *
- *   table(t, x, v = x / t; rows 5-20, lines grid, numbers off, all rows)
+ *   @table(t, x, v = x / t; rows 5-20, lines grid, numbers off, all rows)
  *
  *   rows 5-20     only rows 5 to 20 (rows 5- from 5 on, rows -20 up to 20)
  *   lines grid    a line around every cell (lines none: no lines; the default

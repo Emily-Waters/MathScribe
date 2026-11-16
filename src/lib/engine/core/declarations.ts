@@ -62,7 +62,7 @@ export function toDisplayUnit(value: unknown, unit: string): unknown {
   throw new Error(`This value can't be shown in ${unit}.`)
 }
 
-/** A name in `tuple(a, b:3, c:deg) = …`, with its display settings. */
+/** A name in `@tuple(a, b:3, c:deg) = …`, with its display settings. */
 export interface TupleName {
   name: string
   sf?: Precision
@@ -74,7 +74,7 @@ export interface TupleName {
 export function parseTupleName(entry: string): TupleName | { error: string } {
   const name = LEADING_NAME.exec(entry)?.[0]
   if (!name || !NAME_WITH_SETTINGS.test(entry)) {
-    return { error: `"${entry}" isn't a variable name: write tuple(a, b, c) = …, optionally with settings like b:3 or c:deg.` }
+    return { error: `"${entry}" isn't a variable name: write @tuple(a, b, c) = …, optionally with settings like b:3 or c:deg.` }
   }
   if (entry === name) return { name }
   const d = parseDeclaration(`${entry} = 0`)

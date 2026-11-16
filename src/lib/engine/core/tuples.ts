@@ -7,13 +7,13 @@ export const CALL_BEFORE = new RegExp(String.raw`(?:${NAME_CHAR}|[)\]])$`)
 /**
  * The first bracketed list with commas, `(a, b)`, that isn't a function call's
  * argument list (it doesn't follow a name or a closing bracket); null if none.
- * It isn't a value: tuples are written tuple(a, b).
+ * It isn't a value: tuples are written @tuple(a, b).
  */
 export function bareTuple(src: string): string | null {
   for (let i = 0; i < src.length; i++) {
     if (src[i] !== '(') continue
     const before = src.slice(0, i).trimEnd()
-    if (CALL_BEFORE.test(before)) continue // a call: f(a, b), λ(a, b), solve(…), or (x)(y)
+    if (CALL_BEFORE.test(before)) continue // a call: f(a, b), λ(a, b), @solve(…), or (x)(y)
     let depth = 0
     let comma = false
     let j = i

@@ -22,7 +22,7 @@ export interface Line {
   info?: string
   hidden?: boolean
   trace?: { tex: string }[]
-  /** A plot() line's graph. */
+  /** A @plot() line's graph. */
   plot?: PlotData
 }
 

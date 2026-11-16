@@ -1,12 +1,13 @@
 /**
  * Vectors as an engine module: a vector is a tuple (the core's) with a look of
- * its own. Typed `<3.0, 4.0> N` (or `vector(…)`), it's shown ⟨3.0, 4.0⟩ N, or with
+ * its own. Typed `<3.0, 4.0> N` (or `@vector(…)`), it's shown ⟨3.0, 4.0⟩ N, or with
  * unit vectors, (3.0 î + 4.0 ĵ) N, with `F:ijk`; `F:xyz` makes its components
  * variables (F_x, F_y); dot(a, b) and cross(a, b) are written a · b and a × b.
  * Everything that works on tuples works on vectors: this only adds how they're
  * written and shown.
  */
 import type { FunctionNode, MathNode, MathType } from 'mathjs'
+import { FunctionMember, type Expansion, type Member } from '../../../builtins.ts'
 import { math } from '../../core/math.ts'
 import {
   EngineModule, SETTING_PLACE, type DerivedVariable, type LookSetting, type ModuleHost, type SettingPlace, type TupleLook,
@@ -16,7 +17,7 @@ import { attachUnit } from '../../core/tex.ts'
 import { componentsOf } from './components.ts'
 import { expandVectors, hasVector } from './literals.ts'
 import {
-  COMPONENTS_SETTING, UNIT_VECTOR_SETTING, UNIT_VECTOR_TEX, VECTOR_BRACKETS, VECTOR_FUNCTION, VECTOR_LOOK, VECTOR_LOOKS,
+  COMPONENTS_SETTING, UNIT_VECTOR_SETTING, UNIT_VECTOR_TEX, VECTOR_BRACKETS, VECTOR_CALL, VECTOR_FUNCTION, VECTOR_LOOK, VECTOR_LOOKS,
   VECTOR_PRODUCTS, VECTOR_SETTINGS, type VectorLook,
 } from './syntax.ts'
 
@@ -26,17 +27,35 @@ const isVectorLook = (look: TupleLook | undefined): look is VectorLook => (VECTO
 /** Whether a function is a vector product, written as an operator. */
 const isProduct = (name: string): name is keyof typeof VECTOR_PRODUCTS => Object.hasOwn(VECTOR_PRODUCTS, name)
 
+/** `@vector(3.0, 4.0) N`: a vector, the same as `<3.0, 4.0> N`. */
+class VectorFunction extends FunctionMember {
+  readonly parameters = 'x, y, …'
+
+  constructor() {
+    super(VECTOR_CALL, 'A vector, the same as <x, y, …>')
+  }
+
+  expand(args: string): Expansion {
+    return { text: `${VECTOR_FUNCTION}(${args})` }
+  }
+}
+
 export class VectorModule extends EngineModule {
   // -------------------------------------------------------------------------
   // Shared
   // -------------------------------------------------------------------------
 
-  /** `vector(3.0, 4.0)`: a tuple like any other (so everything that works on tuples works on it). */
+  /** VECTOR_FUNCTION(3.0, 4.0): a tuple like any other (so everything that works on tuples works on it). */
   override install(): void {
     math.import({ [VECTOR_FUNCTION]: (...values: MathType[]) => math.matrix(values as never) })
   }
 
-  /** `<3.0, 4.0> N` → `(vector(3.0, 4.0) * N)`. */
+  /** `@vector(3.0, 4.0)`, the same as `<3.0, 4.0>`. */
+  override builtinMembers(): Member[] {
+    return [new VectorFunction()]
+  }
+
+  /** `<3.0, 4.0> N` → `(VECTOR_FUNCTION(3.0, 4.0) * N)`. */
   override expandSyntax(src: string): string {
     return expandVectors(src)
   }

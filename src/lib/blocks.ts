@@ -127,7 +127,7 @@ export interface CalcBlock extends BlockBase, Noted, Faulted, Hideable {
   info?: string
   /** Working from inside functions called on this line, shown before it. */
   trace?: TraceLine[]
-  /** A `plot(…)` line's plot (`tex` is then its fits' equations, if any). */
+  /** A `@plot(…)` line's plot (`tex` is then its fits' equations, if any). */
   plot?: PlotData
   /** What a select or named plot made (a__x_1, p__slope), for suggestions. */
   defines?: Definition[]

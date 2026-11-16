@@ -1,5 +1,5 @@
 /**
- * The settings button of a table or plot: a ⚙ after `table(…)` or `plot(…)` in
+ * The settings button of a table or plot: a ⚙ after `@table(…)` or `@plot(…)` in
  * the editor, which opens a small panel of its settings. Changing one rewrites
  * the settings after the semicolon in the brackets (see lib/tableSettings.ts and
  * lib/plotSettings.ts), so the sheet's text is always what's shown.
@@ -18,7 +18,7 @@ import {
   PLOT_FITS, PLOT_STYLES, formatPlotSettings, parsePlotSettings,
   type AxisSettings, type PlotFit, type PlotSettings, type PlotStyle,
 } from '../lib/plotSettings.ts'
-import { CALL, SETTINGS_CALL_OPENING as CALL_OPENING, type CallWithSettings as CallKind } from '../lib/syntax.ts'
+import { SERIES_CALL, SETTINGS_CALL_OPENING as CALL_OPENING, type CallWithSettings as CallKind } from '../lib/engine/modules/series/syntax.ts'
 
 /** How each choice reads in the panels. */
 const LINE_NAMES: Record<TableLines, string> = { header: 'Under the header', grid: 'Grid', none: 'None' }
@@ -185,8 +185,8 @@ function openSettings(view: EditorView, button: HTMLElement, n: number): void {
   const panel = document.createElement('div')
   panel.className = 'options__panel cm-ms-table-menu'
   panel.setAttribute('role', 'group')
-  panel.setAttribute('aria-label', call.kind === CALL.table ? 'Table settings' : 'Plot settings')
-  panel.append(...(call.kind === CALL.table ? tablePanel : plotPanel)(settingsText, save))
+  panel.setAttribute('aria-label', call.kind === SERIES_CALL.table ? 'Table settings' : 'Plot settings')
+  panel.append(...(call.kind === SERIES_CALL.table ? tablePanel : plotPanel)(settingsText, save))
 
   // Under the button, kept on screen.
   const at = button.getBoundingClientRect()
@@ -230,8 +230,8 @@ class SettingsButton extends WidgetType {
     const button = document.createElement('button')
     button.className = 'cm-ms-import-button cm-ms-table-settings'
     button.textContent = COG
-    button.title = this.kind === CALL.table ? 'Table settings: rows, lines, row numbers' : 'Plot settings: rows, style, fit, axes, title'
-    button.setAttribute('aria-label', this.kind === CALL.table ? 'Table settings' : 'Plot settings')
+    button.title = this.kind === SERIES_CALL.table ? 'Table settings: rows, lines, row numbers' : 'Plot settings: rows, style, fit, axes, title'
+    button.setAttribute('aria-label', this.kind === SERIES_CALL.table ? 'Table settings' : 'Plot settings')
     button.addEventListener('mousedown', (e) => e.preventDefault())
     button.addEventListener('click', (e) => {
       e.preventDefault()
@@ -250,8 +250,8 @@ class SettingsButton extends WidgetType {
 }
 
 const buttons: Record<CallKind, Decoration> = {
-  [CALL.table]: Decoration.widget({ widget: new SettingsButton(CALL.table), side: 1 }),
-  [CALL.plot]: Decoration.widget({ widget: new SettingsButton(CALL.plot), side: 1 }),
+  [SERIES_CALL.table]: Decoration.widget({ widget: new SettingsButton(SERIES_CALL.table), side: 1 }),
+  [SERIES_CALL.plot]: Decoration.widget({ widget: new SettingsButton(SERIES_CALL.plot), side: 1 }),
 }
 
 /** A ⚙ after each table's and plot's closing bracket. */

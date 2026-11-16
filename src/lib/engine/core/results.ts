@@ -1,7 +1,8 @@
 /** What evaluating a line gives back, and how its equation is laid out. */
 import { type MathNode } from 'mathjs'
-import { PERCENT, KEYWORD, DISPLAY_MODE, type DisplayMode, type LineCommand, type Notation, type Precision } from '../../syntax.ts'
+import { PERCENT, KEYWORD, DISPLAY_MODE, SIGIL, type DisplayMode, type LineCommand, type Notation, type Precision } from '../../syntax.ts'
 import { FIT, seriesMemberName } from '../../names.ts'
+import { FunctionMember, builtinAt } from '../../builtins.ts'
 import { type PlotData } from '../../plot.ts'
 import { math } from './math.ts'
 import { moduleReadableMessage, unitMismatchNotes, type LookSetting } from './module.ts'
@@ -117,7 +118,7 @@ export interface CalcResult {
   warning?: string
   /** Something worth knowing that isn't a problem, e.g. other solutions of an equation. */
   info?: string
-  /** A `plot(…)` line's plot (its `tex` is then the fits' equations, if any). */
+  /** A `@plot(…)` line's plot (its `tex` is then the fits' equations, if any). */
   plot?: PlotData
   /**
    * What a select or a named plot made, for suggestions: each variable's inside
@@ -131,6 +132,19 @@ export interface CalcResult {
 export interface Definition {
   name: string
   members?: number
+}
+
+/** mathjs's message for a call to a function there's none of (1: its name). */
+const UNDEFINED_FUNCTION = /^Undefined function (\S+)$/
+
+/**
+ * A call to a function there's none of, explained when it's one of MathScribe's
+ * written without its @: `table(t, x)` → write @table(t, x).
+ */
+export function builtinCallHint(message: string): string {
+  const name = UNDEFINED_FUNCTION.exec(message)?.[1]
+  if (!name || !(builtinAt([name]) instanceof FunctionMember)) return message
+  return `There's no function ${name}: MathScribe's is written with an @, as ${SIGIL}${name}(…).`
 }
 
 /** A problem with a line, explained as it should be shown (not an unexpected error's message). */
@@ -201,7 +215,7 @@ export interface ParsedLine {
   warnings: string[]
   mode: DisplayMode
   explicit: boolean
-  /** Left-hand side to show when the line isn't an assignment (`solve(…, d)` shows `d = …`). */
+  /** Left-hand side to show when the line isn't an assignment (`@solve(…, d)` shows `d = …`). */
   lhs?: string
   /** Lines to show before this one. */
   prelude?: TraceLine[]

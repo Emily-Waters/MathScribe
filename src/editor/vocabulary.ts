@@ -7,7 +7,7 @@
 import {
   CALL, COMMAND_NAMES, EXACT_SETTING, KEYWORD, NOTATIONS, PERCENT, UNCERTAINTY_WORDS, type CommandName, type Notation, type SeriesSuffix,
 } from '../lib/syntax.ts'
-import { COMPONENTS_SETTING, UNIT_VECTOR_SETTING, VECTOR_FUNCTION } from '../lib/engine/modules/vectors/syntax.ts'
+import { COMPONENTS_SETTING, UNIT_VECTOR_SETTING } from '../lib/engine/modules/vectors/syntax.ts'
 import { SPECIES_DISPLAY } from '../lib/engine/modules/chemistry/syntax.ts'
 
 /** What each display command does. */
@@ -82,16 +82,10 @@ export const BUILTIN_FUNCTIONS: { name: string; signature: string; description: 
   { name: 'min', signature: 'min(a, b, …)', description: 'Smallest value' },
   { name: 'max', signature: 'max(a, b, …)', description: 'Largest value' },
   { name: 'factorial', signature: 'factorial(n)', description: 'n!' },
-  { name: CALL.tuple, signature: 'tuple(x, y, …)', description: 'A tuple of values, such as coordinates; tuple(a, b) = … unpacks one' },
-  { name: VECTOR_FUNCTION, signature: 'vector(x, y, …)', description: 'A vector, the same as <x, y, …>' },
   { name: 'norm', signature: 'norm(r)', description: 'Length of a vector or tuple: norm(<3, 4>) = 5' },
   { name: 'dot', signature: 'dot(a, b)', description: 'Dot product of two vectors' },
   { name: 'cross', signature: 'cross(a, b)', description: 'Cross product of two 3D vectors' },
   { name: CALL.import, signature: 'import()', description: 'Import a CSV file: each value becomes a variable, x_1, x_2, …' },
-  { name: CALL.table, signature: 'table(t, x, v = x / t)', description: 'Series side by side, one row per number; name = … works out a column row by row' },
-  { name: CALL.plot, signature: 'p = plot(t, x; fit linear)', description: 'Graph series against another, with error bars; fit linear adds a best-fit line (p.slope, p.intercept)' },
-  { name: CALL.select, signature: 'a = select(t, x; t from 0.2 to 0.8)', description: 'The rows where conditions hold, as new series a.t, a.x numbered from 1' },
-  { name: CALL.solve, signature: 'solve(equation, unknown, guess?)', description: 'Rearrange an equation for the unknown and evaluate it; tuple(x, y) = solve(eq, eq) solves a system' },
 ]
 
 /** Constants that are built into mathjs (no @), shown as symbols. */

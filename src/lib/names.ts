@@ -5,8 +5,8 @@
  *
  *   delta__F          F's uncertainty, `delta F` (δF; Delta__F is ΔF)
  *   at__c__5          the constant @c at 5 sig figs (at__c__x: @c:exact)
- *   solved__x         an unknown worked out by solve(…)
- *   unpacked__3       a tuple while `tuple(a, b) = …` unpacks it
+ *   solved__x         an unknown worked out by @solve(…)
+ *   unpacked__3       a tuple while `@tuple(a, b) = …` unpacks it
  *   unpacked__column2_5   row 5 of a table's unnamed column 2
  *   a__x_1            a namespace's member, `a.x_1` (a selection, named import or plot)
  *
@@ -15,7 +15,7 @@
  * p.r2 and p.chi2.
  */
 import {
-  DOT_ACCESS, EXACT_SETTING, IS_NAME, MEMBER_DOT, NAME, SERIES_SUFFIXES, SUBSCRIPT, UNCERTAINTY_WORDS,
+  CALL, DOT_ACCESS, EXACT_SETTING, IS_NAME, MEMBER_DOT, NAME, SERIES_SUFFIXES, SIGIL, SUBSCRIPT, UNCERTAINTY_WORDS,
   type Precision, type SeriesSuffix, type UncertaintyWord,
 } from './syntax.ts'
 
@@ -29,6 +29,8 @@ export const HIDDEN_PREFIX = {
   unpacked: 'unpacked',
   /** A value put into text, `{{c_Na}}`, while it's worked out. */
   inline: 'inline',
+  /** A function built in under @, as mathjs holds it: @tuple → builtin__tuple. */
+  builtin: 'builtin',
 } as const
 
 /** A constant held at full precision: `@c:exact` → at__c__x. */
@@ -51,7 +53,16 @@ export const uncertaintyName = (letter: UncertaintyWord, of: string) => `${lette
 export const constantRefName = (name: string, digits: Precision) =>
   `${HIDDEN_PREFIX.constant}${JOIN}${name}${JOIN}${digits === EXACT_SETTING ? EXACT_MARK : digits}`
 
-/** An unknown solve(…) worked out: x → solved__x. */
+/**
+ * A function built in under @, as mathjs holds it: `@tuple(…)` → builtin__tuple(…).
+ * (A name the sheet can't write, so its own functions never clash with one.)
+ */
+export const builtinFunctionName = (name: string) => `${HIDDEN_PREFIX.builtin}${JOIN}${name}`
+
+/** The function `@tuple(…)` makes a tuple with. */
+export const TUPLE_FUNCTION = builtinFunctionName(CALL.tuple)
+
+/** An unknown @solve(…) worked out: x → solved__x. */
 export const solvedName = (x: string) => `${HIDDEN_PREFIX.solved}${JOIN}${x}`
 
 /** A tuple being unpacked (the `id`th). */
@@ -156,8 +167,13 @@ export function expandDots(text: string): string {
     RESERVED_NAMESPACES.has(ns) ? typed : memberName(ns, member)))).join('')
 }
 
-/** A member as typed: a__x_1 → a.x_1 (other names as they are). */
+/** A built-in function as typed: builtin__tuple → @tuple. */
+const BUILTIN_FUNCTION_NAME = new RegExp(String.raw`^${HIDDEN_PREFIX.builtin}${JOIN}(${NAME})$`)
+
+/** A member as typed: a__x_1 → a.x_1, builtin__tuple → @tuple (other names as they are). */
 export function typedName(name: string): string {
+  const builtin = BUILTIN_FUNCTION_NAME.exec(name)
+  if (builtin) return `${SIGIL}${builtin[1]}`
   const m = parseMemberName(name)
   return m ? `${m.namespace}${MEMBER_DOT}${m.member}` : name
 }

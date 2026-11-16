@@ -2,7 +2,7 @@
  * A plot's settings, kept in the sheet after a semicolon inside its brackets,
  * as a table's are (see tableSettings.ts):
  *
- *   plot(t, x; style both, fit linear, x from 0 to 2, log y, title "Run 1")
+ *   @plot(t, x; style both, fit linear, x from 0 to 2, log y, title "Run 1")
  *
  *   rows 5-20            only rows 5 to 20 (rows 5- from 5 on, rows -20 up to 20)
  *   style lines          lines between the points (style both: points and lines;

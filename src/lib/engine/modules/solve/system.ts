@@ -1,5 +1,5 @@
 /**
- * `tuple(x, y) = solve(eq_1, eq_2)`: a system of equations, solved for the
+ * `@tuple(x, y) = @solve(eq_1, eq_2)`: a system of equations, solved for the
  * names on the left by substitution, as by hand: one equation is rearranged
  * for one unknown, which is put into the others, and so on until an unknown
  * is left in terms of known values; then each is worked out in turn. Each
@@ -8,7 +8,6 @@
  * quadratic's two solutions, the first is used.)
  */
 import { isSymbolNode, type MathNode } from 'mathjs'
-import { CALL, SOLVE_SYSTEM } from '../../../syntax.ts'
 import { OP, OP_SYMBOL } from '../../../mathjsNames.ts'
 import { Solver, contains, countOccurrences, splitArgs, splitEquation } from '../../../solve.ts'
 import { math } from '../../core/math.ts'
@@ -18,6 +17,7 @@ import { addLiteral } from '../../core/numbers.ts'
 import { parseTupleName, type TupleName } from '../../core/declarations.ts'
 import type { LineResult, TraceLine } from '../../core/results.ts'
 import { symbolTex } from '../../core/tex.ts'
+import { SOLVE_SYSTEM } from './syntax.ts'
 
 /** An equation, its two sides parsed. */
 interface Equation {
@@ -28,8 +28,7 @@ interface Equation {
 export class SolveSystemForm extends LineForm {
   evaluate(line: FormLine, host: ModuleHost): LineResult | undefined {
     const system = SOLVE_SYSTEM.exec(line.text)
-    // (A sheet's own function called solve wins.)
-    if (!system || host.isUserFunction(CALL.solve)) return undefined
+    if (!system) return undefined
     return solveSystem(system[1], system[2], line, host)
   }
 }
@@ -49,7 +48,7 @@ function solveSystem(namesText: string, equationsText: string, line: FormLine, h
   const texts = splitArgs(constants.text)
   if (texts.length !== names.length) {
     return fail(`${names.length} unknowns need ${names.length} equations, but there ${texts.length === 1 ? 'is' : 'are'} ${texts.length}: `
-      + `tuple(${names.join(', ')}) = solve(${names.map((_, i) => `equation ${i + 1}`).join(', ')}).`)
+      + `@tuple(${names.join(', ')}) = @solve(${names.map((_, i) => `equation ${i + 1}`).join(', ')}).`)
   }
   const literals = new Map<number, string>()
   for (const m of constants.text.matchAll(NUMBER_LITERAL)) addLiteral(literals, m[0])

@@ -52,10 +52,10 @@ P_water = @rho_w * @g * 0.250 m to kPa   # pressure 25 cm under water
 E_photon = @h * @c / 532 nm to eV        # green laser photon
 
 ## Solving
-> solve(equation, unknown) rearranges the equation and evaluates the result.
-d_stop = solve(v_f^2 = 2*a*d_stop, d_stop)     # ramp length needed to reach v_f
+> @solve(equation, unknown) rearranges the equation and evaluates the result.
+d_stop = @solve(v_f^2 = 2*a*d_stop, d_stop)     # ramp length needed to reach v_f
 h0 = 2.00 m
-t_fall = solve(h0 = 1/2*@g*t_fall^2 + v_f*t_fall, t_fall)   # quadratic: positive root
+t_fall = @solve(h0 = 1/2*@g*t_fall^2 + v_f*t_fall, t_fall)   # quadratic: positive root
 
 ## What if?
 > Variables assigned inside a block are local to it, like a scoped block in code.

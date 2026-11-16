@@ -35,7 +35,7 @@ const SOURCE = [
   '@layout.nu', // 23
   'phi:3:de', // 24
   'Steps:', // 25
-  'tuple(r:3, theta:de', // 26
+  '@tuple(r:3, theta:de', // 26
   'ang(y, x):3:de', // 27
   'def polar(x, y):de', // 28
   '@layout.text Notes {', // 29

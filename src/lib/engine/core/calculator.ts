@@ -9,7 +9,7 @@ import { AGGREGATE_KIND, Variable, type Aggregate, type Contributions, type Vari
 import { DEFAULT_CONSTANT_SIG_FIGS, isNamespaceConstant, suggestConstant } from '../../constants.ts'
 import { builtinConstant, builtinConstantKeys, isReservedConstantName } from '../../builtins.ts'
 import { ASSIGNMENT, ASSIGNMENT_WITH_VALUE, CONSTANT_REF, EXACT_SETTING, IS_NAME, LEADING_NAME, ONE_LINE_FUNCTION, PERCENT, ELSE_IF_LINE, ELSE_LINE, IF_LINE, KEYWORD, RETURN_LINE, UNPACK, DISPLAY_MODE, LINE_COMMAND, VALUE_IN_TEXT, CONSTANTS_BLOCK, LABEL_TEMPLATE, SIGIL, type DisplayMode, type Notation, type Precision, type UncertaintyWord } from '../../syntax.ts'
-import { INLINE_VALUE_NAME, JOIN, RESERVED_NAMESPACES, constantKey, constantRefName, expandDots, typedConstant, isHiddenName, isUncertaintyName, memberName, parseNumberedName, parseUncertaintyName, readableMembers, seriesMemberName, uncertaintyName, unpackedName } from '../../names.ts'
+import { INLINE_VALUE_NAME, JOIN, TUPLE_FUNCTION, RESERVED_NAMESPACES, constantKey, constantRefName, expandDots, typedConstant, isHiddenName, isUncertaintyName, memberName, parseNumberedName, parseUncertaintyName, readableMembers, seriesMemberName, uncertaintyName, unpackedName } from '../../names.ts'
 import { COMPARISONS, FN, OP, OP_SYMBOL, UNIT, isOp } from '../../mathjsNames.ts'
 
 import { nestBrackets } from '../../brackets.ts'
@@ -18,9 +18,9 @@ import type { CsvColumn } from '../../csv.ts'
 import { isTuple, math } from './math.ts'
 import { EngineModule, LINE_STAGE, inDependencyOrder, installModule, moduleReadableMessage, type DerivedVariable, type LineForm, type LineStage, type LookSetting, type ModuleHost, type PreparedLine, type TupleLook, SETTING_PLACE, moduleSettingProblem } from './module.ts'
 import { outsideMaths, wordsTex } from './text.ts'
-import { expandNamespaceCalls } from './builtinCalls.ts'
+import { expandNamespaceCalls, strayLineFormCall } from './builtinCalls.ts'
 import { BUILTIN_CONSTANT_NAMES, NUMBER_LITERAL, NAME_IN_LINE, preprocess } from './literals.ts'
-import { AUTO_PRECISION, ExplainedError, FIXED_UNCERTAINTY_SIG_FIGS, type CalcOptions, type EquationParts, layoutEquation, type FunctionResult, type FunctionLine, type TraceLine, type CalcResult, unexpectedError, fitHint, type DataColumn, type LineNotation, type LineResult, type ParsedLine, TO_PERCENT, RAW, rawNode, STEP, readableUnitError } from './results.ts'
+import { AUTO_PRECISION, ExplainedError, builtinCallHint, FIXED_UNCERTAINTY_SIG_FIGS, type CalcOptions, type EquationParts, layoutEquation, type FunctionResult, type FunctionLine, type TraceLine, type CalcResult, unexpectedError, fitHint, type DataColumn, type LineNotation, type LineResult, type ParsedLine, TO_PERCENT, RAW, rawNode, STEP, readableUnitError } from './results.ts'
 import { NAME_THEN_SETTINGS, DELTA_REF, expandParenPm, splitPm } from './uncertainty.ts'
 import { parseAggregateName, escapeRegExp } from './series.ts'
 import { symbolTex, numberTex, unitTex, attachUnit, isUnitCall, unitCallText, isLitCall } from './tex.ts'
@@ -494,7 +494,7 @@ export class Calculator {
         if (n.name.startsWith(RAW)) return ` ${n.name.slice(1)}`
         return ` ${this.nameTex(n.name)}`
       }
-      if (isFunctionNode(n) && n.fn.name === FN.tuple) {
+      if (isFunctionNode(n) && n.fn.name === TUPLE_FUNCTION) {
         return `\\left(${n.args.map((a) => a.toTex(options).trim()).join(', ')}\\right)`
       }
       // A module's own functions (giving a value its species, `{H2O}`; a vector, ⟨…⟩) are written as it says.
@@ -1305,14 +1305,14 @@ export class Calculator {
       const ret = RETURN_LINE.exec(text)
       // `x = …`, or with display settings: `x:3 = …`, `theta:deg = …`.
       const assign = ASSIGNMENT_WITH_VALUE.exec(text)
-      // `tuple(a, b) = …` unpacks a tuple (checked first: it also looks like an assignment).
+      // `@tuple(a, b) = …` unpacks a tuple (checked first: it also looks like an assignment).
       const unpack = UNPACK.exec(text)
       const unpackNames = unpack?.[1].split(',').map((n) => n.trim())
       const source = ret?.[1] ?? unpack?.[2] ?? assign?.[2]
       if (!source) {
-        return { signature, body, error: `Line ${line}: inside a function, each line is "name = …", "tuple(a, b) = …", "return …", or an if / else with lines indented under it.` }
+        return { signature, body, error: `Line ${line}: inside a function, each line is "name = …", "@tuple(a, b) = …", "return …", or an if / else with lines indented under it.` }
       }
-      // Each unpacked name, with any settings (`tuple(r:3, th:deg) = …`).
+      // Each unpacked name, with any settings (`@tuple(r:3, th:deg) = …`).
       const unpackTargets = unpackNames?.map(parseTupleName)
       const badTarget = unpackTargets?.find((t) => 'error' in t)
       if (badTarget && 'error' in badTarget) return { signature, body, error: `Line ${line}: ${badTarget.error}` }
@@ -1373,7 +1373,7 @@ export class Calculator {
           const values = isTuple(v) ? v.toArray() as unknown[] : null
           if (!values || values.length !== s.targets.length) {
             const names = s.targets.map((t) => t.name).join(', ')
-            throw new Error(`In ${name}, tuple(${names}) = … needs a tuple of ${s.targets.length} values.`)
+            throw new Error(`In ${name}, @tuple(${names}) = … needs a tuple of ${s.targets.length} values.`)
           }
           s.targets.forEach((t, i) => local.set(t.name, t.unit ? toDisplayUnit(values[i], t.unit) : values[i]))
           continue
@@ -1531,7 +1531,7 @@ export class Calculator {
   }
 
   // -------------------------------------------------------------------------
-  // solve(lhs = rhs, x [, guess])
+  // @solve(lhs = rhs, x [, guess])
   // -------------------------------------------------------------------------
 
   // -------------------------------------------------------------------------
@@ -1551,7 +1551,8 @@ export class Calculator {
     try {
       const { tex, error, warning, info, trace, returnNote, plot, defines } = this.evaluateLine(this.rewriteLine(input), mode, explicit)
       // Messages name a namespace's members as typed, a.x_1 (not a__x_1), and a module's inside names as the sheet does.
-      const readable = (s: string | undefined) => (s === undefined ? s : moduleReadableMessage(s.includes(JOIN) ? fitHint(readableMembers(s)) : s))
+      // (And one of MathScribe's functions written without its @ is explained.)
+      const readable = (s: string | undefined) => (s === undefined ? s : builtinCallHint(moduleReadableMessage(s.includes(JOIN) ? fitHint(readableMembers(s)) : s)))
       // Brackets by nesting, ( ) inside [ ] inside { }, once each equation is finished.
       return {
         tex: nestBrackets(tex), error: readable(error), warning: readable(warning), info: readable(info), returnNote, plot, defines,
@@ -1581,12 +1582,12 @@ export class Calculator {
 
   /** The left-hand side to show instead of the assigned name (set while unpacking). */
   private lhsOverride: string | undefined
-  /** While unpacking: which names declare their sig figs (`tuple(a, b:2) = …`). */
+  /** While unpacking: which names declare their sig figs (`@tuple(a, b:2) = …`). */
   private unpackDeclaredSf: boolean[] | undefined
   private nextUnpack = 0
 
   /**
-   * `tuple(a, b, c) = expr`: work out the tuple on the right (shown as
+   * `@tuple(a, b, c) = expr`: work out the tuple on the right (shown as
    * (a, b, c) = …), then store each of its values as a variable of its own.
    */
   private evaluateUnpack(namesText: string, rhs: string, mode: DisplayMode, explicit: boolean): LineResult {
@@ -1627,7 +1628,7 @@ export class Calculator {
         error: `The tuple has ${values.length} value${values.length === 1 ? '' : 's'}, but ${names.length} names are given.`,
       }
     }
-    // Each name's own settings: `tuple(r:3, theta:deg) = …`.
+    // Each name's own settings: `@tuple(r:3, theta:deg) = …`.
     let converted: unknown[]
     try {
       converted = values.map((v, i) => (targets[i].unit ? toDisplayUnit(v, targets[i].unit!) : v))
@@ -1674,11 +1675,11 @@ export class Calculator {
     if (raw) return raw
     // `a.x_1`, a namespace's member, is the variable a__x_1 inside.
     input = expandDots(input)
-    // …and once its members are inside names: `table(t, x)`, `plot(t, x)`.
+    // …and once its members are inside names: `@table(t, x)`, `@plot(t, x)`.
     const form = this.byForm(LINE_STAGE.members, input, requestedMode, explicit)
     if (form) return form
 
-    // `tuple(a, b, c) = …` unpacks a tuple. (Before one-line functions: it looks like one.)
+    // `@tuple(a, b, c) = …` unpacks a tuple. (Before one-line functions: it looks like one.)
     const unpack = UNPACK.exec(input.trim())
     if (unpack) return this.evaluateUnpack(unpack[1], unpack[2], requestedMode, explicit)
 
@@ -1730,11 +1731,14 @@ export class Calculator {
     const literals = new Map<number, string>()
     for (const m of line.matchAll(NUMBER_LITERAL)) addLiteral(literals, m[0])
 
-    // A line a module works out itself once it's read this far: `x = solve(lhs = rhs, x)`.
+    // A line a module works out itself once it's read this far: `x = @solve(lhs = rhs, x)`.
     const expression = this.byForm(LINE_STAGE.expression, line, requestedMode, explicit, {
       literals, declaredSf, displayUnit, notation: declaration?.notation,
     })
     if (expression) return expression
+    // A call that's a line of its own, inside an expression: `x = 2 * @table(t)`.
+    const stray = strayLineFormCall(line)
+    if (stray) return { tex: '', error: stray }
 
     // Separate `value pm uncertainty` on the right-hand side.
     const lhs = ASSIGNMENT.exec(line)?.[0] ?? ''
@@ -1916,12 +1920,12 @@ export class Calculator {
     }
     // With a stated uncertainty or declared sig figs, those set the precision, not trailing zeros.
     if (this.autoSigFigs && !uncNode && ctx.declaredSf === undefined) {
-      // Unpacking `tuple(a, b:2) = tuple(300 m, 90 deg)`: a value whose name declares
+      // Unpacking `@tuple(a, b:2) = @tuple(300 m, 90 deg)`: a value whose name declares
       // its sig figs is settled, like a single `b:2 = 90 deg`.
       const rhs = unwrap(expr)
       const checked = !unpackDeclaredSf
         ? [expr]
-        : isFunctionNode(rhs) && rhs.fn.name === FN.tuple
+        : isFunctionNode(rhs) && rhs.fn.name === TUPLE_FUNCTION
           ? rhs.args.filter((_, i) => !unpackDeclaredSf[i])
           : unpackDeclaredSf.every(Boolean) ? [] : [expr]
       const ambiguous = checked.flatMap((n) => this.ambiguousLiterals(n, literals))

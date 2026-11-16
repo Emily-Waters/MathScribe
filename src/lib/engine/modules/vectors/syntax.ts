@@ -1,11 +1,15 @@
 /**
- * The vectors module's syntax: a vector typed `<3.0, 4.0> N` (or `vector(…)`),
+ * The vectors module's syntax: a vector typed `<3.0, 4.0> N` (or `@vector(…)`),
  * the settings on a name that show one with unit vectors (`F:ijk`) or break it
  * into components (`F:xyz`), and how it's drawn.
  */
+import { builtinFunctionName } from '../../../names.ts'
 
-/** A vector typed as `<3.0, 4.0> N` is read as a call to this function (which can also be typed). */
-export const VECTOR_FUNCTION = 'vector'
+/** A vector typed with its function: `@vector(3.0, 4.0) N`, the same as `<3.0, 4.0> N`. */
+export const VECTOR_CALL = 'vector'
+
+/** The function a vector is made with, as mathjs holds it (`<3.0, 4.0> N` and `@vector(…)` are read as a call to it). */
+export const VECTOR_FUNCTION = builtinFunctionName(VECTOR_CALL)
 
 /** Show a vector with unit vectors, (3.0 î + 4.0 ĵ) N: `F:ijk = …`. */
 export const UNIT_VECTOR_SETTING = 'ijk'

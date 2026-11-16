@@ -101,7 +101,7 @@ describe('plots', () => {
 
   it('are pgfplots graphs, with pgfplots loaded only when there is one', () => {
     expect(exportOf('x = 1')).not.toContain('pgfplots')
-    const tex = exportOf(`${data}plot(t, x; fit linear, log y)`)
+    const tex = exportOf(`${data}@plot(t, x; fit linear, log y)`)
     expect(tex).toContain('\\usepackage{pgfplots}')
     const graph = body(tex)
     expect(graph).toContain('\\begin{axis}[')

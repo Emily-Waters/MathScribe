@@ -123,10 +123,10 @@ export const REFERENCE: ReferenceSection[] = [
           'd1 = 3.50 m',
           'd2 = 3.48 m',
           'd3 = 3.52 m',
-          'table(t, d, v = d / t)',
+          '@table(t, d, v = d / t)',
           'v_avg',
         ].join('\n'),
-        explain: 'table(…) shows series side by side, a row per number. name = … works out a column row by row, '
+        explain: '@table(…) shows series side by side, a row per number. name = … works out a column row by row, '
           + 'and makes it a series of its own (v_1, v_2, …), so v_avg works afterwards.',
       },
       {
@@ -139,10 +139,10 @@ export const REFERENCE: ReferenceSection[] = [
           'x2 = 0.098 m pm 0.004 m',
           'x3 = 0.152 m pm 0.004 m',
           'x4 = 0.199 m pm 0.004 m',
-          'plot(t, x; fit linear)',
+          '@plot(t, x; fit linear)',
           'v = x_slope',
         ].join('\n'),
-        explain: 'plot(x axis, y series…) draws one series against another, with error bars for uncertainties. '
+        explain: '@plot(x axis, y series…) draws one series against another, with error bars for uncertainties. '
           + 'fit linear adds a best-fit line and its equation, and makes its slope and intercept variables: x_slope, x_intercept. '
           + 'The ⚙ after it sets the rows, style, fit, axes and title.',
       },
@@ -156,11 +156,11 @@ export const REFERENCE: ReferenceSection[] = [
           'x2 = 0.098 m',
           'x3 = 0.152 m',
           'x4 = 0.199 m',
-          'a = select(t, x; t from 0.2)',
-          'p = plot(a.t, a.x; fit linear)',
+          'a = @select(t, x; t from 0.2)',
+          'p = @plot(a.t, a.x; fit linear)',
           'v = p.slope',
         ].join('\n'),
-        explain: 'select(…) keeps the rows where its conditions hold, as new series under a name: a.t, a.x, numbered from 1. '
+        explain: '@select(…) keeps the rows where its conditions hold, as new series under a name: a.t, a.x, numbered from 1. '
           + 'A named plot keeps its fit the same way: p.slope, p.intercept. Name an import too, run1 = import(…), to keep two files apart.',
       },
     ],
@@ -214,7 +214,7 @@ export const REFERENCE: ReferenceSection[] = [
           'def polar(x, y)',
           '    r = sqrt(x^2 + y^2)',
           '    theta:deg = atan2(y, x)',
-          '    return tuple(r, theta)',
+          '    return @tuple(r, theta)',
           'P = polar(1.00 m, 1.00 m)',
         ].join('\n'),
         explain: 'A function can return a tuple of values, such as coordinates.',
@@ -245,13 +245,13 @@ export const REFERENCE: ReferenceSection[] = [
     title: 'Tuples and coordinates',
     examples: [
       {
-        source: 'r = tuple(1.00 m, 2.00 m, 3.00 m)\ns = 2 * r\nd = norm(r)',
-        explain: 'tuple(…) makes a tuple, shown as (x, y, z). A shared unit is written once; tuples scale, add, '
+        source: 'r = @tuple(1.00 m, 2.00 m, 3.00 m)\ns = 2 * r\nd = norm(r)',
+        explain: '@tuple(…) makes a tuple, shown as (x, y, z). A shared unit is written once; tuples scale, add, '
           + 'convert with to, and norm, dot and cross work on them.',
       },
       {
-        source: 'p = tuple(1.414 m, 0.7854)\ntuple(r:3, theta:deg) = p\nx = r * cos(theta)',
-        explain: 'tuple(a, b) = … unpacks a tuple: each value becomes a variable of its own. '
+        source: 'p = @tuple(1.414 m, 0.7854)\n@tuple(r:3, theta:deg) = p\nx = r * cos(theta)',
+        explain: '@tuple(a, b) = … unpacks a tuple: each value becomes a variable of its own. '
           + 'Each name can take sig figs and a unit, like b:cm or theta:3:deg.',
       },
     ],
@@ -373,12 +373,12 @@ export const REFERENCE: ReferenceSection[] = [
     title: 'Solving',
     examples: [
       {
-        source: 'v = 5.00 m/s\na = 2.00 m/s^2\nd = solve(v^2 = 2*a*d, d)',
-        explain: 'solve(equation, unknown) rearranges for the unknown and evaluates it.',
+        source: 'v = 5.00 m/s\na = 2.00 m/s^2\nd = @solve(v^2 = 2*a*d, d)',
+        explain: '@solve(equation, unknown) rearranges for the unknown and evaluates it.',
       },
       {
-        source: 'm_1 = 3.00 kg\nm_2 = 5.00 kg\ntuple(T, a) = solve(T - m_1 * @g = m_1 * a, m_2 * @g - T = m_2 * a)',
-        explain: 'Several unknowns: name them in tuple(…) on the left, and give as many equations. '
+        source: 'm_1 = 3.00 kg\nm_2 = 5.00 kg\n@tuple(T, a) = @solve(T - m_1 * @g = m_1 * a, m_2 * @g - T = m_2 * a)',
+        explain: 'Several unknowns: name them in @tuple(…) on the left, and give as many equations. '
           + 'They are solved by substitution, and the working shows each unknown in turn.',
       },
     ],

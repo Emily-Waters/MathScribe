@@ -1,9 +1,10 @@
 import { type CalcOptions, moduleSubscriptTex, unexpectedError } from './engine/index.ts'
 import type { VariableSummary } from './values.ts'
-import { ASSIGNMENT, DEF_HEAD, FUNCTION_HEAD, LEADING_NAME, LINE_COMMAND, NAME_WITH_SETTINGS, PLOT_CALL, SELECT_CALL, UNPACK_HEAD, TEXT_SUBSCRIPT, subscriptOf, unescapeUnderscores } from './syntax.ts'
+import { ASSIGNMENT, DEF_HEAD, FUNCTION_HEAD, LEADING_NAME, LINE_COMMAND, NAME_WITH_SETTINGS, UNPACK_HEAD, TEXT_SUBSCRIPT, subscriptOf, unescapeUnderscores } from './syntax.ts'
 import { formulaTex } from './engine/modules/chemistry/chemistry.ts'
 import { BLOCK_KIND, isContainer, type Block } from './blocks.ts'
 import { SheetReader, type Sheet } from './reading/sheetReader.ts'
+import { PLOT_CALL, SELECT_CALL } from './engine/modules/series/syntax.ts'
 
 export type { Sheet }
 
@@ -216,7 +217,7 @@ export function collectSymbols(sheet: Sheet, source: string): SheetSymbol[] {
     for (const b of blocks) {
       switch (b.kind) {
         case BLOCK_KIND.calc: {
-          // `tuple(a, b) = …`: each name is a variable.
+          // `@tuple(a, b) = …`: each name is a variable.
           const unpack = UNPACK_HEAD.exec(b.source)
           if (unpack) {
             for (const entry of unpack[1].split(',').map((n) => n.trim())) {

@@ -115,21 +115,31 @@ export const KEYWORD = {
   else: 'else',
 } as const
 
-/** Calls with a meaning of their own, besides mathjs's functions. */
+/**
+ * What starts everything built in rather than written in the sheet: constants
+ * (`@c`), functions (`@tuple(…)`, `@table(…)`), namespaces (`@chem.mm.Na`,
+ * `@chem.mm(…)`, `@layout.text Title {`) and the `@constants { }` block.
+ * MathScribe's own functions are written with it; mathjs's maths isn't (sin, sqrt, norm).
+ */
+export const SIGIL = '@'
+
+/**
+ * Calls with a meaning of their own, besides mathjs's functions: `import(…)`,
+ * and the core's built-in `@tuple(…)`. (A module's are its own: `@table`, `@solve`, `@vector`.)
+ */
 export const CALL = {
-  table: 'table',
-  plot: 'plot',
-  select: 'select',
   import: 'import',
-  solve: 'solve',
   tuple: 'tuple',
 } as const
 
-/** A call by name, up to its opening bracket: `plot (` (for building patterns). */
-const opening = (call: string) => String.raw`${call}\s*\(`
+/** A call by name, up to its opening bracket: `import (` (for building patterns). */
+export const opening = (call: string) => String.raw`${call}\s*\(`
 
-/** `name = ` before a call that can be named: `p = plot(…)` (1: the name). */
-const NAMED = String.raw`(?:(${NAME})\s*=\s*)`
+/** A built-in call, up to its opening bracket: `@table (` (for building patterns). */
+export const builtinOpening = (call: string) => opening(`${SIGIL}${call}`)
+
+/** `name = ` before a call that can be named: `p = @plot(…)` (1: the name). */
+export const NAMED = String.raw`(?:(${NAME})\s*=\s*)`
 
 // ---------------------------------------------------------------------------
 // Functions
@@ -180,43 +190,17 @@ export const ELSE_LINE = new RegExp(String.raw`^${KEYWORD.else}\s*:?$`)
 /** A line that starts a branch (for the editor: the next line is indented). */
 export const BRANCH_START = new RegExp(String.raw`^(?:${KEYWORD.if}|${KEYWORD.else})(?:\s|:|$)`)
 
-/** Unpacking a tuple: `tuple(a, b:3) = …` (1: the names, 2: the right-hand side). */
-export const UNPACK = new RegExp(String.raw`^${CALL.tuple}\s*${PARAMETERS}${ASSIGNS}\s*(.+)$`)
+/** The names being given values by unpacking a tuple, up to its `=`: `@tuple(a, b:3) =` (1: the names). */
+export const UNPACK_TARGETS = String.raw`${SIGIL}${CALL.tuple}\s*${PARAMETERS}${ASSIGNS}`
+
+/** Unpacking a tuple: `@tuple(a, b:3) = …` (1: the names, 2: the right-hand side). */
+export const UNPACK = new RegExp(String.raw`^${UNPACK_TARGETS}\s*(.+)$`)
 
 /** The start of an unpacking, up to the `=` (1: the names). */
-export const UNPACK_HEAD = new RegExp(String.raw`^${CALL.tuple}\s*${PARAMETERS}${ASSIGNS}`)
+export const UNPACK_HEAD = new RegExp(String.raw`^${UNPACK_TARGETS}`)
 
-/**
- * A system of equations solved for the names on the left:
- * `tuple(v_1, v_2) = solve(m_1*u = m_1*v_1 + m_2*v_2, u = v_2 - v_1)`
- * (1: the unknowns, 2: the equations).
- */
-export const SOLVE_SYSTEM = new RegExp(String.raw`^${CALL.tuple}\s*${PARAMETERS}${ASSIGNS}\s*${opening(CALL.solve)}(.*)\)$`)
-
-/** An unpacking being typed, before its `=`: `tuple(a, b` (for the editor). */
-export const UNPACK_SO_FAR = new RegExp(String.raw`^\s*${opening(CALL.tuple)}[^()=]*$`)
-
-/** A table of series: `table(t, x, v = x / t)` (1: what's between the brackets). */
-export const TABLE_CALL = new RegExp(String.raw`^${opening(CALL.table)}(.*)\)$`)
-
-/**
- * A plot of series: `plot(t, x, y)`, or a named one, `p = plot(t, x; fit linear)`,
- * whose fit is p.slope, p.intercept (1: the name, if any; 2: what's between the brackets).
- */
-export const PLOT_CALL = new RegExp(String.raw`^${NAMED}?${opening(CALL.plot)}(.*)\)$`)
-
-/** A slice of series: `a = select(t, x; t from 0.2 to 0.8)` (1: its name, 2: what's between the brackets). */
-export const SELECT_CALL = new RegExp(String.raw`^${NAMED}${opening(CALL.select)}(.*)\)$`)
-
-/** `x = solve(…`, or a bare `solve(…` (1: the name assigned, if any). */
-export const SOLVE_CALL = new RegExp(String.raw`^${NAMED}?${opening(CALL.solve)}`)
-
-/** The calls with settings after a semicolon, and their ⚙ in the editor. */
-export const CALLS_WITH_SETTINGS = [CALL.table, CALL.plot] as const
-export type CallWithSettings = (typeof CALLS_WITH_SETTINGS)[number]
-
-/** A line that opens a call with settings (1: what's before it, a plot's name too; 2: which call). */
-export const SETTINGS_CALL_OPENING = new RegExp(String.raw`^(\s*(?:${NAME}\s*=\s*)?)(${CALLS_WITH_SETTINGS.join('|')})\s*\(`)
+/** An unpacking being typed, before its `=`: `@tuple(a, b` (for the editor). */
+export const UNPACK_SO_FAR = new RegExp(String.raw`^\s*${builtinOpening(CALL.tuple)}[^()=]*$`)
 
 /**
  * A name with a dot: a selection's, named import's or named plot's member,
@@ -317,13 +301,6 @@ export type SeriesSuffix = keyof typeof SERIES_SUFFIXES
 // The @ namespace: built-in constants, namespaces and blocks
 // ---------------------------------------------------------------------------
 
-/**
- * What starts everything built in rather than written in the sheet: constants
- * (`@c`), namespaces (`@chem.mm.Na`, `@chem.mm(…)`, `@layout.text Title {`) and
- * the `@constants { }` block.
- */
-export const SIGIL = '@'
-
 /** MathScribe's namespaces under @, whose members are written with a dot: `@layout.list`. (An engine module adds its own: `@chem`.) */
 export const NAMESPACE = { layout: 'layout' } as const
 export type Namespace = (typeof NAMESPACE)[keyof typeof NAMESPACE]
@@ -423,8 +400,8 @@ export const CONSTANT_REF = new RegExp(String.raw`@(${CONSTANT_NAME})(?!${NAME_C
 /** One constant at the current position (for the editor's tokenizer). */
 export const CONSTANT_TOKEN = new RegExp(`@${CONSTANT_NAME}${CONSTANT_PRECISION}`)
 
-/** A call to a namespace's function at the current position: `@chem.mm(` (for the editor; 1: the namespace, 2: the function). */
-export const NAMESPACE_CALL_TOKEN = new RegExp(String.raw`@(${NAME})\.(${NAME})(?=\s*\()`)
+/** A call to a built-in function at the current position: `@tuple(`, `@chem.mm(` (for the editor; 1: the path, `chem.mm`). */
+export const NAMESPACE_CALL_TOKEN = new RegExp(String.raw`${SIGIL}(${NAME}(?:\.${NAME})*)(?=\s*\()`)
 
 /**
  * A line that only sets a constant sheet-wide: `@c:4`, `@a_0 to angstrom`,

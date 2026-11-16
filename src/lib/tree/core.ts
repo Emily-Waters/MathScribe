@@ -31,7 +31,7 @@ const SYNTAXES: LineSyntax[] = [
     opens: { node: NODE_KIND.block, context: LINE_CONTEXT.sheet, ends: BODY_END.closer },
   },
   { kind: NODE_KIND.heading, contexts: SHEET, content: CONTENT.heading, matches: (trimmed) => HEADING_MARKS.test(trimmed) },
-  { kind: NODE_KIND.paragraph, contexts: SHEET, content: CONTENT.whole, matches: (trimmed) => trimmed.startsWith('>') },
+  { kind: NODE_KIND.paragraph, contexts: SHEET, content: CONTENT.text, matches: (trimmed) => trimmed.startsWith('>') },
   {
     kind: NODE_KIND.latexOpener, contexts: SHEET, content: CONTENT.whole,
     matches: (trimmed) => LATEX_OPENER.exec(trimmed)?.[1].trim() === '',
@@ -39,12 +39,12 @@ const SYNTAXES: LineSyntax[] = [
   },
   { kind: NODE_KIND.latex, contexts: SHEET, content: CONTENT.whole, matches: (trimmed) => LATEX_OPENER.test(trimmed) },
   {
-    kind: NODE_KIND.importLine, contexts: SHEET, content: CONTENT.noted,
+    kind: NODE_KIND.importLine, contexts: SHEET, content: CONTENT.expression,
     matches: (_, split) => IMPORT.test(split().body),
     opens: { node: NODE_KIND.import, context: LINE_CONTEXT.data, ends: BODY_END.indent },
   },
   {
-    kind: NODE_KIND.defLine, contexts: SHEET, content: CONTENT.noted,
+    kind: NODE_KIND.defLine, contexts: SHEET, content: CONTENT.expression,
     matches: (_, split) => DEF.test(split().body),
     opens: { node: NODE_KIND.function, context: LINE_CONTEXT.functionBody, ends: BODY_END.indentOrBlank },
   },
@@ -74,11 +74,11 @@ export const splitHeaded = (trimmed: string) => splitNote(trimmed.replace(HEADIN
 
 declareContexts([
   // (A line in the sheet that's no other kind is a calculation.)
-  { name: LINE_CONTEXT.sheet, lineKind: NODE_KIND.calc, content: CONTENT.noted },
-  { name: LINE_CONTEXT.prose, lineKind: NODE_KIND.proseLine, content: CONTENT.whole },
+  { name: LINE_CONTEXT.sheet, lineKind: NODE_KIND.calc, content: CONTENT.expression },
+  { name: LINE_CONTEXT.prose, lineKind: NODE_KIND.proseLine, content: CONTENT.text },
   { name: LINE_CONTEXT.latex, lineKind: NODE_KIND.latexLine, content: CONTENT.whole },
-  { name: LINE_CONTEXT.constants, lineKind: NODE_KIND.constantLine, content: CONTENT.noted },
-  { name: LINE_CONTEXT.functionBody, lineKind: NODE_KIND.functionLine, content: CONTENT.noted },
+  { name: LINE_CONTEXT.constants, lineKind: NODE_KIND.constantLine, content: CONTENT.expression },
+  { name: LINE_CONTEXT.functionBody, lineKind: NODE_KIND.functionLine, content: CONTENT.expression },
   { name: LINE_CONTEXT.data, lineKind: NODE_KIND.data, content: CONTENT.whole, raw: true },
 ])
 declareLineSyntaxes(GRAMMAR_CORE, SYNTAXES)

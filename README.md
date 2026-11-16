@@ -1504,7 +1504,11 @@ renamed, change it there too.
   core's kinds; `registry.ts`: every kind of node and token, declared once by the
   core or a module; `grammar.ts`: contexts and kinds of line, declared as data
   (the core's in `core.ts`, a module's by `EngineModule.grammar()`); `lines.ts`:
-  lines read into nodes, cached by text and context; `stream.ts`: reading one line at a time, in its place (`stepLine`), as the editor does too; `codec.ts`: the tree, built from those steps, with
+  lines read into nodes, cached by text and context; `lexer.ts`: an
+  expression read into tokens (numbers, units, names, mathjs's delimiters and
+  keywords) and nodes (a quantity, a call, a value in text), by rules: the
+  core's, mathjs's grammar where it has one, and a module's
+  (`ModuleGrammar.lexRules`: a vector, a species, a series call's settings), tried first; `stream.ts`: reading one line at a time, in its place (`stepLine`), as the editor does too; `codec.ts`: the tree, built from those steps, with
   blocks as nodes holding their lines; `check.ts`: checking a tree from elsewhere;
   `schema.ts`: everything declared, listed (`introspect`) and as a JSON Schema
   (`jsonSchema`), published at `public/schema/mathscribe-1.schema.json`; `migrations.ts`: the

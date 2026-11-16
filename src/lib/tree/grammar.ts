@@ -36,9 +36,13 @@ export type BodyEnd = (typeof BODY_END)[keyof typeof BODY_END]
 export const CONTENT = {
   /** Its text, then its #commands and note (`m = 2.0 kg  #val  # mass`). */
   noted: 'noted',
-  /** All one token: prose, raw LaTeX (a `#` in it is the text's). */
+  /** As `noted`, its text read as an expression into tokens (lexer.ts): a calculation, a function's line, a `def`. */
+  expression: 'expression',
+  /** All one token: raw LaTeX, imported data (a `#` in it is the text's). */
   whole: 'whole',
-  /** A heading's `#`s, then its title (all of it: a `#` in a title is the title's). */
+  /** Text, as `whole`, but with each value in it, `{{c_Na}}`, read as an expression (outside `$…$` maths): prose. */
+  text: 'text',
+  /** A heading's `#`s, then its title (all of it: a `#` in a title is the title's; values in it as in `text`). */
   heading: 'heading',
   /** A heading's `#`s, then its title, `{`, #commands and note (`# Kinematics {  #val`). */
   headedOpener: 'headedOpener',
@@ -114,6 +118,12 @@ export function contextInfo(name: string): ContextInfo {
 export const declaredLineSyntaxes = () => syntaxes.map(({ owner, syntax }) => ({
   owner, kind: syntax.kind, contexts: syntax.contexts, content: syntax.content, opens: syntax.opens,
 }))
+
+/**
+ * Whether a kind of node holds lines (a block: what a line opens), rather than
+ * being a line (whose nodes are its expression's: a quantity, a call).
+ */
+export const isBlockKind = (kind: string) => syntaxes.some((s) => s.syntax.opens?.node === kind)
 
 /** Every context declared (for the schema's listing). */
 export const declaredContexts = (): readonly ContextInfo[] => [...contexts.values()]

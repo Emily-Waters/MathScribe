@@ -244,8 +244,14 @@ const ESCAPED_UNDERSCORE = /\\_/g
 /** Words with each `\_` as the plain underscore it stands for. */
 export const unescapeUnderscores = (text: string) => text.replace(ESCAPED_UNDERSCORE, SUBSCRIPT)
 
+/** A value in text's braces, as typed: `{{c_Na}}`. */
+export const VALUE_BRACES = { open: '{{', close: '}}' } as const
+
 /** A value in text, `{{c_Na}}`, `{{V:4 to mL}}` (1: what's between the braces). */
 export const VALUE_IN_TEXT = /\{\{([^{}]+)\}\}/g
+
+/** Inline maths in text, `$x^2$` (a `{{` in it is the maths's, not a value). */
+export const INLINE_MATHS = /\$[^$]*\$/
 
 /** An import's call, `@import()` or `@import("run1.csv")`, anywhere in a line (1: the file's name). */
 const IMPORT_BRACKETS = String.raw`${builtinOpening(CALL.import)}\s*(?:"([^"]*)")?\s*\)`
@@ -398,7 +404,7 @@ export const CONSTANTS_TOKEN = new RegExp(`@${CONSTANTS_BLOCK}(?!${NAME_CHAR})`)
 const CONSTANT_NAME = String.raw`${NAME}(?:\.${NAME})*`
 
 /** The precision written after a constant: `:4` or `:exact`. */
-const CONSTANT_PRECISION = String.raw`(?::(\d+|${EXACT_SETTING})\b)?`
+export const CONSTANT_PRECISION = String.raw`(?::(\d+|${EXACT_SETTING})\b)?`
 
 /**
  * Every constant in a line: `@c`, `@c:4`, `@c:exact`, `@chem.mm.Na:5`

@@ -1,10 +1,13 @@
 /** Words in display names and text, as LaTeX. */
-import { SUBSCRIPT_BASE, TEXT_SUBSCRIPT, subscriptOf, unescapeUnderscores } from '../../syntax.ts'
+import { INLINE_MATHS, SUBSCRIPT_BASE, TEXT_SUBSCRIPT, subscriptOf, unescapeUnderscores } from '../../syntax.ts'
 import { moduleSubscriptTex } from './module.ts'
+
+/** Text split at its inline maths, the maths kept (every other part is maths). */
+const AT_MATHS = new RegExp(`(${INLINE_MATHS.source})`)
 
 /** Text with `fix` applied to its parts outside `$…$` (inline maths is left alone). */
 export const outsideMaths = (text: string, fix: (part: string) => string) =>
-  text.split(/(\$[^$]*\$)/).map((part, i) => (i % 2 ? part : fix(part))).join('')
+  text.split(AT_MATHS).map((part, i) => (i % 2 ? part : fix(part))).join('')
 
 /** Words as upright LaTeX text, `\_` as a plain underscore. */
 export const plainTextTex = (text: string) => (text ? `\\text{${escapeText(unescapeUnderscores(text))}}` : '')

@@ -4,7 +4,7 @@ import { SAMPLE } from '../sample.ts'
 import { REFERENCE } from '../reference.ts'
 import { LIBRARY } from '../library.ts'
 import {
-  NODE_KIND, SCHEMA, TOKEN_KIND, declareNodeKinds, declaredNodeKinds, decode, encode, isSheetTree, isToken, schemaId, splitLines,
+  NODE_KIND, SCHEMA, TOKEN_KIND, declareNodeKinds, isBlockKind, declaredNodeKinds, decode, encode, isSheetTree, isToken, schemaId, splitLines,
   textOf, treeProblems, type SheetTree, type SyntaxNode,
 } from './index.ts'
 import { clearLineCache } from './lines.ts'
@@ -76,8 +76,12 @@ describe('a sheet as a tree', () => {
     expect(line).toEqual({
       kind: NODE_KIND.calc,
       parts: [
-        { t: TOKEN_KIND.indent, text: '  ' }, { t: TOKEN_KIND.body, text: 'm = 2.0 kg' }, { t: TOKEN_KIND.space, text: '  ' },
-        { t: TOKEN_KIND.eol, text: '\r\n' },
+        { t: TOKEN_KIND.indent, text: '  ' },
+        // (What it says, as an expression: lexer.test.ts.)
+        { t: TOKEN_KIND.symbol, text: 'm' }, { t: TOKEN_KIND.space, text: ' ' }, { t: TOKEN_KIND.delimiter, text: '=' },
+        { t: TOKEN_KIND.space, text: ' ' },
+        { kind: NODE_KIND.quantity, parts: [{ t: TOKEN_KIND.number, text: '2.0' }, { t: TOKEN_KIND.space, text: ' ' }, { t: TOKEN_KIND.unit, text: 'kg' }] },
+        { t: TOKEN_KIND.space, text: '  ' }, { t: TOKEN_KIND.eol, text: '\r\n' },
       ],
     })
     expect(blank).toEqual({ kind: NODE_KIND.blank, parts: [{ t: TOKEN_KIND.indent, text: '\t' }, { t: TOKEN_KIND.eol, text: '\n' }] })
@@ -154,7 +158,8 @@ describe('the schema', () => {
 function shape(nodes: readonly SyntaxNode[], depth = 0): string[] {
   return nodes.flatMap((n) => {
     const own = `${'  '.repeat(depth)}${n.kind}`
-    const children = n.parts.filter((p): p is SyntaxNode => !isToken(p))
+    // (A block's lines; a line's own nodes, its expression's, aren't part of the sheet's shape.)
+    const children = isBlockKind(n.kind) ? n.parts.filter((p): p is SyntaxNode => !isToken(p)) : []
     return children.length ? [own, ...shape(children, depth + 1)] : [own]
   })
 }
@@ -204,9 +209,10 @@ describe('the kinds of line, and the blocks they open', () => {
   })
 
   it('reads a line’s #commands and note as tokens of their own', () => {
-    const tokens = encode('F = m * a  #val #sci  # the force #sym').body[0].parts.map((p) => (isToken(p) ? `${p.t}:${p.text}` : ''))
-    expect(tokens).toEqual([
-      `${TOKEN_KIND.body}:F = m * a`, `${TOKEN_KIND.space}:  `, `${TOKEN_KIND.command}:#val`, `${TOKEN_KIND.space}: `,
+    // (A block's title isn't an expression: what it says is one token, before its #commands and note.)
+    const opener = (encode('Forces {  #val #sci  # the force #sym').body[0].parts[0] as SyntaxNode).parts
+    expect(opener.map((p) => (isToken(p) ? `${p.t}:${p.text}` : ''))).toEqual([
+      `${TOKEN_KIND.body}:Forces {`, `${TOKEN_KIND.space}:  `, `${TOKEN_KIND.command}:#val`, `${TOKEN_KIND.space}: `,
       `${TOKEN_KIND.command}:#sci`, `${TOKEN_KIND.space}:  `, `${TOKEN_KIND.note}:# the force #sym`,
     ])
   })

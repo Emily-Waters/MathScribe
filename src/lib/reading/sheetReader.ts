@@ -8,7 +8,7 @@ import { Calculator, markupText, outsideMaths, sheetModules, type CalcOptions } 
 import type { VariableSummary } from '../values.ts'
 import { BLOCK_CLOSE, EXACT_SETTING, LAYOUT_STYLE, LINE_COMMAND, SIGIL, VALUE_IN_TEXT, type Notation } from '../syntax.ts'
 import { BLOCK_KIND, type Block, type Command, type GroupBlock, type LayoutBlock } from '../blocks.ts'
-import { NODE_KIND, TOKEN_KIND, encode, isToken, splitLines, type SyntaxNode } from '../tree/index.ts'
+import { NODE_KIND, TOKEN_KIND, encode, isBlockKind, isToken, splitLines, textOf, type SyntaxNode } from '../tree/index.ts'
 import { closesBlock, openerText, parseConstantDeclaration } from './lineSyntax.ts'
 import { Line, readsLines, type NodeReader, type TreeItem } from './reader.ts'
 import { lineReaders } from './readers.ts'
@@ -238,7 +238,7 @@ export class SheetReader {
 
 /** A line node's text, as written, without what ends it. */
 const rawOf = (node: SyntaxNode): string =>
-  node.parts.map((p) => (isToken(p) && p.t !== TOKEN_KIND.eol ? p.text : '')).join('')
+  node.parts.map((p) => (isToken(p) && p.t === TOKEN_KIND.eol ? '' : textOf(p))).join('')
 
 /** A node kept as rows (imported data's): each row, as written. */
 function rowsOf(node: SyntaxNode): string[] {
@@ -253,8 +253,8 @@ function rowsOf(node: SyntaxNode): string[] {
 function itemsOf(nodes: readonly SyntaxNode[], cursor: { at: number }): TreeItem[] {
   return nodes.map((node): TreeItem => {
     const children = node.parts.filter((p): p is SyntaxNode => !isToken(p))
-    // A line.
-    if (!children.length) {
+    // A line (the nodes in it, if any, are its expression's).
+    if (!isBlockKind(node.kind)) {
       if (node.parts.some((p) => isToken(p) && p.t === TOKEN_KIND.rows)) {
         const rows = rowsOf(node).map((text) => new Line(cursor.at++, text))
         return { node, line: rows[0], body: [], rows, last: cursor.at - 1 }

@@ -11,6 +11,7 @@
 import { declaredContexts, declaredLineSyntaxes, type Body, type ContextInfo } from './grammar.ts'
 import { SCHEMA, schemaId } from './nodes.ts'
 import { declaredNodeKinds, declaredTokenKinds, type KindInfo } from './registry.ts'
+import { declaredLexRules } from './lexer.ts'
 import { NODE_FIELDS, TOKEN_FIELDS, TREE_FIELDS } from './check.ts'
 
 /** A kind of line, as the schema lists it: where it can be, and what it opens. */
@@ -29,9 +30,11 @@ export interface SchemaListing {
   readonly contexts: readonly ContextInfo[]
   /** The kinds of line, in the order a line is offered them. */
   readonly lineSyntaxes: readonly SyntaxInfo[]
+  /** How an expression is read into tokens (lexer.ts): each rule, whose, in the order it's tried. */
+  readonly lexRules: readonly { readonly owner: string; readonly describes: string }[]
 }
 
-/** Everything the schema declares: its kinds (with what each is and whose), its contexts, and its kinds of line. */
+/** Everything the schema declares: its kinds (with what each is and whose), its contexts, its kinds of line, and its lexer's rules. */
 export function introspect(): SchemaListing {
   return {
     schema: schemaId(SCHEMA.version),
@@ -39,6 +42,7 @@ export function introspect(): SchemaListing {
     tokenKinds: declaredTokenKinds(),
     contexts: declaredContexts(),
     lineSyntaxes: declaredLineSyntaxes().map(({ owner, kind, contexts, opens }) => ({ owner, kind, contexts, ...(opens ? { opens } : {}) })),
+    lexRules: declaredLexRules(),
   }
 }
 

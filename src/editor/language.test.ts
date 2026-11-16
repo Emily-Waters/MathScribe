@@ -35,8 +35,8 @@ describe('comments and values in text', () => {
     expect(tokens('    // indented')).toEqual(['// indented:comment'])
   })
 
-  it('sets a {{value}} off from the prose around it', () => {
-    expect(tokens('> about {{c_Na:3}} in all')).toContain('{{c_Na:3}}:value')
+  it('sets a {{value}} off from the prose around it, its expression coloured as one', () => {
+    expect(tokens('> about {{c_Na:3}} in all')).toEqual(['>:quote', 'about :text', '{{:value', 'c_Na:var', '3:num', '}}:value', 'in all:text'])
   })
 
   it('colours a formula as chemistry: in prose, a species after a unit, and a reaction line', () => {

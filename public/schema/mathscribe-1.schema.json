@@ -104,6 +104,18 @@
           "$ref": "#/$defs/node.import"
         },
         {
+          "$ref": "#/$defs/node.quantity"
+        },
+        {
+          "$ref": "#/$defs/node.call"
+        },
+        {
+          "$ref": "#/$defs/node.value"
+        },
+        {
+          "$ref": "#/$defs/node.vector"
+        },
+        {
           "$ref": "#/$defs/node.speciesOpener"
         },
         {
@@ -151,6 +163,36 @@
         },
         {
           "$ref": "#/$defs/token.rows"
+        },
+        {
+          "$ref": "#/$defs/token.number"
+        },
+        {
+          "$ref": "#/$defs/token.symbol"
+        },
+        {
+          "$ref": "#/$defs/token.unit"
+        },
+        {
+          "$ref": "#/$defs/token.builtin"
+        },
+        {
+          "$ref": "#/$defs/token.keyword"
+        },
+        {
+          "$ref": "#/$defs/token.delimiter"
+        },
+        {
+          "$ref": "#/$defs/token.string"
+        },
+        {
+          "$ref": "#/$defs/token.unknown"
+        },
+        {
+          "$ref": "#/$defs/token.species"
+        },
+        {
+          "$ref": "#/$defs/token.settings"
         }
       ]
     },
@@ -856,6 +898,114 @@
         }
       }
     },
+    "node.quantity": {
+      "description": "A number (or a module’s value, a vector) with its unit: 5.00 g (core)",
+      "type": "object",
+      "required": [
+        "kind",
+        "parts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "quantity"
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/token"
+              },
+              {
+                "$ref": "#/$defs/node"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "node.call": {
+      "description": "A call: what’s called, and its arguments in brackets, f(x), @chem.mm({H2O}) (core)",
+      "type": "object",
+      "required": [
+        "kind",
+        "parts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "call"
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/token"
+              },
+              {
+                "$ref": "#/$defs/node"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "node.value": {
+      "description": "A value in text: its braces, and the expression between them, {{V:4 to mL}} (core)",
+      "type": "object",
+      "required": [
+        "kind",
+        "parts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "value"
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/token"
+              },
+              {
+                "$ref": "#/$defs/node"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "node.vector": {
+      "description": "A vector’s values in angle brackets: <3.0, 4.0> (VectorModule)",
+      "type": "object",
+      "required": [
+        "kind",
+        "parts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "vector"
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/token"
+              },
+              {
+                "$ref": "#/$defs/node"
+              }
+            ]
+          }
+        }
+      }
+    },
     "node.speciesOpener": {
       "description": "An @chem.species block’s opener: @chem.species { (ChemistryModule)",
       "type": "object",
@@ -1155,6 +1305,176 @@
       "properties": {
         "t": {
           "const": "rows"
+        },
+        "text": {
+          "type": "string"
+        }
+      }
+    },
+    "token.number": {
+      "description": "A number, as mathjs reads one: 2.00, 1.2e-3 (core)",
+      "type": "object",
+      "required": [
+        "t",
+        "text"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "number"
+        },
+        "text": {
+          "type": "string"
+        }
+      }
+    },
+    "token.symbol": {
+      "description": "A name, as mathjs reads a symbol: m, v_0, θ (core)",
+      "type": "object",
+      "required": [
+        "t",
+        "text"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "symbol"
+        },
+        "text": {
+          "type": "string"
+        }
+      }
+    },
+    "token.unit": {
+      "description": "A unit after a number, to, or a name’s : (m/s^2): mathjs’s units (core)",
+      "type": "object",
+      "required": [
+        "t",
+        "text"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "unit"
+        },
+        "text": {
+          "type": "string"
+        }
+      }
+    },
+    "token.builtin": {
+      "description": "An @ name: a built-in constant or function, @c, @chem.mm (core)",
+      "type": "object",
+      "required": [
+        "t",
+        "text"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "builtin"
+        },
+        "text": {
+          "type": "string"
+        }
+      }
+    },
+    "token.keyword": {
+      "description": "A word with a meaning of its own: mathjs’s named delimiters (to, mod, …) and MathScribe’s keywords (pm, return, …) (core)",
+      "type": "object",
+      "required": [
+        "t",
+        "text"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "keyword"
+        },
+        "text": {
+          "type": "string"
+        }
+      }
+    },
+    "token.delimiter": {
+      "description": "An operator, a bracket or a separator, as mathjs’s delimiters: +, (, ,, == (core)",
+      "type": "object",
+      "required": [
+        "t",
+        "text"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "delimiter"
+        },
+        "text": {
+          "type": "string"
+        }
+      }
+    },
+    "token.string": {
+      "description": "A label in quotes, as a mathjs string: \"Mass of {Na^+}\" (core)",
+      "type": "object",
+      "required": [
+        "t",
+        "text"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "string"
+        },
+        "text": {
+          "type": "string"
+        }
+      }
+    },
+    "token.unknown": {
+      "description": "A character nothing reads (core)",
+      "type": "object",
+      "required": [
+        "t",
+        "text"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "unknown"
+        },
+        "text": {
+          "type": "string"
+        }
+      }
+    },
+    "token.species": {
+      "description": "A formula in braces in an expression: the species a value is of (5.00 g {H2O}), or a compound (@chem.mm({H2O})) (ChemistryModule)",
+      "type": "object",
+      "required": [
+        "t",
+        "text"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "species"
+        },
+        "text": {
+          "type": "string"
+        }
+      }
+    },
+    "token.settings": {
+      "description": "The settings after a ; in @table(…), @plot(…) or @select(…): fit linear, x from 0 to 2 (SeriesModule)",
+      "type": "object",
+      "required": [
+        "t",
+        "text"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "settings"
         },
         "text": {
           "type": "string"

@@ -75,6 +75,24 @@ export const TOKEN_KIND = {
   marks: 'marks',
   /** Imported data's rows, as they are (indentation and line endings too). */
   rows: 'rows',
+
+  // An expression's tokens (lexer.ts): mathjs's kinds, and MathScribe's.
+  /** A number, as mathjs reads one: `2.00`, `1.2e-3`. */
+  number: 'number',
+  /** A name, as mathjs reads a symbol: `m`, `v_0`, `θ`. */
+  symbol: 'symbol',
+  /** A unit, after a number, `to`, or a name's `:` (`m/s^2`): mathjs's units. */
+  unit: 'unit',
+  /** An `@` name: a built-in constant or function, `@c`, `@chem.mm`. */
+  builtin: 'builtin',
+  /** A word with a meaning of its own: mathjs's named delimiters (`to`, `mod`, …) and MathScribe's keywords (`pm`, `return`, …). */
+  keyword: 'keyword',
+  /** An operator, a bracket or a separator, as mathjs's delimiters: `+`, `(`, `,`, `==`. */
+  delimiter: 'delimiter',
+  /** A label in quotes, as a mathjs string: `"Mass of {Na^+}"`. */
+  string: 'string',
+  /** A character nothing reads (mathjs would say what's wrong when it's worked out). */
+  unknown: 'unknown',
 } as const
 
 /** The core's kinds of node: lines, and the nodes holding a line and its body. */
@@ -132,6 +150,14 @@ export const NODE_KIND = {
   data: 'data',
   /** An import: its line, and its data. */
   import: 'import',
+
+  // An expression's nodes (lexer.ts).
+  /** A number (or a module's value, a vector) with its unit: `5.00 g`. */
+  quantity: 'quantity',
+  /** A call: what's called, and its arguments in brackets, `f(x)`, `@chem.mm({H2O})`. */
+  call: 'call',
+  /** A value in text, `{{V:4 to mL}}`: its braces, and the expression between them. */
+  value: 'value',
 } as const
 
 /** The core's contexts: what a line can be inside, which decides how it's read. */

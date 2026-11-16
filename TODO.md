@@ -266,6 +266,23 @@ edit reads again only what it changed, and nodes are shared between trees.
 - [ ] **Expressions as tokens**: names, numbers, units, `{species}`, `<…>`, so
       the modules' text-rewriting hooks (`expandSyntax`, `readAfterUnit`) become
       kinds of token they declare.
+      Progress (5a, the tree reads them): `lexer.ts` reads an expression into
+      tokens and nodes by rules, each declared with what it reads and whose. The
+      core's follow mathjs's own grammar (its delimiters and named delimiters,
+      its number and name characters, from `math.parse`), so the tokens are the
+      ones mathjs reads; numbers, units (after a number, after `to`, after `:` on
+      the left of the `=`), names, `@` functions and constants (with their
+      precision), keywords, strings, and anything else as `unknown` (nothing is
+      lost). Nodes only where something holds parts: a quantity (a value and its
+      unit), a call, and a value in text (`{{…}}` in prose and headings, not in
+      `$…$` maths); operators stay flat. Modules declare rules of their own
+      (`ModuleGrammar.lexRules`), tried before the core's: a vector `<…>`
+      (vectors), a `{species}` (chemistry), and a series call's settings after
+      `;` as one token (series). The editor colours lines from these tokens, so
+      its own expression tokenizer is gone. Calculation, constant, function and
+      `def` lines are read this way; the lexer's rules are listed in
+      `introspect()`. Next: 5b, the engine reading the tokens, so the modules'
+      text-rewriting hooks go.
 
 ## Done
 

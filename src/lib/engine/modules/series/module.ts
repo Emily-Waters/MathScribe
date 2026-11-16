@@ -6,7 +6,8 @@
  * ModuleHost.
  */
 import { LineFormMember, type Member } from '../../../builtins.ts'
-import { EngineModule, type LineForm } from '../../core/module.ts'
+import { EngineModule, type LineForm, type ModuleGrammar } from '../../core/module.ts'
+import { SERIES_GRAMMAR } from './grammar.ts'
 import { SERIES_CALL } from './syntax.ts'
 import { PlotForm } from './plot.ts'
 import { SelectForm } from './select.ts'
@@ -14,6 +15,11 @@ import { TableForm } from './table.ts'
 
 export class SeriesModule extends EngineModule {
   override readonly lineForms: readonly LineForm[] = [new TableForm(), new PlotForm(), new SelectForm()]
+
+  /** Its part of a sheet's tree: a call's settings after its `;`, as one token. */
+  override grammar(): ModuleGrammar {
+    return SERIES_GRAMMAR
+  }
 
   override builtinMembers(): Member[] {
     return [

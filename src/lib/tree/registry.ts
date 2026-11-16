@@ -75,6 +75,9 @@ declareNodeKinds(CORE_OWNER, {
   [NODE_KIND.importLine]: 'An import line: @import("run1.csv")',
   [NODE_KIND.data]: 'Imported data’s rows, as one node',
   [NODE_KIND.import]: 'An import: its line, and its data',
+  [NODE_KIND.quantity]: 'A number (or a module’s value, a vector) with its unit: 5.00 g',
+  [NODE_KIND.call]: 'A call: what’s called, and its arguments in brackets, f(x), @chem.mm({H2O})',
+  [NODE_KIND.value]: 'A value in text: its braces, and the expression between them, {{V:4 to mL}}',
 } satisfies Record<(typeof NODE_KIND)[keyof typeof NODE_KIND], string>)
 declareTokenKinds(CORE_OWNER, {
   [TOKEN_KIND.indent]: 'The spaces and tabs a line starts with',
@@ -87,4 +90,12 @@ declareTokenKinds(CORE_OWNER, {
   [TOKEN_KIND.note]: 'A note, # …, to the end of the line',
   [TOKEN_KIND.marks]: 'A heading’s #s',
   [TOKEN_KIND.rows]: 'Imported data’s rows, as they are',
+  [TOKEN_KIND.number]: 'A number, as mathjs reads one: 2.00, 1.2e-3',
+  [TOKEN_KIND.symbol]: 'A name, as mathjs reads a symbol: m, v_0, θ',
+  [TOKEN_KIND.unit]: 'A unit after a number, to, or a name’s : (m/s^2): mathjs’s units',
+  [TOKEN_KIND.builtin]: 'An @ name: a built-in constant or function, @c, @chem.mm',
+  [TOKEN_KIND.keyword]: 'A word with a meaning of its own: mathjs’s named delimiters (to, mod, …) and MathScribe’s keywords (pm, return, …)',
+  [TOKEN_KIND.delimiter]: 'An operator, a bracket or a separator, as mathjs’s delimiters: +, (, ,, ==',
+  [TOKEN_KIND.string]: 'A label in quotes, as a mathjs string: "Mass of {Na^+}"',
+  [TOKEN_KIND.unknown]: 'A character nothing reads',
 } satisfies Record<(typeof TOKEN_KIND)[keyof typeof TOKEN_KIND], string>)

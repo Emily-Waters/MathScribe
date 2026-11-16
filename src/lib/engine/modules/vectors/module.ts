@@ -10,11 +10,12 @@ import type { FunctionNode, MathNode, MathType } from 'mathjs'
 import { FunctionMember, type Expansion, type Member } from '../../../builtins.ts'
 import { math } from '../../core/math.ts'
 import {
-  EngineModule, SETTING_PLACE, type DerivedVariable, type LookSetting, type ModuleHost, type SettingPlace, type TupleLook,
+  EngineModule, SETTING_PLACE, type DerivedVariable, type ModuleGrammar, type LookSetting, type ModuleHost, type SettingPlace, type TupleLook,
 } from '../../core/module.ts'
 import { SIDE, needsBrackets } from '../../core/products.ts'
 import { attachUnit } from '../../core/tex.ts'
 import { componentsOf } from './components.ts'
+import { VECTOR_GRAMMAR } from './grammar.ts'
 import { expandVectors, hasVector } from './literals.ts'
 import {
   COMPONENTS_SETTING, UNIT_VECTOR_SETTING, UNIT_VECTOR_TEX, VECTOR_BRACKETS, VECTOR_CALL, VECTOR_FUNCTION, VECTOR_LOOK, VECTOR_LOOKS,
@@ -51,6 +52,11 @@ export class VectorModule extends EngineModule {
   }
 
   /** `@vector(3.0, 4.0)`, the same as `<3.0, 4.0>`. */
+  /** Its part of a sheet's tree: a vector, `<3.0, 4.0>`, read as a node. */
+  override grammar(): ModuleGrammar {
+    return VECTOR_GRAMMAR
+  }
+
   override builtinMembers(): Member[] {
     return [new VectorFunction()]
   }

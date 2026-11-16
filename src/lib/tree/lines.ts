@@ -9,10 +9,11 @@
  * anything worked out from a node can be kept by the node itself (a WeakMap):
  * its text (codec.ts), and later its evaluation.
  */
-import { LINE_COMMANDS, LINE_LAYOUTS, MULTILINE, NOTATIONS, commandPattern, isComment } from '../syntax.ts'
+import { INLINE_MATHS, LINE_COMMANDS, LINE_LAYOUTS, MULTILINE, NOTATIONS, VALUE_BRACES, VALUE_IN_TEXT, commandPattern, isComment } from '../syntax.ts'
 import { splitNote, type SplitLine } from '../reading/lineSyntax.ts'
 import { CONTENT, contextInfo, syntaxesIn, type Body, type Content } from './grammar.ts'
 import { HEADING_MARKS } from './core.ts'
+import { lexExpression, node } from './lexer.ts'
 import { NODE_KIND, TOKEN_KIND, type Part, type SyntaxNode, type Token } from './nodes.ts'
 
 /** A line, and what ends it: `\n`, `\r\n`, `\r`, or '' (the last line, if the text doesn't end with one). */
@@ -48,13 +49,20 @@ const COMMANDS = commandPattern([...LINE_COMMANDS, MULTILINE, ...NOTATIONS, ...L
 
 const token = (t: string, text: string): Token => Object.freeze({ t, text })
 
-/** A piece of text as a token, with any spaces at its ends as space tokens. */
-function spaced(t: string, text: string, into: Part[]): void {
+/**
+ * A piece of text as a token, with any spaces at its ends as space tokens; or,
+ * for what a line says when it's an expression (`asExpression`), as the
+ * expression's tokens (lexer.ts).
+ */
+function spaced(t: string, text: string, into: Part[], asExpression = false): void {
   const lead = LEADING_SPACE.exec(text)?.[0] ?? ''
   const trail = text.length > lead.length ? TRAILING_SPACE.exec(text)?.[0] ?? '' : ''
   const middle = text.slice(lead.length, text.length - trail.length)
   if (lead) into.push(token(TOKEN_KIND.space, lead))
-  if (middle) into.push(token(t, middle))
+  if (middle) {
+    if (asExpression && t === TOKEN_KIND.body) into.push(...lexExpression(middle))
+    else into.push(token(t, middle))
+  }
   if (trail) into.push(token(TOKEN_KIND.space, trail))
 }
 
@@ -63,7 +71,7 @@ function spaced(t: string, text: string, into: Part[]): void {
  * body, space, command, space, note. A command is one wherever it is (as
  * splitNote reads them); the note is from the first other `#` to the end.
  */
-function notedTokens(content: string, into: Part[]): void {
+function notedTokens(content: string, into: Part[], asExpression = false): void {
   const commands = [...content.matchAll(COMMANDS)].map((m) => {
     const start = m.index + m[1].length
     return { start, end: start + m[0].length - m[1].length }
@@ -79,15 +87,15 @@ function notedTokens(content: string, into: Part[]): void {
   let at = 0
   for (const c of commands) {
     if (noteAt >= 0 && c.start > noteAt) break
-    spaced(TOKEN_KIND.body, content.slice(at, c.start), into)
+    spaced(TOKEN_KIND.body, content.slice(at, c.start), into, asExpression)
     into.push(token(TOKEN_KIND.command, content.slice(c.start, c.end)))
     at = c.end
   }
   if (noteAt < 0) {
-    spaced(TOKEN_KIND.body, content.slice(at), into)
+    spaced(TOKEN_KIND.body, content.slice(at), into, asExpression)
     return
   }
-  spaced(TOKEN_KIND.body, content.slice(at, noteAt), into)
+  spaced(TOKEN_KIND.body, content.slice(at, noteAt), into, asExpression)
   // (A note is the rest of the line, commands written after it too, as they're kept in it.)
   into.push(token(TOKEN_KIND.note, content.slice(noteAt)))
 }
@@ -98,15 +106,43 @@ function contentTokens(content: string, style: Content, into: Part[]): void {
     into.push(token(TOKEN_KIND.text, content))
     return
   }
-  if (style === CONTENT.noted) {
-    notedTokens(content, into)
+  if (style === CONTENT.text) {
+    textTokens(content, into)
+    return
+  }
+  if (style === CONTENT.noted || style === CONTENT.expression) {
+    notedTokens(content, into, style === CONTENT.expression)
     return
   }
   const marks = HEADING_MARKS.exec(content)![0]
   into.push(token(TOKEN_KIND.marks, marks))
   const rest = content.slice(marks.length)
-  if (style === CONTENT.heading) spaced(TOKEN_KIND.text, rest, into)
-  else notedTokens(rest, into)
+  if (style === CONTENT.heading) {
+    const lead = LEADING_SPACE.exec(rest)?.[0] ?? ''
+    if (lead) into.push(token(TOKEN_KIND.space, lead))
+    textTokens(rest.slice(lead.length), into)
+  } else notedTokens(rest, into)
+}
+
+/** What's in text that isn't plain text: inline maths (left as text), or a value (1: what's between its braces). */
+const IN_TEXT = new RegExp(`${INLINE_MATHS.source}|${VALUE_IN_TEXT.source}`, 'g')
+
+/**
+ * Text as tokens, with each value in it, `{{V:4 to mL}}`, a value node: its
+ * braces, and between them the expression's tokens (lexer.ts). A `{{` in
+ * inline maths, `$…$`, is the maths's (as the reader fills values in).
+ */
+function textTokens(text: string, into: Part[]): void {
+  let at = 0
+  for (const m of text.matchAll(IN_TEXT)) {
+    if (m[1] === undefined) continue
+    if (m.index > at) into.push(token(TOKEN_KIND.text, text.slice(at, m.index)))
+    into.push(node(NODE_KIND.value, [
+      token(TOKEN_KIND.delimiter, VALUE_BRACES.open), ...lexExpression(m[1]), token(TOKEN_KIND.delimiter, VALUE_BRACES.close),
+    ]))
+    at = m.index + m[0].length
+  }
+  if (at < text.length) into.push(token(TOKEN_KIND.text, text.slice(at)))
 }
 
 /** A line, read: its node, and what it opens, if anything. */

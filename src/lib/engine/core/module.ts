@@ -18,6 +18,7 @@ import type { Values } from './scope.ts'
 import { BUILTINS, type Member } from '../../builtins.ts'
 import { declareNodeKinds, declareTokenKinds } from '../../tree/registry.ts'
 import { declareContexts, declareLineSyntaxes, type ContextInfo, type LineSyntax } from '../../tree/grammar.ts'
+import { declareLexRules, type LexRule } from '../../tree/lexer.ts'
 import type { BuiltinConstant, NamespaceConstant } from '../../constants.ts'
 import type { Contributions, Variable, VariableFields } from '../../values.ts'
 import type { DisplayMode, Notation, Precision } from '../../syntax.ts'
@@ -182,6 +183,8 @@ export interface ModuleGrammar {
   readonly tokenKinds?: Record<string, string>
   readonly contexts?: readonly ContextInfo[]
   readonly syntaxes?: readonly LineSyntax[]
+  /** Its rules for reading expressions (lexer.ts): `<3.0, 4.0>` as a vector, `{H2O}` as a species. */
+  readonly lexRules?: readonly LexRule[]
 }
 
 /** A kind of module: its class, by which another module says it needs it. */
@@ -413,6 +416,7 @@ export function installModule(module: EngineModule): void {
     declareTokenKinds(kind.name, grammar.tokenKinds ?? {})
     declareContexts(grammar.contexts ?? [])
     declareLineSyntaxes(kind.name, grammar.syntaxes ?? [])
+    declareLexRules(kind.name, grammar.lexRules ?? [])
   }
 }
 

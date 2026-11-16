@@ -5,6 +5,7 @@
  *   @                     the root
  *   ├─ c, h, e, …         physics constants (constants.ts)
  *   ├─ tuple              values in order, @tuple(1.0, 2.0) m; and unpacked, @tuple(a, b) = …
+ *   ├─ import             imported data, @import("run1.csv"), a line of its own
  *   ├─ layout             layout blocks, @layout.list { }, whose members chain: @layout.numbered.val
  *   │  ├─ text, list, …   the layouts
  *   │  └─ hidden, sym, …  the display settings
@@ -296,6 +297,8 @@ const LAYOUT_MODIFIER_DESCRIPTIONS: Record<LayoutModifier, string> = {
 export const BUILTINS = new Namespace('', 'Built in', [
   ...Object.entries(BUILTIN_CONSTANTS).map(([name, c]) => new ConstantMember(name, c)),
   new TupleFunction(),
+  new LineFormMember(CALL.import, '"file.csv"', 'Import a CSV file: each value becomes a variable, x_1, x_2, …',
+    '@import("run1.csv"), or run1 = @import("run1.csv"), with the file’s rows indented under it'),
   new Namespace(NAMESPACE.layout, 'Blocks that arrange lines (text, list, numbered, center, titlepage) or set how they’re shown (hidden, sym, val, multiline, …)', [
     ...Object.values(LAYOUT_STYLE).map((style) => new LayoutMember(style, LAYOUT_DESCRIPTIONS[style])),
     ...Object.values(LAYOUT_MODIFIER).map((modifier) => new ModifierMember(modifier, LAYOUT_MODIFIER_DESCRIPTIONS[modifier])),

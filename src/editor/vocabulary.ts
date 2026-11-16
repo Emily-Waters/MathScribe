@@ -5,7 +5,7 @@
  * `@` describes itself: lib/builtins.ts.)
  */
 import {
-  CALL, COMMAND_NAMES, EXACT_SETTING, KEYWORD, NOTATIONS, PERCENT, UNCERTAINTY_WORDS, type CommandName, type Notation, type SeriesSuffix,
+  COMMAND_NAMES, EXACT_SETTING, KEYWORD, NOTATIONS, PERCENT, UNCERTAINTY_WORDS, type CommandName, type Notation, type SeriesSuffix,
 } from '../lib/syntax.ts'
 import { COMPONENTS_SETTING, UNIT_VECTOR_SETTING } from '../lib/engine/modules/vectors/syntax.ts'
 import { SPECIES_DISPLAY } from '../lib/engine/modules/chemistry/syntax.ts'
@@ -85,7 +85,6 @@ export const BUILTIN_FUNCTIONS: { name: string; signature: string; description: 
   { name: 'norm', signature: 'norm(r)', description: 'Length of a vector or tuple: norm(<3, 4>) = 5' },
   { name: 'dot', signature: 'dot(a, b)', description: 'Dot product of two vectors' },
   { name: 'cross', signature: 'cross(a, b)', description: 'Cross product of two 3D vectors' },
-  { name: CALL.import, signature: 'import()', description: 'Import a CSV file: each value becomes a variable, x_1, x_2, …' },
 ]
 
 /** Constants that are built into mathjs (no @), shown as symbols. */

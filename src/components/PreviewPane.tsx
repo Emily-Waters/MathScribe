@@ -415,7 +415,7 @@ interface PreviewPaneProps {
   fileName: string
   /** Put text into the sheet at the editor's cursor (from the Library tab). */
   onInsert: (text: string) => void
-  /** Remove the `import(…)` on a line, and its data. */
+  /** Remove the `@import(…)` on a line, and its data. */
   onRemoveImport: (line: number) => void
 }
 

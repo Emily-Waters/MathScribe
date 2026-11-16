@@ -30,7 +30,7 @@ const SOURCE = [
   '    z = 3',
   '        > a sub-item',
   '}',
-  'import("data.csv")',
+  '@import("data.csv")',
   '    t (s)',
   '    0.10',
 ].join('\n')

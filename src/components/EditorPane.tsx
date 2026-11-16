@@ -49,7 +49,7 @@ interface EditorPaneProps {
   customPalette: Palette | null
   /** Which keys accept a suggestion. */
   acceptKeys: AcceptKeys
-  /** Choose the file for the `import(…)` on a line (its button between the brackets). */
+  /** Choose the file for the `@import(…)` on a line (its button between the brackets). */
   onChooseImport: (line: number) => void
   /** The contents of the editor's Options menu. */
   options: ReactNode

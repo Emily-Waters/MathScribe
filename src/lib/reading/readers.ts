@@ -158,7 +158,7 @@ class LatexReader extends BracedReader {
 // Blocks whose body is the lines indented under them
 // ---------------------------------------------------------------------------
 
-/** `import("run1.csv")`: the file's rows are every following line indented further. */
+/** `@import("run1.csv")`: the file's rows are every following line indented further. */
 class ImportReader extends LineReader {
   read(line: Line, sheet: SheetReader): boolean {
     const { body, note, command } = line.parts

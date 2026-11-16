@@ -80,7 +80,7 @@ interface State {
   inText: boolean
   /** Inside an `@latex { }` block: every line up to a `}` alone is LaTeX. */
   inLatex: boolean
-  /** Under an `import(…)` line: its indentation (lines indented further are the file's rows). */
+  /** Under an `@import(…)` line: its indentation (lines indented further are the file's rows). */
   dataIndent: number | null
 }
 
@@ -158,7 +158,7 @@ function token(stream: StringStream, state: State): Token | null {
       if (state.kind === LINE_KIND.opener && opensText(stream.string)) state.inText = true
       // `@latex {` with nothing after it: the lines up to a `}` alone are LaTeX.
       if (state.kind === LINE_KIND.latexOpener && !LATEX_OPENER.exec(stream.string.trim())![1].trim()) state.inLatex = true
-      // `import("run1.csv")`: the lines indented under it are the file's rows.
+      // `@import("run1.csv")`: the lines indented under it are the file's rows.
       if (isImport(stream.string)) state.dataIndent = indent
     }
     state.afterNumber = state.inUnit = state.afterTo = false
@@ -356,19 +356,19 @@ const opensBlock = (text: string) => {
 }
 
 /**
- * Whether a line is an `import(…)`. Its file's rows are indented under it, but
+ * Whether a line is an `@import(…)`. Its file's rows are indented under it, but
  * only by choosing the file, so a new line after it isn't indented.
  */
 export const isImport = (text: string) => IMPORT.test(bodyOf(text))
 
-/** An `import(…)` line and the lines of its data: the header row, then the first and last data rows. */
+/** An `@import(…)` line and the lines of its data: the header row, then the first and last data rows. */
 export interface DataBlock {
   line: number
   header: number
   rows: { first: number; last: number } | null
 }
 
-/** Every `import(…)` line with data under it, and where its rows are (line numbers, 1-based). */
+/** Every `@import(…)` line with data under it, and where its rows are (line numbers, 1-based). */
 export function dataBlocks(doc: { lines: number; line(n: number): { text: string } }): DataBlock[] {
   const out: DataBlock[] = []
   for (let n = 1; n <= doc.lines; n++) {
@@ -400,7 +400,7 @@ export const inDataBlock = (doc: { lines: number; line(n: number): { text: strin
  * after a line that opens a block, and one level shallower for a closing `}`.
  *
  * A new line straight after a folded block (Enter at the end of a folded
- * `import(…)`, whose data rows are hidden) takes the folded line's
+ * `@import(…)`, whose data rows are hidden) takes the folded line's
  * indentation, so it isn't added to the hidden rows. With the block open, Enter
  * in its rows carries on with them.
  */
@@ -435,7 +435,7 @@ export const mathscribeIndent = indentService.of((cx, pos) => {
 })
 
 /**
- * Folding: a `def` or `import(…)` folds its indented lines; a `{` block folds to
+ * Folding: a `def` or `@import(…)` folds its indented lines; a `{` block folds to
  * its matching `}`.
  */
 export const mathscribeFolding = foldService.of((state, lineStart, lineEnd) => {

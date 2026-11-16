@@ -1,5 +1,5 @@
 /**
- * Imported data in the editor: the rows under an `import("run1.csv")` line.
+ * Imported data in the editor: the rows under an `@import("run1.csv")` line.
  *
  * - They're folded away when they first appear (when the sheet opens, or a
  *   file is chosen), so the sheet reads as calculations. Unfold them from the

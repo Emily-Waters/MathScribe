@@ -959,10 +959,10 @@ export class Calculator {
   }
 
   /**
-   * Imported data (`import("run1.csv")`): each value becomes a variable named
+   * Imported data (`@import("run1.csv")`): each value becomes a variable named
    * for its column and row, t_1, t_2, …, with the column's unit and its sig
    * figs as typed (a whole number without a unit is exact, as when typed).
-   * A named import (`run1 = import(…)`) puts them under its name: run1.t_1.
+   * A named import (`run1 = @import(…)`) puts them under its name: run1.t_1.
    * Returns what each column made, for the import's summary.
    */
   defineData(columns: CsvColumn[], namespace?: string): { columns: DataColumn[]; error?: string } {

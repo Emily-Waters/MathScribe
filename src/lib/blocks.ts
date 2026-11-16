@@ -205,14 +205,14 @@ export interface SpeciesBlock extends BlockBase, Spans, Noted, Faulted, Hideable
 }
 
 /**
- * `import("run1.csv")` with the file's rows indented under it: data whose
+ * `@import("run1.csv")` with the file's rows indented under it: data whose
  * values become variables (t_1, t_2, …). Only a summary is shown, not the rows.
  */
 export interface ImportBlock extends BlockBase, Spans, Noted, Faulted, Hideable {
   kind: typeof BLOCK_KIND.import
-  /** Its name, for `run1 = import(…)`: its columns are run1.t, run1.x, …. */
+  /** Its name, for `run1 = @import(…)`: its columns are run1.t, run1.x, …. */
   name?: string
-  /** The file's name, or undefined for `import()` before a file is chosen. */
+  /** The file's name, or undefined for `@import()` before a file is chosen. */
   file?: string
   /** What each column made. */
   columns: DataColumn[]

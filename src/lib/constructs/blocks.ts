@@ -95,7 +95,7 @@ export class SpeciesConstruct extends Construct<SpeciesBlock> {
   }
 }
 
-/** `import("run1.csv")` with its rows: it only defines variables, so it isn't part of the document. */
+/** `@import("run1.csv")` with its rows: it only defines variables, so it isn't part of the document. */
 export class ImportConstruct extends Construct<ImportBlock> {
   readonly kind = BLOCK_KIND.import
 

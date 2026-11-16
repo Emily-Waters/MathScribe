@@ -1,8 +1,8 @@
 /**
- * Reading imported CSV data: the rows of an `import("run1.csv")` block, kept
+ * Reading imported CSV data: the rows of an `@import("run1.csv")` block, kept
  * in the sheet under the import line so the sheet works anywhere.
  *
- *   import("run1.csv")
+ *   @import("run1.csv")
  *       t (s), x (m)
  *       0.10, 0.012
  *       0.20, 0.047
@@ -16,7 +16,7 @@
  * x_n gets its row's, as if typed `x_n = 0.012 m pm 0.001 m`. In the column's
  * unit, or x's if it has none; `dx (%)` is a percentage of each value.
  */
-import { INDENT, IS_NAME, indentOf } from './syntax.ts'
+import { IMPORT_CALL, INDENT, IS_NAME, importCall, indentOf } from './syntax.ts'
 
 /** One column: its variable name, unit, and each value as typed with the row it's on (1 = first data row). */
 export interface CsvColumn {
@@ -139,7 +139,7 @@ export function parseCsv(lines: string[]): CsvData {
 }
 
 /**
- * The sheet with a file's data put under the `import(…)` on line `line`
+ * The sheet with a file's data put under the `@import(…)` on line `line`
  * (1-based): the line names the file, and the file's rows, indented one level
  * further, replace any it had. The line's note and commands are kept.
  */
@@ -149,7 +149,7 @@ export function withImportedData(source: string, line: number, fileName: string,
   const own = lines[at] ?? ''
   const indent = /^[ \t]*/.exec(own)![0]
   const name = fileName.replace(/"/g, '')
-  const head = own.replace(/import\s*\([^)]*\)/, `import("${name}")`)
+  const head = own.replace(IMPORT_CALL, importCall(name))
   // The rows it had: the lines straight under it, indented further (a blank line ends them).
   let end = at
   for (let i = at + 1; i < lines.length && lines[i].trim() && indentOf(lines[i]) > indentOf(own); i++) end = i
@@ -157,7 +157,7 @@ export function withImportedData(source: string, line: number, fileName: string,
   return [...lines.slice(0, at), head, ...rows, ...lines.slice(end + 1)].join('\n')
 }
 
-/** The sheet without the `import(…)` on line `line` (1-based) and its rows. */
+/** The sheet without the `@import(…)` on line `line` (1-based) and its rows. */
 export function withoutImport(source: string, line: number): string {
   const lines = source.split(/\r?\n/)
   const at = line - 1

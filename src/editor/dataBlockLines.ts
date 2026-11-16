@@ -1,5 +1,5 @@
 /**
- * Line commands that keep imported data in one piece. An `import(…)` line and
+ * Line commands that keep imported data in one piece. An `@import(…)` line and
  * the rows under it move, delete, cut and copy as a unit, so other lines can't
  * end up among the rows and the rows can't be left behind without their import:
  *
@@ -20,6 +20,7 @@ import { EditorSelection, EditorState, Facet, type Extension, type StateEffect }
 import { Decoration, EditorView, WidgetType, keymap, type Command, type KeyBinding } from '@codemirror/view'
 import { foldEffect, foldState, foldable, foldedRanges, unfoldEffect } from '@codemirror/language'
 import { dataBlocks, isImport } from './language.ts'
+import { IMPORT_CALL } from '../lib/syntax.ts'
 
 /** A data block's lines: its import line, then its rows (1-based, inclusive). */
 interface Unit {
@@ -249,8 +250,6 @@ class ChooseFile extends WidgetType {
   }
 }
 
-/** An import line's brackets, `import(` … `)`, with any file's name in quotes (1: the name). */
-const IMPORT_CALL = /import\s*\(\s*(?:"([^"]*)")?\s*\)/
 
 /** The buttons on import lines: the file chooser between the brackets, and (with data) the ×. */
 function importButtons(state: EditorState) {

@@ -11,7 +11,7 @@ const AWKWARD = [
   '{', '}', '}}', '{{', '{}', '{{}}', '> {{', '> {{}}', '> {{x', '> {', '> {}', '## {{nope}} {Na^+',
   'x:"unclosed = 3', 'x:"" = 3', 'x::: = 3', 'x:0 = 3', 'x:"{{x}}" = 3', 'x:sci:dec = 3',
   'def', 'def f', 'def f(', 'def f(a,)\n    return', 'f(x) = f(x)\ny = f(1)', 'f(x) =', 'return 3',
-  'import(', 'import("x.csv")', 'import("x.csv")\n    a, a\n    1, 2', 'r = import("x.csv")\n    t (zz)\n    1',
+  'import(', '@import("x.csv")', '@import("x.csv")\n    a, a\n    1, 2', 'r = @import("x.csv")\n    t (zz)\n    1',
   '@table(', '@table()', '@table(;)', '@table(t; rows -)', '@plot()', '@plot(t)', '@plot(t, x; fit cubic)', 'p = @plot(;;)',
   'a = @select()', 'a = @select(;)', 'a = @select(t; t from)', 'a.b', 'a.b.c = 1', '.x = 1', 'x. = 1',
   'x = 1 mol {', 'x = 1 mol {}', 'x = 1 mol {Na^+} + 1 mol {Cl^-}', 'x = 1 M M', 'x = 2 to', 'x = 2 m to s', 'x = to m',

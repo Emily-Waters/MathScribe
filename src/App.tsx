@@ -122,7 +122,7 @@ export default function App() {
     setActiveLine(line)
     if (clicked) setCenterOutput((n) => n + 1)
   }, [])
-  // `import()`: choose a CSV file and put its rows into the sheet under that line.
+  // `@import()`: choose a CSV file and put its rows into the sheet under that line.
   const latestSource = useRef(source)
   useEffect(() => {
     latestSource.current = source

@@ -182,9 +182,9 @@ describe('indentation', () => {
   })
 
   it('goes on at an import’s level below a blank line after its rows', () => {
-    expect(indentAfter('import("run.csv")\n    t (s)\n    0.10\n')).toBe(0)
+    expect(indentAfter('@import("run.csv")\n    t (s)\n    0.10\n')).toBe(0)
     // Straight after a row (the block open), the rows carry on.
-    expect(indentAfter('import("run.csv")\n    t (s)\n    0.10')).toBe(4)
+    expect(indentAfter('@import("run.csv")\n    t (s)\n    0.10')).toBe(4)
   })
 
   /** What pressing Enter at the end of `doc` adds, as the editor does it. */
@@ -200,12 +200,12 @@ describe('indentation', () => {
     expect(enter('a = 1\nBlock {')).toBe('\n    ')
     expect(enter('Block {\n    x = 1')).toBe('\n    ')
     expect(enter('x = 1')).toBe('\n')
-    expect(enter('import("a.csv")\n    t\n    1')).toBe('\n    ')
-    expect(enter('import("a.csv")\n    t\n    1\n')).toBe('\n')
+    expect(enter('@import("a.csv")\n    t\n    1')).toBe('\n    ')
+    expect(enter('@import("a.csv")\n    t\n    1\n')).toBe('\n')
   })
 
   it('starts a new line after a folded import at its level, not in its hidden rows', () => {
-    const doc = 'import("run.csv")\n    t (s)\n    0.10\n    0.20'
+    const doc = '@import("run.csv")\n    t (s)\n    0.10\n    0.20'
     let state = EditorState.create({
       doc, selection: { anchor: doc.length }, extensions: [mathscribeLanguage, mathscribeIndent, mathscribeFolding, codeFolding()],
     })

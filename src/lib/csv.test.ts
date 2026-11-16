@@ -32,7 +32,7 @@ describe('parseCsv', () => {
 })
 
 describe('uncertainty columns', () => {
-  const data = (header: string, ...rows: string[]) => `import("run.csv")\n    ${header}\n${rows.map((r) => `    ${r}`).join('\n')}\n`
+  const data = (header: string, ...rows: string[]) => `@import("run.csv")\n    ${header}\n${rows.map((r) => `    ${r}`).join('\n')}\n`
 
   it('fold dx into x, by any of its names, but only when there is an x', () => {
     for (const name of ['dx', 'δx', 'σx', 'delta_x', 'sigma_x', 'x_unc', 'x_err']) {
@@ -73,8 +73,8 @@ describe('uncertainty columns', () => {
 
 describe('withImportedData', () => {
   it('names the file and puts its rows under the import line, indented', () => {
-    expect(withImportedData('m = 2\nimport()   # run 1\ny = 3', 2, 'run1.csv', 't (s)\r\n0.10\r\n\r\n'))
-      .toBe('m = 2\nimport("run1.csv")   # run 1\n    t (s)\n     0.10\ny = 3')
+    expect(withImportedData('m = 2\n@import()   # run 1\ny = 3', 2, 'run1.csv', 't (s)\r\n0.10\r\n\r\n'))
+      .toBe('m = 2\n@import("run1.csv")   # run 1\n    t (s)\n     0.10\ny = 3')
   })
 
   it('lays the rows out as a table, right-aligned, whatever separated them', () => {
@@ -89,17 +89,17 @@ describe('withImportedData', () => {
   })
 
   it('replaces the rows of a file chosen before', () => {
-    const before = 'import("old.csv")\n    a\n    1\n\nb = 2'
-    expect(withImportedData(before, 1, 'new.csv', 'a\n5')).toBe('import("new.csv")\n    a\n    5\n\nb = 2')
+    const before = '@import("old.csv")\n    a\n    1\n\nb = 2'
+    expect(withImportedData(before, 1, 'new.csv', 'a\n5')).toBe('@import("new.csv")\n    a\n    5\n\nb = 2')
   })
 
   it('removes an import and its rows (the Remove button)', () => {
-    expect(withoutImport('m = 2\nimport("a.csv")\n    a\n    1\n\nb = 2', 2)).toBe('m = 2\n\nb = 2')
+    expect(withoutImport('m = 2\n@import("a.csv")\n    a\n    1\n\nb = 2', 2)).toBe('m = 2\n\nb = 2')
   })
 })
 
 describe('importing into a sheet', () => {
-  const src = 'import("run1.csv")\n    t (s), d (m)\n    1.21, 3.50\n    1.17, 3.48\n    1.24, 3.52\n'
+  const src = '@import("run1.csv")\n    t (s), d (m)\n    1.21, 3.50\n    1.17, 3.48\n    1.24, 3.52\n'
 
   it('makes a variable of each value, with its unit and sig figs', () => {
     expect(value(`${src}x = t_2`)).toBe('1.17 s')
@@ -120,11 +120,11 @@ describe('importing into a sheet', () => {
   })
 
   it('waits for a file, and says what’s wrong with the data', () => {
-    const empty = sheet('import()').blocks[0] as ImportBlock
+    const empty = sheet('@import()').blocks[0] as ImportBlock
     expect(empty.file).toBeUndefined()
     expect(empty.error).toBeUndefined()
-    expect((sheet('import("a.csv")').blocks[0] as ImportBlock).error).toMatch(/missing: choose the file again/)
-    expect((sheet('import("a.csv")\n    x (zz)\n    1').blocks[0] as ImportBlock).error).toMatch(/"zz" isn't a unit/)
+    expect((sheet('@import("a.csv")').blocks[0] as ImportBlock).error).toMatch(/missing: choose the file again/)
+    expect((sheet('@import("a.csv")\n    x (zz)\n    1').blocks[0] as ImportBlock).error).toMatch(/"zz" isn't a unit/)
   })
 
   it('numbers the lines after it on from the import line, as the editor does', () => {

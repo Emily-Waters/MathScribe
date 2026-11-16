@@ -126,7 +126,7 @@ describe('named plots', () => {
 })
 
 describe('named imports', () => {
-  const run = (name: string, rows: string[]) => `${name} = import("${name}.csv")\n    t (s), x (m)\n${rows.map((r) => `    ${r}`).join('\n')}\n\n`
+  const run = (name: string, rows: string[]) => `${name} = @import("${name}.csv")\n    t (s), x (m)\n${rows.map((r) => `    ${r}`).join('\n')}\n\n`
 
   it('keep two files with the same columns apart', () => {
     const src = run('run1', ['0.10, 0.05', '0.20, 0.10']) + run('run2', ['0.10, 0.07', '0.20, 0.14'])

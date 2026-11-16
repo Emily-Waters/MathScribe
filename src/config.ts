@@ -75,7 +75,7 @@ export const SHEET_FILE = {
   description: 'MathScribe sheet',
 } as const
 
-/** Data files that `import()` reads: CSV (or tab-separated) text. */
+/** Data files that `@import()` reads: CSV (or tab-separated) text. */
 export const DATA_FILE = {
   accept: '.csv,.tsv,.txt,text/csv,text/tab-separated-values',
 } as const

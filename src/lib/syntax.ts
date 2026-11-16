@@ -124,7 +124,7 @@ export const KEYWORD = {
 export const SIGIL = '@'
 
 /**
- * Calls with a meaning of their own, besides mathjs's functions: `import(…)`,
+ * Calls with a meaning of their own, besides mathjs's functions: `@import(…)`,
  * and the core's built-in `@tuple(…)`. (A module's are its own: `@table`, `@solve`, `@vector`.)
  */
 export const CALL = {
@@ -247,12 +247,21 @@ export const unescapeUnderscores = (text: string) => text.replace(ESCAPED_UNDERS
 /** A value in text, `{{c_Na}}`, `{{V:4 to mL}}` (1: what's between the braces). */
 export const VALUE_IN_TEXT = /\{\{([^{}]+)\}\}/g
 
+/** An import's call, `@import()` or `@import("run1.csv")`, anywhere in a line (1: the file's name). */
+const IMPORT_BRACKETS = String.raw`${builtinOpening(CALL.import)}\s*(?:"([^"]*)")?\s*\)`
+
 /**
- * An import line: `import()` (no file chosen yet) or `import("run1.csv")`,
- * with the file's rows indented under it; or a named one, `run1 = import(…)`,
+ * An import line: `@import()` (no file chosen yet) or `@import("run1.csv")`,
+ * with the file's rows indented under it; or a named one, `run1 = @import(…)`,
  * whose columns are run1.t, run1.x (1: the name, if any; 2: the file's name).
  */
-export const IMPORT = new RegExp(String.raw`^${NAMED}?${opening(CALL.import)}\s*(?:"([^"]*)")?\s*\)$`)
+export const IMPORT = new RegExp(String.raw`^${NAMED}?${IMPORT_BRACKETS}$`)
+
+/** An import's call in a line, for the editor's file button (1: the file's name). */
+export const IMPORT_CALL = new RegExp(IMPORT_BRACKETS)
+
+/** An import's call with a file named in it: `@import("run1.csv")`. */
+export const importCall = (fileName: string) => `${SIGIL}${CALL.import}("${fileName}")`
 
 // ---------------------------------------------------------------------------
 // Words used as settings after a `:` (besides sig figs and units)

@@ -104,7 +104,7 @@ export const REFERENCE: ReferenceSection[] = [
       },
       {
         source: [
-          'import("ramp.csv")',
+          '@import("ramp.csv")',
           '    t (s), d (m)',
           '    1.21, 3.50',
           '    1.17, 3.48',
@@ -112,7 +112,7 @@ export const REFERENCE: ReferenceSection[] = [
           't_avg',
           'v = d_2 / t_2',
         ].join('\n'),
-        explain: 'import() opens a file chooser for a CSV file. Its rows go into the sheet under the line, folded away, and each '
+        explain: '@import() opens a file chooser for a CSV file. Its rows go into the sheet under the line, folded away, and each '
           + 'value becomes a variable named for its column and row: t_1, t_2, …. A unit in a header, t (s), goes with that column.',
       },
       {
@@ -161,7 +161,7 @@ export const REFERENCE: ReferenceSection[] = [
           'v = p.slope',
         ].join('\n'),
         explain: '@select(…) keeps the rows where its conditions hold, as new series under a name: a.t, a.x, numbered from 1. '
-          + 'A named plot keeps its fit the same way: p.slope, p.intercept. Name an import too, run1 = import(…), to keep two files apart.',
+          + 'A named plot keeps its fit the same way: p.slope, p.intercept. Name an import too, run1 = @import(…), to keep two files apart.',
       },
     ],
   },

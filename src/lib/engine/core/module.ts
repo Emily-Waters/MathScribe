@@ -14,12 +14,13 @@
  *    MathScribe's when it's loaded), and must not depend on the instance's own state.
  */
 import type { FunctionNode, MathNode } from 'mathjs'
+import type { Values } from './scope.ts'
 import { BUILTINS, type Namespace } from '../../builtins.ts'
 import type { BuiltinConstant, NamespaceConstant } from '../../constants.ts'
 import type { Contributions, Variable, VariableFields } from '../../values.ts'
-import type { DisplayMode, Notation } from '../../syntax.ts'
+import type { DisplayMode, Notation, Precision } from '../../syntax.ts'
 import type { formatWithUncertainty } from '../../sigfigs.ts'
-import type { LineResult } from './results.ts'
+import type { LineResult, ParsedLine } from './results.ts'
 
 /** A value as shown: its number (in its display unit), formatted, and its unit. */
 export interface ValueParts {
@@ -61,14 +62,32 @@ export interface ModuleHost {
   // Working out
   /** Work out a line, as the sheet would (in the scope here). */
   evaluateLine(text: string, mode: DisplayMode): LineResult
+  /** Work out a parsed line (an assignment or expression) the core's way: sig figs, uncertainty, working, how it's shown. */
+  evaluateParsed(node: MathNode, line: ParsedLine): LineResult
+  /** Text as a line's expression reads it (unit literals and all), parsed. */
+  parse(text: string): MathNode
+  /** A parsed expression's value here. */
+  evaluateNode(node: MathNode): unknown
+  /** Text with each `@constant` as the value it stands for (or what's wrong with one). */
+  expandConstants(text: string): { text: string; error?: string }
+  /** Whether the sheet defines a function of this name (which then wins over a built-in one). */
+  isUserFunction(name: string): boolean
+  /** Each uncertainty source's contribution to an expression's value. */
+  propagate(node: MathNode): Contributions
+  /** The sig figs an expression's value has, from the numbers in it as typed. */
+  sigFigs(node: MathNode, literals: Map<number, string>): number
+  /** Run `fn` in a scope of its own inside this one: what it stores is gone after. */
+  inScratchScope<T>(fn: () => T): T
+  /** Values to evaluate with, in a scope of their own inside this one (so setting one changes nothing here). */
+  scratchValues(): Values
   /** An expression's value here, as a line would read it (`200 ms`, a variable). */
   evaluateExpression(text: string): unknown
   /** The total uncertainty from these sources, in the units of `like`. */
   total(contributions: Contributions | undefined, like: unknown): unknown
 
   // Showing values
-  /** A value as LaTeX, to `sf` sig figs, with its uncertainty. */
-  valueTex(value: unknown, sf?: number, unc?: unknown, uncSf?: number): string
+  /** A value as LaTeX, to `sf` sig figs, with its uncertainty; `forced`: its sig figs were declared. */
+  valueTex(value: unknown, sf?: number, unc?: unknown, uncSf?: number, forced?: boolean): string
   /** A value's number and unit, to `sf` sig figs (null if it isn't a number or quantity); `forced`: its sig figs were declared. */
   split(value: unknown, sf: number, forced?: boolean): ValueParts | null
   /** A value and its uncertainty, rounded together (null if there's no uncertainty to show). */
@@ -77,14 +96,28 @@ export interface ModuleHost {
   inNotation<T>(notation: Notation | undefined, fn: () => T): T
   /** An expression as typed, as LaTeX. */
   expressionTex(expr: string): string
+  /** A parsed expression as LaTeX, its numbers as typed. */
+  tex(node: MathNode, literals: Map<number, string>): string
 }
 
 /**
  * When in reading a line a form is offered it: as written (`raw`), or once a
  * namespace's members are inside names (`a.x_1` → a__x_1, `members`).
  */
-export const LINE_STAGE = { raw: 'raw', members: 'members' } as const
+export const LINE_STAGE = { raw: 'raw', members: 'members', expression: 'expression' } as const
 export type LineStage = (typeof LINE_STAGE)[keyof typeof LINE_STAGE]
+
+/**
+ * What the core has read of a line by the `expression` stage: its settings
+ * taken off the name (`x:3:cm = …`), its constants and `delta F`s written out,
+ * and its numbers as typed.
+ */
+export interface PreparedLine {
+  literals: Map<number, string>
+  declaredSf?: Precision
+  displayUnit?: string
+  notation?: Notation
+}
 
 /** A line being worked out, as a form sees it. */
 export interface FormLine {
@@ -93,6 +126,8 @@ export interface FormLine {
   mode: DisplayMode
   /** Whether the mode was asked for (on the line, or by its block). */
   explicit: boolean
+  /** At the `expression` stage: what the core has read of it. */
+  prepared?: PreparedLine
 }
 
 /**

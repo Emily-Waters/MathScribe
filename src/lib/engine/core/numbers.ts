@@ -31,19 +31,6 @@ export const TINY = 1e-300
 /** `… to percent` and `pm 5%`: a fraction as a percentage. */
 export const PERCENT_SCALE = 100
 
-/** Solving numerically (the secant method), for `solve(…, x, guess)`. */
-export const SOLVER = {
-  maxIterations: 100,
-  /** The second starting point, relative to the guess (or absolute, if the guess is 0). */
-  secondPoint: 1.01,
-  secondPointFromZero: 1e-3,
-  /** Converged when a step changes x by less than this, relative to x (or 1, if smaller). */
-  tolerance: 1e-12,
-  /** Step for the slope at the solution (for its uncertainty), relative to x (or absolute, at 0). */
-  slopeStep: 1e-6,
-  slopeStepAtZero: 1e-9,
-}
-
 /**
  * Remember how a number was typed, keyed by its value. Numbers typed with extra
  * precision (1.00, 2.0e3) are already kept as lit("1.00") calls, so they mustn't

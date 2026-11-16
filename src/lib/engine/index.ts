@@ -7,10 +7,11 @@
 import { installModule, type EngineModule } from './core/module.ts'
 import { ChemistryModule } from './modules/chemistry/module.ts'
 import { SeriesModule } from './modules/series/module.ts'
+import { SolveModule } from './modules/solve/module.ts'
 
 export { Calculator } from './core/calculator.ts'
 export {
-  unexpectedError,
+  AUTO_PRECISION, unexpectedError,
   type CalcOptions, type CalcResult, type DataColumn, type Definition, type FunctionLine, type FunctionResult, type LineNotation,
   type TraceLine,
 } from './core/results.ts'
@@ -20,14 +21,14 @@ export { outsideMaths, wordsTex } from './core/text.ts'
 export { bareTuple, closesVector, expandVectors } from './core/vectors.ts'
 export { expandNamespaceCalls } from './core/builtinCalls.ts'
 export { EngineModule, LineForm, markupText, moduleSubscriptTex, type ModuleHost } from './core/module.ts'
-export { ChemistryModule, SeriesModule }
+export { ChemistryModule, SeriesModule, SolveModule }
 
 /**
  * The modules MathScribe works a sheet out with, made fresh for each sheet (each
  * keeps the sheet's own state, such as its species' names). Adding a module is
  * adding it here.
  */
-export const sheetModules = (): EngineModule[] => [new ChemistryModule(), new SeriesModule()]
+export const sheetModules = (): EngineModule[] => [new ChemistryModule(), new SeriesModule(), new SolveModule()]
 
 // Their shared parts installed now: their units, and their `@` members (`@chem`),
 // so the editor knows them before any sheet is worked out.

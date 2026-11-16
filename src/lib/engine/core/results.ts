@@ -6,13 +6,22 @@ import { type PlotData } from '../../plot.ts'
 import { math } from './math.ts'
 import { moduleReadableMessage, unitMismatchNotes } from './module.ts'
 
+/**
+ * The precision setting that tracks significant figures from the measured
+ * values and rounds each result accordingly (rather than a fixed number of them).
+ */
+export const AUTO_PRECISION = 'auto'
+
+/**
+ * How many sig figs an uncertainty is quoted to with a fixed precision (with
+ * AUTO_PRECISION, the convention decides: see uncertaintySigFigs).
+ */
+export const FIXED_UNCERTAINTY_SIG_FIGS = 2
+
 /** Settings for evaluating a sheet (the Output options). */
 export interface CalcOptions {
-  /**
-   * 'auto': track significant figures from the measured values and round each
-   * result accordingly. A number: show every result to that many sig figs.
-   */
-  precision: number | 'auto'
+  /** AUTO_PRECISION, or a number: show every result to that many sig figs. */
+  precision: number | typeof AUTO_PRECISION
   /** Show the step with variable values substituted in. */
   showSubstitution: boolean
   /**

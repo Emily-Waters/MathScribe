@@ -1600,6 +1600,10 @@ renamed, change it there too.
 - `src/lib/engine/modules/series/`: the series module: `table(…)`, `plot(…)`
   and `select(…)` as line forms (`table.ts`, `plot.ts`, `select.ts`), and the
   columns they share (`columns.ts`)
+- `src/lib/engine/modules/solve/`: the solve module: `x = solve(eq, x)`, by
+  rearranging or numerically from a guess (`solve.ts`), and `tuple(x, y) =
+  solve(eq_1, eq_2)` by substitution (`system.ts`); `src/lib/solve.ts` has the
+  algebra they use (isolating an unknown, polynomials)
 - `src/components/ErrorBoundary.tsx`: keeps a failure drawing the output from
   blanking the app
 - `src/lib/aiPrompt.ts`: Create's prompt (what can be made, its tickboxes, and the

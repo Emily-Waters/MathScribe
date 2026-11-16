@@ -1,4 +1,4 @@
-import type { CalcOptions } from '../lib/engine/index.ts'
+import { AUTO_PRECISION, type CalcOptions } from '../lib/engine/index.ts'
 import { Dropdown } from './Dropdown.tsx'
 
 interface OptionsMenuProps {
@@ -18,7 +18,7 @@ export function OptionsMenu({ options, onChange, hidden }: OptionsMenuProps) {
           value={String(options.precision)}
           onChange={(e) => {
             const v = e.target.value
-            onChange({ ...options, precision: v === 'auto' ? 'auto' : Number(v) })
+            onChange({ ...options, precision: v === AUTO_PRECISION ? AUTO_PRECISION : Number(v) })
           }}
         >
           <option value="auto">Auto</option>

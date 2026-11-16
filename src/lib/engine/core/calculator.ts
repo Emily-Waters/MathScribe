@@ -8,30 +8,30 @@ import { EXACT, MAX_DIGITS, countSigFigs, formatExact, formatSigFigs, formatWith
 import { AGGREGATE_KIND, Variable, type Aggregate, type Contributions, type VariableFields, type VariableSummary } from '../../values.ts'
 import { DEFAULT_CONSTANT_SIG_FIGS, isNamespaceConstant, suggestConstant } from '../../constants.ts'
 import { builtinConstant, builtinConstantKeys, isReservedConstantName } from '../../builtins.ts'
-import { ASSIGNMENT, ASSIGNMENT_WITH_VALUE, COMPONENTS_SETTING, CONSTANT_REF, EXACT_SETTING, IS_NAME, LEADING_NAME, ONE_LINE_FUNCTION, PERCENT, CALL, ELSE_IF_LINE, ELSE_LINE, IF_LINE, KEYWORD, RETURN_LINE, SOLVE_SYSTEM, SOLVE_CALL, UNIT_VECTOR_SETTING, UNPACK, VECTOR_FUNCTION, DISPLAY_MODE, LINE_COMMAND, VALUE_IN_TEXT, CONSTANTS_BLOCK, LABEL_TEMPLATE, SIGIL, type DisplayMode, type Notation, type Precision, type UncertaintyWord, type VectorStyle } from '../../syntax.ts'
-import { INLINE_VALUE_NAME, JOIN, RESERVED_NAMESPACES, constantKey, constantRefName, expandDots, typedConstant, isHiddenName, isUncertaintyName, memberName, parseNumberedName, parseUncertaintyName, readableMembers, seriesMemberName, solvedName, uncertaintyName, unpackedName } from '../../names.ts'
+import { ASSIGNMENT, ASSIGNMENT_WITH_VALUE, COMPONENTS_SETTING, CONSTANT_REF, EXACT_SETTING, IS_NAME, LEADING_NAME, ONE_LINE_FUNCTION, PERCENT, ELSE_IF_LINE, ELSE_LINE, IF_LINE, KEYWORD, RETURN_LINE, UNIT_VECTOR_SETTING, UNPACK, VECTOR_FUNCTION, DISPLAY_MODE, LINE_COMMAND, VALUE_IN_TEXT, CONSTANTS_BLOCK, LABEL_TEMPLATE, SIGIL, type DisplayMode, type Notation, type Precision, type UncertaintyWord, type VectorStyle } from '../../syntax.ts'
+import { INLINE_VALUE_NAME, JOIN, RESERVED_NAMESPACES, constantKey, constantRefName, expandDots, typedConstant, isHiddenName, isUncertaintyName, memberName, parseNumberedName, parseUncertaintyName, readableMembers, seriesMemberName, uncertaintyName, unpackedName } from '../../names.ts'
 import { COMPARISONS, FN, OP, OP_SYMBOL, UNIT, isOp } from '../../mathjsNames.ts'
-import { POLYNOMIAL_KIND, Solver, contains, countOccurrences, matchingParen, splitArgs, splitEquation } from '../../solve.ts'
+
 import { nestBrackets } from '../../brackets.ts'
 import type { CsvColumn } from '../../csv.ts'
 
 import { isTuple, math } from './math.ts'
-import { EngineModule, LINE_STAGE, installModule, moduleReadableMessage, type LineForm, type LineStage, type ModuleHost } from './module.ts'
+import { EngineModule, LINE_STAGE, installModule, moduleReadableMessage, type LineForm, type LineStage, type ModuleHost, type PreparedLine } from './module.ts'
 import { outsideMaths, wordsTex } from './text.ts'
 import { expandNamespaceCalls } from './builtinCalls.ts'
 import { VECTOR_PRODUCTS, hasVector } from './vectors.ts'
-import { BUILTIN_CONSTANT_NAMES, NUMBER_LITERAL, NAME_IN_LINE, CONVERSION_TAIL, preprocess } from './literals.ts'
-import { ExplainedError, type CalcOptions, type EquationParts, layoutEquation, type FunctionResult, type FunctionLine, type TraceLine, type CalcResult, unexpectedError, fitHint, type DataColumn, type LineNotation, type LineResult, type ParsedLine, TO_PERCENT, RAW, rawNode, STEP, readableUnitError } from './results.ts'
+import { BUILTIN_CONSTANT_NAMES, NUMBER_LITERAL, NAME_IN_LINE, preprocess } from './literals.ts'
+import { AUTO_PRECISION, ExplainedError, FIXED_UNCERTAINTY_SIG_FIGS, type CalcOptions, type EquationParts, layoutEquation, type FunctionResult, type FunctionLine, type TraceLine, type CalcResult, unexpectedError, fitHint, type DataColumn, type LineNotation, type LineResult, type ParsedLine, TO_PERCENT, RAW, rawNode, STEP, readableUnitError } from './results.ts'
 import { NAME_THEN_SETTINGS, DELTA_REF, expandParenPm, splitPm } from './uncertainty.ts'
 import { parseAggregateName, escapeRegExp } from './series.ts'
 import { symbolTex, numberTex, unitTex, attachUnit, isUnitCall, unitCallText, isLitCall } from './tex.ts'
 import { unwrap, isLiteral, isVectorLiteral, isPureNumber, isConversion } from './nodes.ts'
-import { normalise, displayUnit, magnitudeOf, withMagnitude, isRealValue, sameValue } from './normalise.ts'
+import { normalise, displayUnit, magnitudeOf } from './normalise.ts'
 import { Scope, Views, type Variables, Values, innerValues } from './scope.ts'
 import { STATEMENT_KIND, type Guarded, BranchRun, holds, type UserFunction, type CustomConstant, MAX_TRACE_DEPTH } from './functions.ts'
 import { isAngleUnit, toDisplayUnit, type TupleName, parseTupleName, parseDeclaration } from './declarations.ts'
 import { bracketed, UNIT_VECTOR_TEX, componentsOf, withRows } from './components.ts'
-import { EXACT_DISPLAY_DIGITS, FIXED_FORMAT, FLOAT_NOISE, TINY, PERCENT_SCALE, SOLVER, addLiteral, parseParam, isValidUnit, castArgument } from './numbers.ts'
+import { EXACT_DISPLAY_DIGITS, FIXED_FORMAT, FLOAT_NOISE, TINY, PERCENT_SCALE, addLiteral, parseParam, isValidUnit, castArgument } from './numbers.ts'
 import { isNumberWithUnit, SIDE, type Side, inScientificNotation, needsBrackets, productSeparator } from './products.ts'
 import { uncertaintyUnitError, columnValues } from './data.ts'
 
@@ -90,9 +90,27 @@ export class Calculator {
     clearViews: (namespace) => this.views.clear(namespace),
     newSource: () => this.nextSource++,
     evaluateLine: (text, mode) => this.evaluateLine(text, mode, false),
+    evaluateParsed: (node, line) => this.evaluateParsed(node, line),
+    parse: (text) => math.parse(preprocess(text, this.isVariable).text),
+    evaluateNode: (node) => node.compile().evaluate(this.scope) as unknown,
+    expandConstants: (text) => this.expandConstants(text),
+    isUserFunction: (name) => this.isUserFunction(name),
+    propagate: (node) => this.propagate(node),
+    sigFigs: (node, literals) => this.sigFigsOf(node, literals, false),
+    inScratchScope: (fn) => {
+      const caller = this.vars
+      this.enter(new Scope(caller))
+      try {
+        return fn()
+      } finally {
+        this.enter(caller)
+      }
+    },
+    scratchValues: () => innerValues(this.vars),
+    tex: (node, literals) => this.toTex(node, literals),
     evaluateExpression: (text) => math.evaluate(preprocess(text, this.isVariable).text, this.scope) as unknown,
     total: (contributions, like) => this.total(contributions, like),
-    valueTex: (value, sf, unc, uncSf) => this.valueTex(value, sf, unc, uncSf),
+    valueTex: (value, sf, unc, uncSf, forced) => this.valueTex(value, sf, unc, uncSf, forced),
     split: (value, sf, forced) => this.split(value, sf, forced),
     uncertainParts: (value, unc, uncSf) => this.uncertainParts(value, unc, uncSf),
     inNotation: (notation, fn) => this.inNotation(notation, fn),
@@ -105,9 +123,9 @@ export class Calculator {
   }
 
   /** The line worked out by the first form at this stage that takes it, if one does. */
-  private byForm(stage: LineStage, input: string, mode: DisplayMode, explicit: boolean): LineResult | undefined {
+  private byForm(stage: LineStage, input: string, mode: DisplayMode, explicit: boolean, prepared?: PreparedLine): LineResult | undefined {
     for (const form of this.formsAt(stage)) {
-      const result = form.evaluate({ text: input.trim(), mode, explicit }, this.host)
+      const result = form.evaluate({ text: input.trim(), mode, explicit, prepared }, this.host)
       if (result) return result
     }
     return undefined
@@ -120,13 +138,13 @@ export class Calculator {
   }
 
   private get autoSigFigs() {
-    return this.options.precision === 'auto'
+    return this.options.precision === AUTO_PRECISION
   }
 
   /** mathjs format options for values without a sig-fig count (exact values, matrices). */
   private get format() {
     const p = this.options.precision
-    return { ...FIXED_FORMAT, precision: p === 'auto' ? EXACT_DISPLAY_DIGITS : p }
+    return { ...FIXED_FORMAT, precision: p === AUTO_PRECISION ? EXACT_DISPLAY_DIGITS : p }
   }
 
   /** Evaluate `node`; a value typed with a unit (`1.00e-10 m`) keeps that unit for display. */
@@ -276,7 +294,7 @@ export class Calculator {
 
   /** Sig figs to quote an uncertainty with: as declared, else the convention (auto) or 2 (fixed). */
   private uncSigFigs(declared?: number): number | undefined {
-    return declared ?? (this.autoSigFigs ? undefined : 2)
+    return declared ?? (this.autoSigFigs ? undefined : FIXED_UNCERTAINTY_SIG_FIGS)
   }
 
   /** Formatted pieces of `value ± unc`, rounded by the uncertainty convention. */
@@ -1516,329 +1534,6 @@ export class Calculator {
   // solve(lhs = rhs, x [, guess])
   // -------------------------------------------------------------------------
 
-  /**
-   * `d = solve(v_f^2 = 2*a*d, d)`: rearrange the equation for the unknown and
-   * evaluate the result like any formula, showing the equation, the rearranged
-   * formula, the values substituted in, and the answer. Equations that can't be
-   * rearranged are solved numerically from a starting guess, if one is given.
-   */
-  private evaluateSolve(
-    line: string,
-    call: RegExpExecArray,
-    literals: Map<number, string>,
-    mode: DisplayMode,
-    explicit: boolean,
-    declaredSf?: Precision,
-    displayUnit?: string,
-    notation?: Notation,
-  ): LineResult {
-    const fail = (error: string, tex = '') => ({ tex, error })
-    const target = call[1]
-    const open = call.index + call[0].length - 1
-    const close = matchingParen(line, open)
-    if (close < 0) return fail('solve( is missing its closing bracket.')
-    const tail = line.slice(close + 1).trim()
-    const conversion = CONVERSION_TAIL.exec(tail)?.[1]
-    if (tail && !conversion) return fail('solve(…) has to be the whole right-hand side, optionally followed by "to unit".')
-
-    const args = splitArgs(line.slice(open + 1, close))
-    if (args.length < 2 || args.length > 3) return fail('Write solve(equation, unknown), or solve(equation, unknown, guess).')
-    const [equation, x, guessText] = args
-    if (!IS_NAME.test(x)) return fail(`The second part of solve is the unknown to solve for, like d (got "${x}").`)
-    const sides = splitEquation(equation)
-    if (!sides) return fail('The first part of solve is an equation with one =, like v^2 = 2*a*d.')
-
-    let lhs: MathNode
-    let rhs: MathNode
-    let guess: unknown
-    try {
-      lhs = math.parse(preprocess(sides[0], this.isVariable).text)
-      rhs = math.parse(preprocess(sides[1], this.isVariable).text)
-      if (guessText) guess = math.parse(preprocess(guessText, this.isVariable).text).compile().evaluate(this.scope)
-    } catch (e) {
-      return fail((e as Error).message)
-    }
-
-    const equationTex = `${this.toTex(lhs, literals)} = ${this.toTex(rhs, literals)}`
-    const prelude: TraceLine[] = [{ tex: equationTex, note: `solving for ${x}` }]
-    const occurrences = countOccurrences(lhs, x) + countOccurrences(rhs, x)
-    if (!occurrences) return fail(`${x} doesn't appear in the equation.`, equationTex)
-
-    // Rearrange: isolate x if it appears once, else try linear / quadratic.
-    const solver = new Solver(math)
-    let candidates: MathNode[] | null = null
-    let quadratic = false
-    if (occurrences === 1) {
-      candidates = contains(lhs, x) ? solver.isolate(lhs, rhs, x) : solver.isolate(rhs, lhs, x)
-    }
-    if (!candidates) {
-      const f = new math.OperatorNode(OP_SYMBOL.subtract, OP.subtract, [lhs, new math.ParenthesisNode(rhs)])
-      const poly = solver.polynomial(f, x)
-      if (poly) {
-        candidates = poly.solutions
-        quadratic = poly.kind === POLYNOMIAL_KIND.quadratic
-      }
-    }
-
-    /** The solution, converted with `to unit` if one was given. */
-    const convert = (expr: MathNode, value: unknown): MathNode => {
-      let shown = expr
-      if (conversion) {
-        const unitNode = (math.parse(preprocess(`1 to ${conversion}`, () => false).text) as math.OperatorNode).args[1]
-        // Angles from asin/acos/atan come out as plain numbers in radians.
-        const targetUnit = unitNode.compile().evaluate({})
-        if (typeof value === 'number' && math.isUnit(targetUnit) && (targetUnit as Unit).equalBase(math.unit(UNIT.radian))) {
-          shown = new math.OperatorNode(OP_SYMBOL.multiply, OP.multiply, [
-            new math.ParenthesisNode(shown),
-            new math.FunctionNode(new math.SymbolNode(FN.unit), [new math.ConstantNode(UNIT.radian)]),
-          ])
-        }
-        shown = new math.OperatorNode(OP_SYMBOL.to, OP.to, [shown, unitNode])
-      }
-      return shown
-    }
-    const finish = (expr: MathNode, value: unknown, info?: string) => {
-      const shown = convert(expr, value)
-      const node = target ? new math.AssignmentNode(new math.SymbolNode(target), shown) : shown
-      return this.evaluateParsed(node, {
-        percent: false, literals, warnings: [], mode, explicit,
-        lhs: target ? undefined : symbolTex(x), prelude, info, declaredSf, displayUnit, notation,
-      })
-    }
-
-    if (!candidates) {
-      if (guess === undefined) {
-        return fail(`Can't rearrange this for ${x}. Give a starting guess to solve it numerically: `
-          + `solve(…, ${x}, guess).`, equationTex)
-      }
-      return this.solveNumerically(lhs, rhs, x, guess, literals, equationTex, finish)
-    }
-
-    // Work out each solution, keep the real ones, and choose one.
-    const real: { node: MathNode; value: unknown }[] = []
-    for (const node of candidates) {
-      try {
-        const value = node.compile().evaluate(this.scope)
-        if (isRealValue(value) && !real.some((r) => sameValue(r.value, value))) real.push({ node, value })
-      } catch {
-        /* this branch doesn't apply (e.g. asin of a value above 1) */
-      }
-    }
-    if (!real.length) return fail(`This equation has no real solution for ${x}.`, equationTex)
-    let chosen = real[0]
-    if (guess !== undefined) {
-      // The solution nearest the guess.
-      const g = magnitudeOf(guess)
-      chosen = real.reduce((best, r) =>
-        Math.abs(magnitudeOf(r.value) - g) < Math.abs(magnitudeOf(best.value) - g) ? r : best)
-    } else if (quadratic) {
-      // Prefer the positive root when there's exactly one.
-      const positive = real.filter((r) => magnitudeOf(r.value) > 0)
-      if (positive.length === 1) chosen = positive[0]
-    }
-    const others = real.filter((r) => r !== chosen)
-    const sf = this.sigFigsOf(chosen.node, literals, false)
-    const otherTex = (o: { node: MathNode; value: unknown }) => {
-      const v = conversion ? convert(o.node, o.value).compile().evaluate(this.scope) : normalise(o.value, false)
-      return `$${symbolTex(x)} = ${this.valueTex(v, sf)}$`
-    }
-    const info = others.length
-      ? `Also a solution: ${others.map(otherTex).join(', ')}`
-        + (guess === undefined ? `. Give a guess to choose it: solve(…, ${x}, guess).` : '.')
-      : undefined
-    return finish(chosen.node, chosen.value, info)
-  }
-
-  /**
-   * `tuple(x, y) = solve(eq_1, eq_2)`: a system of equations, solved for the
-   * names on the left by substitution, as by hand: one equation is rearranged
-   * for one unknown, which is put into the others, and so on until an unknown
-   * is left in terms of known values; then each is worked out in turn. Each
-   * step is an ordinary formula, so units, sig figs and uncertainty carry through.
-   * (Each rearrangement must be one the single-equation solve can do; of a
-   * quadratic's two solutions, the first is used.)
-   */
-  private evaluateSolveSystem(namesText: string, equationsText: string, mode: DisplayMode, explicit: boolean): LineResult {
-    const fail = (error: string, tex = '') => ({ tex, error })
-    const parsed = namesText.split(',').map((n) => n.trim()).map(parseTupleName)
-    const bad = parsed.find((p) => 'error' in p)
-    if (bad && 'error' in bad) return fail(bad.error)
-    const targets = parsed as TupleName[]
-    const names = targets.map((t) => t.name)
-    const twice = names.find((n, i) => names.indexOf(n) !== i)
-    if (twice) return fail(`${twice} is listed twice.`)
-
-    const constants = this.expandConstants(equationsText)
-    if (constants.error) return fail(constants.error)
-    const texts = splitArgs(constants.text)
-    if (texts.length !== names.length) {
-      return fail(`${names.length} unknowns need ${names.length} equations, but there ${texts.length === 1 ? 'is' : 'are'} ${texts.length}: `
-        + `tuple(${names.join(', ')}) = solve(${names.map((_, i) => `equation ${i + 1}`).join(', ')}).`)
-    }
-    const literals = new Map<number, string>()
-    for (const m of constants.text.matchAll(NUMBER_LITERAL)) addLiteral(literals, m[0])
-
-    let equations: { lhs: MathNode; rhs: MathNode }[]
-    try {
-      equations = texts.map((text) => {
-        const sides = splitEquation(text)
-        if (!sides) throw new Error(`"${text.trim()}" isn't an equation: each needs one =, like v^2 = 2*a*d.`)
-        return { lhs: math.parse(preprocess(sides[0], this.isVariable).text), rhs: math.parse(preprocess(sides[1], this.isVariable).text) }
-      })
-    } catch (e) {
-      return fail((e as Error).message)
-    }
-    const shownNames = names.map(symbolTex).join(', ')
-    const prelude: TraceLine[] = equations.map((e, i) => ({
-      tex: `${this.toTex(e.lhs, literals)} = ${this.toTex(e.rhs, literals)}`,
-      note: i === 0 ? `solving for ${names.join(', ')}` : undefined,
-    }))
-    const failTex = prelude.map((p) => p.tex).join(' \\\\ ')
-    const missing = names.find((x) => equations.every((e) => !contains(e.lhs, x) && !contains(e.rhs, x)))
-    if (missing) return fail(`${missing} doesn't appear in any of the equations.`, `\\begin{gathered}${failTex}\\end{gathered}`)
-
-    // Eliminate: rearrange one equation for one unknown, and put that into the rest.
-    const solver = new Solver(math)
-    const rearranged = (e: { lhs: MathNode; rhs: MathNode }, x: string): MathNode | null => {
-      const occurrences = countOccurrences(e.lhs, x) + countOccurrences(e.rhs, x)
-      if (!occurrences) return null
-      if (occurrences === 1) {
-        const isolated = contains(e.lhs, x) ? solver.isolate(e.lhs, e.rhs, x) : solver.isolate(e.rhs, e.lhs, x)
-        if (isolated?.length) return isolated[0]
-      }
-      const f = new math.OperatorNode(OP_SYMBOL.subtract, OP.subtract, [e.lhs, new math.ParenthesisNode(e.rhs)])
-      try {
-        return solver.polynomial(f, x)?.solutions[0] ?? null
-      } catch {
-        return null
-      }
-    }
-    const substitute = (node: MathNode, x: string, expr: MathNode) =>
-      node.transform((n) => (isSymbolNode(n) && n.name === x ? new math.ParenthesisNode(expr) : n))
-    const left = [...names]
-    const steps: { x: string; expr: MathNode }[] = []
-    while (left.length) {
-      // The simplest rearrangement going: an unknown that appears once in an equation, if there is one.
-      let found: { x: string; at: number; expr: MathNode; occurrences: number } | undefined
-      for (const x of left) {
-        for (const [at, e] of equations.entries()) {
-          const occurrences = countOccurrences(e.lhs, x) + countOccurrences(e.rhs, x)
-          if (!occurrences || (found && found.occurrences <= occurrences)) continue
-          const expr = rearranged(e, x)
-          if (expr) found = { x, at, expr, occurrences }
-        }
-      }
-      if (!found) {
-        return fail(`These equations can't be solved for ${left.join(', ')} by substitution. `
-          + 'Each step has to rearrange one equation for one unknown (one that appears once, or in a linear or quadratic way). '
-          + 'If they look solvable, check that two of them don\'t contradict each other or say the same thing.',
-        `\\begin{gathered}${failTex}\\end{gathered}`)
-      }
-      const { x, at, expr } = found
-      steps.push({ x, expr })
-      left.splice(left.indexOf(x), 1)
-      equations.splice(at, 1)
-      equations = equations.map((e) => ({ lhs: substitute(e.lhs, x, expr), rhs: substitute(e.rhs, x, expr) }))
-    }
-
-    // Work each out, last first: the last is in known values only, and each one before it uses those after.
-    const trace: TraceLine[] = [...prelude]
-    let warning: string | undefined
-    for (const { x, expr } of steps.reverse()) {
-      const target = targets[names.indexOf(x)]
-      const result = this.evaluateParsed(new math.AssignmentNode(new math.SymbolNode(x), expr), {
-        percent: false, literals, warnings: [], mode, explicit,
-        declaredSf: target.sf, displayUnit: target.unit, notation: target.notation,
-      })
-      trace.push(...(result.trace ?? []), { tex: result.tex })
-      warning ??= result.warning
-      if (result.error) return { tex: `\\left(${shownNames}\\right)`, error: `${x}: ${result.error}`, trace, warning }
-    }
-    const values = names.map((n) => {
-      const v = this.vars.get(n)!
-      return this.inNotation(v.notation, () => this.valueTex(v.value, v.sf, this.total(v.contributions, v.value), v.uncSf, v.declared === true))
-    })
-    return { tex: `\\left(${shownNames}\\right) = \\left(${values.join(',\\ ')}\\right)`, trace, warning }
-  }
-
-  /**
-   * Solve lhs = rhs numerically from a guess (secant method on SI magnitudes).
-   * The answer's uncertainty comes from implicit differentiation: for each
-   * uncertainty source, δx = −δF / (∂F/∂x), where F = lhs − rhs.
-   */
-  private solveNumerically(
-    lhs: MathNode,
-    rhs: MathNode,
-    x: string,
-    guess: unknown,
-    literals: Map<number, string>,
-    equationTex: string,
-    finish: (expr: MathNode, value: unknown) => LineResult,
-  ): LineResult {
-    const F = new math.OperatorNode(OP_SYMBOL.subtract, OP.subtract, [lhs, new math.ParenthesisNode(rhs)])
-    const code = F.compile()
-    const residual = (s: number) => {
-      const scope = innerValues(this.vars)
-      scope.set(x, withMagnitude(guess, s))
-      return magnitudeOf(code.evaluate(scope))
-    }
-
-    let s0 = magnitudeOf(guess)
-    let s1 = s0 === 0 ? SOLVER.secondPointFromZero : s0 * SOLVER.secondPoint
-    let found = false
-    try {
-      let f0 = residual(s0)
-      let f1 = residual(s1)
-      for (let i = 0; i < SOLVER.maxIterations && Number.isFinite(f1); i++) {
-        if (f1 === 0) {
-          found = true
-          break
-        }
-        if (f1 === f0) break
-        const s2 = s1 - (f1 * (s1 - s0)) / (f1 - f0)
-        s0 = s1
-        f0 = f1
-        s1 = s2
-        f1 = residual(s1)
-        if (Math.abs(s1 - s0) <= SOLVER.tolerance * Math.max(1, Math.abs(s1))) {
-          found = Number.isFinite(f1)
-          break
-        }
-      }
-    } catch (e) {
-      return { tex: equationTex, error: (e as Error).message }
-    }
-    if (!found || !Number.isFinite(s1)) {
-      return { tex: equationTex, error: `Couldn't find a solution for ${x} near that guess; try a different one.` }
-    }
-    const value = withMagnitude(guess, s1)
-
-    // Uncertainty and sig figs, with x held at the solution.
-    // (In a scope of its own, so x isn't left set in the sheet.)
-    const caller = this.vars
-    this.enter(new Scope(caller))
-    let contributions: Contributions = new Map()
-    let sf: number
-    try {
-      this.store(x, { value, sf: EXACT })
-      const h = Math.abs(s1) * SOLVER.slopeStep || SOLVER.slopeStepAtZero
-      const slope = (residual(s1 + h) - residual(s1 - h)) / (2 * h)
-      if (slope !== 0 && Number.isFinite(slope)) {
-        for (const [source, c] of this.propagate(F)) {
-          contributions.set(source, withMagnitude(value, -magnitudeOf(c) / slope))
-        }
-      }
-      sf = this.sigFigsOf(F, literals, false)
-    } finally {
-      this.enter(caller)
-    }
-
-    // Hold the answer in a hidden variable, shown as x itself.
-    const hidden = solvedName(x)
-    this.store(hidden, { value, sf, contributions })
-    return finish(new math.SymbolNode(hidden), value)
-  }
-
   // -------------------------------------------------------------------------
   // Evaluation
   // -------------------------------------------------------------------------
@@ -1982,9 +1677,6 @@ export class Calculator {
     // …and once its members are inside names: `table(t, x)`, `plot(t, x)`.
     const form = this.byForm(LINE_STAGE.members, input, requestedMode, explicit)
     if (form) return form
-    // `tuple(x, y) = solve(eq, eq)`: a system of equations, solved for the names on the left.
-    const system = SOLVE_SYSTEM.exec(input.trim())
-    if (system && !this.isUserFunction(CALL.solve)) return this.evaluateSolveSystem(system[1], system[2], requestedMode, explicit)
 
     // `tuple(a, b, c) = …` unpacks a tuple. (Before one-line functions: it looks like one.)
     const unpack = UNPACK.exec(input.trim())
@@ -2038,11 +1730,11 @@ export class Calculator {
     const literals = new Map<number, string>()
     for (const m of line.matchAll(NUMBER_LITERAL)) addLiteral(literals, m[0])
 
-    // `x = solve(lhs = rhs, x)`: the equation needs special parsing (its `=`).
-    const solveCall = SOLVE_CALL.exec(line)
-    if (solveCall && !this.isUserFunction(CALL.solve)) {
-      return this.evaluateSolve(line, solveCall, literals, requestedMode, explicit, declaredSf, displayUnit, declaration?.notation)
-    }
+    // A line a module works out itself once it's read this far: `x = solve(lhs = rhs, x)`.
+    const expression = this.byForm(LINE_STAGE.expression, line, requestedMode, explicit, {
+      literals, declaredSf, displayUnit, notation: declaration?.notation,
+    })
+    if (expression) return expression
 
     // Separate `value pm uncertainty` on the right-hand side.
     const lhs = ASSIGNMENT.exec(line)?.[0] ?? ''

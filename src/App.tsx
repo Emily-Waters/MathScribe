@@ -98,8 +98,9 @@ export default function App() {
 
   // The sheet, worked out on every keystroke if that's quick; if the last time
   // was slow, once typing pauses (see EVALUATION), so the editor never waits.
+  // (A sheet switched to is worked out at once: useSettled's key.)
   const [slow, setSlow] = useState(false)
-  const evaluated = useSettled(source, slow ? EVALUATION.pauseMs : 0)
+  const evaluated = useSettled(source, slow ? EVALUATION.pauseMs : 0, file.active.id)
   const evaluation = useMemo(() => evaluateSheetTimed(evaluated, options), [evaluated, options])
   // (Kept from the last evaluation: React re-renders straight away when it changes.)
   const nowSlow = evaluation.ms >= EVALUATION.instantBelowMs

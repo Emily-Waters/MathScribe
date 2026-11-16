@@ -55,7 +55,8 @@ describe('a sheet as a tree', () => {
     const files = Object.values(FILES)
     expect(files.length).toBeGreaterThan(50)
     for (const text of files) roundTrips(text)
-  })
+    // (Every file in the repository takes a while: past 5 s on a slower machine running the whole suite.)
+  }, 30_000)
 
   it('keeps every kind of line ending, blank lines, tabs and trailing spaces', () => {
     for (const source of ['', '\n', '\r\n', '\r', '\n\n', 'a', 'a\n', 'a\r\nb\rc\nd', '\tx = 1  \t', '   \n\t\n', '  // a comment  \r\n']) {

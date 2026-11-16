@@ -4,8 +4,8 @@ import {
   DIAGNOSTIC_KIND, TITLE_SEGMENT, lineNumbering, listItems, splitInlineMath, titleSegments, type DiagnosticKind, type Sheet,
 } from '../lib/document.ts'
 import {
-  BLOCK_KIND, isContainer, type Block, type BlockKind, type CalcBlock, type ConstantsBlock, type FunctionBlock, type GroupBlock,
-  type HeadingBlock, type ImportBlock, type LatexBlock, type LayoutBlock, type SpeciesBlock, type TextBlock,
+  BLOCK_KIND, HEADING_LEVEL, isContainer, type Block, type BlockKind, type CalcBlock, type ConstantsBlock, type FunctionBlock, type GroupBlock,
+  type HeadingBlock, type HeadingLevel, type ImportBlock, type LatexBlock, type LayoutBlock, type SpeciesBlock, type TextBlock,
 } from '../lib/blocks.ts'
 import { speciesEntryTex } from '../lib/constructs/blocks.ts'
 import { LAYOUT_STYLE, LINE_COMMAND } from '../lib/syntax.ts'
@@ -359,16 +359,32 @@ function LayoutView({ block }: { block: LayoutBlock }) {
   )
 }
 
-/** `Title { … }`: a card, its variables scoped to it. */
+/** How a block titled as a heading looks, by its level (a modifier of its header's class). */
+const SECTION_LOOK: Record<HeadingLevel, string> = {
+  [HEADING_LEVEL.section]: 'section',
+  [HEADING_LEVEL.subsection]: 'subsection',
+  [HEADING_LEVEL.paragraph]: 'paragraph',
+}
+
+/** `Title { … }`: a card, its variables scoped to it. Untitled (and without a note), it has no header. */
 function GroupView({ block }: { block: GroupBlock }) {
   const link = useLineLink()
   if (block.command === LINE_COMMAND.hide && !hasError(block)) return null
+  const header = !!block.title || !!block.note
+  // A title written as a heading (`# Kinematics {`) is set as one, with its number.
+  const section = block.section ? ` group__header--${SECTION_LOOK[block.section.level]}` : ''
   return (
-    <section className={`group${block.error ? ' group--error' : ''}`}>
-      <header className="group__header" {...link(block.line)}>
-        <span className="group__title">{block.title ? <Title text={block.title} /> : 'Block'}</span>
-        {block.note && <span className="calc__note">{block.note}</span>}
-      </header>
+    // (Without a header, the card itself goes to the line that opens it.)
+    <section className={`group${block.error ? ' group--error' : ''}`} {...(header ? {} : link(block.line))}>
+      {header && (
+        <header className={`group__header${section}`} {...link(block.line)}>
+          <span className="group__title">
+            {block.section?.number && <span className="doc__heading-number">{block.section.number}</span>}
+            {block.title && <Title text={block.title} />}
+          </span>
+          {block.note && <span className="calc__note">{block.note}</span>}
+        </header>
+      )}
       <div className="group__body">
         {block.children.map((b) => <RenderedBlock key={`${b.line}-${b.kind}`} block={b} />)}
       </div>

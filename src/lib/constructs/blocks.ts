@@ -4,18 +4,25 @@
  * `Title { }` block.
  */
 import {
-  BLOCK_KIND, type Block, type ConstantsBlock, type FunctionBlock, type GroupBlock, type ImportBlock, type SpeciesBlock,
-  type SpeciesEntry,
+  BLOCK_KIND, HEADING_LEVEL, type Block, type ConstantsBlock, type FunctionBlock, type GroupBlock, type ImportBlock, type SpeciesBlock,
+  type HeadingLevel, type SpeciesEntry,
 } from '../blocks.ts'
 import { formulaTex } from '../engine/modules/chemistry/chemistry.ts'
 import { LINE_COMMAND } from '../syntax.ts'
 import { errorComment, gather, heading as latexHeading, titleToLatex, titled as latexTitled } from '../latexKit.ts'
 import { equation, heading as docxHeading, run, titled as docxTitled, type Ctx, type Item } from '../docxKit.ts'
-import { texToOmml } from '../omml.ts'
+import { EM_SPACE, texToOmml } from '../omml.ts'
 import { Construct, type DocxOut, type LatexOut } from './construct.ts'
 
 /** The title of an `@constants { }` block, in the exports. */
 const CONSTANTS_TITLE = 'Constants'
+
+/** The LaTeX counter a block titled as a heading takes its number from, by level (none for a bold paragraph's). */
+const SECTION_COUNTER: Record<HeadingLevel, string | undefined> = {
+  [HEADING_LEVEL.section]: 'section',
+  [HEADING_LEVEL.subsection]: 'subsection',
+  [HEADING_LEVEL.paragraph]: undefined,
+}
 
 /** The words before a function's signature, in the exports' titles. */
 const FUNCTION_TITLE = 'Function'
@@ -114,12 +121,18 @@ export class GroupConstruct extends Construct<GroupBlock> {
 
   latex(b: GroupBlock, out: LatexOut): string {
     if (b.command === LINE_COMMAND.hide) return ''
-    return latexTitled(out.o, latexHeading(b.title && titleToLatex(b.title), b.note), out.join(b.children))
+    const title = b.title && titleToLatex(b.title)
+    // A title written as a heading (`# Kinematics {`) takes the next section's (or
+    // subsection's) number, so LaTeX's count goes on from it as from a heading.
+    const counter = out.o.numberSections && b.section ? SECTION_COUNTER[b.section.level] : undefined
+    const card = latexTitled(out.o, latexHeading(counter ? `\\the${counter}\\quad ${title}` : title, b.note), out.join(b.children))
+    return counter ? `\\refstepcounter{${counter}}\n${card}` : card
   }
 
   docx(b: GroupBlock, ctx: Ctx, out: DocxOut): Item[] {
     if (b.command === LINE_COMMAND.hide) return []
-    return docxTitled(ctx, docxHeading(b.title, b.note), (inner) => out.blocks(b.children, inner))
+    const number = ctx.o.numberSections && b.section?.number ? run(`${b.section.number}${EM_SPACE}`, { bold: true }) : ''
+    return docxTitled(ctx, number + docxHeading(b.title, b.note), (inner) => out.blocks(b.children, inner))
   }
 
   notes(b: GroupBlock, notesOf: (blocks: Block[]) => string[]): string[] {

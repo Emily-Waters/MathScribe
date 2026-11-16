@@ -4,8 +4,8 @@
  */
 import { symbolTex, type FunctionLine } from '../engine/index.ts'
 import { BLOCK_CLOSE, BLOCK_OPEN, CONSTANTS_BLOCK, CONSTANTS_OPENER, DEF, DISPLAY_MODE, EXACT_SETTING, IMPORT, LATEX_BLOCK, LATEX_OPENER, LAYOUT_STYLE, LINE_COMMAND, PROSE_LAYOUTS, SIGIL, closesLatex, indentOf, isComment } from '../syntax.ts'
-import { BLOCK_KIND, type ConstantsBlock, type GroupBlock, type ImportBlock, type LayoutBlock } from '../blocks.ts'
-import { bracesBalance, closesBlock, layoutOpener, openerText, parseConstantDeclaration, readCsv, splitNote } from './lineSyntax.ts'
+import { BLOCK_KIND, HEADING_LEVEL, type ConstantsBlock, type GroupBlock, type HeadingLevel, type SectionTitle, type ImportBlock, type LayoutBlock } from '../blocks.ts'
+import { bracesBalance, closesBlock, layoutOpener, openerText, parseConstantDeclaration, readCsv, splitNote, type SplitLine } from './lineSyntax.ts'
 import { BracedReader, LineReader, SheetWideReader, type Line } from './reader.ts'
 import type { SheetReader } from './sheetReader.ts'
 
@@ -90,25 +90,58 @@ class ConstantsReader extends SheetWideReader<ConstantsBlock> {
 // Lines of text
 // ---------------------------------------------------------------------------
 
-/** The deepest heading level: `###` and more are all the third. */
-const DEEPEST_HEADING = 3
-
 /** `# Title`, `## Title`, `### Title`: a heading, numbered as LaTeX numbers sections and subsections. */
 class HeadingReader extends LineReader {
   read(line: Line, sheet: SheetReader): boolean {
-    if (!line.trimmed.startsWith('#')) return false
-    const level = Math.min(/^#+/.exec(line.trimmed)![0].length, DEEPEST_HEADING) as 1 | 2 | 3
-    // Mirror LaTeX's counters: a new section resets the subsection count.
-    let number: string | undefined
-    if (level === 1) {
-      sheet.section++
-      sheet.subsection = 0
-      number = `${sheet.section}`
-    } else if (level === 2) {
-      sheet.subsection++
-      number = `${sheet.section}.${sheet.subsection}`
-    }
-    sheet.add({ kind: BLOCK_KIND.heading, line: line.number, level, number, ...sheet.withValues(line.trimmed.replace(/^#+/, '').trim()) })
+    const heading = headingOf(line.trimmed)
+    if (!heading) return false
+    addHeading(sheet, line, heading.level, heading.text)
+    return true
+  }
+}
+
+/** A heading's marks, the `#`s it starts with. */
+const HEADING_MARKS = /^#+/
+
+/** A line written as a heading, `## Title`: its level and its text (null if it isn't one). */
+function headingOf(trimmed: string): { level: HeadingLevel; text: string } | null {
+  const marks = HEADING_MARKS.exec(trimmed)?.[0]
+  if (!marks) return null
+  return { level: Math.min(marks.length, HEADING_LEVEL.paragraph) as HeadingLevel, text: trimmed.slice(marks.length).trim() }
+}
+
+/** A heading's number, as LaTeX numbers sections and subsections (none for a bold paragraph). */
+function headingNumber(sheet: SheetReader, level: HeadingLevel): string | undefined {
+  // Mirror LaTeX's counters: a new section resets the subsection count.
+  if (level === HEADING_LEVEL.section) {
+    sheet.section++
+    sheet.subsection = 0
+    return `${sheet.section}`
+  }
+  if (level === HEADING_LEVEL.subsection) {
+    sheet.subsection++
+    return `${sheet.section}.${sheet.subsection}`
+  }
+  return undefined
+}
+
+/** Add a heading, numbered as LaTeX numbers sections and subsections. */
+function addHeading(sheet: SheetReader, line: Line, level: HeadingLevel, text: string): void {
+  sheet.add({ kind: BLOCK_KIND.heading, line: line.number, level, number: headingNumber(sheet, level), ...sheet.withValues(text) })
+}
+
+/**
+ * `# Kinematics {` … `}`: a block whose title is a section's (`##`, a
+ * subsection's): numbered with the headings, and set as one in its title bar.
+ * (Commands and a note go after the `{`, as on any block: `# Kinematics {  #val`.)
+ */
+class SectionBlockReader extends LineReader {
+  read(line: Line, sheet: SheetReader): boolean {
+    const heading = headingOf(line.trimmed)
+    if (!heading) return false
+    const parts = splitNote(heading.text)
+    if (!parts.body.endsWith(BLOCK_OPEN)) return false
+    openGroup(sheet, line, parts, { level: heading.level, number: headingNumber(sheet, heading.level) })
     return true
   }
 }
@@ -344,22 +377,28 @@ class LayoutReader extends LineReader {
 /** `Title {`: a block whose variables are its own, gone after its `}`. */
 class GroupReader extends LineReader {
   read(line: Line, sheet: SheetReader): boolean {
-    const { body, note, command, multiline, notation } = line.parts
-    if (!body.endsWith(BLOCK_OPEN)) return false
-    // (Values in its title are the ones from before the block.)
-    const title = sheet.withValues(body.slice(0, -1).trim())
-    const group: GroupBlock = {
-      kind: BLOCK_KIND.group, line: line.number, title: title.text, note, children: [], locals: [],
-      command: command ?? sheet.inheritedHide,
-      multiline: multiline || undefined,
-      notation,
-      error: title.error,
-    }
-    sheet.add(group)
-    sheet.open.push(group)
-    sheet.calc.pushScope()
+    if (!line.parts.body.endsWith(BLOCK_OPEN)) return false
+    openGroup(sheet, line, line.parts)
     return true
   }
+}
+
+/** Open a `{ }` block from its opener's parts (its body is its title and the `{`), titled as a section or not. */
+function openGroup(sheet: SheetReader, line: Line, parts: SplitLine, section?: SectionTitle): void {
+  const { body, note, command, multiline, notation } = parts
+  // (Values in its title are the ones from before the block.)
+  const title = sheet.withValues(body.slice(0, -BLOCK_OPEN.length).trim())
+  const group: GroupBlock = {
+    kind: BLOCK_KIND.group, line: line.number, title: title.text, note, children: [], locals: [],
+    command: command ?? sheet.inheritedHide,
+    multiline: multiline || undefined,
+    notation,
+    error: title.error,
+    section,
+  }
+  sheet.add(group)
+  sheet.open.push(group)
+  sheet.calc.pushScope()
 }
 
 // ---------------------------------------------------------------------------
@@ -402,6 +441,7 @@ class CalcReader extends LineReader {
 export const lineReaders = (): LineReader[] => [
   new DeclarationsReader(),
   new ConstantsReader(),
+  new SectionBlockReader(),
   new HeadingReader(),
   new TextReader(),
   new LatexReader(),

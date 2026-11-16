@@ -88,10 +88,14 @@ export interface ContainerBlock extends BlockBase, Noted, Faulted, BlockSettings
 // The blocks
 // ---------------------------------------------------------------------------
 
-/** `#` → 1 (section), `##` → 2 (subsection), `###` or more → 3 (bold paragraph). */
+/** A heading's level, by how many `#` it starts with: a numbered section, a numbered subsection, or a bold paragraph (`###` or more). */
+export const HEADING_LEVEL = { section: 1, subsection: 2, paragraph: 3 } as const
+export type HeadingLevel = (typeof HEADING_LEVEL)[keyof typeof HEADING_LEVEL]
+
+/** `#` → a section, `##` → a subsection, `###` or more → a bold paragraph (see HEADING_LEVEL). */
 export interface HeadingBlock extends BlockBase, Faulted {
   kind: typeof BLOCK_KIND.heading
-  level: 1 | 2 | 3
+  level: HeadingLevel
   /** Its text; `{{x}}` in it is replaced by x's value. (Its error: a value that couldn't be worked out.) */
   text: string
   /** "2" or "2.1", as LaTeX numbers it. */
@@ -138,6 +142,15 @@ export interface GroupBlock extends ContainerBlock {
   kind: typeof BLOCK_KIND.group
   /** Variables defined inside this block (not visible after it). */
   locals: VariableSummary[]
+  /** Its title as a section (`# Kinematics {`): its level, and number, as a heading's. */
+  section?: SectionTitle
+}
+
+/** A block's title written as a heading, `## Energy {`: numbered with the headings, and set as one in its title bar. */
+export interface SectionTitle {
+  level: HeadingLevel
+  /** "2" or "2.1", as LaTeX numbers it (none for a bold paragraph's level). */
+  number?: string
 }
 
 /**

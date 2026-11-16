@@ -111,15 +111,22 @@ const NAME_SETTINGS_SO_FAR = new RegExp(String.raw`^\s*${NAME}${SETTINGS}$`)
 /** …on a function's result: `f(x):3:`, `def polar(x, y):`. */
 const FUNCTION_SETTINGS_SO_FAR = new RegExp(String.raw`^\s*(?:${KEYWORD.def}\s+)?${NAME}\s*\([^()]*\)${SETTINGS}$`)
 
-/** The line without its note and commands, to see how it ends. */
+/** A heading's `#`s, at the start of a line. */
+const HEADING_MARKS = /^#+/
+
+/**
+ * The line without its note and commands, to see how it ends. (A heading's `#`s
+ * start it, not a note: `# Kinematics {` opens a block titled as a section.)
+ */
 function bodyOf(line: string): string {
-  return line.replace(/#.*$/, '').trim()
+  return line.trim().replace(HEADING_MARKS, '').replace(/#.*$/, '').trim()
 }
 
 /** What kind of line `line` (trimmed of nothing) is, from how it starts and ends. */
 function lineKind(line: string): LineKind {
   const t = line.trim()
-  if (t.startsWith('#')) return LINE_KIND.heading
+  // (`# Kinematics {` opens a block titled as a section.)
+  if (t.startsWith('#')) return bodyOf(t).endsWith(BLOCK_OPEN) ? LINE_KIND.opener : LINE_KIND.heading
   if (t.startsWith('>')) return LINE_KIND.text
   if (LATEX_OPENER.test(t)) return LINE_KIND.latexOpener
   if (DEF_START.test(t)) return LINE_KIND.def
@@ -199,6 +206,9 @@ function token(stream: StringStream, state: State): Token | null {
       stream.next()
       return null
   }
+
+  // A block titled as a section: its heading's `#`s, at the start of the line.
+  if (state.inTitle && !stream.string.slice(0, stream.pos).trim() && stream.match(HEADING_MARKS)) return TOKEN.heading
 
   // Commands and notes, on any other line.
   if (stream.peek() === '#') {

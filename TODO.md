@@ -99,11 +99,34 @@ what's here better.
 
 ## 7. Sheets and output
 
-- [ ] **No placeholder title on untitled blocks**: an untitled `{ }` block
+- [x] **No placeholder title on untitled blocks**: an untitled `{ }` block
       shouldn't show "Block" as its title; with no title, there's no title line.
-- [ ] **Blocks titled as sections**: a block's title written with `#` or `##`
+
+      **Resolved (2026-11-15):** in the Rendered tab, a block with neither a
+      title nor a note has no header at all (`GroupView`), and clicking the card
+      goes to its `{` line instead. The LaTeX and Word exports already left an
+      untitled block's title out.
+- [x] **Blocks titled as sections**: a block's title written with `#` or `##`
       (`# Kinematics {` … `}`) makes it a numbered section or subsection, taking
       part in the numbering as headings do.
+
+      **Resolved (2026-11-15):** a new reader, `SectionBlockReader`, offered a
+      line before the heading reader, reads `# Title {` (any heading level) as a
+      heading, numbered by the same counters as any, followed by an untitled
+      block holding the lines up to its `}`; so every export and the Rendered tab
+      draw it with what they already have. Commands and a note go after the `{`
+      (`## Energy {  #val`). The editor folds and indents it as a block. Heading
+      levels are named now (`HEADING_LEVEL`).
+
+      **Revised (2026-11-15):** a heading above an untitled block wasn't what was
+      wanted: the title should stay on the block. Now the block keeps its title,
+      with `section` (its level and number, from the same counters as headings)
+      on the `GroupBlock`: the Rendered tab sets it in the block's title bar,
+      numbered and sized as a section or subsection; the LaTeX export steps the
+      section counter (`\refstepcounter`) and titles the card `\thesection\quad
+      Title`, so later headings number on from it; Word puts the number before
+      the card's title. The editor colours its `#`s as a heading's and the rest as
+      a block's title.
 - [ ] **One Export button instead of the LaTeX tab**: a single Export button opens
       a dialog to choose the format (Word `.docx`, LaTeX `.tex`, more later), with
       each format's options in it (what the LaTeX tab's Document menu holds now).

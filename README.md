@@ -624,6 +624,11 @@ a                   # still the outer value
   name that already exists outside shadows it; the outer value is untouched.
 - Functions see the variables from where they were defined (lexical scope).
 - For arranging lines without scoping them, use a layout block (`@layout.list Title {`) instead.
+- A block without a title has no title bar: just its lines, in a card.
+- A block's title can be written as a heading: `# Kinematics {` titles the block
+  as a numbered section, and `## Energy {` as a subsection, numbered with the
+  other headings and set as one in the block's title bar. Commands and a note go
+  after the `{`, as on any block: `## Energy {  #val  # at the top`.
 
 ### Greek letters
 

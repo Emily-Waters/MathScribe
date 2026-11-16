@@ -8,7 +8,7 @@ import {
   DIAGNOSTIC_KIND, SYMBOL_KIND, TITLE_SEGMENT, collectDefinitions, collectDiagnostics, collectSymbols, titleSegments,
 } from './document.ts'
 import { LAYOUT_STYLE } from './syntax.ts'
-import { BLOCK_KIND, type Block, type LayoutBlock } from './blocks.ts'
+import { BLOCK_KIND, HEADING_LEVEL, type Block, type LayoutBlock } from './blocks.ts'
 import { last, lines, sheet } from '../test/helpers.ts'
 import { toLatexDocument } from './latex.ts'
 
@@ -43,6 +43,25 @@ describe('{ } blocks', () => {
   it('report a missing closing brace', () => {
     const s = sheet('Open {\n  x = 1')
     expect(s.blocks[0]).toMatchObject({ kind: BLOCK_KIND.group, error: expect.stringMatching(/missing its closing }/) })
+  })
+
+  it('can be titled as a section or subsection, numbered with the headings', () => {
+    const src = '# Setup\n# Kinematics {\n  v = 2.0 m/s\n}\n## Energy {  #val  # at the top\n  E = 1.0 J\n}\n# Results'
+    const s = sheet(src)
+    const numbered = (b: Block) => (b.kind === BLOCK_KIND.heading ? `${b.number} ${b.text}`
+      : b.kind === BLOCK_KIND.group ? `${b.section?.number} ${b.title} {` : b.kind)
+    expect(s.blocks.map(numbered)).toEqual(['1 Setup', '2 Kinematics {', '2.1 Energy {', '3 Results'])
+    // The block scopes its variables, and takes commands and a note after its `{`, as any does.
+    expect(s.blocks[1]).toMatchObject({ section: { level: HEADING_LEVEL.section }, locals: [expect.objectContaining({ name: 'v' })] })
+    expect(s.blocks[2]).toMatchObject({ section: { level: HEADING_LEVEL.subsection }, command: 'val', note: 'at the top' })
+    // A heading that isn't a block's is just a heading.
+    expect(sheet('# The {Na^+} ion').blocks[0]).toMatchObject({ kind: BLOCK_KIND.heading })
+  })
+
+  it('titled as a section, take the section’s number in the exports too', () => {
+    const tex = toLatexDocument(sheet('# Setup\n# Kinematics {\n  v = 2.0 m/s\n}').blocks)
+    expect(tex).toContain('\\refstepcounter{section}')
+    expect(tex).toContain('frametitle={\\thesection\\quad Kinematics}')
   })
 })
 

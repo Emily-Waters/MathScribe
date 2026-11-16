@@ -108,6 +108,8 @@ describe('highlighting', () => {
       ['@layout.numbered:kw', 'Steps:title', '{  :brace', '# the 1s orbital:note'])
     expect(tokens('@constants {')).toEqual(['@constants:kw', '{:brace'])
     expect(tokens('What if {')).toEqual(['What if:title', '{:brace'])
+    // A block titled as a section: its `#`s as a heading's, then its title.
+    expect(tokens('## Energy {  #val')).toEqual(['##:head', 'Energy:title', '{  :brace', '#val:cmd'])
   })
 
   it('colours @chem’s constants and functions', () => {
@@ -243,6 +245,8 @@ describe('folding', () => {
   it('folds a { } block up to its closing brace, a built-in one too', () => {
     expect(foldsAt('W {\n  a = 1\n  b = 2\n}', 1)).toEqual([1, 3])
     expect(foldsAt('@layout.text Notes {\n    The {Na^+} ion.\n\n    More.\n}\nc = 3', 1)).toEqual([1, 4])
+    // …and one titled as a section.
+    expect(foldsAt('# Kinematics {\n  a = 1\n}', 1)).toEqual([1, 2])
   })
 
   it('doesn’t fold ordinary lines', () => {

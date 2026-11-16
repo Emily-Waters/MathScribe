@@ -128,20 +128,20 @@ export class ChemistryModule extends EngineModule implements ReadsLines {
     switch (n.fn.name) {
       // Taking a species off (in `@chem.total(…)`) isn't written: n_Na + n_Cl.
       case ANY_SPECIES_FUNCTION:
-        return tex(n.args[0])
+        return ` ${tex(n.args[0])}`
       // An element's term in a compound's molar mass, without its species (15.999 g/mol, not g O/mol O).
       case SPECIES_FUNCTION.plain:
-        return tex(withoutSpeciesUnits(n.args[0]))
+        return ` ${tex(withoutSpeciesUnits(n.args[0]))}`
       // @chem.mm's compound as just its value (its species shows in its unit).
       case SPECIES_FUNCTION.quiet:
-        return tex(n.args[0])
+        return ` ${tex(n.args[0])}`
       // A value given its species: `(18.02 g / 1 mol) {H2O}` as the value then the formula.
       case SPECIES_FUNCTION.shown: {
         if (!isConstantNode(n.args[1])) return undefined
         const of = unwrap(n.args[0])
         const value = tex(of)
         const bracketed = isSymbolNode(of) || isConstantNode(of) || isLitCall(of) ? value : `\\left(${value}\\right)`
-        return `${bracketed}\\,${formulaTex(String(n.args[1].value))}`
+        return ` ${bracketed}\\,${formulaTex(String(n.args[1].value))}`
       }
       default:
         return undefined

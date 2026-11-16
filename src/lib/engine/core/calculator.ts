@@ -8,7 +8,7 @@ import { EXACT, MAX_DIGITS, countSigFigs, formatExact, formatSigFigs, formatWith
 import { AGGREGATE_KIND, Variable, type Aggregate, type Contributions, type VariableFields, type VariableSummary } from '../../values.ts'
 import { DEFAULT_CONSTANT_SIG_FIGS, isNamespaceConstant, suggestConstant } from '../../constants.ts'
 import { builtinConstant, builtinConstantKeys, isReservedConstantName } from '../../builtins.ts'
-import { ASSIGNMENT, ASSIGNMENT_WITH_VALUE, COMPONENTS_SETTING, CONSTANT_REF, EXACT_SETTING, IS_NAME, LEADING_NAME, ONE_LINE_FUNCTION, PERCENT, ELSE_IF_LINE, ELSE_LINE, IF_LINE, KEYWORD, RETURN_LINE, UNIT_VECTOR_SETTING, UNPACK, VECTOR_FUNCTION, DISPLAY_MODE, LINE_COMMAND, VALUE_IN_TEXT, CONSTANTS_BLOCK, LABEL_TEMPLATE, SIGIL, type DisplayMode, type Notation, type Precision, type UncertaintyWord, type VectorStyle } from '../../syntax.ts'
+import { ASSIGNMENT, ASSIGNMENT_WITH_VALUE, CONSTANT_REF, EXACT_SETTING, IS_NAME, LEADING_NAME, ONE_LINE_FUNCTION, PERCENT, ELSE_IF_LINE, ELSE_LINE, IF_LINE, KEYWORD, RETURN_LINE, UNPACK, DISPLAY_MODE, LINE_COMMAND, VALUE_IN_TEXT, CONSTANTS_BLOCK, LABEL_TEMPLATE, SIGIL, type DisplayMode, type Notation, type Precision, type UncertaintyWord } from '../../syntax.ts'
 import { INLINE_VALUE_NAME, JOIN, RESERVED_NAMESPACES, constantKey, constantRefName, expandDots, typedConstant, isHiddenName, isUncertaintyName, memberName, parseNumberedName, parseUncertaintyName, readableMembers, seriesMemberName, uncertaintyName, unpackedName } from '../../names.ts'
 import { COMPARISONS, FN, OP, OP_SYMBOL, UNIT, isOp } from '../../mathjsNames.ts'
 
@@ -16,21 +16,21 @@ import { nestBrackets } from '../../brackets.ts'
 import type { CsvColumn } from '../../csv.ts'
 
 import { isTuple, math } from './math.ts'
-import { EngineModule, LINE_STAGE, installModule, moduleReadableMessage, type LineForm, type LineStage, type ModuleHost, type PreparedLine } from './module.ts'
+import { EngineModule, LINE_STAGE, inDependencyOrder, installModule, moduleReadableMessage, type DerivedVariable, type LineForm, type LineStage, type LookSetting, type ModuleHost, type PreparedLine, type TupleLook, SETTING_PLACE, moduleSettingProblem } from './module.ts'
 import { outsideMaths, wordsTex } from './text.ts'
 import { expandNamespaceCalls } from './builtinCalls.ts'
-import { VECTOR_PRODUCTS, hasVector } from './vectors.ts'
 import { BUILTIN_CONSTANT_NAMES, NUMBER_LITERAL, NAME_IN_LINE, preprocess } from './literals.ts'
 import { AUTO_PRECISION, ExplainedError, FIXED_UNCERTAINTY_SIG_FIGS, type CalcOptions, type EquationParts, layoutEquation, type FunctionResult, type FunctionLine, type TraceLine, type CalcResult, unexpectedError, fitHint, type DataColumn, type LineNotation, type LineResult, type ParsedLine, TO_PERCENT, RAW, rawNode, STEP, readableUnitError } from './results.ts'
 import { NAME_THEN_SETTINGS, DELTA_REF, expandParenPm, splitPm } from './uncertainty.ts'
 import { parseAggregateName, escapeRegExp } from './series.ts'
 import { symbolTex, numberTex, unitTex, attachUnit, isUnitCall, unitCallText, isLitCall } from './tex.ts'
-import { unwrap, isLiteral, isVectorLiteral, isPureNumber, isConversion } from './nodes.ts'
+import { unwrap, isLiteral, isTupleLiteral, isPureNumber, isConversion } from './nodes.ts'
 import { normalise, displayUnit, magnitudeOf } from './normalise.ts'
 import { Scope, Views, type Variables, Values, innerValues } from './scope.ts'
 import { STATEMENT_KIND, type Guarded, BranchRun, holds, type UserFunction, type CustomConstant, MAX_TRACE_DEPTH } from './functions.ts'
 import { isAngleUnit, toDisplayUnit, type TupleName, parseTupleName, parseDeclaration } from './declarations.ts'
-import { bracketed, UNIT_VECTOR_TEX, componentsOf, withRows } from './components.ts'
+import { withRows } from './rows.ts'
+import { bracketed } from './tuples.ts'
 import { EXACT_DISPLAY_DIGITS, FIXED_FORMAT, FLOAT_NOISE, TINY, PERCENT_SCALE, addLiteral, parseParam, isValidUnit, castArgument } from './numbers.ts'
 import { isNumberWithUnit, SIDE, type Side, inScientificNotation, needsBrackets, productSeparator } from './products.ts'
 import { uncertaintyUnitError, columnValues } from './data.ts'
@@ -47,10 +47,10 @@ export class Calculator {
   private scope = new Values(this.rootVars)
   /** Notation numbers are being formatted in right now (see inNotation). */
   private notation: Notation | undefined
-  /** How tuples are being shown right now (undefined: as a plain tuple, (…)); see inVectorStyle. */
-  private vectorStyle: VectorStyle | undefined
+  /** The look tuples are being shown in right now (undefined: as a plain tuple, (…)); see inLook. */
+  private tupleLook: TupleLook | undefined
   /**
-   * The sig figs of each component of a vector as typed (`<0.50, -9.81>` → 2, 3),
+   * The sig figs of each value of a typed tuple, as typed (a vector, `<0.50, -9.81>` → 2, 3),
    * keyed by the value itself: a copy (`b = a`) shows the same, while anything
    * worked out from it is a new value, at the fewest sig figs of its inputs.
    */
@@ -133,8 +133,9 @@ export class Calculator {
 
   constructor(options: CalcOptions, modules: readonly EngineModule[] = []) {
     this.options = options
-    this.modules = modules
-    for (const m of modules) installModule(m)
+    // (Each module after those it requires, so their hooks are called first.)
+    this.modules = inDependencyOrder(modules)
+    for (const m of this.modules) installModule(m)
   }
 
   private get autoSigFigs() {
@@ -200,32 +201,48 @@ export class Calculator {
   }
 
   /**
-   * How an expression's result is shown if it's a vector: with unit vectors if
-   * any vector in it is (`F:ijk`), else ⟨…⟩ if it has a vector in it at all
-   * (`<…>`, a variable holding one, a function returning one); undefined if
-   * it has none (a plain tuple).
+   * The look a tuple an expression makes has (see TupleLook): from the looks of
+   * what it's made from (variables, a module's functions, the sheet's functions),
+   * as the module they're from decides; undefined if none has one (a plain tuple).
    */
-  private vectorStyleOf(node: MathNode): VectorStyle | undefined {
-    const styles = node.filter((n) => isSymbolNode(n) || isFunctionNode(n)).map((n) => {
-      if (isSymbolNode(n)) return this.vars.get(n.name)?.vector
+  private lookOf(node: MathNode): TupleLook | undefined {
+    const looks = node.filter((n) => isSymbolNode(n) || isFunctionNode(n)).map((n) => {
+      if (isSymbolNode(n)) return this.vars.get(n.name)?.look
       const name = (n as FunctionNode).fn.name
-      if (name === VECTOR_FUNCTION) return 'angle'
+      const own = this.modules.map((m) => m.lookOfFunction(name)).find((l) => l !== undefined)
+      if (own !== undefined) return own
       const f = this.scope.get(name)
-      return typeof f === 'function' ? this.userFunctions.get(f)?.returnVector : undefined
+      return typeof f === 'function' ? this.userFunctions.get(f)?.returnLook : undefined
     })
-    if (styles.includes(UNIT_VECTOR_SETTING)) return UNIT_VECTOR_SETTING
-    return styles.includes('angle') ? 'angle' : undefined
+    return this.modules.map((m) => m.chooseLook(looks)).find((l) => l !== undefined)
   }
 
-  /** Run `fn` with tuples shown as vectors in `style` (undefined: as plain tuples). */
-  private inVectorStyle<T>(style: VectorStyle | undefined, fn: () => T): T {
-    const saved = this.vectorStyle
-    this.vectorStyle = style
+  /** Run `fn` with tuples shown in `look` (undefined: as plain tuples). */
+  private inLook<T>(look: TupleLook | undefined, fn: () => T): T {
+    const saved = this.tupleLook
+    this.tupleLook = look
     try {
       return fn()
     } finally {
-      this.vectorStyle = saved
+      this.tupleLook = saved
     }
+  }
+
+  /** Whether an expression is a tuple typed value by value, as a module's function makes one (a vector, `<0.50, -9.81>`). */
+  private isTypedTuple(node: MathNode): boolean {
+    return isTupleLiteral(node, (name) => this.modules.some((m) => m.typedTupleFunctions.includes(name)))
+  }
+
+  /** The look a line's settings (a module's) give a tuple it assigns: `F:ijk`. */
+  private lookSettingOf(settings: readonly string[] | undefined): LookSetting | undefined {
+    if (!settings?.length) return undefined
+    return this.modules.map((m) => m.lookSetting(settings)).find((l) => l !== undefined)
+  }
+
+  /** The variables a line's settings (a module's) make from the value it assigns (`F:xyz`: F_x, F_y). */
+  private derivedVariables(name: string, value: unknown, settings: readonly string[] | undefined): DerivedVariable[] {
+    if (!settings?.length) return []
+    return this.modules.flatMap((m) => m.derivedVariables(name, value, settings))
   }
 
   /**
@@ -352,17 +369,17 @@ export class Calculator {
    */
   private tupleTex(tuple: math.Matrix, sf: number, forced: boolean): string {
     const values = tuple.toArray() as unknown[]
-    // A typed vector shows each component as typed (unless sig figs were declared).
+    // A typed tuple shows each value as typed (unless sig figs were declared).
     const typed = forced ? undefined : this.typedSfs.get(tuple)
-    return this.valuesTex(values, values.map((_, i) => ({ sf: typed?.[i] ?? sf, forced, notation: this.notation })), this.vectorStyle)
+    return this.valuesTex(values, values.map((_, i) => ({ sf: typed?.[i] ?? sf, forced, notation: this.notation })), this.tupleLook)
   }
 
   /**
    * Values in a tuple's brackets, each at its own sig figs and notation (as
-   * unpacked names can declare). As a vector (`style`), in angle brackets,
+   * unpacked names can declare). In a module's `look`, as it draws it: a vector,
    * ⟨3.0, 4.0⟩ N, or with unit vectors, (3.0 î + 4.0 ĵ) N.
    */
-  private valuesTex(values: unknown[], shown: { sf: number; forced: boolean; notation?: Notation }[], style?: VectorStyle): string {
+  private valuesTex(values: unknown[], shown: { sf: number; forced: boolean; notation?: Notation }[], look?: TupleLook): string {
     const parts = values.map((v, i) => this.inNotation(shown[i].notation, () => this.split(v, shown[i].sf, shown[i].forced)))
     const unit = parts[0]?.unit
     const shared = values.length > 0 && parts.every((p) => p && p.unit === unit)
@@ -371,26 +388,21 @@ export class Calculator {
       ? numberTex(parts[i]!.num)
       : this.inNotation(shown[i].notation, () => this.valueTex(v, shown[i].sf, undefined, undefined, shown[i].forced))))
     const sharedUnit = shared && unit ? unitTex(unit) : ''
-    if (style === UNIT_VECTOR_SETTING && values.length >= 2 && values.length <= UNIT_VECTOR_TEX.length) {
-      // 3.0 î − 4.0 ĵ: each value's sign joins the terms.
-      const sum = each.map((tex, i) => {
-        const negative = tex.startsWith('-')
-        const term = `${negative ? tex.slice(1) : tex}\\,${UNIT_VECTOR_TEX[i]}`
-        if (i === 0) return negative ? `-${term}` : term
-        return `${negative ? '-' : '+'} ${term}`
-      }).join(' ')
-      // (Plain brackets: \left( would grow to fit the hats.)
-      return sharedUnit ? attachUnit(`(${sum})`, sharedUnit) : sum
+    // A tuple with a look is drawn by the module that gave it (a vector, ⟨3.0, 4.0⟩ N).
+    if (look !== undefined) {
+      for (const m of this.modules) {
+        const tex = m.tupleTex(each, sharedUnit, look)
+        if (tex !== undefined) return tex
+      }
     }
-    const [open, close] = style ? ['\\left\\langle ', '\\right\\rangle'] : ['\\left(', '\\right)']
-    return attachUnit(`${open}${each.join(', ')}${close}`, sharedUnit)
+    return attachUnit(`\\left(${each.join(', ')}\\right)`, sharedUnit)
   }
 
   /** A variable's value for the substitution step, at its own sig figs. */
   private variableNode(name: string): MathNode {
     const shown = this.vars.get(name)?.shown
     if (shown) return rawNode(shown)
-    return this.inNotation(this.vars.get(name)?.notation, () => this.inVectorStyle(this.vars.get(name)?.vector,
+    return this.inNotation(this.vars.get(name)?.notation, () => this.inLook(this.vars.get(name)?.look,
       () => this.valueNode(this.scope.get(name), this.vars.get(name)?.sf ?? EXACT, this.vars.get(name)?.declared === true)))
   }
 
@@ -485,26 +497,12 @@ export class Calculator {
       if (isFunctionNode(n) && n.fn.name === FN.tuple) {
         return `\\left(${n.args.map((a) => a.toTex(options).trim()).join(', ')}\\right)`
       }
-      // A module's own functions (giving a value its species, `{H2O}`) are written as it says.
+      // A module's own functions (giving a value its species, `{H2O}`; a vector, ⟨…⟩) are written as it says.
       if (isFunctionNode(n)) {
         for (const m of this.modules) {
-          const tex = m.functionTex(n, (a) => a.toTex(options).trim())
-          if (tex !== undefined) return ` ${tex}`
+          const tex = m.functionTex(n, (a) => a.toTex(options).trim(), this.host)
+          if (tex !== undefined) return tex
         }
-      }
-      if (isFunctionNode(n) && n.fn.name === VECTOR_FUNCTION) {
-        return `\\left\\langle ${n.args.map((a) => a.toTex(options).trim()).join(', ')}\\right\\rangle`
-      }
-      // dot and cross products as operators, F · d and a × b (not mathjs's (F · d)),
-      // bracketing an argument only where it needs it, such as a sum.
-      const product = isFunctionNode(n) && n.args.length === 2 && typeof this.scope.get(n.fn.name) !== 'function'
-        ? VECTOR_PRODUCTS[n.fn.name as keyof typeof VECTOR_PRODUCTS] : undefined
-      if (product && isFunctionNode(n)) {
-        const [a, b] = n.args.map((arg, i) => {
-          const tex = arg.toTex(options).trim()
-          return needsBrackets(arg, i === 0 ? SIDE.left : SIDE.right, false) ? `\\left(${tex}\\right)` : tex
-        })
-        return ` ${a} ${product} ${b}`
       }
       if (isFunctionNode(n) && (!(n.fn.name in math) || typeof this.scope.get(n.fn.name) === 'function')) {
         // User-defined function (even one named like a built-in, e.g. sum): f(x), not \mathrm{f}(x)
@@ -1223,20 +1221,22 @@ export class Calculator {
     if (returnSettings?.unit === PERCENT) {
       return { signature, body, error: `${name}:percent isn't available on a function; show a result as a percentage where it's used.` }
     }
-    if (returnSettings?.components) {
-      return { signature, body, error: `${name}:${COMPONENTS_SETTING} isn't available on a function; use it on the variable that stores the result.` }
+    for (const setting of returnSettings?.moduleSettings ?? []) {
+      const problem = moduleSettingProblem(name, setting, SETTING_PLACE.functionResult)
+      if (problem) return { signature, body, error: problem }
     }
     const returnUnit = shownUnit
     const returnSf = returnSettings?.sf === EXACT_SETTING ? EXACT : returnSettings?.sf
     const returnNotation = returnSettings?.notation
-    const returnVector = returnSettings?.vector ?? (lines.some((l) => hasVector(l.text)) ? 'angle' : undefined)
+    const returnLook = this.lookSettingOf(returnSettings?.moduleSettings)?.look
+      ?? this.modules.flatMap((m) => lines.map((l) => m.lookOfWritten(l.text))).find((l) => l !== undefined)
     const bad = paramSpecs.find((_, i) => !parsed[i])
     if (bad !== undefined) return { signature, body, error: `"${bad}" isn't a valid parameter: write a name, or "name to unit".` }
     const badUnit = casts.find((u) => u !== undefined && !isValidUnit(u))
     if (badUnit) return { signature, body, error: `"${badUnit}" isn't a unit MathScribe knows.` }
     type Statement = Guarded & (
       // `unit`: a display unit on the name (`th:deg = …`), which the value keeps.
-      | { kind: typeof STATEMENT_KIND.assign; name: string; code: math.EvalFunction; unit?: string; components?: boolean }
+      | { kind: typeof STATEMENT_KIND.assign; name: string; code: math.EvalFunction; unit?: string; settings?: string[] }
       | { kind: typeof STATEMENT_KIND.unpack; targets: TupleName[]; code: math.EvalFunction }
       | { kind: typeof STATEMENT_KIND.return; code: math.EvalFunction }
       | { kind: typeof STATEMENT_KIND.branch; text: string }
@@ -1337,8 +1337,8 @@ export class Calculator {
         } else {
           const declared = parseDeclaration(text)
           const unit = declared && !('error' in declared) && declared.unit !== PERCENT ? declared.unit : undefined
-          const components = declared && !('error' in declared) ? declared.components : undefined
-          statements.push({ kind: STATEMENT_KIND.assign, name: assign![1], code, unit, components, guards })
+          const settings = declared && !('error' in declared) ? declared.moduleSettings : undefined
+          statements.push({ kind: STATEMENT_KIND.assign, name: assign![1], code, unit, settings, guards })
           // Keep the line as written, so a declared `x:3 =` applies when its working is shown.
           sources.push({ kind: STATEMENT_KIND.assign, text, note, command, multiline: lineMultiline, guards })
           body.push({ tex: `${inset}${symbolTex(assign![1])} = ${this.toTex(node, literals)}`, note, line })
@@ -1380,12 +1380,12 @@ export class Calculator {
         }
         const value = s.unit ? toDisplayUnit(v, s.unit) : v
         local.set(s.name, value)
-        if (s.components) componentsOf(s.name, value).forEach((c) => local.set(c.name, c.value))
+        for (const d of this.derivedVariables(s.name, value, s.settings)) local.set(d.name, d.value)
       }
       return undefined
     }
     this.userFunctions.set(fn, {
-      params, casts, statements: sources, definedIn, multiline, returns, returnSf, returnNotation, returnVector, returnUnit,
+      params, casts, statements: sources, definedIn, multiline, returns, returnSf, returnNotation, returnLook, returnUnit,
     })
     this.store(name, { value: fn, sf: EXACT })
     return { signature, body: body.map((b) => ({ ...b, tex: nestBrackets(b.tex) })) }
@@ -1464,8 +1464,8 @@ export class Calculator {
     const aliases = new Map<string, MathNode>()
     call.args.forEach((a, i) => aliases.set(def.params[i], this.withAliases(unwrap(a))))
 
-    // A vector passed in is shown inside the function as it is outside.
-    const argStyles = call.args.map((a) => this.vectorStyleOf(a))
+    // A tuple passed in (a vector) is shown inside the function as it is outside.
+    const argLooks = call.args.map((a) => this.lookOf(a))
     // The body runs in a scope of its own, inside the one the function was defined in.
     const caller = this.vars
     this.enter(new Scope(def.definedIn))
@@ -1475,7 +1475,7 @@ export class Calculator {
       def.params.forEach((p, i) => {
         this.store(p, {
           value: args[i].value, sf: args[i].sf, contributions: args[i].contributions, shown: args[i].shown,
-          vector: isTuple(args[i].value) ? argStyles[i] : undefined,
+          look: isTuple(args[i].value) ? argLooks[i] : undefined,
         })
       })
       const lines: TraceLine[] = []
@@ -1770,33 +1770,35 @@ export class Calculator {
 
     const result = this.evaluateParsed(node, {
       uncNode, percent, literals, warnings, mode: requestedMode, explicit, declaredSf, asPercent, displayUnit,
-      notation: declaration?.notation, vector: declaration?.vector, label: label?.tex,
+      notation: declaration?.notation, look: this.lookSettingOf(declaration?.moduleSettings), label: label?.tex,
     })
-    return declaration?.components && !result.error ? this.withComponents(declaration.name, result, requestedMode) : result
+    return declaration?.moduleSettings && !result.error ? this.withDerived(declaration.name, result, requestedMode, declaration.moduleSettings) : result
   }
 
   /**
-   * `F:xyz = …`: store each component of the vector F as a variable of its own
-   * (F_x, F_y, F_z), at F's sig figs and notation, and show them under F's line
-   * (except with #sym, which shows only the equation).
+   * Variables a line's settings (a module's) make from the one it assigns, as
+   * `F:xyz = …` makes each component of the vector F (F_x, F_y, F_z): stored at
+   * its sig figs and notation, and shown under its line (except with #sym,
+   * which shows only the equation).
    */
-  private withComponents(name: string, result: LineResult, mode: DisplayMode): LineResult {
-    let components: ReturnType<typeof componentsOf>
+  private withDerived(name: string, result: LineResult, mode: DisplayMode, settings: readonly string[]): LineResult {
+    let derived: DerivedVariable[]
     try {
-      components = componentsOf(name, this.scope.get(name))
+      derived = this.derivedVariables(name, this.scope.get(name), settings)
     } catch (e) {
       return { ...result, error: (e as Error).message }
     }
+    if (!derived.length) return result
     const sf = this.vars.get(name)?.sf ?? EXACT
     const declared = this.vars.get(name)?.declared === true
-    // Kept as the vector's notation; shown as its line is (with #sci or #dec too).
+    // Kept as its notation; shown as its line is (with #sci or #dec too).
     const notation = this.vars.get(name)?.notation
-    // Each at the vector's sig figs, or for a typed vector, as typed.
+    // Each at its sig figs, or one of a typed tuple's values, as typed.
     const typed = declared ? undefined : this.typedSfs.get(this.scope.get(name) as object)
-    const sfs = components.map((_, i) => typed?.[i] ?? sf)
-    components.forEach((c, i) => this.store(c.name, { value: c.value, sf: sfs[i], declared, notation }))
+    const sfs = derived.map((d) => (d.component === undefined ? undefined : typed?.[d.component]) ?? sf)
+    derived.forEach((c, i) => this.store(c.name, { value: c.value, sf: sfs[i], declared, notation }))
     if (mode === DISPLAY_MODE.sym) return result
-    const rows = components.map((c, i) =>
+    const rows = derived.map((c, i) =>
       `${symbolTex(c.name)} &= ${this.inNotation(result.notation, () => this.valueTex(c.value, sfs[i], undefined, undefined, declared))}`)
     return { ...result, tex: withRows(result.tex, symbolTex(name), rows) }
   }
@@ -1948,8 +1950,8 @@ export class Calculator {
       // A value typed with a unit keeps that unit wherever it's shown (L = 1.00e-10 m
       // stays in m, not 100 pm), as a conversion's result does.
       if (isLiteral(expr) && math.isUnit(value)) (value as Unit).fixPrefix = true
-      // So does each component of a typed vector: <3000., 4000.> N stays in N, not kN.
-      if (isVectorLiteral(expr) && isTuple(value)) {
+      // So does each value of a typed tuple (a vector): <3000., 4000.> N stays in N, not kN.
+      if (this.isTypedTuple(expr) && isTuple(value)) {
         value = math.map(value, (v: MathType) => {
           if (!math.isUnit(v)) return v
           const u = (v as Unit).clone()
@@ -2023,21 +2025,21 @@ export class Calculator {
     // `#sci` / `#dec` only change how this line is shown: the line's own command
     // beats a variable's notation, and a block's doesn't (see LineNotation).
     const notation = ctx.notation ?? this.lineNotation.own ?? kept ?? this.lineNotation.block
-    // `F:ijk = …`: the vector with unit vectors. Otherwise a vector keeps the look
-    // of the vectors it's made from (see vectorStyleOf); a plain tuple has none.
-    const vector = isTuple(value) ? ctx.vector ?? this.vectorStyleOf(expr) : undefined
-    if (ctx.vector && !isTuple(value) && value !== undefined) {
-      const ignored = `:${ctx.vector} is ignored because the result isn't a vector.`
-      warning = warning ? `${warning} ${ignored}` : ignored
+    // A look the line's settings give it (`F:ijk = …`: with unit vectors). Otherwise a
+    // tuple keeps the look of what it's made from (see lookOf); a plain tuple has none.
+    const look = isTuple(value) ? ctx.look?.look ?? this.lookOf(expr) : undefined
+    if (ctx.look && !isTuple(value) && value !== undefined) {
+      warning = warning ? `${warning} ${ctx.look.notATuple}` : ctx.look.notATuple
     }
-    // A typed vector keeps each component's sig figs as typed: <0.50, -9.81>
+    // A typed tuple keeps each value's sig figs as typed: <0.50, -9.81>
     // shows as typed, not rounded to the fewest.
-    if (isVectorLiteral(expr) && isTuple(value) && unc === undefined) {
+    const typedTuple = this.isTypedTuple(expr)
+    if (typedTuple && isTuple(value) && unc === undefined) {
       this.typedSfs.set(value, this.componentSigFigs(expr, literals))
     }
-    // A typed vector is shown with unit vectors straight away: F:ijk = <3.0, 4.0> N → F = (3.0 î + 4.0 ĵ) N.
-    if (ctx.vector && vector && isVectorLiteral(expr)) {
-      exprTex = this.inNotation(notation, () => this.inVectorStyle(vector,
+    // A typed tuple is shown in the look it's given straight away: F:ijk = <3.0, 4.0> N → F = (3.0 î + 4.0 ĵ) N.
+    if (ctx.look && look && typedTuple) {
+      exprTex = this.inNotation(notation, () => this.inLook(look,
         () => this.valueTex(value, declaredSf ?? shownSf, undefined, undefined, declaredSf !== undefined)))
     }
     // A typed value is shown in the declared notation: x:sci = 12000. m → 1.2000 × 10⁴ m.
@@ -2052,13 +2054,13 @@ export class Calculator {
       // symbol instead of the value. Otherwise, constant-only values stay symbolic.
       const keepSymbol = ctx.mode === DISPLAY_MODE.sym && explicit
       this.store(assigned, {
-        value, sf: shownSf, contributions, uncSf: declaredUncSf, declared: declaredSf !== undefined, notation: kept, vector, label: ctx.label,
+        value, sf: shownSf, contributions, uncSf: declaredUncSf, declared: declaredSf !== undefined, notation: kept, look, label: ctx.label,
         shown: keepSymbol ? (ctx.label ?? symbolTex(assigned)) : this.constantForm(expr, literals),
         def: isLiteral(expr) ? undefined : expr,
       })
     }
 
-    const { result, approx } = this.inNotation(notation, () => this.inVectorStyle(vector, () => {
+    const { result, approx } = this.inNotation(notation, () => this.inLook(look, () => {
     let result: string | undefined
     if (ctx.asPercent && value !== undefined) {
       // Stored as the fraction (so later lines calculate with it); shown ×100 with a %.
@@ -2091,7 +2093,7 @@ export class Calculator {
     }
   }
 
-  /** Sig figs of each component of a typed vector (`<0.50, -9.81> m/s^2` → 2, 3). */
+  /** Sig figs of each value of a typed tuple (`<0.50, -9.81> m/s^2` → 2, 3). */
   private componentSigFigs(node: MathNode, literals: Map<number, string>): number[] {
     let n = unwrap(node)
     if (isOp(n, OP.multiply)) n = unwrap(n.args[0])

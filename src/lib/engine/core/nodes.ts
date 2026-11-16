@@ -1,6 +1,5 @@
 /** Questions about expression trees: brackets, literals, conversions. */
 import { isConstantNode, isFunctionNode, isOperatorNode, isParenthesisNode, type MathNode } from 'mathjs'
-import { VECTOR_FUNCTION } from '../../syntax.ts'
 import { OP, isOp } from '../../mathjsNames.ts'
 import { isUnitCall, isLitCall } from './tex.ts'
 import { isUnwrittenFunction } from './module.ts'
@@ -25,11 +24,14 @@ export function isLiteral(n: MathNode): boolean {
   return false
 }
 
-/** A vector of typed values: `<3.0, 4.0> N`, `<1.0 m, 2.0 m>`. */
-export function isVectorLiteral(n: MathNode): boolean {
+/**
+ * A tuple of typed values, made by a call to one of `tupleFunctions` (a module's:
+ * a vector, `<3.0, 4.0> N`, `<1.0 m, 2.0 m>`), with a unit after it or not.
+ */
+export function isTupleLiteral(n: MathNode, tupleFunctions: (name: string) => boolean): boolean {
   n = unwrap(n)
   if (isOp(n, OP.multiply) && isUnitCall(n.args[1])) n = unwrap(n.args[0])
-  return isFunctionNode(n) && n.fn.name === VECTOR_FUNCTION && n.args.every(isLiteral)
+  return isFunctionNode(n) && tupleFunctions(n.fn.name) && n.args.every(isLiteral)
 }
 
 /** An expression made only of number literals and arithmetic, like `-(0.5)` or `3/2`. */

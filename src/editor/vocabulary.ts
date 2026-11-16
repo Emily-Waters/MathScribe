@@ -5,9 +5,9 @@
  * `@` describes itself: lib/builtins.ts.)
  */
 import {
-  CALL, COMMAND_NAMES, COMPONENTS_SETTING, EXACT_SETTING, KEYWORD, NOTATIONS, PERCENT, UNCERTAINTY_WORDS, UNIT_VECTOR_SETTING,
-  VECTOR_FUNCTION, type CommandName, type Notation, type SeriesSuffix,
+  CALL, COMMAND_NAMES, EXACT_SETTING, KEYWORD, NOTATIONS, PERCENT, UNCERTAINTY_WORDS, type CommandName, type Notation, type SeriesSuffix,
 } from '../lib/syntax.ts'
+import { COMPONENTS_SETTING, UNIT_VECTOR_SETTING, VECTOR_FUNCTION } from '../lib/engine/modules/vectors/syntax.ts'
 import { SPECIES_DISPLAY } from '../lib/engine/modules/chemistry/syntax.ts'
 
 /** What each display command does. */

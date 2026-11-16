@@ -1569,14 +1569,17 @@ renamed, change it there too.
   selections, LaTeX generation. `index.ts` is all the rest of MathScribe imports;
   `core/` is split by concern, one file each: the `Calculator` class
   (`calculator.ts`), the mathjs instance (`math.ts`), scopes, unit literals,
-  vectors and their components, uncertainty, series, imported data and LaTeX.
+  tuples (and the look a module gives one: `TupleLook`), uncertainty, series,
+  imported data and LaTeX.
   `modules/` extends the core: each module is an `EngineModule` subclass
   (`core/module.ts`) overriding the hooks it needs, where an exception to the
   core's rules comes from; a module works through the `ModuleHost` the core
   offers it (its variables, and how it works out and writes values), and can
   add kinds of line as `LineForm`s (`table(…)`, `r = @chem.reaction(…)`).
   `sheetModules()` in `index.ts` lists the modules a sheet is worked out with.
-  The core never imports a module (`boundaries.test.ts` checks). Each variable is one record (`Variable`: value, sig figs,
+  A module that builds on another says so (`requires`): it's installed after
+  it, and may import from it and no other module. The core never imports a
+  module (`boundaries.test.ts` checks both). Each variable is one record (`Variable`: value, sig figs,
   uncertainty, how it's shown) in a scope per `{ }` block or function call; each
   scope keeps a series index, and selections and named plots are lookups into the
   variables they pick (`Views`). mathjs sees just the values, through `Values`.
@@ -1604,6 +1607,11 @@ renamed, change it there too.
   rearranging or numerically from a guess (`solve.ts`), and `tuple(x, y) =
   solve(eq_1, eq_2)` by substitution (`system.ts`); `src/lib/solve.ts` has the
   algebra they use (isolating an unknown, polynomials)
+- `src/lib/engine/modules/vectors/`: the vectors module: a vector is a tuple
+  with a look of its own. `syntax.ts`: `<…>`, `vector(…)`, `:ijk` and `:xyz`;
+  `literals.ts`: reading `<3.0, 4.0> N`; `components.ts`: F_x, F_y from `F:xyz`;
+  `module.ts`: `VectorModule`, how vectors are drawn (⟨…⟩, î ĵ k̂) and dot and
+  cross products
 - `src/components/ErrorBoundary.tsx`: keeps a failure drawing the output from
   blanking the app
 - `src/lib/aiPrompt.ts`: Create's prompt (what can be made, its tickboxes, and the

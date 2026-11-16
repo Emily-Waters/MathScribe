@@ -150,7 +150,42 @@ export interface ReadUnit {
   end: number
 }
 
+/**
+ * How a tuple is shown, if not as a plain one, (3.0, 4.0) m: a look a module
+ * gives it (a vector, ⟨3.0, 4.0⟩ m). The core keeps a tuple's look with it, through
+ * variables and functions, and asks the module to draw it.
+ */
+export type TupleLook = string
+
+/** A look a line's settings give what it assigns, and the warning when what it assigns isn't a tuple. */
+export interface LookSetting {
+  look: TupleLook
+  notATuple: string
+}
+
+/** A variable made from the one a line assigns (F_x from F): its name, value, and which of the tuple's values it is, if one. */
+export interface DerivedVariable {
+  name: string
+  value: unknown
+  component?: number
+}
+
+/** Where a setting on a name is written, besides a line assigning it: on a function's result, or a name being unpacked. */
+export const SETTING_PLACE = { functionResult: 'functionResult', unpacked: 'unpacked' } as const
+export type SettingPlace = (typeof SETTING_PLACE)[keyof typeof SETTING_PLACE]
+
+/** A kind of module: its class, by which another module says it needs it. */
+// (Whatever its constructor takes: a module makes its own state.)
+export type ModuleClass = abstract new (...args: never[]) => EngineModule
+
 export abstract class EngineModule {
+  /**
+   * The modules it builds on (a module that adds to vectors needs VectorModule):
+   * they're installed before it, and a sheet given it without them is an error.
+   * It may import from those modules, and only those (boundaries.test.ts checks).
+   */
+  readonly requires: readonly ModuleClass[] = []
+
   // -------------------------------------------------------------------------
   // Shared
   // -------------------------------------------------------------------------
@@ -183,9 +218,19 @@ export abstract class EngineModule {
     return undefined
   }
 
+  /** An expression's text, rewritten before its unit literals are read (`<3.0, 4.0> N` → vector(3.0, 4.0) * N). */
+  expandSyntax(src: string): string {
+    return src
+  }
+
   /** An expression's text, rewritten before mathjs reads it (unit literals are already read). */
   rewriteExpression(src: string): string {
     return src
+  }
+
+  /** How to write a bracketed list with commas, `(a, b)` (which isn't a value), as this module's: `for a vector, write <a, b>`. */
+  bareTupleHint(_bare: string): string | undefined {
+    return undefined
   }
 
   /** Functions that aren't written in the working, only what's inside them. */
@@ -233,8 +278,57 @@ export abstract class EngineModule {
   /** The kinds of line this module works out itself (a reaction, a table), offered before the core's. */
   readonly lineForms: readonly LineForm[] = []
 
-  /** A call as LaTeX, if it's one of this module's functions; `tex` writes a node. */
-  functionTex(_node: FunctionNode, _tex: (n: MathNode) => string): string | undefined {
+  /**
+   * A call as LaTeX, if it's one of this module's functions (and not the sheet's own of that name); `tex` writes a node.
+   * (Used as written, as mathjs's own would be: a leading space keeps it apart from what's before it, as in a sum.)
+   */
+  functionTex(_node: FunctionNode, _tex: (n: MathNode) => string, _host: ModuleHost): string | undefined {
+    return undefined
+  }
+
+  // Tuples: a module can give a tuple a look of its own (a vector, ⟨3.0, 4.0⟩ N).
+
+  /** Functions that make a tuple of what they're given, which typed as numbers keeps each one's sig figs: `vector(0.50, -9.81)`. */
+  readonly typedTupleFunctions: readonly string[] = []
+
+  /** The look a call to one of this module's functions gives the tuple it makes. */
+  lookOfFunction(_name: string): TupleLook | undefined {
+    return undefined
+  }
+
+  /** The look a function's body gives what it returns, from how it's written (a vector typed in it). */
+  lookOfWritten(_text: string): TupleLook | undefined {
+    return undefined
+  }
+
+  /** The look a tuple made from tuples with these looks has, if this module decides it. */
+  chooseLook(_looks: readonly (TupleLook | undefined)[]): TupleLook | undefined {
+    return undefined
+  }
+
+  /** A tuple as LaTeX in a look of this module's: its values (each as LaTeX), and the unit they share ('' if none). */
+  tupleTex(_values: readonly string[], _sharedUnit: string, _look: TupleLook): string | undefined {
+    return undefined
+  }
+
+  /** The look a line's settings (this module's) give what it assigns: `F:ijk`. */
+  lookSetting(_settings: readonly string[]): LookSetting | undefined {
+    return undefined
+  }
+
+  /**
+   * Variables a line's settings (this module's) make from the value it assigns:
+   * `F:xyz` makes F_x, F_y. Throws an ExplainedError if the value can't have them.
+   */
+  derivedVariables(_name: string, _value: unknown, _settings: readonly string[]): DerivedVariable[] {
+    return []
+  }
+
+  /**
+   * What's wrong with one of this module's settings where it's written (on a function's result, an unpacked name).
+   * (Shared, like lineSettings: settings are read before a Calculator is.)
+   */
+  settingProblem(_name: string, _setting: string, _place: SettingPlace): string | undefined {
     return undefined
   }
 
@@ -259,12 +353,42 @@ export abstract class EngineModule {
 // ---------------------------------------------------------------------------
 
 /** One module of each class, by class, for the shared hooks. */
-const installed = new Map<abstract new () => EngineModule, EngineModule>()
+const installed = new Map<ModuleClass, EngineModule>()
 
-/** Install a module's shared hooks, if one of its class isn't installed already. */
+/** A module's class. */
+const classOf = (module: EngineModule) => module.constructor as ModuleClass
+
+/**
+ * Modules in the order they're installed and their hooks called: each after the
+ * modules it requires. Throws if one it requires isn't among them, or if they
+ * require each other round in a circle.
+ */
+export function inDependencyOrder(modules: readonly EngineModule[]): EngineModule[] {
+  const byClass = new Map(modules.map((m) => [classOf(m), m]))
+  const ordered: EngineModule[] = []
+  const visiting = new Set<EngineModule>()
+  const visit = (m: EngineModule) => {
+    if (ordered.includes(m)) return
+    if (visiting.has(m)) throw new Error(`${classOf(m).name} requires itself, through the modules it requires.`)
+    visiting.add(m)
+    for (const needed of m.requires) {
+      const dependency = byClass.get(needed)
+      if (!dependency) throw new Error(`${classOf(m).name} requires ${needed.name}, which isn't among the modules given.`)
+      visit(dependency)
+    }
+    visiting.delete(m)
+    ordered.push(m)
+  }
+  modules.forEach(visit)
+  return ordered
+}
+
+/** Install a module's shared hooks, if one of its class isn't installed already (the modules it requires must be). */
 export function installModule(module: EngineModule): void {
-  const kind = module.constructor as abstract new () => EngineModule
+  const kind = classOf(module)
   if (installed.has(kind)) return
+  const missing = module.requires.find((needed) => !installed.has(needed))
+  if (missing) throw new Error(`${kind.name} requires ${missing.name}: install it first.`)
   installed.set(kind, module)
   module.install()
   const namespace = module.namespace()
@@ -300,3 +424,10 @@ export const moduleReadableMessage = (message: string) => shared().reduce((s, m)
 export const unitMismatchNotes = () => shared().map((m) => m.unitMismatchNote).filter((n) => n !== undefined)
 
 export const isModuleLineSetting = (setting: string) => shared().some((m) => m.lineSettings.includes(setting))
+
+export const expandModuleSyntax = (src: string) => shared().reduce((text, m) => m.expandSyntax(text), src)
+
+export const bareTupleHints = (bare: string) => shared().map((m) => m.bareTupleHint(bare)).filter((h) => h !== undefined)
+
+export const moduleSettingProblem = (name: string, setting: string, place: SettingPlace) =>
+  shared().map((m) => m.settingProblem(name, setting, place)).find((p) => p !== undefined)

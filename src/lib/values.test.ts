@@ -12,8 +12,9 @@ describe('values', () => {
     expect(valueKind(() => 1)).toBe(VALUE_KIND.callable)
   })
 
-  it('a tuple with a vector style is a vector', () => {
-    expect(new Variable({ value: matrix([3, 4]), sf: 2, vector: 'angle' }).kind).toBe(VALUE_KIND.vector)
+  it('a vector is a tuple, with a look of its own', () => {
+    // (A vector is a tuple with a look: the look is how it's shown, not another kind.)
+    expect(new Variable({ value: matrix([3, 4]), sf: 2, look: 'angle' }).kind).toBe(VALUE_KIND.tuple)
     expect(new Variable({ value: matrix([3, 4]), sf: 2 }).kind).toBe(VALUE_KIND.tuple)
   })
 

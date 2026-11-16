@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import { EngineModule, inDependencyOrder, type ModuleClass } from './core/module.ts'
+import { sheetModules } from './index.ts'
 
 /** Every source file under src/lib, by its path from here (`./core/math.ts`, `../builtins.ts`). */
 const SOURCES = import.meta.glob<string>(['../**/*.ts', '!../**/*.test.ts'], { query: '?raw', import: 'default', eager: true })
@@ -54,5 +56,59 @@ describe('engine boundaries', () => {
   it.each(CORE_FILES)('%s needs no module, at any depth', (path) => {
     const intoModules = [...reachable(path).values()].filter((chain) => chain.at(-1)!.startsWith('./modules/'))
     expect(intoModules.map((chain) => chain.join(' → '))).toEqual([])
+  })
+})
+
+/** A module's folder, from the path of a file in it: `./modules/chemistry/…` → chemistry. */
+const folderOf = (path: string) => /^\.\/modules\/([^/]+)\//.exec(path)?.[1]
+
+/** Each module class's folder, by the class's name (from the file declaring it). */
+const MODULE_FOLDERS = new Map(Object.entries(SOURCES).flatMap(([path, source]) => {
+  const declared = /export class (\w+) extends EngineModule/.exec(source)
+  const folder = folderOf(path)
+  return declared && folder ? [[declared[1], folder] as const] : []
+}))
+
+describe('module dependencies', () => {
+  const modules = sheetModules()
+
+  it('finds every module a sheet has, each in a folder of its own', () => {
+    expect(modules.map((m) => MODULE_FOLDERS.get(m.constructor.name))).not.toContain(undefined)
+    expect(new Set(MODULE_FOLDERS.values()).size).toBe(MODULE_FOLDERS.size)
+  })
+
+  // A module imports from another only if it says it requires it, so the
+  // modules' dependencies are what their `requires` say, and nothing more.
+  it.each(modules.map((m) => [m.constructor.name, m] as const))('%s imports only the modules it requires', (name, module) => {
+    const own = MODULE_FOLDERS.get(name)
+    const allowed = new Set([own, ...module.requires.map((r) => MODULE_FOLDERS.get(r.name))])
+    const files = Object.keys(SOURCES).filter((p) => folderOf(p) === own)
+    const outside = files.flatMap((file) => importsOf(file).filter((p) => folderOf(p) && !allowed.has(folderOf(p))).map((p) => `${file} → ${p}`))
+    expect(outside).toEqual([])
+  })
+
+  it('orders modules after those they require', () => {
+    class Base extends EngineModule {}
+    class Built extends EngineModule {
+      override readonly requires = [Base]
+    }
+    const base = new Base()
+    const built = new Built()
+    expect(inDependencyOrder([built, base])).toEqual([base, built])
+  })
+
+  it('says when a module is missing one it requires, or modules require each other round in a circle', () => {
+    class Base extends EngineModule {}
+    class Built extends EngineModule {
+      override readonly requires = [Base]
+    }
+    expect(() => inDependencyOrder([new Built()])).toThrow('Built requires Base, which isn\'t among the modules given.')
+    class A extends EngineModule {
+      override readonly requires: readonly ModuleClass[] = [B]
+    }
+    class B extends EngineModule {
+      override readonly requires: readonly ModuleClass[] = [A]
+    }
+    expect(() => inDependencyOrder([new A(), new B()])).toThrow('requires itself')
   })
 })

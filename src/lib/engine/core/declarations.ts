@@ -1,15 +1,15 @@
 /** Settings on an assigned name (`m:3:deg`, display names), and names being unpacked. */
 import { type MathType, type Unit } from 'mathjs'
-import { COMPONENTS_SETTING, DECLARED, EXACT_SETTING, LEADING_NAME, NAME_WITH_SETTINGS, NOTATIONS, PERCENT, UNIT_VECTOR_SETTING, EACH_SETTING, LABEL_QUOTE, TEMPLATE_USE, type Notation, type Precision, type VectorStyle } from '../../syntax.ts'
+import { DECLARED, EXACT_SETTING, LEADING_NAME, NAME_WITH_SETTINGS, NOTATIONS, PERCENT, EACH_SETTING, LABEL_QUOTE, TEMPLATE_USE, type Notation, type Precision } from '../../syntax.ts'
 import { UNIT } from '../../mathjsNames.ts'
-import { isModuleLineSetting } from './module.ts'
+import { SETTING_PLACE, isModuleLineSetting, moduleSettingProblem } from './module.ts'
 import { math } from './math.ts'
 import { BRIEF_DIGITS, isValidUnit } from './numbers.ts'
 
 /**
  * Display settings on the name being assigned (`name:3 =`, `name:deg =`,
  * `phi:3:deg =`), each after a `:` and in any order: sig figs (`3`, `exact`),
- * a unit, a notation (`sci`, `dec`), and for a vector `ijk` and `xyz`.
+ * a unit, a notation (`sci`, `dec`), a display name, and modules' own (`F:ijk`).
  */
 export interface Declaration {
   name: string
@@ -20,10 +20,6 @@ export interface Declaration {
   unit?: string
   /** Always scientific (`sci`) or always decimal (`dec`) notation. */
   notation?: Notation
-  /** `F:ijk`: show the vector with unit vectors. */
-  vector?: VectorStyle
-  /** `F:xyz`: also store (and show) each component as a variable, F_x, F_y, F_z. */
-  components?: boolean
   /** `n_Na:"Moles of {Na^+}"`: shown as this instead of its name (as typed: text, {{values}}, {formulas}). */
   label?: string
   /** `m_w:massName(H2O)`: shown as the display name a template makes from these arguments. */
@@ -85,8 +81,9 @@ export function parseTupleName(entry: string): TupleName | { error: string } {
   if (!d) return { name }
   if ('error' in d) return d
   if (d.unit === PERCENT) return { error: `${name}:percent isn't available when unpacking; show it as a percentage on a line of its own.` }
-  if (d.vector || d.components) {
-    return { error: `${name}:${d.vector ?? COMPONENTS_SETTING} is for a vector, but an unpacked name gets a single value.` }
+  for (const setting of d.moduleSettings ?? []) {
+    const problem = moduleSettingProblem(name, setting, SETTING_PLACE.unpacked)
+    if (problem) return { error: problem }
   }
   return { name, sf: d.sf, unit: d.unit, notation: d.notation }
 }
@@ -108,9 +105,7 @@ export function parseDeclaration(line: string): Declaration | { error: string } 
     else if (isNotation(spec)) {
       if (out.notation && out.notation !== spec) return { error: `${m[1]} can't be both :${NOTATIONS[0]} and :${NOTATIONS[1]}.` }
       out.notation = spec
-    } else if (spec === UNIT_VECTOR_SETTING) out.vector = UNIT_VECTOR_SETTING
-    else if (spec === COMPONENTS_SETTING) out.components = true
-    else if (/^\d+$/.test(spec)) {
+    } else if (/^\d+$/.test(spec)) {
       if (Number(spec) === 0) return { error: `${m[1]}:0 isn't valid; use at least 1 sig fig, or :exact.` }
       out.sf = Number(spec)
     } else if (spec === PERCENT || isValidUnit(spec)) out.unit = spec

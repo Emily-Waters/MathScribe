@@ -1,6 +1,5 @@
 /** The engine's own mathjs instance, and the functions it adds to it or replaces. */
 import { all, create, type MathType, type Unit } from 'mathjs'
-import { VECTOR_FUNCTION } from '../../syntax.ts'
 import { FN, OP, UNIT } from '../../mathjsNames.ts'
 import { isLabelUnit } from './module.ts'
 
@@ -29,13 +28,6 @@ math.import({ [FN.literal]: (text: string) => Number(text) })
  * into separate variables (see evaluateUnpack).
  */
 math.import({ [FN.tuple]: (...values: MathType[]) => math.matrix(values as never) })
-
-/**
- * `<3.0, 4.0> N`: a vector. It's a tuple like any other (so everything that
- * works on tuples works on it), but it's shown in angle brackets, ⟨3.0, 4.0⟩ N,
- * or with unit vectors (`F:ijk`). `<…>` is rewritten to `vector(…)` before parsing.
- */
-math.import({ [VECTOR_FUNCTION]: (...values: MathType[]) => math.matrix(values as never) })
 
 /**
  * atan2(y, x) of two lengths (or any matching units), such as a point's

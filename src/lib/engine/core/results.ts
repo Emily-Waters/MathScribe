@@ -1,10 +1,10 @@
 /** What evaluating a line gives back, and how its equation is laid out. */
 import { type MathNode } from 'mathjs'
-import { PERCENT, KEYWORD, DISPLAY_MODE, type DisplayMode, type LineCommand, type Notation, type Precision, type VectorStyle } from '../../syntax.ts'
+import { PERCENT, KEYWORD, DISPLAY_MODE, type DisplayMode, type LineCommand, type Notation, type Precision } from '../../syntax.ts'
 import { FIT, seriesMemberName } from '../../names.ts'
 import { type PlotData } from '../../plot.ts'
 import { math } from './math.ts'
-import { moduleReadableMessage, unitMismatchNotes } from './module.ts'
+import { moduleReadableMessage, unitMismatchNotes, type LookSetting } from './module.ts'
 
 /**
  * The precision setting that tracks significant figures from the measured
@@ -214,8 +214,8 @@ export interface ParsedLine {
   displayUnit?: string
   /** `x:sci = …`, `x:dec = …`: the notation the result (and the variable) is shown in. */
   notation?: Notation
-  /** `F:ijk = …`: show the vector with unit vectors. */
-  vector?: VectorStyle
+  /** The look a line's settings give a tuple it assigns (`F:ijk = …`: see TupleLook). */
+  look?: LookSetting
   /** `n_Na:"Moles of {Na^+}" = …`: its display name, as LaTeX. */
   label?: string
 }

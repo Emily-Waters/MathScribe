@@ -1,7 +1,7 @@
-/** Vectors written `<3.0, 4.0> N`, and tuples. */
-import { NAME_CHAR, VECTOR_FUNCTION } from '../../syntax.ts'
-import { FN } from '../../mathjsNames.ts'
-import { readUnit } from './literals.ts'
+/** Vectors typed `<3.0, 4.0> N`: where one opens and closes, and as mathjs reads it, `vector(3.0, 4.0) * N`. */
+import { FN } from '../../../mathjsNames.ts'
+import { readUnit } from '../../core/literals.ts'
+import { VECTOR_FUNCTION } from './syntax.ts'
 
 /** Characters after which a `<` opens a vector rather than comparing: the start, `=`, `(`, `[`, `,`, an operator. */
 export const VECTOR_OPENS_AFTER = /(?:^|[=([,+\-*/^<]|\breturn)\s*$/
@@ -59,38 +59,6 @@ export function closesVector(src: string, end: number): boolean {
   return false
 }
 
-/** Text ending where a bracket would start a call's arguments: after a name (`f`, `λ`) or a closing bracket. */
-export const CALL_BEFORE = new RegExp(String.raw`(?:${NAME_CHAR}|[)\]])$`)
-
-/** The vector products, written as operators: dot(a, b) → a · b, cross(a, b) → a × b. */
-export const VECTOR_PRODUCTS = { dot: '\\cdot', cross: '\\times' } as const
-
 /** Whether some text has a vector written `<…>` or `vector(…)` in it. */
 export const hasVector = (src: string) =>
   expandVectors(src) !== src || new RegExp(`\\b${VECTOR_FUNCTION}\\s*\\(`).test(src)
-
-/**
- * The first bracketed list with commas, `(a, b)`, that isn't a function call's
- * argument list (it doesn't follow a name or a closing bracket); null if none.
- * It isn't a value: tuples are written tuple(a, b).
- */
-export function bareTuple(src: string): string | null {
-  for (let i = 0; i < src.length; i++) {
-    if (src[i] !== '(') continue
-    const before = src.slice(0, i).trimEnd()
-    if (CALL_BEFORE.test(before)) continue // a call: f(a, b), λ(a, b), solve(…), or (x)(y)
-    let depth = 0
-    let comma = false
-    let j = i
-    for (; j < src.length; j++) {
-      const c = src[j]
-      if (c === '(' || c === '[' || c === '{') depth++
-      else if (c === ')' || c === ']' || c === '}') {
-        depth--
-        if (depth === 0) break
-      } else if (c === ',' && depth === 1) comma = true
-    }
-    if (comma) return src.slice(i, j + 1)
-  }
-  return null
-}

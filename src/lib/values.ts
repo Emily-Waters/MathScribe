@@ -5,8 +5,8 @@
  *   Variable           a name's value, its sig figs, uncertainty, display settings, …
  *   └─ value, one of:
  *      quantity        a number, with or without a unit: 2.0 kg, 0.5, 3.00e8 m/s
- *      tuple           values in order: tuple(1.0, 2.0) m
- *      vector          a tuple shown as a vector: <3.0, 4.0> N
+ *      tuple           values in order: tuple(1.0, 2.0) m (a vector is a tuple
+ *                      with a look of its own: <3.0, 4.0> N)
  *      condition       true or false: x > 2
  *      callable        a function: f(x) = x^2, def g(a)
  *
@@ -14,7 +14,7 @@
  * the same questions; what's particular to a kind is decided from its kind.
  */
 import { isMatrix, isUnit, type MathNode, type Matrix } from 'mathjs'
-import type { Notation, VectorStyle } from './syntax.ts'
+import type { Notation } from './syntax.ts'
 import { SERIES_STAT } from './syntax.ts'
 
 // ---------------------------------------------------------------------------
@@ -25,13 +25,12 @@ import { SERIES_STAT } from './syntax.ts'
 export const VALUE_KIND = {
   quantity: 'quantity',
   tuple: 'tuple',
-  vector: 'vector',
   condition: 'condition',
   callable: 'callable',
 } as const
 export type ValueKind = (typeof VALUE_KIND)[keyof typeof VALUE_KIND]
 
-/** What kind of value something is (a vector is a tuple shown as one: see Variable.kind). */
+/** What kind of value something is (a vector is a tuple with a look: see Variable.look). */
 export function valueKind(value: unknown): ValueKind {
   if (typeof value === 'function') return VALUE_KIND.callable
   if (typeof value === 'boolean') return VALUE_KIND.condition
@@ -79,8 +78,8 @@ export interface VariableFields {
   declared?: boolean
   /** Its declared notation (`x:sci = …`), wherever its value is shown. */
   notation?: Notation
-  /** How it's shown if it holds a vector (⟨…⟩, or with unit vectors). */
-  vector?: VectorStyle
+  /** The look of the tuple it holds, if a module gives it one (a vector: see TupleLook). */
+  look?: string
   /** How to show it in substitutions, if not as its value (`theta = pi/4` as π/4). */
   shown?: string
   /** Its defining expression, for ΔX working. */
@@ -101,7 +100,7 @@ export class Variable implements VariableFields {
   declare readonly uncSf?: number
   declare readonly declared?: boolean
   declare readonly notation?: Notation
-  declare readonly vector?: VectorStyle
+  declare readonly look?: string
   declare readonly shown?: string
   declare readonly def?: MathNode
   declare readonly agg?: Aggregate
@@ -112,10 +111,9 @@ export class Variable implements VariableFields {
     Object.assign(this, fields)
   }
 
-  /** The kind of value it holds: a tuple with a vector style is a vector. */
+  /** The kind of value it holds. (A vector is a tuple with a look: see look.) */
   get kind(): ValueKind {
-    const kind = valueKind(this.value)
-    return kind === VALUE_KIND.tuple && this.vector ? VALUE_KIND.vector : kind
+    return valueKind(this.value)
   }
 
   /** Whether it carries an uncertainty. */

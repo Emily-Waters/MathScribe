@@ -1,6 +1,7 @@
 /** User functions' bodies: statements, branches, and what's kept about a function. */
 import { type Contributions } from '../../values.ts'
-import { type LineCommand, type Notation, type VectorStyle } from '../../syntax.ts'
+import { type LineCommand, type Notation } from '../../syntax.ts'
+import type { TupleLook } from './module.ts'
 import { type Variables } from './scope.ts'
 
 /** Each kind of line in a function's body: `x = …`, `tuple(a, b) = …`, `return …`. */
@@ -63,8 +64,8 @@ export interface UserFunction {
   returnSf?: number
   /** Notation declared for the result (`f(x):sci = …`). */
   returnNotation?: Notation
-  /** How a vector it returns is shown: declared (`f(x):ijk = …`), or ⟨…⟩ if its body writes a vector. */
-  returnVector?: VectorStyle
+  /** The look of a tuple it returns: declared (`f(x):ijk = …`), or from how its body is written (a vector typed in it). */
+  returnLook?: TupleLook
   /** Unit declared for the result (`f(x):mol/L = …`), which every call's result is shown in. */
   returnUnit?: string
 }

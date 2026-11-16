@@ -2,8 +2,8 @@
 import { NAME, NAME_CHAR, NUMBER, KEYWORD } from '../../syntax.ts'
 import { FN, MATHJS_IN } from '../../mathjsNames.ts'
 import { math } from './math.ts'
-import { readAfterUnit, rewriteExpression } from './module.ts'
-import { expandVectors, bareTuple } from './vectors.ts'
+import { bareTupleHints, expandModuleSyntax, readAfterUnit, rewriteExpression } from './module.ts'
+import { bareTuple } from './tuples.ts'
 import { DERIVED_UNITS } from './normalise.ts'
 import { MESSAGE_DIGITS } from './numbers.ts'
 
@@ -148,10 +148,13 @@ export function preprocess(src: string, isVariable: (id: string) => boolean): { 
   const shadowed = new Set<string>()
   const bare = bareTuple(src)
   if (bare) {
-    throw new Error(`A bracketed list with commas, ${bare}, isn't a value: `
-      + `for a vector, write <${bare.slice(1, -1)}>; for other coordinates, tuple${bare}.`)
+    // (A module may have a way to write it: a vector, <a, b>.)
+    const hints = bareTupleHints(bare)
+    const tuple = hints.length ? `for other coordinates, tuple${bare}` : `write tuple${bare}`
+    throw new Error(`A bracketed list with commas, ${bare}, isn't a value: ${[...hints, tuple].join('; ')}.`)
   }
-  src = expandVectors(src)
+  // A module's own syntax, read before unit literals: `<3.0, 4.0> N`.
+  src = expandModuleSyntax(src)
 
   // `... to kN`: the conversion target is always a unit.
   let out = ''

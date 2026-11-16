@@ -1515,7 +1515,10 @@ renamed, change it there too.
   expression read into tokens (numbers, units, names, mathjs's delimiters and
   keywords) and nodes (a quantity, a call, a value in text), by rules: the
   core's, mathjs's grammar where it has one, and a module's
-  (`ModuleGrammar.lexRules`: a vector, a species, a series call's settings), tried first; `stream.ts`: reading one line at a time, in its place (`stepLine`), as the editor does too; `codec.ts`: the tree, built from those steps, with
+  (`ModuleGrammar.lexRules`: a vector, a species, a series call's settings), tried first;
+  `shapes.ts`: what a line assigns to, before its `=`, as a node (a name with
+  its settings, a one-line function's head, names to unpack into), read the
+  same way by the engine and the editor (`lineShape`); `stream.ts`: reading one line at a time, in its place (`stepLine`), as the editor does too; `codec.ts`: the tree, built from those steps, with
   blocks as nodes holding their lines; `check.ts`: checking a tree from elsewhere;
   `schema.ts`: everything declared, listed (`introspect`) and as a JSON Schema
   (`jsonSchema`), published at `public/schema/mathscribe-1.schema.json`; `migrations.ts`: the

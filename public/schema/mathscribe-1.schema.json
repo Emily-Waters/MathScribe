@@ -113,6 +113,15 @@
           "$ref": "#/$defs/node.value"
         },
         {
+          "$ref": "#/$defs/node.assigned"
+        },
+        {
+          "$ref": "#/$defs/node.functionHead"
+        },
+        {
+          "$ref": "#/$defs/node.unpack"
+        },
+        {
           "$ref": "#/$defs/node.vector"
         },
         {
@@ -963,6 +972,87 @@
       "properties": {
         "kind": {
           "const": "value"
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/token"
+              },
+              {
+                "$ref": "#/$defs/node"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "node.assigned": {
+      "description": "The name a line assigns, with its settings, before its =: v:3:km/h (core)",
+      "type": "object",
+      "required": [
+        "kind",
+        "parts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "assigned"
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/token"
+              },
+              {
+                "$ref": "#/$defs/node"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "node.functionHead": {
+      "description": "A one-line function’s head, with settings for what it gives back, before its =: f(x, y):3 (core)",
+      "type": "object",
+      "required": [
+        "kind",
+        "parts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "functionHead"
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/token"
+              },
+              {
+                "$ref": "#/$defs/node"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "node.unpack": {
+      "description": "The names a tuple is unpacked into, each with its settings, before its =: @tuple(r:3, theta:deg) (core)",
+      "type": "object",
+      "required": [
+        "kind",
+        "parts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "unpack"
         },
         "parts": {
           "type": "array",

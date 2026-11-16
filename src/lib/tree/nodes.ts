@@ -158,6 +158,14 @@ export const NODE_KIND = {
   call: 'call',
   /** A value in text, `{{V:4 to mL}}`: its braces, and the expression between them. */
   value: 'value',
+
+  // What a line assigns to, before its `=` (lexer.ts: lexLine).
+  /** A name, with its settings: `v:3:km/h`, `n_Na:"Moles of {Na^+}"`. */
+  assigned: 'assigned',
+  /** A one-line function's head, with settings for what it gives back: `f(x, y):3`. */
+  functionHead: 'functionHead',
+  /** The names a tuple is unpacked into, each with its settings: `@tuple(r:3, theta:deg)`. */
+  unpack: 'unpack',
 } as const
 
 /** The core's contexts: what a line can be inside, which decides how it's read. */

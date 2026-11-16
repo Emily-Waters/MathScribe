@@ -16,7 +16,13 @@ import { LineForm, type FormLine, type ModuleHost } from '../../core/module.ts'
 import { parseTupleName, type TupleName } from '../../core/declarations.ts'
 import type { LineResult, TraceLine } from '../../core/results.ts'
 import { symbolTex } from '../../core/tex.ts'
-import { SOLVE_SYSTEM } from './syntax.ts'
+import { SOLVE_FUNCTION } from './syntax.ts'
+import { SIGIL } from '../../../syntax.ts'
+import { NODE_KIND } from '../../../tree/nodes.ts'
+import { lineShape, soleCall } from '../../../tree/shapes.ts'
+
+/** `@solve`, as typed. */
+const SOLVE_BUILTIN = `${SIGIL}${SOLVE_FUNCTION}`
 
 /** An equation, its two sides parsed. */
 interface Equation {
@@ -26,15 +32,17 @@ interface Equation {
 
 export class SolveSystemForm extends LineForm {
   evaluate(line: FormLine, host: ModuleHost): LineResult | undefined {
-    const system = SOLVE_SYSTEM.exec(line.text)
-    if (!system) return undefined
-    return solveSystem(system[1], system[2], line, host)
+    // `@tuple(v_1, v_2) = @solve(…)`: names to unpack into, and a call to @solve and nothing else (tree/shapes.ts).
+    const shape = lineShape(line.text)
+    const call = soleCall(shape.valueParts)
+    if (shape.target?.kind !== NODE_KIND.unpack || call?.callee !== SOLVE_BUILTIN) return undefined
+    return solveSystem(shape.target.entries!, call.args, line, host)
   }
 }
 
-function solveSystem(namesText: string, equationsText: string, line: FormLine, host: ModuleHost): LineResult {
+function solveSystem(entries: readonly string[], equationsText: string, line: FormLine, host: ModuleHost): LineResult {
   const fail = (error: string, tex = '') => ({ tex, error })
-  const parsed = namesText.split(',').map((n) => n.trim()).map(parseTupleName)
+  const parsed = entries.map(parseTupleName)
   const bad = parsed.find((p) => 'error' in p)
   if (bad && 'error' in bad) return fail(bad.error)
   const targets = parsed as TupleName[]

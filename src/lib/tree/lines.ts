@@ -14,6 +14,7 @@ import { splitNote, type SplitLine } from '../reading/lineSyntax.ts'
 import { CONTENT, contextInfo, syntaxesIn, type Body, type Content } from './grammar.ts'
 import { HEADING_MARKS } from './core.ts'
 import { lexExpression, node } from './lexer.ts'
+import { lexLine } from './shapes.ts'
 import { NODE_KIND, TOKEN_KIND, type Part, type SyntaxNode, type Token } from './nodes.ts'
 
 /** A line, and what ends it: `\n`, `\r\n`, `\r`, or '' (the last line, if the text doesn't end with one). */
@@ -60,7 +61,7 @@ function spaced(t: string, text: string, into: Part[], asExpression = false): vo
   const middle = text.slice(lead.length, text.length - trail.length)
   if (lead) into.push(token(TOKEN_KIND.space, lead))
   if (middle) {
-    if (asExpression && t === TOKEN_KIND.body) into.push(...lexExpression(middle))
+    if (asExpression && t === TOKEN_KIND.body) into.push(...lexLine(middle))
     else into.push(token(t, middle))
   }
   if (trail) into.push(token(TOKEN_KIND.space, trail))

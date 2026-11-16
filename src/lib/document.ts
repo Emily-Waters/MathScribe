@@ -1,6 +1,8 @@
 import { type CalcOptions, moduleSubscriptTex, unexpectedError } from './engine/index.ts'
 import type { VariableSummary } from './values.ts'
-import { ASSIGNMENT, DEF_HEAD, FUNCTION_HEAD, LEADING_NAME, LINE_COMMAND, NAME_WITH_SETTINGS, UNPACK_HEAD, TEXT_SUBSCRIPT, subscriptOf, unescapeUnderscores } from './syntax.ts'
+import { DEF_HEAD, LEADING_NAME, LINE_COMMAND, TEXT_SUBSCRIPT, subscriptOf, unescapeUnderscores } from './syntax.ts'
+import { NODE_KIND } from './tree/nodes.ts'
+import { assignedOf, lineShape } from './tree/shapes.ts'
 import { formulaTex } from './engine/modules/chemistry/chemistry.ts'
 import { BLOCK_KIND, isContainer, type Block } from './blocks.ts'
 import { SheetReader, type Sheet } from './reading/sheetReader.ts'
@@ -150,8 +152,8 @@ export function collectDefinitions(blocks: Block[]): Map<string, number[]> {
   const visit = (b: Block) => {
     if (b.kind === BLOCK_KIND.function) put(b.name, b.line)
     else if (b.kind === BLOCK_KIND.calc) {
-      const m = FUNCTION_HEAD.exec(b.source)
-      if (m) put(m[1], b.line)
+      const { target } = lineShape(b.source)
+      if (target?.kind === NODE_KIND.functionHead) put(target.name, b.line)
     } else if (isContainer(b)) b.children.forEach(visit)
   }
   blocks.forEach(visit)
@@ -217,21 +219,21 @@ export function collectSymbols(sheet: Sheet, source: string): SheetSymbol[] {
     for (const b of blocks) {
       switch (b.kind) {
         case BLOCK_KIND.calc: {
+          // What the line assigns to, read from its tokens (tree/shapes.ts).
+          const { target } = lineShape(b.source)
           // `@tuple(a, b) = …`: each name is a variable.
-          const unpack = UNPACK_HEAD.exec(b.source)
-          if (unpack) {
-            for (const entry of unpack[1].split(',').map((n) => n.trim())) {
+          if (target?.kind === NODE_KIND.unpack) {
+            for (const entry of target.entries ?? []) {
               // The name without its display settings (`theta:deg` → theta).
-              const name = NAME_WITH_SETTINGS.exec(entry)?.[1]
+              const name = assignedOf(entry)?.name
               if (name) out.push(variable(name, b.line, b.line + 1, to, scope))
             }
             break
           }
-          const def = FUNCTION_HEAD.exec(b.source)
-          if (def) {
+          if (target?.kind === NODE_KIND.functionHead) {
             out.push({
-              name: def[1], kind: SYMBOL_KIND.function, line: b.line, from: b.line, to,
-              tex: b.tex.split(' = ')[0], params: def[2].trim(),
+              name: target.name, kind: SYMBOL_KIND.function, line: b.line, from: b.line, to,
+              tex: b.tex.split(' = ')[0], params: (target.entries ?? []).filter(Boolean).join(', '),
             })
             break
           }
@@ -240,8 +242,7 @@ export function collectSymbols(sheet: Sheet, source: string): SheetSymbol[] {
             for (const d of b.defines ?? []) out.push(variable(d.name, b.line, b.line + 1, to, scope, d.members))
             break
           }
-          const assign = ASSIGNMENT.exec(b.source)
-          if (assign) out.push(variable(assign[1], b.line, b.line + 1, to, scope))
+          if (target?.kind === NODE_KIND.assigned) out.push(variable(target.name, b.line, b.line + 1, to, scope))
           break
         }
         case BLOCK_KIND.function: {
@@ -256,7 +257,8 @@ export function collectSymbols(sheet: Sheet, source: string): SheetSymbol[] {
         }
         case BLOCK_KIND.constants:
           for (const e of b.entries) {
-            const name = ASSIGNMENT.exec(e.source)?.[1]
+            const { target } = lineShape(e.source)
+            const name = target?.kind === NODE_KIND.assigned ? target.name : undefined
             if (name) out.push({ name: `@${name}`, kind: SYMBOL_KIND.constant, line: e.line, from: 1, to: lines.length, tex: e.tex })
           }
           break

@@ -76,7 +76,9 @@ what's here better.
       follows from it: `H2SO4.m` (its mass), `H2SO4.H.n`, `H2SO4.H.m` (each
       element's amount and mass in that much of it). Decided: any of its values
       can be set (n, m, an element's n or m, …) and the rest follow. Open:
-      whether two can be set at once (only if they agree?); how it
+      whether two can be set at once (only if they agree?). Decided: the
+      working shows how a member was worked out, by default
+      (`H2SO4.H.m = 2 × H2SO4.n × M_H = …`), back to what was set. Open: how it
       shows in the working (which member came from which); and how it sits with
       `{X}` species units and reactions' members (`r.H2O`), which this could
       grow from.
@@ -316,6 +318,24 @@ edit reads again only what it changed, and nodes are shared between trees.
       tokens (`typedNumbers`, writer.ts), not a search of its text, which also
       picked up digits in units (`m/s^2`), formulas (`{Ca^2+}`) and labels, and
       could take `2` as typed `2` where the line says `2.00`.
+      Progress (5c, line shapes): what a line assigns to, before its `=`, is a
+      node in the tree (`tree/shapes.ts`): `assigned` (a name with its
+      settings, `v:3:km/h`), `functionHead` (`f(x, y):3`) or `unpack`
+      (`@tuple(r:3, theta)`). The engine reads a line's shape from the same
+      function on its text (`lineShape`), so the reader and the Calculator
+      didn't need to change how lines are passed. The Calculator, a function's
+      body lines, `@constants`, the solve module's systems, the editor's symbols
+      and go-to-definition, and the editor's colouring of a one-line function's
+      name read it, in place of ten patterns (`ASSIGNMENT`, `FUNCTION_HEAD`,
+      `UNPACK`, `DECLARED`, …, now gone). Checked side by side with the old
+      patterns over every test and edge case: they differed only on malformed
+      lines (`x::: = 3`, `x:"open = 3`), which the shape now leaves alone as the
+      patterns did. Expressions read are kept by their text (the lexer's cache),
+      so reading a line more than once costs nothing more.
+      Left: `if` / `else` / `return` lines in a function's body, and `def` lines,
+      are still read by patterns (and the editor folds branches by indentation);
+      intellisense reads half-typed settings by pattern (a line being typed
+      has no `=` yet).
 
 ## Done
 

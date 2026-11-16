@@ -78,6 +78,9 @@ declareNodeKinds(CORE_OWNER, {
   [NODE_KIND.quantity]: 'A number (or a module’s value, a vector) with its unit: 5.00 g',
   [NODE_KIND.call]: 'A call: what’s called, and its arguments in brackets, f(x), @chem.mm({H2O})',
   [NODE_KIND.value]: 'A value in text: its braces, and the expression between them, {{V:4 to mL}}',
+  [NODE_KIND.assigned]: 'The name a line assigns, with its settings, before its =: v:3:km/h',
+  [NODE_KIND.functionHead]: 'A one-line function’s head, with settings for what it gives back, before its =: f(x, y):3',
+  [NODE_KIND.unpack]: 'The names a tuple is unpacked into, each with its settings, before its =: @tuple(r:3, theta:deg)',
 } satisfies Record<(typeof NODE_KIND)[keyof typeof NODE_KIND], string>)
 declareTokenKinds(CORE_OWNER, {
   [TOKEN_KIND.indent]: 'The spaces and tabs a line starts with',

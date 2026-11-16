@@ -11,6 +11,7 @@ import type { Unit } from 'mathjs'
 import { GREEK_CHARS } from '../../../syntax.ts'
 import { NODE_KIND, TOKEN_KIND, isToken, type Part } from '../../../tree/nodes.ts'
 import { textOf } from '../../../tree/codec.ts'
+import { ROUND_BRACKETS } from '../../../tree/lexer.ts'
 import { math } from '../../core/math.ts'
 import {
   isConversionUnit, isTokenOf, partBefore, quantitySource, unitCallSource, unitSource, type PartWriter,
@@ -36,8 +37,8 @@ const isValue = (part: Part) =>
   !isToken(part) || part.t === TOKEN_KIND.symbol || part.t === TOKEN_KIND.number || part.t === TOKEN_KIND.builtin
   || isTokenOf(part, TOKEN_KIND.delimiter, CLOSE)
 
-const OPEN = '('
-const CLOSE = ')'
+const OPEN = ROUND_BRACKETS.open
+const CLOSE = ROUND_BRACKETS.close
 
 /** Where the value ending at `last` starts: back to its bracket, and over what runs on into it (`r.H2O`, `2(x)`); -1 if it isn't one. */
 function valueStart(parts: readonly Part[], last: number): number {

@@ -8,7 +8,7 @@ import { EXACT, MAX_DIGITS, countSigFigs, formatExact, formatSigFigs, formatWith
 import { AGGREGATE_KIND, Variable, type Aggregate, type Contributions, type VariableFields, type VariableSummary } from '../../values.ts'
 import { DEFAULT_CONSTANT_SIG_FIGS, isNamespaceConstant, suggestConstant } from '../../constants.ts'
 import { builtinConstant, builtinConstantKeys, isReservedConstantName } from '../../builtins.ts'
-import { ASSIGNMENT, ASSIGNMENT_WITH_VALUE, CONSTANT_REF, EXACT_SETTING, IS_NAME, LEADING_NAME, ONE_LINE_FUNCTION, PERCENT, ELSE_IF_LINE, ELSE_LINE, IF_LINE, KEYWORD, RETURN_LINE, UNPACK, DISPLAY_MODE, LINE_COMMAND, VALUE_IN_TEXT, CONSTANTS_BLOCK, LABEL_TEMPLATE, SIGIL, type DisplayMode, type Notation, type Precision, type UncertaintyWord } from '../../syntax.ts'
+import { CONSTANT_REF, EXACT_SETTING, IS_NAME, PERCENT, ELSE_IF_LINE, ELSE_LINE, IF_LINE, KEYWORD, RETURN_LINE, DISPLAY_MODE, LINE_COMMAND, VALUE_IN_TEXT, CONSTANTS_BLOCK, LABEL_WORDS, SIGIL, type DisplayMode, type Notation, type Precision, type UncertaintyWord } from '../../syntax.ts'
 import { INLINE_VALUE_NAME, JOIN, TUPLE_FUNCTION, RESERVED_NAMESPACES, constantKey, constantRefName, expandDots, typedConstant, isHiddenName, isUncertaintyName, memberName, parseNumberedName, parseUncertaintyName, readableMembers, seriesMemberName, uncertaintyName, unpackedName } from '../../names.ts'
 import { COMPARISONS, FN, OP, OP_SYMBOL, UNIT, isOp } from '../../mathjsNames.ts'
 
@@ -26,10 +26,12 @@ import { NAME_THEN_SETTINGS, DELTA_REF, expandParenPm, splitPm } from './uncerta
 import { parseAggregateName, escapeRegExp } from './series.ts'
 import { symbolTex, numberTex, unitTex, attachUnit, isUnitCall, unitCallText, isLitCall } from './tex.ts'
 import { unwrap, isLiteral, isTupleLiteral, isPureNumber, isConversion } from './nodes.ts'
+import { NODE_KIND } from '../../tree/nodes.ts'
+import { ASSIGN, SETTING_MARK, lineShape } from '../../tree/shapes.ts'
 import { normalise, displayUnit, magnitudeOf } from './normalise.ts'
 import { Scope, Views, type Variables, Values, innerValues } from './scope.ts'
 import { STATEMENT_KIND, type Guarded, BranchRun, holds, type UserFunction, type CustomConstant, MAX_TRACE_DEPTH } from './functions.ts'
-import { isAngleUnit, toDisplayUnit, type TupleName, parseTupleName, parseDeclaration } from './declarations.ts'
+import { isAngleUnit, toDisplayUnit, type TupleName, parseTupleName, parseDeclaration, declarationOf } from './declarations.ts'
 import { withRows } from './rows.ts'
 import { bracketed } from './tuples.ts'
 import { EXACT_DISPLAY_DIGITS, FIXED_FORMAT, FLOAT_NOISE, TINY, PERCENT_SCALE, parseParam, isValidUnit, castArgument } from './numbers.ts'
@@ -1051,17 +1053,16 @@ export class Calculator {
    * where each argument goes, used as a setting on a name, `m_w:massName(H2O) = …`.
    * Its line shows the words with each parameter in its place.
    */
-  private defineTemplate(name: string, paramList: string, words: string): LineResult {
-    const params = paramList.split(',').map((p) => p.trim()).filter(Boolean)
+  private defineTemplate(name: string, params: readonly string[], words: string): LineResult {
     const bad = params.find((p) => !IS_NAME.test(p))
     if (bad !== undefined) return { tex: '', error: `"${bad}" isn't a parameter name: write ${name}(x, y) = "…{{x}}…".` }
-    this.labelTemplates.set(name, { params, words })
+    this.labelTemplates.set(name, { params: [...params], words })
     const shown = this.labelTex(this.fillWords(words, params, params))
     return { tex: `${symbolTex(name)}\\left(${params.map(symbolTex).join(', ')}\\right) = ${shown.tex}`, error: shown.error }
   }
 
   /** A template's words with each `{{parameter}}` as its argument's text (other `{{…}}`, values, are left for the display name). */
-  private fillWords(words: string, params: string[], args: string[]): string {
+  private fillWords(words: string, params: readonly string[], args: readonly string[]): string {
     return words.replace(VALUE_IN_TEXT, (whole, inside: string) => {
       const at = params.indexOf(inside.trim())
       return at < 0 ? whole : args[at]
@@ -1086,7 +1087,8 @@ export class Calculator {
   }
 
   defineConstant(input: string): CalcResult {
-    const name = ASSIGNMENT.exec(input)?.[1]
+    const { target } = lineShape(input)
+    const name = target?.kind === NODE_KIND.assigned ? target.name : undefined
     if (!name) return { tex: '', error: `Inside ${SIGIL}${CONSTANTS_BLOCK}, each line is "name = value".` }
     if (isReservedConstantName(name)) {
       return { tex: '', error: `${SIGIL}${name} is built in (a namespace, or the constants block), so a constant can't be called ${name}.` }
@@ -1303,12 +1305,11 @@ export class Calculator {
       if (chains.at(-1)?.indent === indent) chains.pop()
 
       const ret = RETURN_LINE.exec(text)
-      // `x = …`, or with display settings: `x:3 = …`, `theta:deg = …`.
-      const assign = ASSIGNMENT_WITH_VALUE.exec(text)
-      // `@tuple(a, b) = …` unpacks a tuple (checked first: it also looks like an assignment).
-      const unpack = UNPACK.exec(text)
-      const unpackNames = unpack?.[1].split(',').map((n) => n.trim())
-      const source = ret?.[1] ?? unpack?.[2] ?? assign?.[2]
+      // `x = …`, or with display settings: `x:3 = …`, `theta:deg = …`; or `@tuple(a, b) = …`, which unpacks a tuple.
+      const shape = lineShape(text)
+      const assigned = shape.target?.kind === NODE_KIND.assigned && shape.value ? shape.target : undefined
+      const unpackNames = shape.target?.kind === NODE_KIND.unpack && shape.value ? shape.target.entries : undefined
+      const source = ret?.[1] ?? ((assigned || unpackNames) ? shape.value : undefined)
       if (!source) {
         return { signature, body, error: `Line ${line}: inside a function, each line is "name = …", "@tuple(a, b) = …", "return …", or an if / else with lines indented under it.` }
       }
@@ -1337,10 +1338,10 @@ export class Calculator {
           const declared = parseDeclaration(text)
           const unit = declared && !('error' in declared) && declared.unit !== PERCENT ? declared.unit : undefined
           const settings = declared && !('error' in declared) ? declared.moduleSettings : undefined
-          statements.push({ kind: STATEMENT_KIND.assign, name: assign![1], code, unit, settings, guards })
+          statements.push({ kind: STATEMENT_KIND.assign, name: assigned!.name, code, unit, settings, guards })
           // Keep the line as written, so a declared `x:3 =` applies when its working is shown.
           sources.push({ kind: STATEMENT_KIND.assign, text, note, command, multiline: lineMultiline, guards })
-          body.push({ tex: `${inset}${symbolTex(assign![1])} = ${this.toTex(node, literals)}`, note, line })
+          body.push({ tex: `${inset}${symbolTex(assigned!.name)} = ${this.toTex(node, literals)}`, note, line })
         }
       } catch (e) {
         return { signature, body, error: `Line ${line}: ${(e as Error).message}` }
@@ -1513,8 +1514,8 @@ export class Calculator {
         if (!hidden) lines.push({ tex: r.tex, note: s.note })
         if (r.error) break
         // A parameter reassigned in the body is now its own value, not the argument.
-        const assigned = LEADING_NAME.exec(s.text)?.[0]
-        if (assigned) aliases.delete(assigned)
+        const { target } = lineShape(s.text)
+        if (target?.kind === NODE_KIND.assigned) aliases.delete(target.name)
       }
       return { lines, ret: undefined, retNote: undefined, retCommand: undefined, retSf: undefined }
     } finally {
@@ -1589,8 +1590,7 @@ export class Calculator {
    * `@tuple(a, b, c) = expr`: work out the tuple on the right (shown as
    * (a, b, c) = …), then store each of its values as a variable of its own.
    */
-  private evaluateUnpack(namesText: string, rhs: string, mode: DisplayMode, explicit: boolean): LineResult {
-    const entries = namesText.split(',').map((n) => n.trim())
+  private evaluateUnpack(entries: readonly string[], rhs: string, mode: DisplayMode, explicit: boolean): LineResult {
     const parsed = entries.map(parseTupleName)
     const lhs = `\\left(${entries.map((n, i) => {
       const p = parsed[i]
@@ -1677,21 +1677,23 @@ export class Calculator {
     const form = this.byForm(LINE_STAGE.members, input, requestedMode, explicit)
     if (form) return form
 
-    // `@tuple(a, b, c) = …` unpacks a tuple. (Before one-line functions: it looks like one.)
-    const unpack = UNPACK.exec(input.trim())
-    if (unpack) return this.evaluateUnpack(unpack[1], unpack[2], requestedMode, explicit)
+    // What the line assigns to, read from its tokens (tree/shapes.ts): a name, a function's head, or names to unpack into.
+    const shape = lineShape(input.trim())
+    const { target } = shape
 
-    // `massName(x) = "m_{{x}}"`: a display-name template. (Before one-line functions: it looks like one.)
-    const template = LABEL_TEMPLATE.exec(input.trim())
-    if (template) return this.defineTemplate(template[1], template[2], template[3])
+    // `@tuple(a, b, c) = …` unpacks a tuple.
+    if (target?.kind === NODE_KIND.unpack && shape.value) return this.evaluateUnpack(target.entries!, shape.value, requestedMode, explicit)
 
-    // `f(x, y) = …` is a one-line function, the same as a `def` whose body is just the return.
-    const oneLiner = ONE_LINE_FUNCTION.exec(input.trim())
-    const params = oneLiner?.[2].split(',').map((p) => p.trim()).filter(Boolean)
-    // (Bad parameters, like `g(x y)`, get defineFunction's error rather than mathjs's.)
-    if (oneLiner) {
+    if (target?.kind === NODE_KIND.functionHead && shape.value) {
+      // (Bad parameters, like `g(x y)`, get defineFunction's error rather than mathjs's.)
+      const params = target.entries!.filter(Boolean)
+      // `massName(x) = "m_{{x}}"`: a display-name template, words in quotes.
+      const words = target.settings.length ? undefined : LABEL_WORDS.exec(shape.value)?.[1]
+      if (words !== undefined) return this.defineTemplate(target.name, params, words)
+      // `f(x, y) = …` is a one-line function, the same as a `def` whose body is just the return;
       // `f(x):3:deg = …`: settings for what the function gives back.
-      const result = this.defineFunction(oneLiner[1], params!, [{ line: 0, text: `${KEYWORD.return} ${oneLiner[4]}` }], this.multiline, oneLiner[3])
+      const settings = target.settings.map((s) => `${SETTING_MARK}${s}`).join('')
+      const result = this.defineFunction(target.name, params, [{ line: 0, text: `${KEYWORD.return} ${shape.value}` }], this.multiline, settings)
       return {
         tex: result.body[0]?.tex ?? result.signature,
         error: result.error?.replace(/^Line 0: /, ''),
@@ -1699,7 +1701,7 @@ export class Calculator {
     }
 
     // `m:3 = …`, `phi:3:deg = …` set how what's assigned is shown; take them off the name.
-    const declaration = parseDeclaration(input.trim())
+    const declaration = target?.kind === NODE_KIND.assigned && target.settings.length ? declarationOf(target.name, target.settings) : null
     if (declaration && 'error' in declaration) return { tex: '', error: declaration.error }
     // Settings that are a module's: `m:formula = …`, how the named species on this line are shown.
     for (const m of this.modules) m.useLineSettings(declaration?.moduleSettings ?? [])
@@ -1712,14 +1714,15 @@ export class Calculator {
     if (label?.error) return { tex: '', error: label.error }
     const declaredSf = declaration?.sf
     const displayUnit = declaration?.unit === PERCENT ? undefined : declaration?.unit
-    if (declaration) input = `${declaration.name} =${input.trim().slice(declaration.length)}`
+    if (declaration) input = `${declaration.name} ${ASSIGN} ${shape.value}`
 
     // `delta F =` asks for F's uncertainty; a trailing = is just a prompt.
     const constants = this.expandConstants(input.replace(/=\s*$/, '').trim())
     if (constants.error) return { tex: '', error: constants.error }
     const cleaned = constants.text
-    const target = ASSIGNMENT.exec(cleaned)?.[1]
-    const aggregateError = this.defineAggregates(cleaned, target)
+    const cleanedShape = lineShape(cleaned)
+    const assignedName = cleanedShape.target?.kind === NODE_KIND.assigned ? cleanedShape.target.name : undefined
+    const aggregateError = this.defineAggregates(cleaned, assignedName)
     if (aggregateError) return { tex: '', error: aggregateError }
     // `… to percent` isn't a mathjs unit: take it off and show the result as a percentage.
     const asPercent = TO_PERCENT.test(cleaned) || declaration?.unit === PERCENT
@@ -1738,7 +1741,8 @@ export class Calculator {
     if (stray) return { tex: '', error: stray }
 
     // Separate `value pm uncertainty` on the right-hand side.
-    const lhs = ASSIGNMENT.exec(line)?.[0] ?? ''
+    const lineHead = lineShape(line)
+    const lhs = lineHead.target?.kind === NODE_KIND.assigned ? lineHead.head : ''
     const pm = splitPm(line.slice(lhs.length))
     const percent = !!pm?.[1].endsWith('%')
 
@@ -2175,3 +2179,4 @@ export class Calculator {
     return [...own, ...looked]
   }
 }
+

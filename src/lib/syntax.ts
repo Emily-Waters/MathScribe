@@ -30,17 +30,12 @@ const SETTING_VALUE = String.raw`"[^"]*"|${NAME}\([^()]*\)|[^:=\s"]+`
 /** One display setting after a name, with its colon: `:3`, `:deg`, `:"Moles"`, `:massName(H2O)`. */
 export const SETTING = String.raw`:(?:${SETTING_VALUE})`
 
-/** Each setting in a run of them (1: the setting, without its colon). */
-export const EACH_SETTING = new RegExp(String.raw`:(${SETTING_VALUE})`, 'g')
-
 /** Around a display name: `n_Na:"Moles of {Na^+}"`. */
 export const LABEL_QUOTE = '"'
 
 /** Any number of settings: `:3:deg`, or none. */
 export const SETTINGS = `(?:${SETTING})*`
 
-/** An `=` that assigns (not `==`), with any space before it. */
-const ASSIGNS = String.raw`\s*=(?!=)`
 
 /** A bracketed parameter or argument list, without nested brackets (capturing what's inside). */
 const PARAMETERS = String.raw`\(([^()]*)\)`
@@ -83,18 +78,6 @@ export const IS_NAME = new RegExp(`^${NAME}$`)
 
 /** The name at the start of some text. */
 export const LEADING_NAME = new RegExp(`^${NAME}`)
-
-/** A name with any settings, and nothing else: `theta:3:deg` (1: the name). */
-export const NAME_WITH_SETTINGS = new RegExp(`^(${NAME})${SETTINGS}$`)
-
-/** The start of an assignment: `x =`, `x:3:deg =` (1: the name). */
-export const ASSIGNMENT = new RegExp(`^(${NAME})${SETTINGS}${ASSIGNS}`)
-
-/** A whole assignment (1: the name, 2: the right-hand side). */
-export const ASSIGNMENT_WITH_VALUE = new RegExp(`${ASSIGNMENT.source}\\s*(.+)$`)
-
-/** An assignment whose name has at least one setting (1: the name, 2: the settings, colons included). */
-export const DECLARED = new RegExp(`^(${NAME})((?:${SETTING})+)${ASSIGNS}`)
 
 // ---------------------------------------------------------------------------
 // The sheet's own words
@@ -145,21 +128,15 @@ export const NAMED = String.raw`(?:(${NAME})\s*=\s*)`
 // Functions
 // ---------------------------------------------------------------------------
 
-/** The start of a one-line function: `f(x, y):3 =` (1: name, 2: parameters, 3: settings). */
-export const FUNCTION_HEAD = new RegExp(`^(${NAME})\\s*${PARAMETERS}(${SETTINGS})${ASSIGNS}`)
-
 /**
- * A display-name template: a one-line function whose body is words in quotes,
- * with `{{x}}` where each argument's text goes: `massName(x) = "m_{{x}}"`
- * (1: name, 2: parameters, 3: the words).
+ * A display-name template's words: a one-line function whose body is words in
+ * quotes, with `{{x}}` where each argument's text goes: `massName(x) = "m_{{x}}"`
+ * (1: the words).
  */
-export const LABEL_TEMPLATE = new RegExp(String.raw`^(${NAME})\s*${PARAMETERS}${ASSIGNS}\s*${LABEL_QUOTE}([^"]*)${LABEL_QUOTE}\s*$`)
+export const LABEL_WORDS = new RegExp(String.raw`^${LABEL_QUOTE}([^"]*)${LABEL_QUOTE}$`)
 
 /** A display name made with a template, as a setting: `massName(H2O)` (1: the template, 2: its arguments). */
 export const TEMPLATE_USE = new RegExp(String.raw`^(${NAME})${PARAMETERS}$`)
-
-/** A whole one-line function: `f(x) = x^2` (1–3 as FUNCTION_HEAD, 4: the body). */
-export const ONE_LINE_FUNCTION = new RegExp(`${FUNCTION_HEAD.source}\\s*(.+)$`)
 
 /**
  * A `def` line: `def f(a, b)`, `def f(a, b):3:deg`, optionally with a trailing
@@ -189,15 +166,6 @@ export const ELSE_LINE = new RegExp(String.raw`^${KEYWORD.else}\s*:?$`)
 
 /** A line that starts a branch (for the editor: the next line is indented). */
 export const BRANCH_START = new RegExp(String.raw`^(?:${KEYWORD.if}|${KEYWORD.else})(?:\s|:|$)`)
-
-/** The names being given values by unpacking a tuple, up to its `=`: `@tuple(a, b:3) =` (1: the names). */
-export const UNPACK_TARGETS = String.raw`${SIGIL}${CALL.tuple}\s*${PARAMETERS}${ASSIGNS}`
-
-/** Unpacking a tuple: `@tuple(a, b:3) = …` (1: the names, 2: the right-hand side). */
-export const UNPACK = new RegExp(String.raw`^${UNPACK_TARGETS}\s*(.+)$`)
-
-/** The start of an unpacking, up to the `=` (1: the names). */
-export const UNPACK_HEAD = new RegExp(String.raw`^${UNPACK_TARGETS}`)
 
 /** An unpacking being typed, before its `=`: `@tuple(a, b` (for the editor). */
 export const UNPACK_SO_FAR = new RegExp(String.raw`^\s*${builtinOpening(CALL.tuple)}[^()=]*$`)

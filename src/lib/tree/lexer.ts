@@ -36,8 +36,9 @@ export const MATHJS_NAMED_DELIMITERS = ['mod', 'to', 'in', 'and', 'xor', 'or', '
 const NUMBER = /(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?/y
 
 /** Brackets that open and close (a call's, a group's). */
-const OPEN = '('
-const CLOSE = ')'
+export const ROUND_BRACKETS = { open: '(', close: ')' } as const
+const OPEN = ROUND_BRACKETS.open
+const CLOSE = ROUND_BRACKETS.close
 
 // ---------------------------------------------------------------------------
 // Rules
@@ -86,6 +87,7 @@ export const LEXER_CORE = 'core'
 export function declareLexRules(owner: string, declared: readonly LexRule[]): void {
   const at = owner === LEXER_CORE ? rules.length : rules.findIndex((r) => r.owner === LEXER_CORE)
   rules.splice(at < 0 ? rules.length : at, 0, ...declared.map((rule) => ({ owner, rule })))
+  lexed.clear()
 }
 
 /**
@@ -97,6 +99,7 @@ const unitRules: { owner: string; rule: LexRule }[] = []
 /** Declare rules for what can follow a unit as part of it (see unitRules). */
 export function declareUnitRules(owner: string, declared: readonly LexRule[]): void {
   unitRules.push(...declared.map((rule) => ({ owner, rule })))
+  lexed.clear()
 }
 
 /** Every rule declared, with its owner, in the order they're tried (for the schema's listing); a unit's after the others. */
@@ -117,10 +120,27 @@ export const node = (kind: string, parts: readonly Part[]): SyntaxNode => Object
 const one = (part: Part, length: number): Lexed => ({ parts: [part], length })
 
 /** An expression's text read into parts: tokens, and nodes (a quantity, a call, a module's). */
-export function lexExpression(text: string): Part[] {
+export function lexExpression(text: string): readonly Part[] {
+  const cached = lexed.get(text)
+  if (cached) return cached
   const span: ReadSpan = (start, end, callee, lhs = start === 0 && callee === undefined) => readSpan(text, start, end, callee, lhs, span)
-  return span(0, text.length)
+  const parts = Object.freeze(span(0, text.length))
+  // (Oldest first out: a Map keeps the order its keys were added.)
+  if (lexed.size >= LEXED_CACHE_SIZE) lexed.delete(lexed.keys().next().value!)
+  lexed.set(text, parts)
+  return parts
 }
+
+/**
+ * Expressions read, by their text: what's read depends on the text and the
+ * rules alone, and the engine reads a line's text more than once as it works it
+ * out (its shape, its numbers, what it writes for mathjs). Emptied when a rule
+ * is declared.
+ */
+const lexed = new Map<string, readonly Part[]>()
+
+/** How many expressions are kept read (as many as the tree keeps lines: lines.ts). */
+const LEXED_CACHE_SIZE = 20_000
 
 function readSpan(text: string, start: number, end: number, callee: string | undefined, startLhs: boolean, span: ReadSpan): Part[] {
   const parts: Part[] = []
@@ -141,8 +161,8 @@ function readSpan(text: string, start: number, end: number, callee: string | und
   return parts
 }
 
-/** The text of a part (a token's, or a node's tokens joined). */
-const textOf = (part: Part): string => (isToken(part) ? part.text : part.parts.map(textOf).join(''))
+/** The text of a part (a token's, or a node's tokens joined; codec.ts's textOf keeps it with the node). */
+export const partText = (part: Part): string => (isToken(part) ? part.text : part.parts.map(partText).join(''))
 
 /** Whether a part is a token of this kind (and this text, if given). */
 export const isTokenOf = (part: Part | undefined, t: string, text?: string): boolean =>
@@ -349,4 +369,4 @@ const CORE_RULES: LexRule[] = [
 declareLexRules(LEXER_CORE, CORE_RULES)
 
 /** The callee of a call node: its first token's text. */
-export const calleeOf = (call: SyntaxNode): string => textOf(call.parts[0])
+export const calleeOf = (call: SyntaxNode): string => partText(call.parts[0])

@@ -78,7 +78,9 @@ describe('a sheet as a tree', () => {
       parts: [
         { t: TOKEN_KIND.indent, text: '  ' },
         // (What it says, as an expression: lexer.test.ts.)
-        { t: TOKEN_KIND.symbol, text: 'm' }, { t: TOKEN_KIND.space, text: ' ' }, { t: TOKEN_KIND.delimiter, text: '=' },
+        // (What it assigns to, before its `=`: shapes.ts.)
+        { kind: NODE_KIND.assigned, parts: [{ t: TOKEN_KIND.symbol, text: 'm' }] },
+        { t: TOKEN_KIND.space, text: ' ' }, { t: TOKEN_KIND.delimiter, text: '=' },
         { t: TOKEN_KIND.space, text: ' ' },
         { kind: NODE_KIND.quantity, parts: [{ t: TOKEN_KIND.number, text: '2.0' }, { t: TOKEN_KIND.space, text: ' ' }, { t: TOKEN_KIND.unit, text: 'kg' }] },
         { t: TOKEN_KIND.space, text: '  ' }, { t: TOKEN_KIND.eol, text: '\r\n' },

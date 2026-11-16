@@ -17,7 +17,7 @@ import { CHEM_NODE, CHEM_TOKEN } from '../lib/engine/modules/chemistry/grammar.t
 import { SPECIES_TOKEN } from '../lib/engine/modules/chemistry/syntax.ts'
 import { SERIES_TOKEN } from '../lib/engine/modules/series/grammar.ts'
 import {
-  CONSTANTS_TOKEN, FUNCTION_HEAD, GREEK_CHARS, INDENT_WIDTH, LATEX_OPENER, LATEX_TOKEN, LAYOUT_NAME_TOKEN, COMMENT_START, NAME_CHAR, NUMBER,
+  CONSTANTS_TOKEN, GREEK_CHARS, INDENT_WIDTH, LATEX_OPENER, LATEX_TOKEN, LAYOUT_NAME_TOKEN, COMMENT_START, NAME_CHAR, NUMBER,
   VALUE_BRACES, COMMAND_NAMES, indentOf, isComment,
 } from '../lib/syntax.ts'
 import { LINE_ROLE, NODE_KIND, TOKEN_KIND, TOP, isToken, stepLine, type LineState, type Part, type SyntaxNode } from '../lib/tree/index.ts'
@@ -71,11 +71,13 @@ const SAYS = {
 } as const
 type Says = (typeof SAYS)[keyof typeof SAYS]
 
-/** A piece of the line being coloured: one of the tree's tokens, where it ends on the line, and whether it's what a call calls. */
+/** A piece of the line being coloured: one of the tree's tokens, where it ends on the line, whether it's what a call calls, and whether that's a definition. */
 interface Piece {
   readonly t: string
   readonly end: number
   readonly callee?: boolean
+  /** In a one-line function's head, `f(x) = …`: what it calls is the function being defined. */
+  readonly defines?: boolean
 }
 
 /** The tokenizer's state, carried from one token (and line) to the next. */
@@ -85,7 +87,7 @@ interface State {
   /** The line's pieces, and how what it says is coloured. */
   pieces: readonly Piece[]
   says: Says
-  /** It defines a function: `def f(…)`, or `f(x) = …` (what it calls first is a definition). */
+  /** It's a `def f(…)` line (what it calls first is a definition; a one-line function's head says so itself: Piece.defines). */
   defines: boolean
 }
 
@@ -113,19 +115,19 @@ function startLine(stream: StringStream, state: State): void {
   // A block opener with a title: one whose body is braced and isn't raw LaTeX (`Title {`, `@layout.list Title {`).
   const titled = step.role === LINE_ROLE.opener && (step.body?.ends === BODY_END.closer || step.body?.ends === BODY_END.brace)
   state.says = saysOf(step.node.kind, step.role, titled)
-  // (A one-line function's name is a definition too: `f(x) = x^2`.)
-  state.defines = step.node.kind === NODE_KIND.defLine || FUNCTION_HEAD.test(stream.string.trimStart())
+  state.defines = step.node.kind === NODE_KIND.defLine
 }
 
 /** A line's tokens, its expression's nodes' too (a quantity's, a call's), as pieces where each ends on the line. */
 function piecesOf(line: SyntaxNode): Piece[] {
   const pieces: Piece[] = []
   let end = 0
-  const add = (parts: readonly Part[], call: boolean) => parts.forEach((p, i) => {
-    if (isToken(p)) pieces.push({ t: p.t, end: (end += p.text.length), callee: call && i === 0 })
-    else add(p.parts, p.kind === NODE_KIND.call)
+  const add = (parts: readonly Part[], call: boolean, head: boolean) => parts.forEach((p, i) => {
+    if (isToken(p)) pieces.push({ t: p.t, end: (end += p.text.length), callee: call && i === 0, defines: head })
+    // (A one-line function's head, `f(x)` in `f(x) = x^2`: its name is a definition.)
+    else add(p.parts, p.kind === NODE_KIND.call, head || p.kind === NODE_KIND.functionHead)
   })
-  add(line.parts, false)
+  add(line.parts, false, false)
   return pieces
 }
 
@@ -151,7 +153,7 @@ function expressionStyle(piece: Piece, text: string, state: State): Token | null
     if (text === VALUE_BRACES.open || text === VALUE_BRACES.close) return TOKEN.value
     return BRACKETS.test(text) ? TOKEN.bracket : TOKEN.operator
   }
-  if (piece.callee) return piece.t === TOKEN_KIND.symbol && state.defines ? TOKEN.definition : TOKEN.function
+  if (piece.callee) return piece.t === TOKEN_KIND.symbol && (state.defines || piece.defines) ? TOKEN.definition : TOKEN.function
   return EXPRESSION_STYLE[piece.t] ?? null
 }
 

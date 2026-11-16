@@ -1,6 +1,8 @@
 /** Settings on an assigned name (`m:3:deg`, display names), and names being unpacked. */
 import { type MathType, type Unit } from 'mathjs'
-import { DECLARED, EXACT_SETTING, LEADING_NAME, NAME_WITH_SETTINGS, NOTATIONS, PERCENT, EACH_SETTING, LABEL_QUOTE, TEMPLATE_USE, type Notation, type Precision } from '../../syntax.ts'
+import { EXACT_SETTING, NOTATIONS, PERCENT, LABEL_QUOTE, TEMPLATE_USE, type Notation, type Precision } from '../../syntax.ts'
+import { NODE_KIND } from '../../tree/nodes.ts'
+import { assignedOf, lineShape } from '../../tree/shapes.ts'
 import { UNIT } from '../../mathjsNames.ts'
 import { SETTING_PLACE, isModuleLineSetting, moduleSettingProblem } from './module.ts'
 import { math } from './math.ts'
@@ -13,8 +15,6 @@ import { BRIEF_DIGITS, isValidUnit } from './numbers.ts'
  */
 export interface Declaration {
   name: string
-  /** The `name:… =` part of the line. */
-  length: number
   sf?: Precision
   /** Show the value in this unit (or `percent`). */
   unit?: string
@@ -72,13 +72,13 @@ export interface TupleName {
 
 /** One name of an unpacking, `theta:3:deg`; or an error saying what's wrong with it. */
 export function parseTupleName(entry: string): TupleName | { error: string } {
-  const name = LEADING_NAME.exec(entry)?.[0]
-  if (!name || !NAME_WITH_SETTINGS.test(entry)) {
+  const target = assignedOf(entry)
+  if (!target) {
     return { error: `"${entry}" isn't a variable name: write @tuple(a, b, c) = …, optionally with settings like b:3 or c:deg.` }
   }
-  if (entry === name) return { name }
-  const d = parseDeclaration(`${entry} = 0`)
-  if (!d) return { name }
+  const { name, settings } = target
+  if (!settings.length) return { name }
+  const d = declarationOf(name, settings)
   if ('error' in d) return d
   if (d.unit === PERCENT) return { error: `${name}:percent isn't available when unpacking; show it as a percentage on a line of its own.` }
   for (const setting of d.moduleSettings ?? []) {
@@ -91,25 +91,30 @@ export function parseTupleName(entry: string): TupleName | { error: string } {
 /** Whether a setting is a notation (`sci`, `dec`). */
 export const isNotation = (s: string): s is Notation => (NOTATIONS as readonly string[]).includes(s)
 
-/** The display settings on a line's assigned name, or an error if one isn't understood. */
+/** The display settings on a line's assigned name (the line's shape: tree/shapes.ts), or an error if one isn't understood; null if it has none. */
 export function parseDeclaration(line: string): Declaration | { error: string } | null {
-  const m = DECLARED.exec(line)
-  if (!m) return null
-  const out: Declaration = { name: m[1], length: m[0].length }
-  for (const [, spec] of m[2].matchAll(EACH_SETTING)) {
+  const { target } = lineShape(line)
+  if (target?.kind !== NODE_KIND.assigned || !target.settings.length) return null
+  return declarationOf(target.name, target.settings)
+}
+
+/** A name's display settings (each as typed, without its `:`), read, or an error if one isn't understood. */
+export function declarationOf(name: string, specs: readonly string[]): Declaration | { error: string } {
+  const out: Declaration = { name }
+  for (const spec of specs) {
     const template = TEMPLATE_USE.exec(spec)
     if (spec.startsWith(LABEL_QUOTE)) out.label = spec.slice(1, -1)
     else if (template) out.template = { name: template[1], args: template[2].split(',').map((a) => a.trim()) }
     else if (isModuleLineSetting(spec)) (out.moduleSettings ??= []).push(spec)
     else if (spec === EXACT_SETTING) out.sf = EXACT_SETTING
     else if (isNotation(spec)) {
-      if (out.notation && out.notation !== spec) return { error: `${m[1]} can't be both :${NOTATIONS[0]} and :${NOTATIONS[1]}.` }
+      if (out.notation && out.notation !== spec) return { error: `${name} can't be both :${NOTATIONS[0]} and :${NOTATIONS[1]}.` }
       out.notation = spec
     } else if (/^\d+$/.test(spec)) {
-      if (Number(spec) === 0) return { error: `${m[1]}:0 isn't valid; use at least 1 sig fig, or :exact.` }
+      if (Number(spec) === 0) return { error: `${name}:0 isn't valid; use at least 1 sig fig, or :exact.` }
       out.sf = Number(spec)
     } else if (spec === PERCENT || isValidUnit(spec)) out.unit = spec
-    else return { error: `In ${m[1]}:${spec}, "${spec}" isn't a number of sig figs, a unit, or a setting like sci or ijk.` }
+    else return { error: `In ${name}:${spec}, "${spec}" isn't a number of sig figs, a unit, or a setting like sci or ijk.` }
   }
   return out
 }

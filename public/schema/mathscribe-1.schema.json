@@ -162,6 +162,15 @@
           "$ref": "#/$defs/token.marks"
         },
         {
+          "$ref": "#/$defs/token.blockName"
+        },
+        {
+          "$ref": "#/$defs/token.title"
+        },
+        {
+          "$ref": "#/$defs/token.blockOpen"
+        },
+        {
           "$ref": "#/$defs/token.rows"
         },
         {
@@ -1288,6 +1297,57 @@
       "properties": {
         "t": {
           "const": "marks"
+        },
+        "text": {
+          "type": "string"
+        }
+      }
+    },
+    "token.blockName": {
+      "description": "A block’s @ name, at the start of its opener: @layout.list.val, @constants, @latex (core)",
+      "type": "object",
+      "required": [
+        "t",
+        "text"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "blockName"
+        },
+        "text": {
+          "type": "string"
+        }
+      }
+    },
+    "token.title": {
+      "description": "A block’s title, in its opener: Steps in @layout.numbered Steps { (core)",
+      "type": "object",
+      "required": [
+        "t",
+        "text"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "title"
+        },
+        "text": {
+          "type": "string"
+        }
+      }
+    },
+    "token.blockOpen": {
+      "description": "A block’s opening brace, ending its opener (core)",
+      "type": "object",
+      "required": [
+        "t",
+        "text"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "blockOpen"
         },
         "text": {
           "type": "string"

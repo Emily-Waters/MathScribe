@@ -489,6 +489,19 @@ edit reads again only what it changed, and nodes are shared between trees.
            declarations pre-pass). One change: a command after the note's `#`
            (`# the force #sym`) was always applied, but its token was part of
            the note; it's a command token now, and the editor colours it as one.
+         - [x] Block openers: the tree reads an opener (`CONTENT.opener`: `Title {`,
+           `@layout…`, `@constants {`, `@chem.species {`, a section's `# Title {`)
+           into its `@` name, title and `{` (new token kinds `blockName`, `title`,
+           `blockOpen`; `syntax/blocks.ts` BLOCK_NAME), and `@latex {`
+           (`CONTENT.rawOpener`) into its name, `{` and LaTeX. The editor
+           colours them from those tokens: its own patterns for them
+           (`LAYOUT_SYNTAX.token`, `CONSTANTS_TOKEN`, `LATEX_TOKEN`,
+           `SPECIES_TOKEN`, the title and brace regexes) are gone, and a
+           one-line `@latex { … }` now shows its `{` as a brace. The published
+           schema has the three new token kinds. (What an opener *means* is
+           still read from its text, by `LAYOUT_SYNTAX.read` and the like, in
+           the grammar and its reader: not cached, as the reader changes what it
+           returns, the column breaks.)
       Then: a codebase-wide audit of which patterns are working, toward one
       harmonious structure.
 

@@ -42,8 +42,12 @@ export const CONTENT = {
   text: 'text',
   /** A heading's `#`s, then its title (all of it: a `#` in a title is the title's; values in it as in `text`). */
   heading: 'heading',
-  /** A heading's `#`s, then its title, `{`, #commands and note (`# Kinematics {  #val`). */
+  /** A block's opener: its `@` name if it has one, its title and its `{`, then #commands and note (`@layout.list Steps {  #val`, `Forces {`). */
+  opener: 'opener',
+  /** A heading's `#`s, then the rest as an `opener` (`# Kinematics {  #val`). */
   headedOpener: 'headedOpener',
+  /** A raw block's opener: its `@` name and its `{`, then its text all one token (`@latex { \frac{a}{b} }`, on one line). */
+  rawOpener: 'rawOpener',
 } as const
 export type Content = (typeof CONTENT)[keyof typeof CONTENT]
 

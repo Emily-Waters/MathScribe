@@ -6,7 +6,7 @@
  * Each line is read in its place, as the tree reads it (stepLine: what it is,
  * what it's inside), into its tokens: its indentation, a heading's `#`s, what it
  * says, its #commands and note. What it says is then coloured by its kind: a
- * calculation's numbers, units and names; a block opener's title; prose with its
+ * calculation's numbers, units and names; a block opener's name, title and `{`; prose with its
  * values and formulas; raw LaTeX.
  */
 import { StreamLanguage, foldService, foldedRanges, indentService, type StringStream } from '@codemirror/language'
@@ -14,14 +14,12 @@ import { tags } from '@lezer/highlight'
 // (The engine installs its modules as it loads: their kinds of line and their rules for expressions are then the tree's.)
 import '../lib/engine/index.ts'
 import { CHEM_NODE, CHEM_TOKEN } from '../lib/engine/modules/chemistry/grammar.ts'
-import { SPECIES_TOKEN } from '../lib/engine/modules/chemistry/syntax.ts'
 import { SERIES_TOKEN } from '../lib/engine/modules/series/grammar.ts'
 import {
-  CONSTANTS_TOKEN, GREEK_CHARS, INDENT_WIDTH, LATEX_OPENER, LATEX_TOKEN, LAYOUT_SYNTAX, COMMENT_START, NAME_CHAR, NUMBER,
+  GREEK_CHARS, INDENT_WIDTH, LATEX_OPENER, COMMENT_START, NAME_CHAR, NUMBER,
   VALUE_BRACES, COMMAND_NAMES, indentOf, isComment,
 } from '../lib/syntax.ts'
 import { LINE_ROLE, NODE_KIND, TOKEN_KIND, TOP, isToken, stepLine, type LineState, type Part, type SyntaxNode } from '../lib/tree/index.ts'
-import { BODY_END } from '../lib/tree/grammar.ts'
 import { dataBlocks, foldRange, opensBody, readAs, sheetLine } from './sheetLines.ts'
 
 /** What each piece of a line is coloured as (the keys of the language's tokenTable). */
@@ -54,8 +52,6 @@ type Token = (typeof TOKEN)[keyof typeof TOKEN]
 const SAYS = {
   /** Numbers, units, names, operators. */
   expression: 'expression',
-  /** A block's title, up to its `{` (after a layout's name, `@layout.list`, or `@constants`). */
-  title: 'title',
   /** Prose, with its maths, values and formulas. */
   prose: 'prose',
   /** Raw LaTeX. */
@@ -90,9 +86,8 @@ interface State {
 }
 
 /** How a line's text (`text`) is coloured, by its kind and role. */
-function saysOf(kind: string, role: string, opensTitled: boolean): Says {
+function saysOf(kind: string, role: string): Says {
   if (role === LINE_ROLE.row) return SAYS.rows
-  if (opensTitled) return SAYS.title
   switch (kind) {
     case NODE_KIND.heading: return SAYS.heading
     case NODE_KIND.paragraph:
@@ -110,9 +105,7 @@ function startLine(stream: StringStream, state: State): void {
   const step = stepLine(state.lines, { text: stream.string, eol: '' })
   state.lines = step.state
   state.pieces = piecesOf(step.node)
-  // A block opener with a title: one whose body is braced and isn't raw LaTeX (`Title {`, `@layout.list Title {`).
-  const titled = step.role === LINE_ROLE.opener && (step.body?.ends === BODY_END.closer || step.body?.ends === BODY_END.brace)
-  state.says = saysOf(step.node.kind, step.role, titled)
+  state.says = saysOf(step.node.kind, step.role)
 }
 
 /** A line's tokens, its expression's nodes' too (a quantity's, a call's), as pieces where each ends on the line. */
@@ -154,6 +147,15 @@ function expressionStyle(piece: Piece, text: string): Token | null {
   return EXPRESSION_STYLE[piece.t] ?? null
 }
 
+/** How each token coloured all at once is coloured: #commands, notes, and a block opener's name, title and brace. */
+const WHOLE_TOKEN_STYLE: Readonly<Record<string, Token>> = {
+  [TOKEN_KIND.command]: TOKEN.command,
+  [TOKEN_KIND.note]: TOKEN.note,
+  [TOKEN_KIND.blockName]: TOKEN.keyword,
+  [TOKEN_KIND.title]: TOKEN.title,
+  [TOKEN_KIND.blockOpen]: TOKEN.brace,
+}
+
 /** The piece at a position on the line. */
 const pieceAt = (pieces: readonly Piece[], pos: number) => pieces.find((p) => pos < p.end)
 
@@ -177,15 +179,15 @@ function token(stream: StringStream, state: State): Token | null {
     case TOKEN_KIND.marks:
       // (A heading is all one: its `#`s and its title. A block titled as a section has its title after.)
       if (state.says === SAYS.heading) stream.skipToEnd()
-      else stream.match(/^#+/)
+      else stream.pos = at!.end
       return TOKEN.heading
-    case TOKEN_KIND.command:
-      stream.match(/^#\S+/)
-      return TOKEN.command
-    case TOKEN_KIND.note:
-      // (Up to the end of the note's piece: a #command written after it is a command, and coloured as one.)
-      stream.pos = at!.end
-      return TOKEN.note
+  }
+  // A token coloured as it is, all of it at once: a #command, a note (a #command after it is a
+  // command, coloured as one), and a block opener's name, title and brace.
+  const style = piece === undefined ? undefined : WHOLE_TOKEN_STYLE[piece]
+  if (style) {
+    stream.pos = at!.end
+    return style
   }
   switch (state.says) {
     case SAYS.heading:
@@ -197,8 +199,7 @@ function token(stream: StringStream, state: State): Token | null {
       stream.skipToEnd()
       return TOKEN.latex
     case SAYS.latexOpener:
-      if (stream.match(LATEX_TOKEN)) return TOKEN.keyword
-      if (stream.match(/^\{\s*$/)) return TOKEN.brace
+      // (After its name and `{`: the LaTeX, on one line.)
       stream.skipToEnd()
       return TOKEN.latex
     case SAYS.formula:
@@ -210,11 +211,6 @@ function token(stream: StringStream, state: State): Token | null {
       if (stream.match(WORD)) return TOKEN.variable
       stream.next()
       return null
-    case SAYS.title:
-      if (stream.match(LAYOUT_SYNTAX.token) || stream.match(CONSTANTS_TOKEN) || stream.match(SPECIES_TOKEN)) return TOKEN.keyword
-      if (stream.match(/\{\s*(?=#|$)/)) return TOKEN.brace
-      if (!stream.match(/[^#]+?(?=\s*\{\s*(?:#|$))/)) stream.next()
-      return TOKEN.title
   }
   // (What's left: a line's text that isn't an expression's, as a closing `}`.)
   if (stream.match(/^[()[\]{}]/)) return TOKEN.bracket

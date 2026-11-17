@@ -3,7 +3,7 @@
  * import line (whose data is indented under it), and indentation. (`@layout`'s
  * blocks are in layout.ts, `@constants { }` in constants.ts.)
  */
-import { CALL, NAMED, NAME_CHAR, SIGIL, builtinOpening } from './lexical.ts'
+import { CALL, NAME, NAMED, SIGIL, builtinOpening } from './lexical.ts'
 import { named, optional, regex, src } from './patterns.ts'
 
 // ---------------------------------------------------------------------------
@@ -15,6 +15,12 @@ export const BLOCK_OPEN = '{'
 
 /** A block's closing brace, at the start of a line. */
 export const BLOCK_CLOSE = '}'
+
+/**
+ * A block's `@` name, at the start of its opener, with any members (and what's
+ * in their brackets): `@layout.column(3).list`, `@constants`, `@chem.species`, `@latex`.
+ */
+export const BLOCK_NAME = regex(src`^${SIGIL}${NAME}(?:\.${NAME}(?:\([^()\n]*\))?)*`)
 
 /** Whether a line closes a block: `}`, with anything after it. */
 export const closesBlock = (text: string) => text.trimStart().startsWith(BLOCK_CLOSE)
@@ -44,9 +50,6 @@ export const LATEX_BLOCK = 'latex'
 
 /** The opener of an `@latex { }` block (its group: rest, anything after its brace, for one on a single line). */
 export const LATEX_OPENER = regex(src`^${SIGIL}${LATEX_BLOCK}\s*\{${named('rest', '.*')}$`)
-
-/** `@latex` at the current position (for the editor's tokenizer). */
-export const LATEX_TOKEN = regex(src`${SIGIL}${LATEX_BLOCK}(?!${NAME_CHAR})`)
 
 /** Whether a line closes an `@latex { }` block: `}` on its own (a LaTeX line can start with one). */
 export const closesLatex = (line: string) => line.trim() === BLOCK_CLOSE

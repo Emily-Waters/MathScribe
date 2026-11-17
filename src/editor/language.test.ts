@@ -104,11 +104,11 @@ describe('highlighting', () => {
     expect(tokens('> Prose with $E = mc^2$ inline')).toEqual(
       ['>:quote', 'Prose with :text', '$E = mc^2$:latex', 'inline:text'])
     expect(tokens('@layout.numbered Steps {  # the 1s orbital')).toEqual(
-      ['@layout.numbered:kw', 'Steps:title', '{  :brace', '# the 1s orbital:note'])
+      ['@layout.numbered:kw', 'Steps:title', '{:brace', '# the 1s orbital:note'])
     expect(tokens('@constants {')).toEqual(['@constants:kw', '{:brace'])
     expect(tokens('What if {')).toEqual(['What if:title', '{:brace'])
     // A block titled as a section: its `#`s as a heading's, then its title.
-    expect(tokens('## Energy {  #val')).toEqual(['##:head', 'Energy:title', '{  :brace', '#val:cmd'])
+    expect(tokens('## Energy {  #val')).toEqual(['##:head', 'Energy:title', '{:brace', '#val:cmd'])
   })
 
   it('colours @ constants and @chem’s functions', () => {
@@ -145,7 +145,7 @@ describe('text blocks', () => {
 
   it('colour an @latex block’s lines as LaTeX, on one line or up to a } alone', () => {
     const lines = tokensByLine('@latex { \\frac{a}{b} }\n@latex {\n    \\frac{\n    a}{b}\n}\ny = 2.0 m')
-    expect(lines[0]).toEqual(['@latex:kw', '{ \\frac{a}{b} }:latex'])
+    expect(lines[0]).toEqual(['@latex:kw', '{:brace', '\\frac{a}{b} }:latex'])
     expect(lines[1]).toEqual(['@latex:kw', '{:brace'])
     expect(lines[2]).toEqual(['\\frac{:latex'])
     expect(lines[3]).toEqual(['a}{b}:latex'])

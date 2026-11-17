@@ -20,7 +20,7 @@ const opensBlock = (body: string) => body.endsWith(BLOCK_OPEN)
 
 const SYNTAXES: LineSyntax[] = [
   {
-    kind: NODE_KIND.constantsOpener, contexts: SHEET, content: CONTENT.noted,
+    kind: NODE_KIND.constantsOpener, contexts: SHEET, content: CONTENT.opener,
     matches: (_, split) => CONSTANTS_OPENER.test(split().body),
     opens: { node: NODE_KIND.constants, context: LINE_CONTEXT.constants, ends: BODY_END.brace },
   },
@@ -33,11 +33,11 @@ const SYNTAXES: LineSyntax[] = [
   { kind: NODE_KIND.heading, contexts: SHEET, content: CONTENT.heading, matches: (trimmed) => HEADING_MARKS.test(trimmed) },
   { kind: NODE_KIND.paragraph, contexts: SHEET, content: CONTENT.text, matches: (trimmed) => trimmed.startsWith('>') },
   {
-    kind: NODE_KIND.latexOpener, contexts: SHEET, content: CONTENT.whole,
+    kind: NODE_KIND.latexOpener, contexts: SHEET, content: CONTENT.rawOpener,
     matches: (trimmed) => LATEX_OPENER.exec(trimmed)?.groups?.rest.trim() === '',
     opens: { node: NODE_KIND.latexBlock, context: LINE_CONTEXT.latex, ends: BODY_END.braceAlone },
   },
-  { kind: NODE_KIND.latex, contexts: SHEET, content: CONTENT.whole, matches: (trimmed) => LATEX_OPENER.test(trimmed) },
+  { kind: NODE_KIND.latex, contexts: SHEET, content: CONTENT.rawOpener, matches: (trimmed) => LATEX_OPENER.test(trimmed) },
   {
     kind: NODE_KIND.importLine, contexts: SHEET, content: CONTENT.expression,
     matches: (_, split) => IMPORT.test(split().body),
@@ -45,7 +45,7 @@ const SYNTAXES: LineSyntax[] = [
   },
   { kind: NODE_KIND.blockCloser, contexts: SHEET, content: CONTENT.noted, matches: (_, split) => split().body === BLOCK_CLOSE },
   {
-    kind: NODE_KIND.proseOpener, contexts: SHEET, content: CONTENT.noted,
+    kind: NODE_KIND.proseOpener, contexts: SHEET, content: CONTENT.opener,
     matches: (_, split) => {
       const style = LAYOUT_SYNTAX.read(split().body)?.style
       return style !== undefined && PROSE_LAYOUTS.has(style)
@@ -53,12 +53,12 @@ const SYNTAXES: LineSyntax[] = [
     opens: { node: NODE_KIND.prose, context: LINE_CONTEXT.prose, ends: BODY_END.brace },
   },
   {
-    kind: NODE_KIND.layoutOpener, contexts: SHEET, content: CONTENT.noted,
+    kind: NODE_KIND.layoutOpener, contexts: SHEET, content: CONTENT.opener,
     matches: (_, split) => LAYOUT_SYNTAX.read(split().body) !== null,
     opens: { node: NODE_KIND.layout, context: LINE_CONTEXT.sheet, ends: BODY_END.closer },
   },
   {
-    kind: NODE_KIND.blockOpener, contexts: SHEET, content: CONTENT.noted,
+    kind: NODE_KIND.blockOpener, contexts: SHEET, content: CONTENT.opener,
     matches: (_, split) => opensBlock(split().body),
     opens: { node: NODE_KIND.block, context: LINE_CONTEXT.sheet, ends: BODY_END.closer },
   },

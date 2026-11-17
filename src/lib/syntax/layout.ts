@@ -122,9 +122,6 @@ export class LayoutSyntax {
   /** The display modes members can set, of which only one can apply: .full, .sym, .val. */
   private static readonly MODES: ReadonlySet<string> = new Set(DISPLAY_MODE.words)
 
-  /** The block's name at the current position (for the editor's tokenizer). */
-  readonly token = regex(LayoutSyntax.NAME)
-
   /** The block's name as written, from its members: `@layout.list`, `@layout.val.multiline`. */
   name(...members: string[]): string {
     return [`${SIGIL}${NAMESPACE.layout}`, ...members].join(MEMBER_DOT)

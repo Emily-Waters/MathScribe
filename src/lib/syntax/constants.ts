@@ -13,9 +13,6 @@ export const CONSTANTS_BLOCK = 'constants'
 /** The opener of an `@constants { }` block. */
 export const CONSTANTS_OPENER = regex(src`^${SIGIL}${CONSTANTS_BLOCK}\s*\{$`)
 
-/** `@constants` at the current position (for the editor's tokenizer). */
-export const CONSTANTS_TOKEN = regex(src`${SIGIL}${CONSTANTS_BLOCK}(?!${NAME_CHAR})`)
-
 /** A constant's name, optionally in namespaces: `c`, `chem.mm.Na` (or chem__mm.Na, once the first dot is read). */
 const CONSTANT_NAME = src`${NAME}(?:\.${NAME})*`
 

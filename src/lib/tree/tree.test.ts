@@ -216,7 +216,7 @@ describe('the kinds of line, and the blocks they open', () => {
     // A command after the note's `#` is one too, as the line's reader takes it: the note is around it.)
     const opener = (encode('Forces {  #val #sci  # the force #sym is shown').body[0].parts[0] as SyntaxNode).parts
     expect(opener.map((p) => (isToken(p) ? `${p.t}:${p.text}` : ''))).toEqual([
-      `${TOKEN_KIND.body}:Forces {`, `${TOKEN_KIND.space}:  `, `${TOKEN_KIND.command}:#val`, `${TOKEN_KIND.space}: `,
+      `${TOKEN_KIND.title}:Forces`, `${TOKEN_KIND.space}: `, `${TOKEN_KIND.blockOpen}:{`, `${TOKEN_KIND.space}:  `, `${TOKEN_KIND.command}:#val`, `${TOKEN_KIND.space}: `,
       `${TOKEN_KIND.command}:#sci`, `${TOKEN_KIND.space}:  `, `${TOKEN_KIND.note}:# the force`, `${TOKEN_KIND.space}: `,
       `${TOKEN_KIND.command}:#sym`, `${TOKEN_KIND.space}: `, `${TOKEN_KIND.note}:is shown`,
     ])

@@ -3,7 +3,7 @@
  * lines are read with, and the inside names of its functions. (MathScribe's
  * own syntax is in src/lib/syntax.ts, which this builds on.)
  */
-import { NAME, NAME_CHAR } from '../../../syntax.ts'
+import { NAME } from '../../../syntax.ts'
 import { memberName } from '../../../names.ts'
 
 /** Its namespace under @: `@chem.mm.Na`. */
@@ -50,9 +50,6 @@ export const SPECIES_OPENER = new RegExp(String.raw`^@${CHEM_NAMESPACE}\.${SPECI
 
 /** One species named on a line of its own: `@chem.species dietzeite = {7Ca(IO3)2*8CaCrO4}` (1–3 as SPECIES_ENTRY). */
 export const SPECIES_LINE = new RegExp(String.raw`^@${CHEM_NAMESPACE}\.${SPECIES_BLOCK}\s+(${NAME})${SPECIES_DISPLAY_SETTING}\s*=\s*\{([^{}]+)\}\s*$`)
-
-/** `@chem.species` at the current position (for the editor's tokenizer). */
-export const SPECIES_TOKEN = new RegExp(String.raw`@${CHEM_NAMESPACE}\.${SPECIES_BLOCK}(?!${NAME_CHAR})`)
 
 // ---------------------------------------------------------------------------
 // Inside names

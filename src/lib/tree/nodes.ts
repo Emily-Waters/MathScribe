@@ -73,6 +73,12 @@ export const TOKEN_KIND = {
   note: 'note',
   /** A heading's `#`s. */
   marks: 'marks',
+  /** A block's `@` name, at the start of its opener: `@layout.list.val`, `@constants`, `@chem.species`, `@latex`. */
+  blockName: 'blockName',
+  /** A block's title, in its opener: `Steps` in `@layout.numbered Steps {`. */
+  title: 'title',
+  /** A block's opening brace, ending its opener. */
+  blockOpen: 'blockOpen',
   /** Imported data's rows, as they are (indentation and line endings too). */
   rows: 'rows',
 

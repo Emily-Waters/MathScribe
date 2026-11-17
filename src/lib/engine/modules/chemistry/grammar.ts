@@ -60,7 +60,7 @@ export const CHEM_GRAMMAR: ModuleGrammar = {
   syntaxes: [
     { kind: CHEM_NODE.speciesLine, contexts: [LINE_CONTEXT.sheet], content: CONTENT.noted, matches: (_, split) => SPECIES_LINE.test(split().body) },
     {
-      kind: CHEM_NODE.speciesOpener, contexts: [LINE_CONTEXT.sheet], content: CONTENT.noted,
+      kind: CHEM_NODE.speciesOpener, contexts: [LINE_CONTEXT.sheet], content: CONTENT.opener,
       matches: (_, split) => SPECIES_OPENER.test(split().body),
       opens: { node: CHEM_NODE.species, context: SPECIES_CONTEXT, ends: BODY_END.brace },
     },

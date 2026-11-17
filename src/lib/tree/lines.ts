@@ -10,7 +10,7 @@
  * its text (codec.ts), and later its evaluation.
  */
 import {
-  INLINE_MATHS, NOTED_PIECE, VALUE_BRACES, VALUE_IN_TEXT, isComment, readNoted, type NotedLine, type NotedPieceKind,
+  BLOCK_NAME, BLOCK_OPEN, INLINE_MATHS, NOTED_PIECE, VALUE_BRACES, VALUE_IN_TEXT, isComment, readNoted, type NotedLine,
 } from '../syntax.ts'
 import { CONTENT, contextInfo, syntaxesIn, type Body, type Content } from './grammar.ts'
 import { HEADING_MARKS } from './core.ts'
@@ -65,24 +65,64 @@ function spaced(t: string, text: string, into: Part[], asExpression = false): vo
   if (trail) into.push(token(TOKEN_KIND.space, trail))
 }
 
-/** Each piece of a noted line's token kind. */
-const PIECE_TOKEN: Record<NotedPieceKind, string> = {
-  [NOTED_PIECE.body]: TOKEN_KIND.body,
-  [NOTED_PIECE.command]: TOKEN_KIND.command,
-  [NOTED_PIECE.note]: TOKEN_KIND.note,
+/** How a noted line's body (each of its pieces, between #commands) is read into tokens. */
+type BodyReader = (text: string, into: Part[], first: boolean, last: boolean) => void
+
+/** A body as it is: one token. */
+const plainBody: BodyReader = (text, into) => spaced(TOKEN_KIND.body, text, into)
+
+/** A body that's an expression: its tokens (lexer.ts). */
+const expressionBody: BodyReader = (text, into) => spaced(TOKEN_KIND.body, text, into, true)
+
+/** A block's `{`, and any spaces after it, at the end of its opener. */
+const OPENING_BRACE = /\{[ \t]*$/
+
+/**
+ * A block opener's body: its `@` name at the start, if it has one
+ * (`@layout.list`), its `{` at the end, and its title between.
+ */
+const openerBody: BodyReader = (text, into, first, last) => {
+  let rest = text
+  const name = first ? BLOCK_NAME.exec(rest)?.[0] : undefined
+  if (name) {
+    into.push(token(TOKEN_KIND.blockName, name))
+    rest = rest.slice(name.length)
+  }
+  const brace = last ? OPENING_BRACE.exec(rest) : null
+  spaced(TOKEN_KIND.title, brace ? rest.slice(0, brace.index) : rest, into)
+  if (brace) {
+    into.push(token(TOKEN_KIND.blockOpen, BLOCK_OPEN))
+    spaced(TOKEN_KIND.space, brace[0].slice(BLOCK_OPEN.length), into)
+  }
 }
 
 /**
  * Content with #commands and a note, as tokens, from its pieces as readNoted
  * reads them: `m = 2.0 kg  #val  # mass` → body, space, command, space, note.
- * (A command after the note's `#` is a command too, as it's taken.)
+ * (A command after the note's `#` is a command too, as it's taken.) Its body is
+ * read by `body`: as it is, as an expression, or as a block's opener.
  */
-function notedTokens(content: string, into: Part[], asExpression = false, noted = readNoted(content)): void {
+function notedTokens(content: string, into: Part[], body: BodyReader = plainBody, noted = readNoted(content)): void {
+  // (The first and last pieces of the body with something in them: spaces between two commands are a piece too.)
+  const bodies = noted.pieces.filter((p) => p.kind === NOTED_PIECE.body && content.slice(p.start, p.end).trim())
   for (const p of noted.pieces) {
     const text = content.slice(p.start, p.end)
     if (p.kind === NOTED_PIECE.command) into.push(token(TOKEN_KIND.command, text))
-    else spaced(PIECE_TOKEN[p.kind], text, into, asExpression)
+    else if (p.kind === NOTED_PIECE.body) body(text, into, p === bodies[0], p === bodies.at(-1))
+    else spaced(TOKEN_KIND.note, text, into)
   }
+}
+
+/** A raw block's opener, `@latex { \frac{a}{b} }`: its name, its `{`, then its text (on one line) all one token. */
+function rawOpenerTokens(content: string, into: Part[]): void {
+  const name = BLOCK_NAME.exec(content)?.[0] ?? ''
+  if (name) into.push(token(TOKEN_KIND.blockName, name))
+  const rest = content.slice(name.length)
+  const at = rest.indexOf(BLOCK_OPEN)
+  if (at < 0) return spaced(TOKEN_KIND.text, rest, into)
+  spaced(TOKEN_KIND.space, rest.slice(0, at), into)
+  into.push(token(TOKEN_KIND.blockOpen, BLOCK_OPEN))
+  spaced(TOKEN_KIND.text, rest.slice(at + BLOCK_OPEN.length), into)
 }
 
 /** What each line read as a noted line says (its #commands and note), by its node, so a reader needn't read them again. */
@@ -101,8 +141,12 @@ function contentTokens(content: string, style: Content, into: Part[], noted?: No
     textTokens(content, into)
     return
   }
-  if (style === CONTENT.noted || style === CONTENT.expression) {
-    notedTokens(content, into, style === CONTENT.expression, noted)
+  if (style === CONTENT.rawOpener) {
+    rawOpenerTokens(content, into)
+    return
+  }
+  if (style === CONTENT.noted || style === CONTENT.expression || style === CONTENT.opener) {
+    notedTokens(content, into, BODY_READER[style], noted)
     return
   }
   const marks = HEADING_MARKS.exec(content)![0]
@@ -112,7 +156,14 @@ function contentTokens(content: string, style: Content, into: Part[], noted?: No
     const lead = LEADING_SPACE.exec(rest)?.[0] ?? ''
     if (lead) into.push(token(TOKEN_KIND.space, lead))
     textTokens(rest.slice(lead.length), into)
-  } else notedTokens(rest, into)
+  } else notedTokens(rest, into, openerBody)
+}
+
+/** How each kind of noted content's body is read. */
+const BODY_READER: Record<typeof CONTENT.noted | typeof CONTENT.expression | typeof CONTENT.opener, BodyReader> = {
+  [CONTENT.noted]: plainBody,
+  [CONTENT.expression]: expressionBody,
+  [CONTENT.opener]: openerBody,
 }
 
 /** What's in text that isn't plain text: inline maths (left as text), or a value (1: what's between its braces). */
@@ -162,7 +213,7 @@ function parseLine(line: SourceLine, context: string): ReadLine {
     kind = syntax?.kind ?? info.lineKind
     body = syntax?.opens
     const style = syntax?.content ?? info.content
-    if (style === CONTENT.noted || style === CONTENT.expression) notedOnce()
+    if (style === CONTENT.noted || style === CONTENT.expression || style === CONTENT.opener) notedOnce()
     contentTokens(content, style, parts, noted)
   }
   if (trailing) parts.push(token(TOKEN_KIND.space, trailing))
@@ -219,7 +270,7 @@ function closerLine(line: SourceLine): ReadLine {
   const parts: Part[] = []
   if (indent) parts.push(token(TOKEN_KIND.indent, indent))
   const noted = readNoted(content)
-  notedTokens(content, parts, false, noted)
+  notedTokens(content, parts, plainBody, noted)
   if (trailing) parts.push(token(TOKEN_KIND.space, trailing))
   if (line.eol) parts.push(token(TOKEN_KIND.eol, line.eol))
   const read = Object.freeze({ node: Object.freeze({ kind: NODE_KIND.blockCloser, parts: Object.freeze(parts) }) })

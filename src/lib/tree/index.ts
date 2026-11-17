@@ -10,7 +10,7 @@ import './core.ts'
 
 export { LINE_CONTEXT, NODE_KIND, SCHEMA, TOKEN_KIND, isToken, schemaId, type Part, type SheetTree, type SyntaxNode, type Token } from './nodes.ts'
 export { decode, encode, textOf } from './codec.ts'
-export { readLine, splitLines, type ReadLine, type SourceLine } from './lines.ts'
+export { notedOf, readLine, splitLines, type ReadLine, type SourceLine } from './lines.ts'
 export { LINE_ROLE, TOP, stepLine, type Frame, type LineRole, type LineState, type Step } from './stream.ts'
 export {
   BODY_END, CONTENT, isBlockKind, declareContexts, declareLineSyntaxes, declaredContexts, declaredLineSyntaxes, type Body, type ContextInfo, type LineSyntax,

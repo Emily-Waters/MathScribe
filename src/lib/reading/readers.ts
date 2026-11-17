@@ -60,9 +60,8 @@ class ConstantsReader extends SheetWideReader<ConstantsBlock> {
       const entries: ConstantsBlock['entries'] = []
       /** Precision declarations in the block, shown once all its constants exist. */
       const declarations: number[] = []
-      for (const { number, trimmed: text } of bodyLines(item)) {
+      for (const { number, trimmed: text, parts: entry } of bodyLines(item)) {
         if (!text || text.startsWith('#')) continue
-        const entry = splitNote(text)
         if (parseConstantDeclaration(entry.body)) {
           declarations.push(entries.length)
           entries.push({ line: number, source: entry.body, note: entry.note, tex: '' })

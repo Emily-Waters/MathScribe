@@ -3,7 +3,7 @@
  * names (`@chem.species { }`, or one on a line of its own) and a reaction on a
  * line of its own (`{2 H2 + O2 -> 2 H2O}`). See ReadsLines.
  */
-import { BLOCK_CLOSE, LINE_COMMAND, SIGIL, splitNote } from '../../../syntax.ts'
+import { BLOCK_CLOSE, LINE_COMMAND, SIGIL } from '../../../syntax.ts'
 import { BLOCK_KIND, type SpeciesBlock, type SpeciesEntry } from '../../../blocks.ts'
 import { NodeReader, SheetWideReader, bodyLines, type TreeItem } from '../../../reading/reader.ts'
 import type { SheetReader } from '../../../reading/sheetReader.ts'
@@ -28,8 +28,7 @@ export class SpeciesReader extends SheetWideReader<SpeciesBlock> {
   override prepare(sheet: SheetReader): void {
     const names = this.names
     setSpeciesNames(names)
-    const name = (line: number, written: string, species: string, display: string | undefined, formula: string): SpeciesEntry => {
-      const { note } = splitNote(written)
+    const name = (line: number, note: string | undefined, species: string, display: string | undefined, formula: string): SpeciesEntry => {
       const shownAs = (display as SpeciesDisplay | undefined) ?? SPECIES_DISPLAY.name
       return { line, name: species, formula, display: shownAs, note, error: names.define(species, formula, shownAs) }
     }
@@ -38,18 +37,19 @@ export class SpeciesReader extends SheetWideReader<SpeciesBlock> {
       const opener = line.parts
       if (item.node.kind === CHEM_NODE.speciesLine) {
         const single = SPECIES_LINE.exec(opener.body)!
-        const entry = name(line.number, line.trimmed, single[1], single[2], single[3])
+        const entry = name(line.number, opener.note, single[1], single[2], single[3])
         this.prepared.set(item, {
           kind: BLOCK_KIND.species, line: line.number, endLine: line.number, entries: [entry], single: true, hidden: opener.command === LINE_COMMAND.hide,
         })
         continue
       }
       if (item.node.kind !== CHEM_NODE.species) continue
-      const entries = bodyLines(item).filter((l) => l.trimmed).map(({ number, trimmed: text }): SpeciesEntry => {
-        const m = SPECIES_ENTRY.exec(splitNote(text).body)
+      // (Each line's body and note as the tree read them.)
+      const entries = bodyLines(item).filter((l) => l.trimmed).map(({ number, parts }): SpeciesEntry => {
+        const m = SPECIES_ENTRY.exec(parts.body)
         return m
-          ? name(number, text, m[1], m[2], m[3])
-          : { line: number, name: splitNote(text).body, formula: '', display: SPECIES_DISPLAY.name, error: `Inside ${SIGIL}${CHEM_NAMESPACE}.${SPECIES_BLOCK}, each line names a species: dietzeite = {7Ca(IO3)2*8CaCrO4}.` }
+          ? name(number, parts.note, m[1], m[2], m[3])
+          : { line: number, name: parts.body, formula: '', display: SPECIES_DISPLAY.name, error: `Inside ${SIGIL}${CHEM_NAMESPACE}.${SPECIES_BLOCK}, each line names a species: dietzeite = {7Ca(IO3)2*8CaCrO4}.` }
       })
       this.prepared.set(item, {
         kind: BLOCK_KIND.species, line: line.number, endLine: item.last + 1, note: opener.note, entries, single: false,

@@ -7,7 +7,8 @@ import {
   NODE_KIND, SCHEMA, TOKEN_KIND, declareNodeKinds, isBlockKind, declaredNodeKinds, decode, encode, isSheetTree, isToken, schemaId, splitLines,
   textOf, treeProblems, type SheetTree, type SyntaxNode,
 } from './index.ts'
-import { clearLineCache } from './lines.ts'
+import { clearLineCache, notedOf } from './lines.ts'
+import { splitNote } from '../syntax.ts'
 import { CHEM_NODE } from '../engine/modules/chemistry/grammar.ts'
 // (The engine installs its modules as it loads: chemistry's kinds of line are then the tree's.)
 import '../engine/index.ts'
@@ -211,12 +212,23 @@ describe('the kinds of line, and the blocks they open', () => {
   })
 
   it('reads a line’s #commands and note as tokens of their own', () => {
-    // (A block's title isn't an expression: what it says is one token, before its #commands and note.)
-    const opener = (encode('Forces {  #val #sci  # the force #sym').body[0].parts[0] as SyntaxNode).parts
+    // (A block's title isn't an expression: what it says is one token, before its #commands and note.
+    // A command after the note's `#` is one too, as the line's reader takes it: the note is around it.)
+    const opener = (encode('Forces {  #val #sci  # the force #sym is shown').body[0].parts[0] as SyntaxNode).parts
     expect(opener.map((p) => (isToken(p) ? `${p.t}:${p.text}` : ''))).toEqual([
       `${TOKEN_KIND.body}:Forces {`, `${TOKEN_KIND.space}:  `, `${TOKEN_KIND.command}:#val`, `${TOKEN_KIND.space}: `,
-      `${TOKEN_KIND.command}:#sci`, `${TOKEN_KIND.space}:  `, `${TOKEN_KIND.note}:# the force #sym`,
+      `${TOKEN_KIND.command}:#sci`, `${TOKEN_KIND.space}:  `, `${TOKEN_KIND.note}:# the force`, `${TOKEN_KIND.space}: `,
+      `${TOKEN_KIND.command}:#sym`, `${TOKEN_KIND.space}: `, `${TOKEN_KIND.note}:is shown`,
     ])
+  })
+
+  it('gives a line’s reader its #commands and note as the tree read them, so they aren’t read again', () => {
+    const tree = encode('m = 2.0 kg  #val  # mass')
+    const line = tree.body[0]
+    expect(notedOf(line)).toMatchObject({ body: 'm = 2.0 kg', command: 'val', note: 'mass' })
+    // (The same as reading them from the text: the one reader, syntax/commands.ts.)
+    const { pieces: _pieces, ...said } = notedOf(line)!
+    expect(said).toEqual(splitNote('m = 2.0 kg  #val  # mass'))
   })
 
   it('reads a block that isn’t closed to the end, and a } with none open as a line', () => {

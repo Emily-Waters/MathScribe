@@ -9,7 +9,9 @@
  * anything worked out from a node can be kept by the node itself (a WeakMap):
  * its text (codec.ts), and later its evaluation.
  */
-import { COMMAND_NAMES, INLINE_MATHS, VALUE_BRACES, VALUE_IN_TEXT, commandPattern, isComment, splitNote, type SplitLine } from '../syntax.ts'
+import {
+  INLINE_MATHS, NOTED_PIECE, VALUE_BRACES, VALUE_IN_TEXT, isComment, readNoted, type NotedLine, type NotedPieceKind,
+} from '../syntax.ts'
 import { CONTENT, contextInfo, syntaxesIn, type Body, type Content } from './grammar.ts'
 import { HEADING_MARKS } from './core.ts'
 import { lexExpression, node } from './lexer.ts'
@@ -44,9 +46,6 @@ const EDGES = /^([ \t]*)(.*?)([ \t]*)$/s
 const LEADING_SPACE = /^[ \t]+/
 const TRAILING_SPACE = /[ \t]+$/
 
-/** Every display command a line can have, anywhere in it: `#val`, `#multiline`, `#sci`, `#center` (as splitNote reads them). */
-const COMMANDS = commandPattern(COMMAND_NAMES, 'gi')
-
 const token = (t: string, text: string): Token => Object.freeze({ t, text })
 
 /**
@@ -66,42 +65,34 @@ function spaced(t: string, text: string, into: Part[], asExpression = false): vo
   if (trail) into.push(token(TOKEN_KIND.space, trail))
 }
 
-/**
- * Content with #commands and a note, as tokens: `m = 2.0 kg  #val  # mass` →
- * body, space, command, space, note. A command is one wherever it is (as
- * splitNote reads them); the note is from the first other `#` to the end.
- */
-function notedTokens(content: string, into: Part[], asExpression = false): void {
-  const commands = [...content.matchAll(COMMANDS)].map((m) => {
-    const start = m.index + m.groups!.before.length
-    return { start, end: start + m[0].length - m.groups!.before.length }
-  })
-  const inCommand = (i: number) => commands.some((c) => i >= c.start && i < c.end)
-  let noteAt = -1
-  for (let i = content.indexOf('#'); i >= 0; i = content.indexOf('#', i + 1)) {
-    if (!inCommand(i)) {
-      noteAt = i
-      break
-    }
-  }
-  let at = 0
-  for (const c of commands) {
-    if (noteAt >= 0 && c.start > noteAt) break
-    spaced(TOKEN_KIND.body, content.slice(at, c.start), into, asExpression)
-    into.push(token(TOKEN_KIND.command, content.slice(c.start, c.end)))
-    at = c.end
-  }
-  if (noteAt < 0) {
-    spaced(TOKEN_KIND.body, content.slice(at), into, asExpression)
-    return
-  }
-  spaced(TOKEN_KIND.body, content.slice(at, noteAt), into, asExpression)
-  // (A note is the rest of the line, commands written after it too, as they're kept in it.)
-  into.push(token(TOKEN_KIND.note, content.slice(noteAt)))
+/** Each piece of a noted line's token kind. */
+const PIECE_TOKEN: Record<NotedPieceKind, string> = {
+  [NOTED_PIECE.body]: TOKEN_KIND.body,
+  [NOTED_PIECE.command]: TOKEN_KIND.command,
+  [NOTED_PIECE.note]: TOKEN_KIND.note,
 }
 
-/** A line's content as tokens, read as its kind reads it. */
-function contentTokens(content: string, style: Content, into: Part[]): void {
+/**
+ * Content with #commands and a note, as tokens, from its pieces as readNoted
+ * reads them: `m = 2.0 kg  #val  # mass` → body, space, command, space, note.
+ * (A command after the note's `#` is a command too, as it's taken.)
+ */
+function notedTokens(content: string, into: Part[], asExpression = false, noted = readNoted(content)): void {
+  for (const p of noted.pieces) {
+    const text = content.slice(p.start, p.end)
+    if (p.kind === NOTED_PIECE.command) into.push(token(TOKEN_KIND.command, text))
+    else spaced(PIECE_TOKEN[p.kind], text, into, asExpression)
+  }
+}
+
+/** What each line read as a noted line says (its #commands and note), by its node, so a reader needn't read them again. */
+const notedLines = new WeakMap<SyntaxNode, NotedLine>()
+
+/** What a line read as a noted line says: its body, #commands and note (undefined for a line read another way). */
+export const notedOf = (node: SyntaxNode): NotedLine | undefined => notedLines.get(node)
+
+/** A line's content as tokens, read as its kind reads it (`noted`: its content read as a noted line, if it was already). */
+function contentTokens(content: string, style: Content, into: Part[], noted?: NotedLine): void {
   if (style === CONTENT.whole) {
     into.push(token(TOKEN_KIND.text, content))
     return
@@ -111,7 +102,7 @@ function contentTokens(content: string, style: Content, into: Part[]): void {
     return
   }
   if (style === CONTENT.noted || style === CONTENT.expression) {
-    notedTokens(content, into, style === CONTENT.expression)
+    notedTokens(content, into, style === CONTENT.expression, noted)
     return
   }
   const marks = HEADING_MARKS.exec(content)![0]
@@ -158,22 +149,28 @@ function parseLine(line: SourceLine, context: string): ReadLine {
   if (indent) parts.push(token(TOKEN_KIND.indent, indent))
   let kind: string
   let body: Body | undefined
+  // (Read for its #commands and note once: for which kind of line it is, its tokens, and its reader.)
+  let noted: NotedLine | undefined
   if (!content) kind = NODE_KIND.blank
   else if (isComment(content)) {
     kind = NODE_KIND.comment
     parts.push(token(TOKEN_KIND.comment, content))
   } else {
-    let split: SplitLine | undefined
-    const splitOnce = () => (split ??= splitNote(content))
-    const syntax = syntaxesIn(context).find((s) => s.matches(content, splitOnce))
+    const notedOnce = () => (noted ??= readNoted(content))
+    const syntax = syntaxesIn(context).find((s) => s.matches(content, notedOnce))
     const info = contextInfo(context)
     kind = syntax?.kind ?? info.lineKind
     body = syntax?.opens
-    contentTokens(content, syntax?.content ?? info.content, parts)
+    const style = syntax?.content ?? info.content
+    if (style === CONTENT.noted || style === CONTENT.expression) notedOnce()
+    contentTokens(content, style, parts, noted)
   }
   if (trailing) parts.push(token(TOKEN_KIND.space, trailing))
   if (line.eol) parts.push(token(TOKEN_KIND.eol, line.eol))
-  return Object.freeze({ node: Object.freeze({ kind, parts: Object.freeze(parts) }), body })
+  const read = Object.freeze({ node: Object.freeze({ kind, parts: Object.freeze(parts) }), body })
+  // (What the line says read as a noted line, its content whole, as its reader reads it: see reading/reader.ts Line.)
+  if (noted) notedLines.set(read.node, noted)
+  return read
 }
 
 /** A block's closing line, `}` with any note: read the same wherever it is. */
@@ -221,10 +218,13 @@ function closerLine(line: SourceLine): ReadLine {
   const [, indent, content, trailing] = EDGES.exec(line.text)!
   const parts: Part[] = []
   if (indent) parts.push(token(TOKEN_KIND.indent, indent))
-  notedTokens(content, parts)
+  const noted = readNoted(content)
+  notedTokens(content, parts, false, noted)
   if (trailing) parts.push(token(TOKEN_KIND.space, trailing))
   if (line.eol) parts.push(token(TOKEN_KIND.eol, line.eol))
-  return Object.freeze({ node: Object.freeze({ kind: NODE_KIND.blockCloser, parts: Object.freeze(parts) }) })
+  const read = Object.freeze({ node: Object.freeze({ kind: NODE_KIND.blockCloser, parts: Object.freeze(parts) }) })
+  notedLines.set(read.node, noted)
+  return read
 }
 
 /** Forget every line read (for tests). */

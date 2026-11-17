@@ -183,7 +183,8 @@ function token(stream: StringStream, state: State): Token | null {
       stream.match(/^#\S+/)
       return TOKEN.command
     case TOKEN_KIND.note:
-      stream.skipToEnd()
+      // (Up to the end of the note's piece: a #command written after it is a command, and coloured as one.)
+      stream.pos = at!.end
       return TOKEN.note
   }
   switch (state.says) {

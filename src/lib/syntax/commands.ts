@@ -43,14 +43,8 @@ export const commandPattern = (names: readonly string[], flags = '') =>
 // A line split into its body, #commands and note
 // ---------------------------------------------------------------------------
 
-/** `#sym`, `#val`, `#full`, `#hide` in a line. */
-const COMMAND = commandPattern(LINE_COMMAND.words, 'gi')
-/** `#multiline`: a layout, so it combines with the commands above. */
-const MULTILINE_COMMAND = commandPattern([MULTILINE], 'gi')
-/** `#sci`, `#dec`: the notation results are shown in, which combines with the others too. */
-const NOTATION_COMMAND = commandPattern(NOTATION.words, 'gi')
-/** `#center`, `#list`, `#numbered`: how one line is laid out. */
-const LAYOUT_COMMAND = commandPattern(LINE_LAYOUT.words, 'gi')
+/** Every display command, wherever it is in a line: `#val`, `#multiline`, `#sci`, `#center`. */
+const ANY_COMMAND = commandPattern(COMMAND_NAMES, 'gi')
 
 /** Where a note starts: the first `#` that isn't a command's. */
 const NOTE_MARK = '#'
@@ -65,33 +59,79 @@ export interface SplitLine {
   layout?: LineLayout
 }
 
-/** The groups a command pattern's match has. */
-type CommandGroups = { before: string; name: string }
+/** What each piece of a noted line is: its body, a #command, or its note. */
+export const NOTED_PIECE = words({ body: 'body', command: 'command', note: 'note' })
+export type NotedPieceKind = WordOf<typeof NOTED_PIECE>
+
+/** A piece of a noted line, where it is in the line: `start` up to (not including) `end`. */
+export interface NotedPiece {
+  kind: NotedPieceKind
+  start: number
+  end: number
+}
+
+/** A line read for its #commands and note: what they say (SplitLine), and where each piece is. */
+export interface NotedLine extends SplitLine {
+  /** The line's pieces, in order, end to end: together they're the whole line. */
+  pieces: readonly NotedPiece[]
+}
 
 /**
- * Split a line into its body, display command and note:
+ * A line read for its body, #commands and note, in one pass:
  * `F = m * a  #val  # weight` → body `F = m * a`, command `val`, note `weight`.
- * Only the known commands are taken; any other `#word` stays in the note.
+ * Only the known commands are taken (anywhere in the line, after the note's `#`
+ * too; of each sort, the last); any other `#word` stays in the note, which runs
+ * from the first `#` that isn't a command's. (The tree's tokens for the line are
+ * its pieces: tree/lines.ts.)
+ */
+export function readNoted(text: string): NotedLine {
+  const out: Omit<NotedLine, 'body' | 'pieces'> = { multiline: false }
+  // The commands, each without the space before it.
+  const commands = [...text.matchAll(ANY_COMMAND)].map((m) => {
+    const start = m.index + m.groups!.before.length
+    const name = m.groups!.name.toLowerCase()
+    if (LINE_LAYOUT.has(name)) out.layout = name
+    else if (LINE_COMMAND.has(name)) out.command = name
+    else if (NOTATION.has(name)) out.notation = name
+    else out.multiline = true
+    return { start, end: m.index + m[0].length }
+  })
+  const inCommand = (i: number) => commands.some((c) => i >= c.start && i < c.end)
+  let noteAt = text.indexOf(NOTE_MARK)
+  while (noteAt >= 0 && inCommand(noteAt)) noteAt = text.indexOf(NOTE_MARK, noteAt + 1)
+  // The pieces: the text between commands, split where the note starts.
+  const pieces: NotedPiece[] = []
+  const between = (start: number, end: number) => {
+    const at = (kind: NotedPieceKind, from: number, to: number) => {
+      if (to > from) pieces.push({ kind, start: from, end: to })
+    }
+    if (noteAt < 0 || end <= noteAt) at(NOTED_PIECE.body, start, end)
+    else if (start >= noteAt) at(NOTED_PIECE.note, start, end)
+    else {
+      at(NOTED_PIECE.body, start, noteAt)
+      at(NOTED_PIECE.note, noteAt, end)
+    }
+  }
+  let at = 0
+  for (const c of commands) {
+    between(at, c.start)
+    pieces.push({ kind: NOTED_PIECE.command, start: c.start, end: c.end })
+    at = c.end
+  }
+  between(at, text.length)
+  // What the body and note say: their pieces' text (each command leaves the space before it).
+  const textOf = (kind: NotedPieceKind) => pieces.filter((p) => p.kind === kind).map((p) => text.slice(p.start, p.end)).join('')
+  const note = noteAt < 0 ? undefined : textOf(NOTED_PIECE.note).slice(NOTE_MARK.length).trim() || undefined
+  // (Frozen: the tree keeps it with the line's node, which every sheet with the line shares.)
+  return Object.freeze({ ...out, body: textOf(NOTED_PIECE.body).trim(), note, pieces: Object.freeze(pieces) })
+}
+
+/**
+ * A line split into its body, display command and note (readNoted, without
+ * where each piece is): `F = m * a  #val  # weight` → body `F = m * a`, command
+ * `val`, note `weight`.
  */
 export function splitNote(text: string): SplitLine {
-  let command: LineCommand | undefined
-  let multiline = false
-  let notation: Notation | undefined
-  let layout: LineLayout | undefined
-  // Each command found is taken out of the line, leaving the space before it.
-  const take = (pattern: RegExp, found: (name: string) => void) => (line: string) =>
-    line.replace(pattern, (...args) => {
-      const groups = args.at(-1) as CommandGroups
-      found(groups.name.toLowerCase())
-      return groups.before
-    })
-  const rest = [
-    take(LAYOUT_COMMAND, (name) => { layout = name as LineLayout }),
-    take(COMMAND, (name) => { command = name as LineCommand }),
-    take(MULTILINE_COMMAND, () => { multiline = true }),
-    take(NOTATION_COMMAND, (name) => { notation = name as Notation }),
-  ].reduce((line, step) => step(line), text)
-  const hash = rest.indexOf(NOTE_MARK)
-  if (hash < 0) return { body: rest.trim(), command, multiline, notation, layout }
-  return { body: rest.slice(0, hash).trim(), note: rest.slice(hash + 1).trim() || undefined, command, multiline, notation, layout }
+  const { pieces: _pieces, ...split } = readNoted(text)
+  return split
 }

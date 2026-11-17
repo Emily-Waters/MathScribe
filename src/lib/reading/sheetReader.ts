@@ -8,7 +8,7 @@ import { Calculator, markupText, outsideMaths, sheetModules, type CalcOptions } 
 import type { VariableSummary } from '../values.ts'
 import { BLOCK_CLOSE, EXACT_SETTING, LAYOUT_STYLE, LAYOUT_SYNTAX, LINE_COMMAND, SIGIL, VALUE_IN_TEXT, closesBlock, type Notation } from '../syntax.ts'
 import { BLOCK_KIND, type Block, type Command, type GroupBlock, type LayoutBlock } from '../blocks.ts'
-import { NODE_KIND, TOKEN_KIND, encode, isBlockKind, isToken, splitLines, textOf, type SyntaxNode } from '../tree/index.ts'
+import { NODE_KIND, TOKEN_KIND, encode, isBlockKind, isToken, notedOf, splitLines, textOf, type SyntaxNode } from '../tree/index.ts'
 import { parseConstantDeclaration } from './lineSyntax.ts'
 import { Line, readsLines, type NodeReader, type TreeItem } from './reader.ts'
 import { lineReaders } from './readers.ts'
@@ -265,15 +265,15 @@ function itemsOf(nodes: readonly SyntaxNode[], cursor: { at: number }): TreeItem
         const rows = rowsOf(node).map((text) => new Line(cursor.at++, text))
         return { node, line: rows[0], body: [], rows, last: cursor.at - 1 }
       }
-      const line = new Line(cursor.at++, rawOf(node))
+      const line = new Line(cursor.at++, rawOf(node), notedOf(node))
       return { node, line, body: [], rows: [], last: line.index }
     }
     // A block: its opener, its body, and its closing line if its last part is one.
     const [opener, ...rest] = children
     const closerNode = rest.at(-1)?.kind === NODE_KIND.blockCloser ? rest.pop() : undefined
-    const line = new Line(cursor.at++, rawOf(opener))
+    const line = new Line(cursor.at++, rawOf(opener), notedOf(opener))
     const body = itemsOf(rest, cursor)
-    const closer = closerNode ? new Line(cursor.at++, rawOf(closerNode)) : undefined
+    const closer = closerNode ? new Line(cursor.at++, rawOf(closerNode), notedOf(closerNode)) : undefined
     return { node, line, body, closer, rows: [], last: cursor.at - 1 }
   })
 }

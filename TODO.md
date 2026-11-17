@@ -479,6 +479,16 @@ edit reads again only what it changed, and nodes are shared between trees.
          `sheetReader.withValues`), imported rows (the editor, `csv.ts`), and
          `@constant` references and dot access in expressions (`calculator.ts`,
          `names.ts`).
+         - [x] #commands and notes: one reader, `readNoted` (syntax/commands.ts),
+           finds the commands and note in one pass and says where each piece
+           is. The tree's tokens are its pieces; the tree keeps what it read
+           with the line's node (`notedOf`), and the reader's `Line.parts`,
+           constants' entries and species' entries take it from there rather
+           than splitting the line again. `splitNote` is readNoted without the
+           pieces, for text that isn't a whole line (a heading's title, the
+           declarations pre-pass). One change: a command after the note's `#`
+           (`# the force #sym`) was always applied, but its token was part of
+           the note; it's a command token now, and the editor colours it as one.
       Then: a codebase-wide audit of which patterns are working, toward one
       harmonious structure.
 

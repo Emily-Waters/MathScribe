@@ -12,10 +12,10 @@
  * that opens a body (`Title {`, `@import(…)`) makes a node holding
  * itself and the lines of its body, up to where the body ends.
  */
-/** A line split into what it says and its #commands and note (as splitNote splits it): what a syntax needs of it. */
-export interface NotedLine {
-  readonly body: string
-}
+import type { NotedLine } from '../syntax.ts'
+
+/** A line split into what it says and its #commands and note (as syntax/commands.ts reads it): what a syntax needs of it. */
+export type { NotedLine }
 
 /** How a body ends: at its `}`; at a `}` on its own (raw LaTeX); at the first line not indented further (a blank one too, or not). */
 export const BODY_END = {

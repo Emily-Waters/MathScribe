@@ -9,8 +9,7 @@
  * anything worked out from a node can be kept by the node itself (a WeakMap):
  * its text (codec.ts), and later its evaluation.
  */
-import { INLINE_MATHS, LINE_COMMANDS, LINE_LAYOUTS, MULTILINE, NOTATIONS, VALUE_BRACES, VALUE_IN_TEXT, commandPattern, isComment } from '../syntax.ts'
-import { splitNote, type SplitLine } from '../reading/lineSyntax.ts'
+import { COMMAND_NAMES, INLINE_MATHS, VALUE_BRACES, VALUE_IN_TEXT, commandPattern, isComment, splitNote, type SplitLine } from '../syntax.ts'
 import { CONTENT, contextInfo, syntaxesIn, type Body, type Content } from './grammar.ts'
 import { HEADING_MARKS } from './core.ts'
 import { lexExpression, node } from './lexer.ts'
@@ -46,7 +45,7 @@ const LEADING_SPACE = /^[ \t]+/
 const TRAILING_SPACE = /[ \t]+$/
 
 /** Every display command a line can have, anywhere in it: `#val`, `#multiline`, `#sci`, `#center` (as splitNote reads them). */
-const COMMANDS = commandPattern([...LINE_COMMANDS, MULTILINE, ...NOTATIONS, ...LINE_LAYOUTS], 'gi')
+const COMMANDS = commandPattern(COMMAND_NAMES, 'gi')
 
 const token = (t: string, text: string): Token => Object.freeze({ t, text })
 
@@ -74,8 +73,8 @@ function spaced(t: string, text: string, into: Part[], asExpression = false): vo
  */
 function notedTokens(content: string, into: Part[], asExpression = false): void {
   const commands = [...content.matchAll(COMMANDS)].map((m) => {
-    const start = m.index + m[1].length
-    return { start, end: start + m[0].length - m[1].length }
+    const start = m.index + m.groups!.before.length
+    return { start, end: start + m[0].length - m.groups!.before.length }
   })
   const inCommand = (i: number) => commands.some((c) => i >= c.start && i < c.end)
   let noteAt = -1
@@ -136,10 +135,10 @@ const IN_TEXT = new RegExp(`${INLINE_MATHS.source}|${VALUE_IN_TEXT.source}`, 'g'
 function textTokens(text: string, into: Part[]): void {
   let at = 0
   for (const m of text.matchAll(IN_TEXT)) {
-    if (m[1] === undefined) continue
+    if (m.groups?.value === undefined) continue
     if (m.index > at) into.push(token(TOKEN_KIND.text, text.slice(at, m.index)))
     into.push(node(NODE_KIND.value, [
-      token(TOKEN_KIND.delimiter, VALUE_BRACES.open), ...lexExpression(m[1]), token(TOKEN_KIND.delimiter, VALUE_BRACES.close),
+      token(TOKEN_KIND.delimiter, VALUE_BRACES.open), ...lexExpression(m.groups.value), token(TOKEN_KIND.delimiter, VALUE_BRACES.close),
     ]))
     at = m.index + m[0].length
   }

@@ -9,10 +9,9 @@
  * layout blocks. (How a block is written to each export is its construct's, in
  * constructs/.)
  */
-import { indentOf } from '../syntax.ts'
+import { indentOf, splitNote, type SplitLine } from '../syntax.ts'
 import type { Block } from '../blocks.ts'
 import { NODE_KIND, type SyntaxNode } from '../tree/index.ts'
-import { splitNote, type SplitLine } from './lineSyntax.ts'
 import type { SheetReader } from './sheetReader.ts'
 
 /** A line of the sheet, where it is. */

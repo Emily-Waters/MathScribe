@@ -281,7 +281,7 @@ const PRECISION_AT = new RegExp(CONSTANT_PRECISION)
 /** A label in quotes, as mathjs reads a string (`\"` inside it). */
 const STRING_AT = /"(?:[^"\\]|\\.)*"/
 /** Words with a meaning of their own: mathjs's named delimiters, MathScribe's keywords, and `delta F`. */
-const KEYWORDS: ReadonlySet<string> = new Set<string>([...MATHJS_NAMED_DELIMITERS, ...Object.values(KEYWORD), ...UNCERTAINTY_WORDS])
+const KEYWORDS: ReadonlySet<string> = new Set<string>([...MATHJS_NAMED_DELIMITERS, ...KEYWORD.words, ...UNCERTAINTY_WORDS])
 /** `±` or `+-`: an uncertainty (as `pm`). */
 const PLUS_MINUS = ['±', '+-'] as const
 /** A word ends here (no more name characters after it). */

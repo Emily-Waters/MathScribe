@@ -37,7 +37,7 @@ export function wordsTex(text: string): string {
       const base = SUBSCRIPT_BASE.exec(between)?.[0] ?? ''
       out += plainTextTex(between.slice(0, between.length - base.length)) + plainTextTex(base)
     }
-    subs.push(subscriptOf(m[1]))
+    subs.push(subscriptOf(m.groups!.subscript))
     last = m.index + m[0].length
   }
   endSubs()

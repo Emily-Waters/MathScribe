@@ -7,7 +7,7 @@ import { BLOCK_KIND, type Block, type LayoutBlock } from './blocks.ts'
 import { columnGrid, columnParts } from './document.ts'
 import { DEFAULT_LATEX_OPTIONS, toLatexDocument } from './latex.ts'
 import { docxParts } from './docx.ts'
-import { layoutOpener } from './reading/lineSyntax.ts'
+import { LAYOUT_SYNTAX } from './syntax.ts'
 import { sheet } from '../test/helpers.ts'
 
 /** The sheet's first block, a column block. */
@@ -18,20 +18,20 @@ const linesOf = (b: LayoutBlock) => columnGrid(b).rows.map((row) => row.map((cel
 
 describe('the opener', () => {
   it('takes how many columns a row has, or none', () => {
-    expect(layoutOpener('@layout.column {')).toMatchObject({ columns: { breaks: [] }, title: '' })
-    expect(layoutOpener('@layout.column {')!.columns!.count).toBeUndefined()
-    expect(layoutOpener('@layout.column(3).list Steps {')).toMatchObject({ columns: { count: 3 }, style: 'list', title: 'Steps', members: ['column(3)', 'list'] })
+    expect(LAYOUT_SYNTAX.read('@layout.column {')).toMatchObject({ columns: { breaks: [] }, title: '' })
+    expect(LAYOUT_SYNTAX.read('@layout.column {')!.columns!.count).toBeUndefined()
+    expect(LAYOUT_SYNTAX.read('@layout.column(3).list Steps {')).toMatchObject({ columns: { count: 3 }, style: 'list', title: 'Steps', members: ['column(3)', 'list'] })
   })
 
   it('keeps the count from 2 to 4, saying so', () => {
-    expect(layoutOpener('@layout.column(6) {')).toMatchObject({ columns: { count: 4 }, warning: expect.stringContaining('6 is set as 4') })
-    expect(layoutOpener('@layout.column(2.6) {')!.columns!.count).toBe(3)
-    expect(layoutOpener('@layout.column(1) {')!.columns!.count).toBe(2)
+    expect(LAYOUT_SYNTAX.read('@layout.column(6) {')).toMatchObject({ columns: { count: 4 }, warning: expect.stringContaining('6 is set as 4') })
+    expect(LAYOUT_SYNTAX.read('@layout.column(2.6) {')!.columns!.count).toBe(3)
+    expect(LAYOUT_SYNTAX.read('@layout.column(1) {')!.columns!.count).toBe(2)
   })
 
   it('says what’s wrong with a count that isn’t a number, or brackets on another member', () => {
-    expect(layoutOpener('@layout.column(two) {')!.error).toContain('isn\'t a number')
-    expect(layoutOpener('@layout.list(2) {')!.error).toContain('.list takes nothing in brackets')
+    expect(LAYOUT_SYNTAX.read('@layout.column(two) {')!.error).toContain('isn\'t a number')
+    expect(LAYOUT_SYNTAX.read('@layout.list(2) {')!.error).toContain('.list takes nothing in brackets')
   })
 })
 

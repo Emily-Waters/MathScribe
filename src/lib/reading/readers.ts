@@ -2,10 +2,13 @@
  * The reader of each kind of node in a sheet's tree (the core's: a module's are
  * its own). The tree says what each line is, and which lines a block holds.
  */
-import { BLOCK_CLOSE, BLOCK_OPEN, CONSTANTS_BLOCK, DISPLAY_MODE, EXACT_SETTING, IMPORT, LATEX_BLOCK, LATEX_OPENER, LAYOUT_STYLE, LINE_COMMAND, SIGIL } from '../syntax.ts'
+import {
+  BLOCK_CLOSE, BLOCK_OPEN, CONSTANTS_BLOCK, DISPLAY_MODE, EXACT_SETTING, IMPORT, LATEX_BLOCK, LATEX_OPENER, LAYOUT_STYLE, LAYOUT_SYNTAX, LINE_COMMAND, SIGIL,
+  bracesBalance, splitNote, type SplitLine,
+} from '../syntax.ts'
 import { BLOCK_KIND, HEADING_LEVEL, type ConstantsBlock, type GroupBlock, type HeadingLevel, type SectionTitle, type ImportBlock, type LayoutBlock } from '../blocks.ts'
 import { NODE_KIND } from '../tree/index.ts'
-import { bracesBalance, layoutOpener, openerText, parseConstantDeclaration, readCsv, splitNote, type SplitLine } from './lineSyntax.ts'
+import { parseConstantDeclaration, readCsv } from './lineSyntax.ts'
 import { NodeReader, SheetWideReader, bodyLines, type Line, type TreeItem } from './reader.ts'
 import type { SheetReader } from './sheetReader.ts'
 
@@ -144,7 +147,7 @@ class LatexReader extends NodeReader {
 
   read(item: TreeItem, sheet: SheetReader): void {
     const { line } = item
-    const rest = LATEX_OPENER.exec(line.trimmed)![1].trim()
+    const rest = LATEX_OPENER.exec(line.trimmed)!.groups!.rest.trim()
     if (item.node.kind === NODE_KIND.latex) {
       // (Its `}` is the one after the LaTeX's own braces: `\frac{a}{b}` alone isn't closed.)
       const closed = rest.endsWith(BLOCK_CLOSE) && bracesBalance(rest.slice(0, -BLOCK_CLOSE.length))
@@ -175,22 +178,22 @@ class ImportReader extends NodeReader {
   read(item: TreeItem, sheet: SheetReader): void {
     const { line } = item
     const { body, note, command } = line.parts
-    const imported = IMPORT.exec(body)!
+    const imported = IMPORT.exec(body)!.groups!
     // The rows are the lines straight under it, indented further (the tree's: a blank line ends them).
     const rowLines = item.body.flatMap((b) => b.rows)
     const rows = rowLines.map((r) => r.trimmed)
     if (rows.length) sheet.blankRun = 0
     const endLine = item.last + 1
     const block: ImportBlock = {
-      kind: BLOCK_KIND.import, line: line.number, endLine, name: imported[1], file: imported[2], columns: [], rows: 0, note,
+      kind: BLOCK_KIND.import, line: line.number, endLine, name: imported.name, file: imported.file, columns: [], rows: 0, note,
       hidden: (command ?? sheet.inheritedCommand) === LINE_COMMAND.hide,
     }
     if (rows.length) {
       const csv = readCsv(rows)
-      const defined = csv.error ? { columns: [], error: csv.error } : sheet.calc.defineData(csv.columns, imported[1])
+      const defined = csv.error ? { columns: [], error: csv.error } : sheet.calc.defineData(csv.columns, imported.name)
       Object.assign(block, { columns: defined.columns, rows: csv.rows, error: defined.error })
-    } else if (imported[2] !== undefined) {
-      block.error = `The data from ${imported[2]} is missing: choose the file again.`
+    } else if (imported.file !== undefined) {
+      block.error = `The data from ${imported.file} is missing: choose the file again.`
     }
     sheet.add(block)
   }
@@ -225,7 +228,7 @@ class ProseLayoutReader extends NodeReader {
   read(item: TreeItem, sheet: SheetReader): void {
     const { line } = item
     const { body: opened, note, command } = line.parts
-    const opener = layoutOpener(opened)!
+    const opener = LAYOUT_SYNTAX.read(opened)!
     const style = opener.style!
     const titlePage = style === LAYOUT_STYLE.titlepage
     const block: LayoutBlock = {
@@ -275,9 +278,9 @@ class ProseLayoutReader extends NodeReader {
     block.error = title.error
     sheet.blankRun = 0
     block.endLine = item.last + 1
-    if (!item.closer) block.error = `${openerText(block)} is missing its closing ${BLOCK_CLOSE}.`
+    if (!item.closer) block.error = `${LAYOUT_SYNTAX.openerOf(block)} is missing its closing ${BLOCK_CLOSE}.`
     else if (!block.children.length && !(titlePage && block.title)) {
-      block.error = `${openerText(block)} is empty: put the text that belongs to it before its ${BLOCK_CLOSE}.`
+      block.error = `${LAYOUT_SYNTAX.openerOf(block)} is empty: put the text that belongs to it before its ${BLOCK_CLOSE}.`
     }
     sheet.add(block)
   }
@@ -294,7 +297,7 @@ class LayoutReader extends NodeReader {
   read(item: TreeItem, sheet: SheetReader): void {
     const { line } = item
     const { body, note, command, multiline, notation } = line.parts
-    const opener = layoutOpener(body)!
+    const opener = LAYOUT_SYNTAX.read(body)!
     const title = sheet.withValues(opener.title)
     const block: LayoutBlock = {
       kind: BLOCK_KIND.layout, line: line.number, title: title.text, note, style: opener.style, members: opener.members, children: [], indent: line.indent,

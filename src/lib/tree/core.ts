@@ -5,7 +5,7 @@
 import {
   BLOCK_CLOSE, BLOCK_OPEN, CONSTANTS_OPENER, IMPORT, LATEX_OPENER, PROSE_LAYOUTS,
 } from '../syntax.ts'
-import { layoutOpener, splitNote } from '../reading/lineSyntax.ts'
+import { LAYOUT_SYNTAX, splitNote } from '../syntax.ts'
 import { BODY_END, CONTENT, GRAMMAR_CORE, declareContexts, declareLineSyntaxes, type LineSyntax } from './grammar.ts'
 import { LINE_CONTEXT, NODE_KIND } from './nodes.ts'
 
@@ -34,7 +34,7 @@ const SYNTAXES: LineSyntax[] = [
   { kind: NODE_KIND.paragraph, contexts: SHEET, content: CONTENT.text, matches: (trimmed) => trimmed.startsWith('>') },
   {
     kind: NODE_KIND.latexOpener, contexts: SHEET, content: CONTENT.whole,
-    matches: (trimmed) => LATEX_OPENER.exec(trimmed)?.[1].trim() === '',
+    matches: (trimmed) => LATEX_OPENER.exec(trimmed)?.groups?.rest.trim() === '',
     opens: { node: NODE_KIND.latexBlock, context: LINE_CONTEXT.latex, ends: BODY_END.braceAlone },
   },
   { kind: NODE_KIND.latex, contexts: SHEET, content: CONTENT.whole, matches: (trimmed) => LATEX_OPENER.test(trimmed) },
@@ -47,14 +47,14 @@ const SYNTAXES: LineSyntax[] = [
   {
     kind: NODE_KIND.proseOpener, contexts: SHEET, content: CONTENT.noted,
     matches: (_, split) => {
-      const style = layoutOpener(split().body)?.style
+      const style = LAYOUT_SYNTAX.read(split().body)?.style
       return style !== undefined && PROSE_LAYOUTS.has(style)
     },
     opens: { node: NODE_KIND.prose, context: LINE_CONTEXT.prose, ends: BODY_END.brace },
   },
   {
     kind: NODE_KIND.layoutOpener, contexts: SHEET, content: CONTENT.noted,
-    matches: (_, split) => layoutOpener(split().body) !== null,
+    matches: (_, split) => LAYOUT_SYNTAX.read(split().body) !== null,
     opens: { node: NODE_KIND.layout, context: LINE_CONTEXT.sheet, ends: BODY_END.closer },
   },
   {

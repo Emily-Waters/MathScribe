@@ -263,8 +263,8 @@ function importButtons(state: EditorState) {
     const open = line.from + m.index + m[0].indexOf('(') + 1
     const close = line.from + m.index + m[0].length - 1
     // The name, in its quotes, shown as the button; or the button in the empty brackets.
-    marks.push(m[1] !== undefined
-      ? Decoration.replace({ widget: new ChooseFile(m[1]) }).range(open, close)
+    marks.push(m.groups?.file !== undefined
+      ? Decoration.replace({ widget: new ChooseFile(m.groups.file) }).range(open, close)
       : Decoration.widget({ widget: new ChooseFile(undefined), side: 1 }).range(open))
     // With data: ▼/▲ to unfold or fold the rows, then the ×.
     const block = blocks.get(n)

@@ -348,9 +348,9 @@ export const BUILTINS = new Namespace('', 'Built in', [
   new LineFormMember(CALL.import, '"file.csv"', 'Import a CSV file: each value becomes a variable, x_1, x_2, …',
     '@import("run1.csv"), or run1 = @import("run1.csv"), with the file’s rows indented under it'),
   new Namespace(NAMESPACE.layout, 'Blocks that arrange lines (text, list, numbered, center, titlepage) or set how they’re shown (hidden, sym, val, multiline, …)', [
-    ...Object.values(LAYOUT_STYLE).map((style) => new LayoutMember(style, LAYOUT_DESCRIPTIONS[style])),
+    ...LAYOUT_STYLE.words.map((style) => new LayoutMember(style, LAYOUT_DESCRIPTIONS[style])),
     new ArrangementMember(LAYOUT_ARRANGEMENT.column, COLUMN_DESCRIPTION),
-    ...Object.values(LAYOUT_MODIFIER).map((modifier) => new ModifierMember(modifier, LAYOUT_MODIFIER_DESCRIPTIONS[modifier])),
+    ...LAYOUT_MODIFIER.words.map((modifier) => new ModifierMember(modifier, LAYOUT_MODIFIER_DESCRIPTIONS[modifier])),
   ], { atLineStart: true, chained: true }),
   new BlockMember(CONSTANTS_BLOCK, 'Constants usable anywhere in the sheet as @name'),
   new BlockMember(LATEX_BLOCK, 'Raw LaTeX, displayed but not worked out: the lines up to a } on its own, or @latex { … } on one line'),

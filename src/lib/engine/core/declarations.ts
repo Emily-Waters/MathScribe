@@ -1,6 +1,6 @@
 /** Settings on an assigned name (`m:3:deg`, display names), and names being unpacked. */
 import { type MathType, type Unit } from 'mathjs'
-import { EXACT_SETTING, NOTATIONS, PERCENT, LABEL_QUOTE, TEMPLATE_USE, type Notation, type Precision } from '../../syntax.ts'
+import { EXACT_SETTING, NOTATION, PERCENT, LABEL_QUOTE, TEMPLATE_USE, type Notation, type Precision } from '../../syntax.ts'
 import { NODE_KIND } from '../../tree/nodes.ts'
 import { assignedOf, lineShape } from '../../tree/shapes.ts'
 import { UNIT } from '../../mathjsNames.ts'
@@ -89,7 +89,7 @@ export function parseTupleName(entry: string): TupleName | { error: string } {
 }
 
 /** Whether a setting is a notation (`sci`, `dec`). */
-export const isNotation = (s: string): s is Notation => (NOTATIONS as readonly string[]).includes(s)
+export const isNotation = (s: string): s is Notation => NOTATION.has(s)
 
 /** The display settings on a line's assigned name (the line's shape: tree/shapes.ts), or an error if one isn't understood; null if it has none. */
 export function parseDeclaration(line: string): Declaration | { error: string } | null {
@@ -102,13 +102,13 @@ export function parseDeclaration(line: string): Declaration | { error: string } 
 export function declarationOf(name: string, specs: readonly string[]): Declaration | { error: string } {
   const out: Declaration = { name }
   for (const spec of specs) {
-    const template = TEMPLATE_USE.exec(spec)
+    const template = TEMPLATE_USE.exec(spec)?.groups
     if (spec.startsWith(LABEL_QUOTE)) out.label = spec.slice(1, -1)
-    else if (template) out.template = { name: template[1], args: template[2].split(',').map((a) => a.trim()) }
+    else if (template) out.template = { name: template.template, args: template.arguments.split(',').map((a) => a.trim()) }
     else if (isModuleLineSetting(spec)) (out.moduleSettings ??= []).push(spec)
     else if (spec === EXACT_SETTING) out.sf = EXACT_SETTING
     else if (isNotation(spec)) {
-      if (out.notation && out.notation !== spec) return { error: `${name} can't be both :${NOTATIONS[0]} and :${NOTATIONS[1]}.` }
+      if (out.notation && out.notation !== spec) return { error: `${name} can't be both :${NOTATION.sci} and :${NOTATION.dec}.` }
       out.notation = spec
     } else if (/^\d+$/.test(spec)) {
       if (Number(spec) === 0) return { error: `${name}:0 isn't valid; use at least 1 sig fig, or :exact.` }

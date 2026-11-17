@@ -1526,7 +1526,7 @@ export class Calculator {
       // (Bad parameters, like `g(x y)`, get defineFunction's error rather than mathjs's.)
       const params = target.entries!.filter(Boolean)
       // `massName(x) = "m_{{x}}"`: a display-name template, words in quotes.
-      const words = target.settings.length ? undefined : LABEL_WORDS.exec(shape.value)?.[1]
+      const words = target.settings.length ? undefined : LABEL_WORDS.exec(shape.value)?.groups?.words
       if (words !== undefined) return this.defineTemplate(target.name, params, words)
       // `f(x, y) = …`: a function;
       // `f(x):3:deg = …`: settings for what the function gives back.

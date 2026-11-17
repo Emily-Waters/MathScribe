@@ -17,7 +17,7 @@ import { CHEM_NODE, CHEM_TOKEN } from '../lib/engine/modules/chemistry/grammar.t
 import { SPECIES_TOKEN } from '../lib/engine/modules/chemistry/syntax.ts'
 import { SERIES_TOKEN } from '../lib/engine/modules/series/grammar.ts'
 import {
-  CONSTANTS_TOKEN, GREEK_CHARS, INDENT_WIDTH, LATEX_OPENER, LATEX_TOKEN, LAYOUT_NAME_TOKEN, COMMENT_START, NAME_CHAR, NUMBER,
+  CONSTANTS_TOKEN, GREEK_CHARS, INDENT_WIDTH, LATEX_OPENER, LATEX_TOKEN, LAYOUT_SYNTAX, COMMENT_START, NAME_CHAR, NUMBER,
   VALUE_BRACES, COMMAND_NAMES, indentOf, isComment,
 } from '../lib/syntax.ts'
 import { LINE_ROLE, NODE_KIND, TOKEN_KIND, TOP, isToken, stepLine, type LineState, type Part, type SyntaxNode } from '../lib/tree/index.ts'
@@ -210,7 +210,7 @@ function token(stream: StringStream, state: State): Token | null {
       stream.next()
       return null
     case SAYS.title:
-      if (stream.match(LAYOUT_NAME_TOKEN) || stream.match(CONSTANTS_TOKEN) || stream.match(SPECIES_TOKEN)) return TOKEN.keyword
+      if (stream.match(LAYOUT_SYNTAX.token) || stream.match(CONSTANTS_TOKEN) || stream.match(SPECIES_TOKEN)) return TOKEN.keyword
       if (stream.match(/\{\s*(?=#|$)/)) return TOKEN.brace
       if (!stream.match(/[^#]+?(?=\s*\{\s*(?:#|$))/)) stream.next()
       return TOKEN.title

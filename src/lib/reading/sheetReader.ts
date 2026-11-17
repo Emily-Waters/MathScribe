@@ -6,10 +6,10 @@
  */
 import { Calculator, markupText, outsideMaths, sheetModules, type CalcOptions } from '../engine/index.ts'
 import type { VariableSummary } from '../values.ts'
-import { BLOCK_CLOSE, EXACT_SETTING, LAYOUT_STYLE, LINE_COMMAND, SIGIL, VALUE_IN_TEXT, type Notation } from '../syntax.ts'
+import { BLOCK_CLOSE, EXACT_SETTING, LAYOUT_STYLE, LAYOUT_SYNTAX, LINE_COMMAND, SIGIL, VALUE_IN_TEXT, closesBlock, type Notation } from '../syntax.ts'
 import { BLOCK_KIND, type Block, type Command, type GroupBlock, type LayoutBlock } from '../blocks.ts'
 import { NODE_KIND, TOKEN_KIND, encode, isBlockKind, isToken, splitLines, textOf, type SyntaxNode } from '../tree/index.ts'
-import { closesBlock, openerText, parseConstantDeclaration } from './lineSyntax.ts'
+import { parseConstantDeclaration } from './lineSyntax.ts'
 import { Line, readsLines, type NodeReader, type TreeItem } from './reader.ts'
 import { lineReaders } from './readers.ts'
 
@@ -208,7 +208,7 @@ export class SheetReader {
     const layout = this.open.pop() as LayoutBlock
     layout.endLine = closingLine ?? (layout.children.length ? lastLine(layout.children.at(-1)!) : layout.line)
     if (!layout.children.length && !layout.nested) {
-      layout.error = `${openerText(layout)} is empty: put the lines that belong to it before its ${BLOCK_CLOSE}.`
+      layout.error = `${LAYOUT_SYNTAX.openerOf(layout)} is empty: put the lines that belong to it before its ${BLOCK_CLOSE}.`
     }
   }
 
@@ -231,7 +231,7 @@ export class SheetReader {
       if (block.kind === BLOCK_KIND.layout) {
         const subList = !!block.nested
         this.closeLayout(subList ? undefined : this.lines.length)
-        block.error ??= subList ? undefined : `${openerText(block)} on line ${block.line} is missing its closing ${BLOCK_CLOSE}.`
+        block.error ??= subList ? undefined : `${LAYOUT_SYNTAX.openerOf(block)} on line ${block.line} is missing its closing ${BLOCK_CLOSE}.`
         continue
       }
       this.open.pop()

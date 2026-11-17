@@ -5,7 +5,7 @@
  */
 import { BLOCK_KIND, type Block, type LayoutBlock } from '../blocks.ts'
 import { columnParts, listItems } from '../document.ts'
-import { LAYOUT_STYLE, LINE_COMMAND, layoutOpenerText, type LayoutStyle } from '../syntax.ts'
+import { LAYOUT_STYLE, LAYOUT_SYNTAX, LINE_COMMAND, type LayoutStyle } from '../syntax.ts'
 import { ALIGN } from '../alignment.ts'
 import { errorComment, heading as latexHeading, titleToLatex } from '../latexKit.ts'
 import {
@@ -219,7 +219,7 @@ export class LayoutConstruct extends Construct<LayoutBlock> {
   readonly kind = BLOCK_KIND.layout
 
   latex(b: LayoutBlock, out: LatexOut): string {
-    if (b.error && !b.children.length) return errorComment(b.line, layoutOpenerText(b.members ?? [b.style ?? LAYOUT_STYLE.list], b.title), b.error)
+    if (b.error && !b.children.length) return errorComment(b.line, LAYOUT_SYNTAX.openerOf(b), b.error)
     if (b.command === LINE_COMMAND.hide) return ''
     return arrangementOf(b).latex(b, latexHeading(b.title && titleToLatex(b.title), b.note), out)
   }

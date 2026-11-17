@@ -105,7 +105,7 @@ export function titleSegments(text: string): TitleSegment[] {
     let last = 0
     for (const m of seg.value.matchAll(TEXT_SUBSCRIPT)) {
       plain(seg.value.slice(last, m.index))
-      const sub = subscriptOf(m[1])
+      const sub = subscriptOf(m.groups!.subscript)
       // A subscript in a module's notation (`m_{H2O}`, chemistry) is drawn as it says, in maths; anything else is a subscript of text.
       const tex = moduleSubscriptTex(sub)
       out.push(tex !== undefined

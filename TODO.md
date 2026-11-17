@@ -455,6 +455,15 @@ edit reads again only what it changed, and nodes are shared between trees.
          split into `syntax/` by concept, `@layout` as one `LayoutSyntax` class;
          `document.ts` down to evaluation (block queries by the block types,
          columns in `constructs/layout.ts`, editor services in `sheetIndex.ts`).
+         Syntax half done: `syntax/patterns.ts` (`src`, `named`, `optional`,
+         `oneOf`, `regex`; `words()` with `.words`, `.has`, `.alternation`, which
+         can't clash with a word as `.list` would have with `LAYOUT_STYLE.list`),
+         and lexical, greek, settings, text, blocks, constants, commands
+         (`splitNote` moved here), layout (`LAYOUT_SYNTAX.read/openerOf/name/
+         token`). `syntax.ts` re-exports them all. Every pattern's groups are
+         named and read as `.groups`; the plural lists (`DISPLAY_MODES`,
+         `NOTATIONS`, …) are each list's `.words`. `reading/lineSyntax.ts` keeps
+         only the constant declaration and the imported-data cache.
       3. [ ] The tree tokenizes once what's now re-read: #commands and notes
          (`tree/lines.ts` and `splitNote`), block openers (`tree/core.ts`,
          `reading/lineSyntax.ts`, the editor), text markup (`$…$`, `{formula}`,

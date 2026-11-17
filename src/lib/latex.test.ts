@@ -24,7 +24,8 @@ describe('equations', () => {
   it('in a row share one gather*, with notes as tags; a hidden line doesn’t split them', () => {
     const tex = body(exportOf('m = 2.00 kg   # mass\nh = 3   #hide\nF = m * 9.81 m/s^2'))
     expect(tex.match(/\\begin\{gather\*\}/g)).toHaveLength(1)
-    expect(tex).toContain('m = 2.00\\,\\mathrm{kg} \\tag*{mass} \\\\\n  F = ')
+    // (A note is small and italic.)
+    expect(tex).toContain('m = 2.00\\,\\mathrm{kg} \\tag*{\\small\\itshape mass} \\\\\n  F = ')
     expect(tex).not.toContain('h = 3')
   })
 
@@ -38,6 +39,25 @@ describe('equations', () => {
     const tex = body(exportOf('d = @solve(2 * d = 4.0 m, d)'))
     expect(tex).toMatch(/\\begin\{msworking\}\n\\begin\{gather\*\}\n {2}[^\n]*\n\\end\{gather\*\}\n\\end\{msworking\}\n\\begin\{gather\*\}\n {2}d = /)
     expect(exportOf('x = 1')).toContain('\\newenvironment{msworking}{\\par\\small\\addtolength{\\mathindent}{1.5em}}{\\par}')
+  })
+
+  it('that might not fit the line are set one = per row when they don’t (LaTeX measures them)', () => {
+    const long = 'x = 2.00 m pm 0.05 m\ny = 1.00 m pm 0.05 m\nz = sqrt(x^2 + y^2) * sqrt(x^2 + y^2) / (x + y)\ndelta z ='
+    const tex = body(exportOf(long))
+    // One line, or rows, one = each, lined up: both given, LaTeX picks.
+    expect(tex).toMatch(/\\msfit\{\\delta z = .*\}\{\\begin\{aligned\}\\delta z &= .* \\\\ &= .*\\end\{aligned\}\}/)
+    // A short one is as it is.
+    expect(body(exportOf('a = 2.00 kg * 9.81 m/s^2'))).not.toContain('\\msfit')
+    // The macro measures against the line, less the indent of flush-left equations.
+    expect(exportOf('x = 1')).toContain('\\ifdim\\wd\\msfitbox>\\dimexpr\\linewidth-\\mathindent\\relax')
+    expect(exportOf('x = 1', { align: 'center' })).toContain('\\ifdim\\wd\\msfitbox>\\dimexpr\\linewidth\\relax')
+  })
+})
+
+describe('text', () => {
+  it('sets characters pdflatex can’t set as text as maths: Greek letters, √, ≈', () => {
+    const tex = body(exportOf('> The mean ± σ/√n, about ≈ 2 μm.'))
+    expect(tex).toContain('± $\\sigma$/$\\surd$n, about $\\approx$ 2 $\\mu$m.')
   })
 })
 

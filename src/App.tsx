@@ -18,6 +18,7 @@ import { loadAcceptKeys, saveAcceptKeys, type AcceptKeys } from './editor/intell
 import { applyAppTheme, loadAppTheme, saveAppTheme, useAppearance, watchSystemTheme, type AppThemeId } from './appTheme.ts'
 import { ThemeMenu } from './components/ThemeMenu.tsx'
 import { CreateDialog } from './components/CreateDialog.tsx'
+import { ExportDialog } from './components/ExportDialog.tsx'
 import { ErrorBoundary } from './components/ErrorBoundary.tsx'
 import { DEFAULT_CALC_OPTIONS, EVALUATION } from './config.ts'
 import { useSettled } from './useSettled.ts'
@@ -95,6 +96,8 @@ export default function App() {
   }, [file])
   // The Create dialog (a prompt for an AI to write a sheet, and its answer opened).
   const [creating, setCreating] = useState(false)
+  // The Export dialog (the sheet as a Word or LaTeX document).
+  const [exporting, setExporting] = useState(false)
 
   // The sheet, worked out on every keystroke if that's quick; if the last time
   // was slow, once typing pauses (see EVALUATION), so the editor never waits.
@@ -168,10 +171,12 @@ export default function App() {
             Save
           </button>
           <button onClick={() => void file.saveAs()} title="Save to a new file (Ctrl+Shift+S)">Save as</button>
+          <button onClick={() => setExporting(true)} title="Download the sheet as a Word or LaTeX document">Export</button>
         </div>
         <ThemeMenu theme={appTheme} onChange={changeAppTheme} />
       </header>
       <CreateDialog open={creating} onClose={() => setCreating(false)} onCreate={file.newSheet} />
+      <ExportDialog open={exporting} onClose={() => setExporting(false)} blocks={sheet.blocks} fileName={file.active.name} />
       {error && <div className="app__error" role="alert">{error}</div>}
       {!file.draftKept && (
         <div className="app__error" role="alert">
@@ -228,7 +233,6 @@ export default function App() {
               activeLine={activeLine}
               centerRequest={centerOutput}
               onJump={jumpTo}
-              fileName={file.active.name}
               onInsert={insertText}
               onRemoveImport={removeImport}
             />

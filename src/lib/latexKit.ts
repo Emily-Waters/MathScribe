@@ -5,6 +5,7 @@
  * export (latex.ts) being involved.
  */
 import { TITLE_SEGMENT, titleSegments } from './document.ts'
+import { GREEK_BY_CHAR } from './syntax.ts'
 import { symbolTex, unitTex } from './engine/index.ts'
 import type { PlotData, PlotName } from './plot.ts'
 import type { LatexOptions } from './latex.ts'
@@ -17,6 +18,23 @@ import type { LatexOptions } from './latex.ts'
 export const escapeTex = (s: string) =>
   s.replace(/[\\{}#%&_^~$]/g, (c) =>
     c === '\\' ? '\\textbackslash{}' : c === '^' ? '\\^{}' : c === '~' ? '\\~{}' : `\\${c}`)
+    // (Characters pdflatex can't set in text, past Latin-1, as a little maths: σ as $\sigma$.)
+    .replace(TEXT_MATHS_CHAR, (c) => `$${TEXT_MATHS.get(c)}$`)
+
+/**
+ * Characters past Latin-1 that a sheet's text uses (Greek letters, √, ≈, ≤, …),
+ * which pdflatex can't set as text, as the maths that draws them. (±, ×, °, µ
+ * and the like are Latin-1, which it sets as they are.)
+ */
+const TEXT_MATHS: ReadonlyMap<string, string> = new Map<string, string>([
+  ...[...GREEK_BY_CHAR].map(([char, name]): [string, string] => [char, `\\${name}`]),
+  ['√', '\\surd'], ['≈', '\\approx'], ['≤', '\\le'], ['≥', '\\ge'], ['≠', '\\ne'], ['∞', '\\infty'],
+  ['→', '\\to'], ['←', '\\leftarrow'], ['⇌', '\\rightleftharpoons'], ['−', '-'], ['∑', '\\sum'],
+  ['∆', '\\Delta'], ['′', '\\prime'], ['∝', '\\propto'], ['∂', '\\partial'],
+])
+
+/** Any of TEXT_MATHS's characters. */
+const TEXT_MATHS_CHAR = new RegExp(`[${[...TEXT_MATHS.keys()].join('')}]`, 'gu')
 
 /** A heading or block title in LaTeX: `2p_z` → 2p\textsubscript{z}. */
 export function titleToLatex(text: string): string {
@@ -41,8 +59,112 @@ export interface Equation {
  * with its note on the right.
  */
 export function gather(eqs: Equation[]): string {
-  const rows = eqs.map((e) => `  ${e.tex}${e.note ? ` \\tag*{${escapeTex(e.note)}}` : ''}`)
+  // (A note is a comment on its line: small and italic, at the right margin.)
+  const rows = eqs.map((e) => `  ${fitted(e.tex)}${e.note ? ` \\tag*{${NOTE_STYLE}${escapeTex(e.note)}}` : ''}`)
   return ['\\begin{gather*}', rows.join(' \\\\\n'), '\\end{gather*}'].join('\n')
+}
+
+/** How a line's note is set, in its \tag*: small and italic (maths in it stays upright). */
+const NOTE_STYLE = '\\small\\itshape '
+
+// ---------------------------------------------------------------------------
+// Equations too wide for the line
+// ---------------------------------------------------------------------------
+
+/**
+ * The macro (defined in the preamble: FIT_MACRO_DEFINITION) that sets an
+ * equation on one line if it fits, and otherwise one `=` per row, lined up:
+ * `\msfit{one line}{rows}`. LaTeX measures it, so it's right for the page,
+ * margins, font size and card it's in.
+ */
+export const FIT_MACRO = 'msfit'
+
+/** The box the macro measures an equation in. */
+const FIT_BOX = 'msfitbox'
+
+/**
+ * The fitting macro's definition, for the preamble. The room an equation has is
+ * the line's width (less the indent equations have when they're flush left).
+ */
+export const fitMacroDefinition = (flushLeft: boolean) => [
+  '% An equation too wide for the line is set one = per row, lined up.',
+  `\\newsavebox{\\${FIT_BOX}}`,
+  // (Both forms stay in braces until one is chosen: in an alignment, gather*'s, the rows' & would end the cell.)
+  `\\newcommand{\\${FIT_FIRST}}[2]{#1}`,
+  `\\newcommand{\\${FIT_SECOND}}[2]{#2}`,
+  `\\newcommand{\\${FIT_MACRO}}[2]{\\sbox{\\${FIT_BOX}}{$\\displaystyle #1$}%`,
+  `  \\ifdim\\wd\\${FIT_BOX}>\\dimexpr\\linewidth${flushLeft ? '-\\mathindent' : ''}\\relax`,
+  `  \\expandafter\\${FIT_SECOND}\\else\\expandafter\\${FIT_FIRST}\\fi{#1}{#2}}`,
+]
+
+/** The helpers that take one of two arguments, for the fitting macro. */
+const FIT_FIRST = 'msfitfirst'
+const FIT_SECOND = 'msfitsecond'
+
+/**
+ * How many characters an equation draws before it might not fit on a line (a
+ * line of maths at 10–12 pt holds more; fractions, counted top and bottom, make
+ * it an overestimate, so fewer can't overflow).
+ */
+const MIGHT_NOT_FIT = 60
+
+/** Commands that draw nothing themselves: what they hold is drawn, or they only space or size it. */
+const DRAWS_NOTHING = /\\(?:left|right|mathrm|text|frac|sqrt|begin|end|displaystyle|quad|qquad|ce)(?![a-zA-Z])|\\[,;:! ]/g
+/** Any other command, which draws one symbol: \times, \pi, \pm. */
+const ONE_SYMBOL = /\\[a-zA-Z]+/g
+
+/** About how many characters an equation draws: its LaTeX without markup. */
+const drawnLength = (tex: string) => tex.replace(DRAWS_NOTHING, '').replace(ONE_SYMBOL, '#').replace(/[{}^_&\s]/g, '').length
+
+/** The relations an equation's steps are joined with (as layoutEquation joins them), at a position. */
+const RELATION_AT = / (=|\\approx) /y
+/** What opens or closes a group the relations inside it don't count in. */
+const OPENS = /\\left(?![a-zA-Z])|\\begin(?![a-zA-Z])/y
+const CLOSES = /\\right(?![a-zA-Z])|\\end(?![a-zA-Z])/y
+
+/** An equation's steps, and the relation before each after the first, split at its top level (not in brackets or braces). */
+function stepsOf(tex: string): { steps: string[]; relations: string[] } {
+  const steps: string[] = []
+  const relations: string[] = []
+  let depth = 0
+  let start = 0
+  const at = (re: RegExp, i: number) => {
+    re.lastIndex = i
+    return re.exec(tex)
+  }
+  for (let i = 0; i < tex.length; i++) {
+    const c = tex[i]
+    if (c === '\\' && (tex[i + 1] === '{' || tex[i + 1] === '}')) {
+      i++ // an escaped brace, \{ or \}
+      continue
+    }
+    if (at(OPENS, i) || c === '{') depth++
+    else if (at(CLOSES, i) || c === '}') depth--
+    else if (depth === 0) {
+      const relation = at(RELATION_AT, i)
+      if (relation) {
+        steps.push(tex.slice(start, i))
+        relations.push(relation[1])
+        start = i + relation[0].length
+        i = start - 1
+      }
+    }
+  }
+  steps.push(tex.slice(start))
+  return { steps, relations }
+}
+
+/**
+ * An equation as the fitting macro takes it, if it might not fit and has more
+ * than one step to put on rows of their own; otherwise as it is. (One already
+ * on rows, #multiline's, is as it is.)
+ */
+export function fitted(tex: string): string {
+  if (drawnLength(tex) <= MIGHT_NOT_FIT || tex.includes('\\begin{aligned}')) return tex
+  const { steps, relations } = stepsOf(tex)
+  if (relations.length < 2) return tex
+  const rows = steps.slice(1).map((s, i) => `&${relations[i]} ${s}`)
+  return `\\${FIT_MACRO}{${tex}}{\\begin{aligned}${steps[0]} ${rows.join(' \\\\ ')}\\end{aligned}}`
 }
 
 

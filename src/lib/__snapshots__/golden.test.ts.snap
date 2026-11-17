@@ -83,6 +83,13 @@ exports[`golden sheets > the sample sheet’s LaTeX export 1`] = `
 \\appto{\\small}{\\compactdisplays}
 \\compactdisplays
 \\setlength{\\mathindent}{1em}
+% An equation too wide for the line is set one = per row, lined up.
+\\newsavebox{\\msfitbox}
+\\newcommand{\\msfitfirst}[2]{#1}
+\\newcommand{\\msfitsecond}[2]{#2}
+\\newcommand{\\msfit}[2]{\\sbox{\\msfitbox}{$\\displaystyle #1$}%
+  \\ifdim\\wd\\msfitbox>\\dimexpr\\linewidth-\\mathindent\\relax
+  \\expandafter\\msfitsecond\\else\\expandafter\\msfitfirst\\fi{#1}{#2}}
 \\usepackage{xcolor}
 \\usepackage{mdframed}
 % Blocks, functions and constants: a card with a bar on the left, as in MathScribe.
@@ -100,26 +107,26 @@ exports[`golden sheets > the sample sheet’s LaTeX export 1`] = `
 A block is released from rest on a frictionless incline.
 
 \\begin{gather*}
-  m = 2.00\\,\\mathrm{kg} \\tag*{mass of block} \\\\
-  g = 9.81\\,\\mathrm{m}/\\mathrm{s}^{2} \\tag*{gravitational acceleration} \\\\
-  \\theta = \\left(30.0 \\pm 0.5\\right)^{\\circ} \\tag*{incline angle, measured} \\\\
-  d = \\left(3.50 \\pm 0.02\\right)\\,\\mathrm{m} \\tag*{length of ramp, measured}
+  m = 2.00\\,\\mathrm{kg} \\tag*{\\small\\itshape mass of block} \\\\
+  g = 9.81\\,\\mathrm{m}/\\mathrm{s}^{2} \\tag*{\\small\\itshape gravitational acceleration} \\\\
+  \\theta = \\left(30.0 \\pm 0.5\\right)^{\\circ} \\tag*{\\small\\itshape incline angle, measured} \\\\
+  d = \\left(3.50 \\pm 0.02\\right)\\,\\mathrm{m} \\tag*{\\small\\itshape length of ramp, measured}
 \\end{gather*}
 
 \\subsection{Forces}
 
 \\begin{gather*}
-  F_{g} = m g = 2.00\\,\\mathrm{kg}\\times 9.81\\,\\mathrm{m}/\\mathrm{s}^{2} = 19.6\\,\\mathrm{N} \\tag*{weight} \\\\
-  F_{\\mathrm{par}} = F_{g} \\sin\\left(\\theta\\right) = 19.6\\,\\mathrm{N}\\times \\sin\\left(30.0^{\\circ}\\right) = \\left(9.81 \\pm 0.15\\right)\\,\\mathrm{N} \\tag*{component along the ramp} \\\\
-  a = \\frac{F_{\\mathrm{par}}}{m} = \\frac{9.81\\,\\mathrm{N}}{2.00\\,\\mathrm{kg}} = \\left(4.91 \\pm 0.07\\right)\\,\\mathrm{m}/\\mathrm{s}^{2} \\tag*{acceleration}
+  F_{g} = m g = 2.00\\,\\mathrm{kg}\\times 9.81\\,\\mathrm{m}/\\mathrm{s}^{2} = 19.6\\,\\mathrm{N} \\tag*{\\small\\itshape weight} \\\\
+  F_{\\mathrm{par}} = F_{g} \\sin\\left(\\theta\\right) = 19.6\\,\\mathrm{N}\\times \\sin\\left(30.0^{\\circ}\\right) = \\left(9.81 \\pm 0.15\\right)\\,\\mathrm{N} \\tag*{\\small\\itshape component along the ramp} \\\\
+  a = \\frac{F_{\\mathrm{par}}}{m} = \\frac{9.81\\,\\mathrm{N}}{2.00\\,\\mathrm{kg}} = \\left(4.91 \\pm 0.07\\right)\\,\\mathrm{m}/\\mathrm{s}^{2} \\tag*{\\small\\itshape acceleration}
 \\end{gather*}
 
 \\subsection{Motion}
 
 \\begin{gather*}
-  v_{f} = \\sqrt{2 a d} = \\sqrt{2\\times 4.91\\,\\mathrm{m}/\\mathrm{s}^{2}\\times 3.50\\,\\mathrm{m}} = \\left(5.86 \\pm 0.05\\right)\\,\\mathrm{m}/\\mathrm{s} \\tag*{speed at the bottom} \\\\
-  t = \\frac{v_{f}}{a} = \\frac{5.86\\,\\mathrm{m}/\\mathrm{s}}{4.91\\,\\mathrm{m}/\\mathrm{s}^{2}} = \\left(1.19 \\pm 0.01\\right)\\,\\mathrm{s} \\tag*{time on the ramp} \\\\
-  E_{k} = \\frac{1}{2} m {v_{f}}^{2} = \\frac{1}{2}\\times 2.00\\,\\mathrm{kg}\\times {\\left(5.86\\,\\mathrm{m}/\\mathrm{s}\\right)}^{2} = \\left(34.3 \\pm 0.6\\right)\\,\\mathrm{J} \\tag*{kinetic energy at the bottom} \\\\
+  v_{f} = \\sqrt{2 a d} = \\sqrt{2\\times 4.91\\,\\mathrm{m}/\\mathrm{s}^{2}\\times 3.50\\,\\mathrm{m}} = \\left(5.86 \\pm 0.05\\right)\\,\\mathrm{m}/\\mathrm{s} \\tag*{\\small\\itshape speed at the bottom} \\\\
+  t = \\frac{v_{f}}{a} = \\frac{5.86\\,\\mathrm{m}/\\mathrm{s}}{4.91\\,\\mathrm{m}/\\mathrm{s}^{2}} = \\left(1.19 \\pm 0.01\\right)\\,\\mathrm{s} \\tag*{\\small\\itshape time on the ramp} \\\\
+  E_{k} = \\frac{1}{2} m {v_{f}}^{2} = \\frac{1}{2}\\times 2.00\\,\\mathrm{kg}\\times {\\left(5.86\\,\\mathrm{m}/\\mathrm{s}\\right)}^{2} = \\left(34.3 \\pm 0.6\\right)\\,\\mathrm{J} \\tag*{\\small\\itshape kinetic energy at the bottom} \\\\
   v_{f} = \\left(21.09 \\pm 0.17\\right)\\,\\mathrm{km}/\\mathrm{h}
 \\end{gather*}
 
@@ -128,22 +135,22 @@ A block is released from rest on a frictionless incline.
 Values with pm carry an uncertainty; results combine them in quadrature.
 
 \\begin{gather*}
-  \\delta v_{f} = \\sqrt{\\left(\\frac{\\partial v_{f}}{\\partial a}\\,\\delta a\\right)^{2} + \\left(\\frac{\\partial v_{f}}{\\partial d}\\,\\delta d\\right)^{2}} = \\sqrt{\\left(\\frac{d}{\\sqrt{2 a d}}\\,\\delta a\\right)^{2} + \\left(\\frac{a}{\\sqrt{2 a d}}\\,\\delta d\\right)^{2}} = \\sqrt{\\left(\\frac{3.50\\,\\mathrm{m}}{\\sqrt{2\\times 4.91\\,\\mathrm{m}/\\mathrm{s}^{2}\\times 3.50\\,\\mathrm{m}}}\\times 0.07\\,\\mathrm{m}/\\mathrm{s}^{2}\\right)^{2} + \\left(\\frac{4.91\\,\\mathrm{m}/\\mathrm{s}^{2}}{\\sqrt{2\\times 4.91\\,\\mathrm{m}/\\mathrm{s}^{2}\\times 3.50\\,\\mathrm{m}}}\\times 0.02\\,\\mathrm{m}\\right)^{2}} = 0.05\\,\\mathrm{m}/\\mathrm{s} \\tag*{how the uncertainty in v\\_f is worked out} \\\\
-  \\frac{\\delta v_{f}}{v_{f}} = \\frac{0.05\\,\\mathrm{m}/\\mathrm{s}}{5.86\\,\\mathrm{m}/\\mathrm{s}} = 0.008 \\tag*{relative uncertainty}
+  \\msfit{\\delta v_{f} = \\sqrt{\\left(\\frac{\\partial v_{f}}{\\partial a}\\,\\delta a\\right)^{2} + \\left(\\frac{\\partial v_{f}}{\\partial d}\\,\\delta d\\right)^{2}} = \\sqrt{\\left(\\frac{d}{\\sqrt{2 a d}}\\,\\delta a\\right)^{2} + \\left(\\frac{a}{\\sqrt{2 a d}}\\,\\delta d\\right)^{2}} = \\sqrt{\\left(\\frac{3.50\\,\\mathrm{m}}{\\sqrt{2\\times 4.91\\,\\mathrm{m}/\\mathrm{s}^{2}\\times 3.50\\,\\mathrm{m}}}\\times 0.07\\,\\mathrm{m}/\\mathrm{s}^{2}\\right)^{2} + \\left(\\frac{4.91\\,\\mathrm{m}/\\mathrm{s}^{2}}{\\sqrt{2\\times 4.91\\,\\mathrm{m}/\\mathrm{s}^{2}\\times 3.50\\,\\mathrm{m}}}\\times 0.02\\,\\mathrm{m}\\right)^{2}} = 0.05\\,\\mathrm{m}/\\mathrm{s}}{\\begin{aligned}\\delta v_{f} &= \\sqrt{\\left(\\frac{\\partial v_{f}}{\\partial a}\\,\\delta a\\right)^{2} + \\left(\\frac{\\partial v_{f}}{\\partial d}\\,\\delta d\\right)^{2}} \\\\ &= \\sqrt{\\left(\\frac{d}{\\sqrt{2 a d}}\\,\\delta a\\right)^{2} + \\left(\\frac{a}{\\sqrt{2 a d}}\\,\\delta d\\right)^{2}} \\\\ &= \\sqrt{\\left(\\frac{3.50\\,\\mathrm{m}}{\\sqrt{2\\times 4.91\\,\\mathrm{m}/\\mathrm{s}^{2}\\times 3.50\\,\\mathrm{m}}}\\times 0.07\\,\\mathrm{m}/\\mathrm{s}^{2}\\right)^{2} + \\left(\\frac{4.91\\,\\mathrm{m}/\\mathrm{s}^{2}}{\\sqrt{2\\times 4.91\\,\\mathrm{m}/\\mathrm{s}^{2}\\times 3.50\\,\\mathrm{m}}}\\times 0.02\\,\\mathrm{m}\\right)^{2}} \\\\ &= 0.05\\,\\mathrm{m}/\\mathrm{s}\\end{aligned}} \\tag*{\\small\\itshape how the uncertainty in v\\_f is worked out} \\\\
+  \\frac{\\delta v_{f}}{v_{f}} = \\frac{0.05\\,\\mathrm{m}/\\mathrm{s}}{5.86\\,\\mathrm{m}/\\mathrm{s}} = 0.008 \\tag*{\\small\\itshape relative uncertainty}
 \\end{gather*}
 
 \\subsection{Repeated measurements}
 
-Numbered variables form a series: t is their sum, t\\_avg the mean ± σ/√n.
+Numbered variables form a series: t is their sum, t\\_avg the mean ± $\\sigma$/$\\surd$n.
 
 \\begin{gather*}
   t_{1} = 1.21\\,\\mathrm{s} \\\\
   t_{2} = 1.17\\,\\mathrm{s} \\\\
   t_{3} = 1.24\\,\\mathrm{s} \\\\
   t_{4} = 1.19\\,\\mathrm{s} \\\\
-  \\bar{t} = \\frac{1}{4}\\sum_{i=1}^{4} t_{i} = \\frac{t_{1} + t_{2} + t_{3} + t_{4}}{4} = \\frac{1.21\\,\\mathrm{s} + 1.17\\,\\mathrm{s} + 1.24\\,\\mathrm{s} + 1.19\\,\\mathrm{s}}{4} = \\left(1.203 \\pm 0.015\\right)\\,\\mathrm{s} \\tag*{mean time down the ramp} \\\\
+  \\msfit{\\bar{t} = \\frac{1}{4}\\sum_{i=1}^{4} t_{i} = \\frac{t_{1} + t_{2} + t_{3} + t_{4}}{4} = \\frac{1.21\\,\\mathrm{s} + 1.17\\,\\mathrm{s} + 1.24\\,\\mathrm{s} + 1.19\\,\\mathrm{s}}{4} = \\left(1.203 \\pm 0.015\\right)\\,\\mathrm{s}}{\\begin{aligned}\\bar{t} &= \\frac{1}{4}\\sum_{i=1}^{4} t_{i} \\\\ &= \\frac{t_{1} + t_{2} + t_{3} + t_{4}}{4} \\\\ &= \\frac{1.21\\,\\mathrm{s} + 1.17\\,\\mathrm{s} + 1.24\\,\\mathrm{s} + 1.19\\,\\mathrm{s}}{4} \\\\ &= \\left(1.203 \\pm 0.015\\right)\\,\\mathrm{s}\\end{aligned}} \\tag*{\\small\\itshape mean time down the ramp} \\\\
   n_{t} = 4 \\\\
-  a_{\\mathrm{exp}} = \\frac{2 d}{{\\bar{t}}^{2}} = \\frac{2\\times 3.50\\,\\mathrm{m}}{{\\left(1.203\\,\\mathrm{s}\\right)}^{2}} = \\left(4.84 \\pm 0.12\\right)\\,\\mathrm{m}/\\mathrm{s}^{2} \\tag*{measured acceleration, with uncertainty}
+  a_{\\mathrm{exp}} = \\frac{2 d}{{\\bar{t}}^{2}} = \\frac{2\\times 3.50\\,\\mathrm{m}}{{\\left(1.203\\,\\mathrm{s}\\right)}^{2}} = \\left(4.84 \\pm 0.12\\right)\\,\\mathrm{m}/\\mathrm{s}^{2} \\tag*{\\small\\itshape measured acceleration, with uncertainty}
 \\end{gather*}
 
 \\subsection{Functions}
@@ -152,7 +159,7 @@ A function is written the way it is in maths; values and uncertainties flow thro
 
 \\begin{gather*}
   \\mathrm{KE}\\left(\\mathrm{mass}, \\mathrm{speed}\\right) = \\frac{1}{2}\\,\\mathrm{mass}\\,{\\mathrm{speed}}^{2} \\\\
-  E_{\\mathrm{bottom}} = \\frac{1}{2} m {v_{f}}^{2} = \\frac{1}{2}\\times 2.00\\,\\mathrm{kg}\\times {\\left(5.86\\,\\mathrm{m}/\\mathrm{s}\\right)}^{2} = \\left(34.3 \\pm 0.6\\right)\\,\\mathrm{J} \\tag*{same as E\\_k above} \\\\
+  E_{\\mathrm{bottom}} = \\frac{1}{2} m {v_{f}}^{2} = \\frac{1}{2}\\times 2.00\\,\\mathrm{kg}\\times {\\left(5.86\\,\\mathrm{m}/\\mathrm{s}\\right)}^{2} = \\left(34.3 \\pm 0.6\\right)\\,\\mathrm{J} \\tag*{\\small\\itshape same as E\\_k above} \\\\
   p\\left(\\mathrm{mass}, \\mathrm{speed}\\right) = \\mathrm{mass}\\,\\mathrm{speed} \\\\
   p_{\\mathrm{bottom}} = m v_{f} = 2.00\\,\\mathrm{kg}\\times 5.86\\,\\mathrm{m}/\\mathrm{s} = \\left(11.72 \\pm 0.09\\right)\\,\\mathrm{kg}\\cdot \\mathrm{m}/\\mathrm{s}
 \\end{gather*}
@@ -163,13 +170,13 @@ Built-in constants start with @ (3 sig figs unless you write @name:n or @name:ex
 
 \\begin{mdframed}[style=msblock, frametitle={Constants}]
 \\begin{gather*}
-  \\rho_{w} = 998\\,\\mathrm{kg}/\\mathrm{m}^{3} \\tag*{water at 20 °C}
+  \\rho_{w} = 998\\,\\mathrm{kg}/\\mathrm{m}^{3} \\tag*{\\small\\itshape water at 20 °C}
 \\end{gather*}
 \\end{mdframed}
 
 \\begin{gather*}
-  P_{\\mathrm{water}} = \\rho_{w} g\\times 0.250\\,\\mathrm{m} = 998\\,\\mathrm{kg}/\\mathrm{m}^{3}\\times 9.81\\,\\mathrm{m}/\\mathrm{s}^{2}\\times 0.250\\,\\mathrm{m} = 2.45\\,\\mathrm{kPa} \\tag*{pressure 25 cm under water} \\\\
-  E_{\\mathrm{photon}} = \\frac{h c}{532\\,\\mathrm{nm}} = \\frac{\\left(6.63 \\times 10^{-34}\\,\\mathrm{J}\\cdot \\mathrm{s}\\right)\\times \\left(3.00 \\times 10^{8}\\,\\mathrm{m}/\\mathrm{s}\\right)}{532\\,\\mathrm{nm}} = 2.33\\,\\mathrm{eV} \\tag*{green laser photon}
+  P_{\\mathrm{water}} = \\rho_{w} g\\times 0.250\\,\\mathrm{m} = 998\\,\\mathrm{kg}/\\mathrm{m}^{3}\\times 9.81\\,\\mathrm{m}/\\mathrm{s}^{2}\\times 0.250\\,\\mathrm{m} = 2.45\\,\\mathrm{kPa} \\tag*{\\small\\itshape pressure 25 cm under water} \\\\
+  E_{\\mathrm{photon}} = \\frac{h c}{532\\,\\mathrm{nm}} = \\frac{\\left(6.63 \\times 10^{-34}\\,\\mathrm{J}\\cdot \\mathrm{s}\\right)\\times \\left(3.00 \\times 10^{8}\\,\\mathrm{m}/\\mathrm{s}\\right)}{532\\,\\mathrm{nm}} = 2.33\\,\\mathrm{eV} \\tag*{\\small\\itshape green laser photon}
 \\end{gather*}
 
 \\subsection{Solving}
@@ -178,11 +185,11 @@ Built-in constants start with @ (3 sig figs unless you write @name:n or @name:ex
 
 \\begin{msworking}
 \\begin{gather*}
-  {v_{f}}^{2} = 2 a d_{\\mathrm{stop}} \\tag*{solving for d\\_stop}
+  {v_{f}}^{2} = 2 a d_{\\mathrm{stop}} \\tag*{\\small\\itshape solving for d\\_stop}
 \\end{gather*}
 \\end{msworking}
 \\begin{gather*}
-  d_{\\mathrm{stop}} = \\frac{{v_{f}}^{2}}{2 a} = \\frac{{\\left(5.86\\,\\mathrm{m}/\\mathrm{s}\\right)}^{2}}{2\\times 4.91\\,\\mathrm{m}/\\mathrm{s}^{2}} = \\left(3.500 \\pm 0.020\\right)\\,\\mathrm{m} \\tag*{ramp length needed to reach v\\_f}
+  d_{\\mathrm{stop}} = \\frac{{v_{f}}^{2}}{2 a} = \\frac{{\\left(5.86\\,\\mathrm{m}/\\mathrm{s}\\right)}^{2}}{2\\times 4.91\\,\\mathrm{m}/\\mathrm{s}^{2}} = \\left(3.500 \\pm 0.020\\right)\\,\\mathrm{m} \\tag*{\\small\\itshape ramp length needed to reach v\\_f}
 \\end{gather*}
 
 \\begin{gather*}
@@ -191,11 +198,11 @@ Built-in constants start with @ (3 sig figs unless you write @name:n or @name:ex
 
 \\begin{msworking}
 \\begin{gather*}
-  h_{0} = \\frac{1}{2} g {t_{\\mathrm{fall}}}^{2}+ v_{f} t_{\\mathrm{fall}} \\tag*{solving for t\\_fall}
+  h_{0} = \\frac{1}{2} g {t_{\\mathrm{fall}}}^{2}+ v_{f} t_{\\mathrm{fall}} \\tag*{\\small\\itshape solving for t\\_fall}
 \\end{gather*}
 \\end{msworking}
 \\begin{gather*}
-  t_{\\mathrm{fall}} = \\frac{\\sqrt{{v_{f}}^{2}+ 2 g h_{0}}- v_{f}}{g} = \\frac{\\sqrt{{\\left(5.86\\,\\mathrm{m}/\\mathrm{s}\\right)}^{2}+ 2\\times 9.81\\,\\mathrm{m}/\\mathrm{s}^{2}\\times 2.00\\,\\mathrm{m}}- 5.86\\,\\mathrm{m}/\\mathrm{s}}{9.81\\,\\mathrm{m}/\\mathrm{s}^{2}} = \\left(0.2771 \\pm 0.0015\\right)\\,\\mathrm{s} \\tag*{quadratic: positive root}
+  \\msfit{t_{\\mathrm{fall}} = \\frac{\\sqrt{{v_{f}}^{2}+ 2 g h_{0}}- v_{f}}{g} = \\frac{\\sqrt{{\\left(5.86\\,\\mathrm{m}/\\mathrm{s}\\right)}^{2}+ 2\\times 9.81\\,\\mathrm{m}/\\mathrm{s}^{2}\\times 2.00\\,\\mathrm{m}}- 5.86\\,\\mathrm{m}/\\mathrm{s}}{9.81\\,\\mathrm{m}/\\mathrm{s}^{2}} = \\left(0.2771 \\pm 0.0015\\right)\\,\\mathrm{s}}{\\begin{aligned}t_{\\mathrm{fall}} &= \\frac{\\sqrt{{v_{f}}^{2}+ 2 g h_{0}}- v_{f}}{g} \\\\ &= \\frac{\\sqrt{{\\left(5.86\\,\\mathrm{m}/\\mathrm{s}\\right)}^{2}+ 2\\times 9.81\\,\\mathrm{m}/\\mathrm{s}^{2}\\times 2.00\\,\\mathrm{m}}- 5.86\\,\\mathrm{m}/\\mathrm{s}}{9.81\\,\\mathrm{m}/\\mathrm{s}^{2}} \\\\ &= \\left(0.2771 \\pm 0.0015\\right)\\,\\mathrm{s}\\end{aligned}} \\tag*{\\small\\itshape quadratic: positive root}
 \\end{gather*}
 
 \\subsection{What if?}
@@ -204,14 +211,14 @@ Variables assigned inside a block are local to it, like a scoped block in code.
 
 \\begin{mdframed}[style=msblock, frametitle={Steeper ramp --- outer values are readable, and can be shadowed}]
 \\begin{gather*}
-  \\theta = 45^{\\circ} \\tag*{2 sig figs, so results here have 2} \\\\
+  \\theta = 45^{\\circ} \\tag*{\\small\\itshape 2 sig figs, so results here have 2} \\\\
   a = g \\sin\\left(\\theta\\right) = 9.81\\,\\mathrm{m}/\\mathrm{s}^{2}\\times \\sin\\left(45^{\\circ}\\right) = 6.9\\,\\mathrm{m}/\\mathrm{s}^{2} \\\\
   v_{f} = \\sqrt{2 a d} = \\sqrt{2\\times 6.9\\,\\mathrm{m}/\\mathrm{s}^{2}\\times 3.50\\,\\mathrm{m}} = \\left(6.968 \\pm 0.020\\right)\\,\\mathrm{m}/\\mathrm{s}
 \\end{gather*}
 \\end{mdframed}
 
 \\begin{gather*}
-  v_{f} = \\left(5.86 \\pm 0.05\\right)\\,\\mathrm{m}/\\mathrm{s} \\tag*{unchanged outside the block}
+  v_{f} = \\left(5.86 \\pm 0.05\\right)\\,\\mathrm{m}/\\mathrm{s} \\tag*{\\small\\itshape unchanged outside the block}
 \\end{gather*}
 
 \\end{document}

@@ -544,12 +544,20 @@ body {
   text-align: left;
 }
 
+/* A line's note, `# note`: a comment on it, set apart from the working (smaller, grey, italic). */
 .calc__note {
   flex: 0 1 34%;
   margin-left: auto;
-  font-size: 13px;
+  font-size: 12.5px;
+  font-style: italic;
   color: var(--muted);
   text-align: right;
+}
+
+/* A block's note sits in its title line, upright beside the title. */
+.group__header .calc__note,
+.layout__title .calc__note {
+  font-style: normal;
 }
 
 .calc__source {
@@ -777,37 +785,7 @@ body {
   box-shadow: 0 1px 2px rgb(0 0 0 / 0.08);
 }
 
-/* ---------- LaTeX source ---------- */
-
-.source {
-  flex: 1;
-  position: relative;
-  overflow: auto;
-}
-
-.source pre {
-  margin: 0;
-  padding: 16px;
-  font-family: var(--mono);
-  font-size: 13px;
-  line-height: 1.6;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-/* The LaTeX tab's toolbar: document options, Download .tex, Copy */
-.source__bar {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  display: flex;
-  justify-content: flex-end;
-  gap: 6px;
-  padding: 8px 12px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-}
-
+/* A secondary button beside a dialog's main one (Copy the LaTeX) */
 .source__button {
   background: var(--surface-2);
   color: var(--text);
@@ -1508,8 +1486,8 @@ body {
   margin: 0 0 10px;
 }
 
-/* Create (with AI): a dialog to make a prompt for an AI, and open its answer as a sheet */
-.create {
+/* Dialogs (Create with AI, Export): a header, steps, choices, actions */
+.dialog {
   width: min(640px, calc(100vw - 32px));
   max-height: calc(100vh - 48px);
   padding: 0;
@@ -1521,11 +1499,11 @@ body {
   font-family: var(--sans);
 }
 
-.create::backdrop {
+.dialog::backdrop {
   background: rgb(0 0 0 / 0.35);
 }
 
-.create__header {
+.dialog__header {
   position: sticky;
   top: 0;
   display: flex;
@@ -1536,12 +1514,12 @@ body {
   border-bottom: 1px solid var(--border);
 }
 
-.create__header h2 {
+.dialog__header h2 {
   margin: 0;
   font-size: 16px;
 }
 
-.create__close {
+.dialog__close {
   font-size: 20px;
   line-height: 1;
   padding: 2px 8px;
@@ -1552,33 +1530,33 @@ body {
   cursor: pointer;
 }
 
-.create__close:hover {
+.dialog__close:hover {
   color: var(--text);
   background: var(--surface-2);
 }
 
-.create__step {
+.dialog__step {
   padding: 14px 18px;
   border-bottom: 1px solid var(--border);
 }
 
-.create__step:last-child {
+.dialog__step:last-child {
   border-bottom: none;
 }
 
-.create__step h3 {
+.dialog__step h3 {
   margin: 0 0 10px;
   font-size: 13px;
   font-weight: 600;
 }
 
-.create__kinds {
+.dialog__choices {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
   gap: 8px;
 }
 
-.create__kind {
+.dialog__choice {
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -1592,23 +1570,23 @@ body {
   cursor: pointer;
 }
 
-.create__kind span {
+.dialog__choice span {
   font-size: 11.5px;
   line-height: 1.35;
   color: var(--muted);
 }
 
-.create__kind:hover {
+.dialog__choice:hover {
   border-color: var(--accent);
 }
 
-.create__kind--chosen {
+.dialog__choice--chosen {
   border-color: var(--accent);
   box-shadow: inset 0 0 0 1px var(--accent);
   background: color-mix(in srgb, var(--accent) 8%, var(--surface));
 }
 
-.create__text {
+.dialog__text {
   box-sizing: border-box;
   width: 100%;
   padding: 8px 10px;
@@ -1621,31 +1599,31 @@ body {
   resize: vertical;
 }
 
-.create__text:focus {
+.dialog__text:focus {
   outline: none;
   border-color: var(--accent);
 }
 
-.create__answer {
+.dialog__answer {
   font-family: var(--mono);
   font-size: 12px;
 }
 
-.create__options {
+.dialog__options {
   display: flex;
   flex-direction: column;
   gap: 6px;
   margin: 10px 0 12px;
 }
 
-.create__actions {
+.dialog__actions {
   display: flex;
   align-items: center;
   gap: 10px;
   margin-bottom: 8px;
 }
 
-.create__primary {
+.dialog__primary {
   font: inherit;
   font-size: 13px;
   font-weight: 600;
@@ -1658,23 +1636,23 @@ body {
   cursor: pointer;
 }
 
-.create__primary:disabled {
+.dialog__primary:disabled {
   opacity: 0.45;
   cursor: default;
 }
 
-.create__flash {
+.dialog__flash {
   font-size: 12px;
   color: var(--muted);
 }
 
-.create__preview summary {
+.dialog__preview summary {
   font-size: 12px;
   color: var(--muted);
   cursor: pointer;
 }
 
-.create__preview pre {
+.dialog__preview pre {
   max-height: 240px;
   overflow: auto;
   margin: 8px 0 0;

@@ -46,26 +46,31 @@ setting), **Light**, **Dark** (blue-grey slate), **Charcoal** (neutral greys, li
 a code editor's dark theme) or **Black** (true black). The choice is remembered in
 the browser.
 
+**Export** (top bar) opens a dialog to download the sheet as a document:
+
+- **Word** (`.docx`): real Word equations you can edit (not pictures). Notes sit
+  at the right margin beside their equation (under it, when the equation is too
+  wide to share the line), blocks are cards with a shaded title,
+  `@layout.list` / `@layout.numbered` blocks are Word lists, and headings use
+  Word's Heading styles, so they appear in the navigation pane. For Google Docs,
+  upload the file to Drive and open it with Google Docs; its equations become
+  Google Docs equations.
+- **LaTeX** (`.tex`): a compilable document, laid out like the Rendered tab:
+  equations flush left with notes on the right, compact spacing, the working of
+  a solve indented above its line, and blocks as cards. An equation too wide for
+  the line is set one `=` per row, lined up (LaTeX measures it, so the paper,
+  margins and font size decide). **Show the LaTeX** and **Copy the LaTeX** are
+  there too.
+
+Both use the dialog's document options: the equations' alignment, spacing, cards
+(in LaTeX, the standard `mdframed` package), section numbering, font size, paper,
+margins and an optional title, author and date. The format and the options are
+remembered in the browser.
+
 - **Input** (left): the sheet, in a code editor with MathScribe syntax colours.
   Its **Options ▾** menu picks the colour theme.
-- **Output** (right), in three tabs:
+- **Output** (right), in tabs:
   - **Rendered**: the typeset sheet.
-  - **LaTeX**: the whole sheet as a compilable `.tex` document, with **Copy** and
-    **Download .tex**. It's laid out like the Rendered tab: equations flush left
-    with notes on the right, compact spacing, a function's working indented above
-    its line, and blocks as cards. The **Document ▾** menu sets the equations'
-    alignment, spacing, cards (which use the standard `mdframed` package), section
-    numbering, font size, paper, margins and an optional title, author and date;
-    the choices are remembered in the browser.
-
-    **Download .docx** saves the sheet as a Word document with the same layout and
-    Document options, and with real Word equations you can edit (not pictures).
-    Notes sit at the right margin beside their equation (under it, when the
-    equation is too wide to share the line), blocks are cards with a shaded title,
-    `@layout.list` / `@layout.numbered` blocks are Word lists, and headings use Word's Heading
-    styles, so they appear in the navigation pane. For Google Docs, upload the
-    file to Drive and open it with Google Docs; its equations become Google Docs
-    equations.
   - **Library**: common equations from first-year physics (kinematics, forces,
     energy and momentum, oscillation, waves and optics, electricity, heat, modern
     physics) and general chemistry (moles and solutions, gases, thermochemistry,
@@ -1514,8 +1519,8 @@ renamed, change it there too.
   Rendered tab has a component per kind (`BLOCK_VIEWS` in `PreviewPane.tsx`)
 - `src/lib/latex.ts`: the `.tex` export and its document options, joining up
   what the constructs write; `src/lib/latexKit.ts`: the pieces they write with;
-  `src/components/LatexOptionsMenu.tsx`: the LaTeX tab's Document menu (used by
-  both exports)
+  `src/components/ExportDialog.tsx`: the Export dialog (the format, the document
+  options in `DocumentOptions.tsx`, used by both exports, and the download)
 - `src/lib/docx.ts`: the `.docx` (Word) export's package; `src/lib/docxKit.ts`:
   its look, paragraphs, equations and cards, which the constructs write with;
   `src/lib/omml.ts`: LaTeX → Word equations (OMML), by way of KaTeX's MathML

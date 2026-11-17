@@ -4,9 +4,10 @@
  * so numbers and units never run into each other. Brackets only where they're
  * needed: (2.0 s)², × (−1.5 m/s).
  */
-import { isConstantNode, isOperatorNode, isSymbolNode, type MathNode } from 'mathjs'
+import { isConstantNode, isFunctionNode, isOperatorNode, isSymbolNode, type MathNode } from 'mathjs'
 import { MATH_CONSTANT, OP, isOp } from '../../mathjsNames.ts'
 import { RAW } from './results.ts'
+import { INV_FUNCTION } from '../../names.ts'
 import { symbolTex, isUnitCall, unitCallText, isLitCall } from './tex.ts'
 import { unwrap, seeThrough } from './nodes.ts'
 
@@ -92,8 +93,11 @@ export function edgeOf(node: MathNode, side: Side): Edge {
     if (n.name === MATH_CONSTANT.e && side === SIDE.left) return EDGE.euler
     return symbolTex(n.name).startsWith('\\mathrm') ? EDGE.wide : EDGE.name
   }
+  // `@inv(x)` is drawn as a fraction, x turned over.
+  if (isFunctionNode(n) && n.fn.name === INV_FUNCTION) return EDGE.fraction
   if (isOperatorNode(n)) {
-    if (n.fn === OP.divide) return EDGE.fraction
+    // A fraction of numbers is a coefficient, as a number is (½mv²); any other, a fraction.
+    if (n.fn === OP.divide) return n.args.every((a) => isConstantNode(unwrap(a)) || isLitCall(unwrap(a))) ? EDGE.number : EDGE.fraction
     // A negative starts with its sign, and ends as what's negated does: −500 N × sin(30°).
     if (n.fn === OP.unaryMinus) return side === SIDE.left ? EDGE.minus : edgeOf(n.args[0], side)
     if (n.fn === OP.multiply) return edgeOf(side === SIDE.left ? n.args[0] : n.args[n.args.length - 1], side)
@@ -102,7 +106,9 @@ export function edgeOf(node: MathNode, side: Side): Edge {
       // bracketed if it's a value: (0.400 Å)², (2.0)².
       if (side === SIDE.right) return EDGE.power
       const base = unwrap(n.args[0])
-      return isValue(base) || isBracketedValue(base) ? EDGE.value : edgeOf(n.args[0], side)
+      if (isValue(base) || isBracketedValue(base)) return EDGE.value
+      // (A fraction raised to a power is in brackets: π^{−½}(Z/a₀)^{3/2}.)
+      return isOp(base, OP.divide) ? EDGE.bracket : edgeOf(n.args[0], side)
     }
   }
   return EDGE.other
@@ -148,8 +154,10 @@ export function productSeparator(left: MathNode, right: MathNode): string {
   const l = edgeOf(left, SIDE.right)
   const r = edgeOf(right, SIDE.left)
   const afterNumber = l === EDGE.number || l === EDGE.value
-  if (STARTS_AS_NUMBER.has(r) || l === EDGE.quantity
-    || ((r === EDGE.fraction || r === EDGE.euler) && (afterNumber || (r === EDGE.fraction && l === EDGE.fraction)))) return PRODUCT_SIGN
+  // (A fraction is set apart on both sides, so a chain of them reads as one, factor by factor:
+  // m × 1/M × n_Cr/n × M_Cr, as conversion factors are written.)
+  if (STARTS_AS_NUMBER.has(r) || l === EDGE.quantity || l === EDGE.fraction || r === EDGE.fraction
+    || (r === EDGE.euler && afterNumber)) return PRODUCT_SIGN
   if (l === EDGE.wide || r === EDGE.wide) return NAME_GAP
   return NO_SIGN
 }

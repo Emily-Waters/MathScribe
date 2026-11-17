@@ -9,15 +9,11 @@ import {
 } from '../lib/blocks.ts'
 import { speciesEntryTex } from '../lib/constructs/blocks.ts'
 import { LAYOUT_STYLE, LINE_COMMAND } from '../lib/syntax.ts'
-import { loadLatexOptions, saveLatexOptions, toLatexDocument, type LatexOptions } from '../lib/latex.ts'
 import { symbolTex, unitTex, type CalcOptions } from '../lib/engine/index.ts'
 import { THEME_PALETTE, plotSvg, type PlotData } from '../lib/plot.ts'
 import { ReferencePane } from './ReferencePane.tsx'
 import { OptionsMenu } from './OptionsMenu.tsx'
-import { LatexOptionsMenu } from './LatexOptionsMenu.tsx'
 import { LibraryPane } from './LibraryPane.tsx'
-import { downloadFile, splitExtension } from '../lib/files.ts'
-import { copyText, useFlash } from '../useFlash.ts'
 
 /** LaTeX as KaTeX HTML; a mistake shows in red rather than failing. */
 const render = (latex: string, displayMode: boolean) =>
@@ -387,7 +383,7 @@ export function RenderedBlock({ block }: { block: Block }) {
 }
 
 /** The Output pane’s tabs. */
-type Tab = 'rendered' | 'latex' | 'library' | 'reference'
+type Tab = 'rendered' | 'library' | 'reference'
 
 interface PreviewPaneProps {
   sheet: Sheet
@@ -399,34 +395,17 @@ interface PreviewPaneProps {
   centerRequest: number
   /** Clicking output moves the editor cursor to that source line. */
   onJump: (line: number) => void
-  /** The sheet's file name, for the downloaded .tex file. */
-  fileName: string
   /** Put text into the sheet at the editor's cursor (from the Library tab). */
   onInsert: (text: string) => void
   /** Remove the `@import(…)` on a line, and its data. */
   onRemoveImport: (line: number) => void
 }
 
-/** The Output pane: the rendered sheet, its LaTeX (and Word) export, the equation library and the reference. */
+/** The Output pane: the rendered sheet, the equation library and the reference. (Exports are the Export dialog's.) */
 export function PreviewPane({
-  sheet, options, onOptionsChange, activeLine, centerRequest, onJump, fileName, onInsert, onRemoveImport,
+  sheet, options, onOptionsChange, activeLine, centerRequest, onJump, onInsert, onRemoveImport,
 }: PreviewPaneProps) {
   const [tab, setTab] = useState<Tab>('rendered')
-  const [flash, showFlash] = useFlash<'latex'>()
-  const [latexOptions, setLatexOptions] = useState<LatexOptions>(loadLatexOptions)
-  const changeLatexOptions = (o: LatexOptions) => {
-    setLatexOptions(o)
-    saveLatexOptions(o)
-  }
-  const latexSource = useMemo(() => toLatexDocument(sheet.blocks, latexOptions), [sheet.blocks, latexOptions])
-  const { stem: baseName } = splitExtension(fileName)
-  const downloadTex = () => downloadFile(`${baseName}.tex`, latexSource)
-  // The Word writer loads only when it's first used.
-  const downloadDocx = async () => {
-    const [{ toDocx, DOCX_TYPE }, { plotImages }] = await Promise.all([import('../lib/docx.ts'), import('../lib/plotImage.ts')])
-    const images = await plotImages(sheet.blocks)
-    downloadFile(`${baseName}.docx`, toDocx(sheet.blocks, latexOptions, images) as Uint8Array<ArrayBuffer>, DOCX_TYPE)
-  }
   const docRef = useRef<HTMLDivElement>(null)
   const link = useMemo(() => ({ activeLine, onJump }), [activeLine, onJump])
   const numbering = useMemo(() => lineNumbering(sheet.blocks), [sheet.blocks])
@@ -440,10 +419,6 @@ export function PreviewPane({
     docRef.current?.querySelector('[data-active="true"]')?.scrollIntoView({ block })
   }, [activeLine, centerRequest, tab])
 
-  const copy = async () => {
-    if (await copyText(latexSource)) showFlash('latex', 'Copied')
-  }
-
   return (
     <section className="pane">
       <header className="pane__header">
@@ -454,9 +429,6 @@ export function PreviewPane({
           <div className="tabs" role="tablist">
             <button role="tab" aria-selected={tab === 'rendered'} onClick={() => setTab('rendered')}>
               Rendered
-            </button>
-            <button role="tab" aria-selected={tab === 'latex'} onClick={() => setTab('latex')}>
-              LaTeX
             </button>
             <button role="tab" aria-selected={tab === 'library'} onClick={() => setTab('library')}>
               Library
@@ -471,7 +443,7 @@ export function PreviewPane({
         <ReferencePane />
       ) : tab === 'library' ? (
         <LibraryPane onInsert={onInsert} />
-      ) : tab === 'rendered' ? (
+      ) : (
         <div className="doc" ref={docRef}>
           <LineLink.Provider value={link}>
           <LineNumbers.Provider value={numbering}>
@@ -482,21 +454,6 @@ export function PreviewPane({
           </ImportFile.Provider>
           </LineNumbers.Provider>
           </LineLink.Provider>
-        </div>
-      ) : (
-        <div className="source">
-          <div className="source__bar">
-            <LatexOptionsMenu options={latexOptions} onChange={changeLatexOptions} />
-            <button className="source__button" onClick={downloadTex} title="Download the LaTeX as a .tex file">
-              Download .tex
-            </button>
-            <button className="source__button" onClick={downloadDocx}
-              title="Download a Word document with editable equations (opens in Google Docs too)">
-              Download .docx
-            </button>
-            <button className="source__button" onClick={copy}>{flash?.message ?? 'Copy'}</button>
-          </div>
-          <pre>{latexSource}</pre>
         </div>
       )}
     </section>

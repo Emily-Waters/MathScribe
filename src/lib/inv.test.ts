@@ -20,6 +20,20 @@ describe('@inv', () => {
     expect(value('k = @inv(4)')).toBe('0.25')
   })
 
+  it('is set apart with ×, as every fraction in a product is, so a chain of conversion factors reads factor by factor', () => {
+    const src = [
+      'D = @chem.substance({7Ca(IO3)2*8CaCrO4})',
+      'm = 5.00 kg {7Ca(IO3)2*8CaCrO4}',
+      'x = m * @inv(D.M) * (D.Cr.n / D.n) * D.Cr.M',
+    ].join('\n')
+    const [symbolic, substituted] = last(src).tex.split(' = ').slice(1)
+    // m × 1/M × n_Cr/n × M_Cr: a × on each side of each fraction.
+    expect(symbolic.match(/\\times/g)).toHaveLength(3)
+    expect(substituted.match(/\\times/g)).toHaveLength(3)
+    // (A fraction of numbers is a coefficient, as before: ½mv².)
+    expect(last('m = 2.0 kg\nv = 3.0 m/s\nE = 1/2 * m * v^2').tex).toMatch(/^E = \\frac\{1\}\{2\} m \{v\}\^\{2\}/)
+  })
+
   it('flips a mole ratio’s species with it', () => {
     expect(value('r = (1 mol {Ca}) / (6 mol {EDTA})\nq = @inv(r)')).toBe('6 mol EDTA/mol Ca')
   })

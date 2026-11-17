@@ -227,7 +227,7 @@ describe('@chem.substance: a substance and its members', () => {
   })
 
   it('is drawn as chemistry, its members too', () => {
-    expect(last('H2O = @chem.substance({H2O})\nH2O.H.n').tex).toMatch(/^n_\{\\ce\{H\},\\ce\{H2O\}\} = n_\{\\ce\{H2O\}\} /)
+    expect(last('H2O = @chem.substance({H2O})\nH2O.H.n').tex).toMatch(/^n_\{\\ce\{H\},\\ce\{H2O\}\} = n_\{\\ce\{H2O\}\}\\times /)
   })
 
   it('takes a value already of a species as it is, as from a mole ratio', () => {

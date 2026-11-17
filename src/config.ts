@@ -26,6 +26,8 @@ export const STORAGE_KEYS = {
   syntaxTheme: 'mathscribe:syntax-theme',
   syntaxCustom: 'mathscribe:syntax-custom',
   latexOptions: 'mathscribe:latex-options',
+  /** The Export dialog's format: Word or LaTeX. */
+  exportFormat: 'mathscribe:export-format',
   /** Where the divider between Input and Output sits. */
   split: 'mathscribe:split',
   /** Which keys accept a suggestion in the editor. */

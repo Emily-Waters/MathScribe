@@ -86,21 +86,21 @@ export function CreateDialog({ open, onClose, onCreate }: Props) {
   }
 
   return (
-    <dialog ref={dialog} className="create" onClose={onClose} aria-labelledby="create-title">
-      <header className="create__header">
+    <dialog ref={dialog} className="dialog" onClose={onClose} aria-labelledby="create-title">
+      <header className="dialog__header">
         <h2 id="create-title">Create with AI</h2>
-        <button className="create__close" onClick={onClose} aria-label="Close">×</button>
+        <button className="dialog__close" onClick={onClose} aria-label="Close">×</button>
       </header>
 
-      <section className="create__step">
+      <section className="dialog__step">
         <h3>1. What do you want to make?</h3>
-        <div className="create__kinds" role="radiogroup" aria-label="What to make">
+        <div className="dialog__choices" role="radiogroup" aria-label="What to make">
           {CREATE_KINDS.map((k) => (
             <button
               key={k}
               role="radio"
               aria-checked={kind === k}
-              className={`create__kind${kind === k ? ' create__kind--chosen' : ''}`}
+              className={`dialog__choice${kind === k ? ' dialog__choice--chosen' : ''}`}
               onClick={() => remember({ ...saved, kind: k })}
             >
               <strong>{CREATE_KIND_INFO[k].name}</strong>
@@ -112,10 +112,10 @@ export function CreateDialog({ open, onClose, onCreate }: Props) {
 
       {kind && info && (
         <>
-          <section className="create__step">
+          <section className="dialog__step">
             <h3>2. Describe it, then copy the prompt</h3>
             <textarea
-              className="create__text"
+              className="dialog__text"
               rows={3}
               value={request}
               placeholder={info.placeholder}
@@ -123,7 +123,7 @@ export function CreateDialog({ open, onClose, onCreate }: Props) {
               onKeyDown={onRequestKey}
               aria-label="What to make"
             />
-            <div className="create__options">
+            <div className="dialog__options">
               {info.options.map((o) => (
                 <label key={o.id} className="options__row">
                   <input
@@ -135,32 +135,32 @@ export function CreateDialog({ open, onClose, onCreate }: Props) {
                 </label>
               ))}
             </div>
-            <div className="create__actions">
-              <button className="create__primary" onClick={() => void copy()} title="Copy the prompt (Ctrl+Enter)">Copy prompt</button>
-              {flash && <span className="create__flash" role="status">{flash.message}</span>}
+            <div className="dialog__actions">
+              <button className="dialog__primary" onClick={() => void copy()} title="Copy the prompt (Ctrl+Enter)">Copy prompt</button>
+              {flash && <span className="dialog__flash" role="status">{flash.message}</span>}
             </div>
             <p className="options__help">
               The prompt has your request and MathScribe’s rules. Paste it into any AI (ChatGPT, Claude,
               Gemini, …). Nothing is sent from MathScribe.
             </p>
-            <details className="create__preview" ref={preview}>
+            <details className="dialog__preview" ref={preview}>
               <summary>Show the whole prompt</summary>
               <pre>{prompt}</pre>
             </details>
           </section>
 
-          <section className="create__step">
+          <section className="dialog__step">
             <h3>3. Paste the AI’s answer</h3>
             <textarea
-              className="create__text create__answer"
+              className="dialog__text dialog__answer"
               rows={5}
               value={answer}
               placeholder="Paste the whole answer: the sheet is taken out of its code block."
               onChange={(e) => setAnswer(e.target.value)}
               aria-label="The AI’s answer"
             />
-            <div className="create__actions">
-              <button className="create__primary" onClick={openAnswer} disabled={!answer.trim()}>Open as a new sheet</button>
+            <div className="dialog__actions">
+              <button className="dialog__primary" onClick={openAnswer} disabled={!answer.trim()}>Open as a new sheet</button>
             </div>
           </section>
         </>

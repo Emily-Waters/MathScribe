@@ -10,7 +10,7 @@ import { BLOCK_KIND, isContainer, type Block } from './blocks.ts'
 import { ALIGN } from './alignment.ts'
 import { usesFormulas } from './engine/modules/chemistry/chemistry.ts'
 import { readStoredJson, writeStoredJson } from './storage.ts'
-import { escapeTex, gather, type Equation } from './latexKit.ts'
+import { escapeTex, fitMacroDefinition, gather, type Equation } from './latexKit.ts'
 import { constructOf, type LatexOut } from './constructs/index.ts'
 
 /** The Document options: how an exported document (LaTeX or Word) looks. */
@@ -132,6 +132,7 @@ function preamble(o: LatexOptions, plots = false, formulas = false): string[] {
       '\\compactdisplays',
     ] : []),
     ...(left ? ['\\setlength{\\mathindent}{1em}'] : []),
+    ...fitMacroDefinition(left),
     ...(o.cards ? [
       // xcolor before mdframed: mdframed only loads `color`, which doesn't know gray!50.
       '\\usepackage{xcolor}',

@@ -237,6 +237,9 @@ export const imageRel = (n: number) => `rId${3 + n}`
 
 export const NOTE: RunFormat = { italic: true, color: COLORS.note }
 
+/** How much smaller a line's note is than its line, in half-points: one point. */
+export const NOTE_SIZE_STEP = 2
+
 /**
  * One equation on its own line, with its note at the right margin.
  *
@@ -255,7 +258,8 @@ export function equation(ctx: Ctx, tex: string, note?: string, small = false): I
   const display = `<m:oMathPara><m:oMathParaPr><m:jc m:val="${jc}"/></m:oMathParaPr>${math}</m:oMathPara>`
   if (!note) return { props: { ...spacing, indent: indent || undefined }, content: display }
 
-  const noteRuns = run(note, { ...NOTE, size })
+  // (A note is a comment on its line: italic, grey, and a point smaller than what it's beside.)
+  const noteRuns = run(note, { ...NOTE, size: (size ?? fontSizeOf(ctx.o)) - NOTE_SIZE_STEP })
   if (ctx.inList) {
     return { props: { ...spacing, tabs: [{ kind: ALIGN.right, pos: ctx.width - indent }] }, content: `${math}${tab}${noteRuns}` }
   }

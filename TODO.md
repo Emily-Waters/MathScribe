@@ -146,6 +146,11 @@ working (group 2).
       `=` each, as `#multiline` does, when it doesn't fit. (Found in a browser
       pass, 2026-11-16, along with notes that cut equations off beside them,
       fixed then: a note goes below an equation that doesn't fit beside it.)
+      Progress (2026-11-16): the LaTeX export does this. An equation that might
+      not fit (by about how much it draws) goes into `\msfit{one line}{rows}`,
+      which LaTeX measures against the line, so the page, margins, font size and
+      card it's in decide (latexKit.ts: `fitted`). The output pane could split an
+      equation into rows the same way (`stepsOf`), measuring it in the page.
 - [x] **No placeholder title on untitled blocks**: an untitled `{ }` block
       shouldn't show "Block" as its title; with no title, there's no title line.
 
@@ -174,9 +179,16 @@ working (group 2).
       Title`, so later headings number on from it; Word puts the number before
       the card's title. The editor colours its `#`s as a heading's and the rest as
       a block's title.
-- [ ] **One Export button instead of the LaTeX tab**: a single Export button opens
+- [x] **One Export button instead of the LaTeX tab**: a single Export button opens
       a dialog to choose the format (Word `.docx`, LaTeX `.tex`, more later), with
       each format's options in it (what the LaTeX tab's Document menu holds now).
+      Resolved (2026-11-16): **Export** in the top bar, beside Save as, opens a
+      dialog (`ExportDialog.tsx`): the format (Word or LaTeX, remembered), the
+      document options inline (`DocumentOptions.tsx`, from the old Document
+      menu), and Download; for LaTeX, Copy and Show the LaTeX too. The LaTeX tab
+      is gone. A format is one entry in `EXPORT_FORMAT`, so another (PDF) is one
+      more. The Create dialog's styles became shared dialog styles (`dialog__…`).
+      Checked in Chrome: both downloads, Esc, and the format remembered.
 - [ ] **An `@format` namespace** for how a value is *shown*, without changing the
       value or the maths. First: `@format.inv(x)`, a value shown flipped, as its
       reciprocal written out (a ratio a/b shown as b/a, 1/(2.0 s) as 0.50 s⁻¹),
@@ -255,6 +267,12 @@ working (group 2).
       Calculator writes a condition's cases itself, following its last case down
       through nested conditions. (7) `resultUnitTex` after the equation. The
       option *Show · in every product* is unchanged.
+      Refined (2026-11-16, from a stoichiometry line that read as one run,
+      `m 1/M n_Cr/n M_Cr`): a fraction in a product has × on both sides, so a
+      chain of conversion factors reads factor by factor (m × 1/M × n_Cr/n ×
+      M_Cr); `@inv(…)` counts as the fraction it's drawn as. A fraction of
+      numbers is a coefficient, as before (½mv²), and a fraction raised to a
+      power starts with its bracket (π^{−½}(Z/a₀)^{3/2}).
 
 ## 8. The sheet's schema: a tree of nodes
 
@@ -428,6 +446,10 @@ edit reads again only what it changed, and nodes are shared between trees.
 
 ## Done
 
+- [x] **Line notes set apart** (2026-11-16): a line's `# note` is a comment on it,
+      so it's small and italic in every output: grey italic at 12.5 px in the
+      app, `\small\itshape` in its LaTeX `\tag*`, and a point smaller (and grey
+      italic) in Word. A block's note, in its title line, stays upright.
 - [x] **`@inv(x)`** (2026-11-16, from the `@format` discussion): 1/x, written as
       the fraction turned over, `@inv(m / V)` as V/m, and a value whose unit is a
       fraction turned over whole, a molar mass as 1 mol H₂O / 18.015 g H₂O (a

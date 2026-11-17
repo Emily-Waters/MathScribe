@@ -1,14 +1,13 @@
 import { DEFAULT_LATEX_OPTIONS, MARGIN_CM, type LatexOptions } from '../lib/latex.ts'
-import { Dropdown } from './Dropdown.tsx'
 import { ALIGN } from '../lib/alignment.ts'
 
-interface LatexOptionsMenuProps {
+interface DocumentOptionsProps {
   options: LatexOptions
   onChange: (options: LatexOptions) => void
 }
 
-/** How the exported LaTeX and Word documents look: page, layout, and an optional title. */
-export function LatexOptionsMenu({ options, onChange }: LatexOptionsMenuProps) {
+/** How an exported document looks, Word or LaTeX: page, layout, and an optional title (in the Export dialog). */
+export function DocumentOptions({ options, onChange }: DocumentOptionsProps) {
   const set = <K extends keyof LatexOptions>(key: K, value: LatexOptions[K]) => onChange({ ...options, [key]: value })
   const check = (key: 'compact' | 'cards' | 'numberSections' | 'date', label: string, help: string) => (
     <>
@@ -21,8 +20,7 @@ export function LatexOptionsMenu({ options, onChange }: LatexOptionsMenuProps) {
   )
 
   return (
-    <Dropdown label="Document" panelLabel="Document options, for both the .tex and the .docx">
-      <p className="options__help">These apply to both the LaTeX and the Word (.docx) export.</p>
+    <div className="document-options">
       <label className="options__row">
         <span>Equations</span>
         <select value={options.align} onChange={(e) => set('align', e.target.value as LatexOptions['align'])}>
@@ -33,7 +31,7 @@ export function LatexOptionsMenu({ options, onChange }: LatexOptionsMenuProps) {
       <p className="options__help">Left aligns every equation flush left, with notes on the right.</p>
 
       {check('compact', 'Compact spacing', 'Less space around equations; paragraphs spaced instead of indented. (LaTeX only.)')}
-      {check('cards', 'Blocks as cards', 'Blocks, functions and constants with a bar on the left and a shaded title (LaTeX uses the mdframed package).')}
+      {check('cards', 'Blocks as cards', 'Blocks and constants with a bar on the left and a shaded title (LaTeX uses the mdframed package).')}
       {check('numberSections', 'Number sections', 'Sections and subsections numbered 1, 1.1, … as in the output.')}
 
       <div className="options__grid">
@@ -75,6 +73,6 @@ export function LatexOptionsMenu({ options, onChange }: LatexOptionsMenuProps) {
       {check('date', 'Today’s date', 'Shown under the title.')}
 
       <button className="options__reset" onClick={() => onChange(DEFAULT_LATEX_OPTIONS)}>Reset to defaults</button>
-    </Dropdown>
+    </div>
   )
 }

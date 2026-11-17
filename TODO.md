@@ -64,6 +64,20 @@ what's here better.
 - [ ] **Non-linear fits**: quadratic, exponential and power-law fits, alongside the
       linear one, and a fit over part of the data.
 - [ ] **More plots**: bar charts and histograms, two y axes, residuals under a fit.
+- [x] **A fit's uncertainty with x uncertainties** (2026-11-17, Emily, from a
+      Hooke's law lab exported to Word): T² against m = F/g, fitted with
+      `@plot(m, Tsquared; fit linear)`, gave a slope of 5.8353 ± 0.0015 s²/kg and
+      χ²_ν = 2800, so k from it (6.7654 ± 0.0017 N/m) "did not agree" with the
+      static k (6.65 ± 0.04 N/m). The fit weighted points by δy alone, and here
+      the periods (δT² ≈ 0.01%) are far more precise than the masses (δm ≈ 1%).
+      Resolved (2026-11-17): a weighted fit counts each point's x uncertainty
+      through the line's slope, σ² = δy² + (slope · δx)² (effective variance),
+      refitted until the slope settles (`linearFit`, plot.ts). Decided with
+      Emily over also widening by √χ²_ν, which would change plots whose points
+      scatter more than their bars. On the lab's data: χ²_ν 0.53, slope
+      5.87 ± 0.08 s²/kg, k = 6.72 ± 0.09 N/m, which agrees. Plots without x
+      uncertainties are unchanged (every golden test as it was); the line under
+      the graph says "(weighted by δT² and δm)" when both counted.
 - [ ] **Spreadsheet data**: paste from Excel or Google Sheets, and import `.xlsx`.
 - [ ] **Text columns** in imported data (labels, categories), to group and filter by.
 - [x] **`@series`** (2026-11-17, Emily): define a series on one line,
@@ -738,6 +752,14 @@ edit reads again only what it changed, and nodes are shared between trees.
       modules it's given.)
 
 ## Done
+
+- [x] **A line that read back with text repeated** (2026-11-17, found by the
+      tree's round-trip test over the repository): `h({)}` came back as
+      `h({)})}`. Inside a call's brackets, chemistry's `{species}` rule read up to
+      its closing brace, past the call's `)`, and the rest of the line then read
+      the `)}` again. Resolved: the lexer takes a rule's reading only if it stays
+      within the span it was given (`withinSpan`, lexer.ts), the unit rules' too;
+      otherwise the next rule is tried. No sheet's output changed.
 
 - [x] **`@layout.column(n)`** (2026-11-16): lines side by side in columns. As
       asked: n columns, a blank line starting the next. Then, since the breaks

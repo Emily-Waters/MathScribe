@@ -1322,8 +1322,14 @@ v = x_slope                # the fit's slope, with its uncertainty
   about 1 when the points scatter as much as their bars say, well above 1 when they
   scatter more (or a straight line is the wrong shape), well below 1 when the bars
   are larger than they need be. Without uncertainties on every point, the fit is
-  unweighted and its uncertainties come from the scatter. (x uncertainties are
-  drawn but don't affect the fit.)
+  unweighted and its uncertainties come from the scatter.
+- **x uncertainties count too**, in a weighted fit: a point's x error bar is
+  turned into how far it moves the point along y on the line, so each point
+  counts by 1/(δy² + (slope · δx)²) (the effective variance method; the line is
+  refitted until its slope settles). That matters when x is the less precise of
+  the two: T² against mass, with masses known to 1% and periods to 0.01%, would
+  otherwise give a slope uncertainty far too small and χ²_ν in the thousands.
+  The line under the graph says which were used: (weighted by δT² and δm).
 - **Settings:** the ⚙ after a plot opens its settings: rows, style (points, lines,
   or both), fit, each axis's range and log scale, and a title. As with tables,
   they're kept after a semicolon: `@plot(t, x; rows 2-, style both, fit linear,

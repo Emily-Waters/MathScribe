@@ -142,13 +142,20 @@ const lexed = new Map<string, readonly Part[]>()
 /** How many expressions are kept read (as many as the tree keeps lines: lines.ts). */
 const LEXED_CACHE_SIZE = 20_000
 
+/** Whether a rule read something (`read` at `pos`), and kept within the span it was given, which ends at `end`. */
+const withinSpan = (read: Lexed | undefined, pos: number, end: number): read is Lexed =>
+  !!read && read.length > 0 && pos + read.length <= end
+
 function readSpan(text: string, start: number, end: number, callee: string | undefined, startLhs: boolean, span: ReadSpan): Part[] {
   const parts: Part[] = []
   let prev: Part | undefined
   let lhs = startLhs
   for (let pos = start; pos < end;) {
     const state: LexState = { text, end, prev, lhs, callee }
-    const read = rules.map((r) => r.rule.read(pos, state, span)).find((r) => r && r.length > 0)
+    // (A rule's reading counts only within the span: a `{species}` read inside a
+    // call's brackets can't take the call's `)` and what's after it, which the
+    // span after the call would then read again: `h({)}`.)
+    const read = rules.map((r) => r.rule.read(pos, state, span)).find((r) => withinSpan(r, pos, end))
       ?? one(token(TOKEN_KIND.unknown, text[pos]), 1)
     parts.push(...read.parts)
     for (const p of read.parts) {
@@ -242,7 +249,7 @@ export function unitPartsAt(text: string, pos: number, end = text.length): Lexed
     const from = at + (space[0]?.text.length ?? 0)
     const state: LexState = { text, end, prev: parts[parts.length - 1], lhs: false }
     const span: ReadSpan = (s, e, callee, lhs = false) => readSpan(text, s, e, callee, lhs, span)
-    const read = from < end ? unitRules.map((r) => r.rule.read(from, state, span)).find((r) => r && r.length > 0) : undefined
+    const read = from < end ? unitRules.map((r) => r.rule.read(from, state, span)).find((r) => withinSpan(r, from, end)) : undefined
     if (!read) break
     parts.push(...space, ...read.parts)
     at = from + read.length

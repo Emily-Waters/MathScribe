@@ -27,8 +27,10 @@ export interface LinearFit {
   interceptUnc: number
   /** How much of the spread the line explains (1: every point on it). */
   r2: number
-  /** Whether each point was weighted by its y uncertainty (1/δy²). */
+  /** Whether each point was weighted by its y uncertainty (1/δy²; with its x uncertainty too, if `xWeighted`). */
   weighted: boolean
+  /** Whether points' x uncertainties counted in their weights too (see linearFit). */
+  xWeighted?: boolean
   /**
    * For a weighted fit of 3 or more points, the reduced chi-squared: about 1
    * when the points scatter as much as their error bars say; much more, they
@@ -65,23 +67,12 @@ export interface PlotData {
 // The linear fit
 // ---------------------------------------------------------------------------
 
-/**
- * The least-squares line through points, with the uncertainties of its slope
- * and intercept.
- *
- * - When every point has a y uncertainty, each is weighted by 1/δy², so the
- *   precise points count most, and the slope's and intercept's uncertainties
- *   come from the error bars. (x uncertainties aren't used.)
- * - Otherwise every point counts the same, and the uncertainties come from how
- *   far the points scatter about the line (which needs 3 or more points; with
- *   2, the line goes through both and they're 0).
- */
-export function linearFit(points: { x: number; y: number; dy?: number }[]): LinearFit | null {
-  const n = points.length
-  if (n < 2) return null
-  const weighted = points.every((p) => p.dy !== undefined && p.dy > 0)
-  const w = points.map((p) => (weighted ? 1 / p.dy! ** 2 : 1))
-  const sum = (f: (p: { x: number; y: number }, i: number) => number) => points.reduce((s, p, i) => s + w[i] * f(p, i), 0)
+/** Refitting with x uncertainties: at most `rounds` times, stopping once the slope changes by less than `settled` of itself. */
+const EFFECTIVE_VARIANCE = { rounds: 50, settled: 1e-12 } as const
+
+/** The weighted least-squares line through points, with the sums its uncertainties are worked out from; null if every x is the same. */
+function fitWith(points: { x: number; y: number }[], w: number[]) {
+  const sum = (f: (p: { x: number; y: number }) => number) => points.reduce((s, p, i) => s + w[i] * f(p), 0)
   const total = sum(() => 1)
   const mx = sum((p) => p.x) / total
   const my = sum((p) => p.y) / total
@@ -91,10 +82,43 @@ export function linearFit(points: { x: number; y: number; dy?: number }[]): Line
   const intercept = my - slope * mx
   const residuals = sum((p) => (p.y - (slope * p.x + intercept)) ** 2)
   const spread = sum((p) => (p.y - my) ** 2)
-  const r2 = spread === 0 ? 1 : 1 - residuals / spread
+  return { slope, intercept, total, mx, sxx, residuals, r2: spread === 0 ? 1 : 1 - residuals / spread }
+}
+
+/**
+ * The least-squares line through points, with the uncertainties of its slope
+ * and intercept.
+ *
+ * - When every point has a y uncertainty, each is weighted by 1/σ², so the
+ *   precise points count most, and the slope's and intercept's uncertainties
+ *   come from the error bars. σ is δy, and if the point has an x uncertainty
+ *   too, that as well, by how far it moves the point along y on the line:
+ *   σ² = δy² + (slope · δx)² (the effective variance method). As that depends
+ *   on the slope, the line is fitted again with each slope's weights until it
+ *   settles. So a fit of T² against m, whose masses are known to 1% and
+ *   periods to 0.01%, isn't trusted as if the masses were exact.
+ * - Otherwise every point counts the same, and the uncertainties come from how
+ *   far the points scatter about the line (which needs 3 or more points; with
+ *   2, the line goes through both and they're 0).
+ */
+export function linearFit(points: { x: number; y: number; dx?: number; dy?: number }[]): LinearFit | null {
+  const n = points.length
+  if (n < 2) return null
+  const weighted = points.every((p) => p.dy !== undefined && p.dy > 0)
+  const xWeighted = weighted && points.some((p) => p.dx !== undefined && p.dx > 0)
+  // The line for these weights, from y's alone at first; then refitted with
+  // each point's x uncertainty seen through the slope, until the slope settles.
+  let fit = fitWith(points, points.map((p) => (weighted ? 1 / p.dy! ** 2 : 1)))
+  for (let round = 0; xWeighted && fit && round < EFFECTIVE_VARIANCE.rounds; round++) {
+    const slope = fit.slope
+    fit = fitWith(points, points.map((p) => 1 / (p.dy! ** 2 + (slope * (p.dx ?? 0)) ** 2)))
+    if (fit && Math.abs(fit.slope - slope) <= EFFECTIVE_VARIANCE.settled * Math.abs(fit.slope)) break
+  }
+  if (!fit) return null
+  const { slope, intercept, total, mx, sxx, residuals, r2 } = fit
   if (weighted) {
     return {
-      slope, intercept, r2, weighted,
+      slope, intercept, r2, weighted, ...(xWeighted ? { xWeighted } : {}),
       slopeUnc: Math.sqrt(1 / sxx),
       interceptUnc: Math.sqrt(1 / total + mx ** 2 / sxx),
       ...(n > 2 ? { chi2: residuals / (n - 2) } : {}),

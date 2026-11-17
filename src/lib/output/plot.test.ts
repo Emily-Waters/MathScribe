@@ -49,6 +49,43 @@ describe('linearFit', () => {
     expect(equal.chi2).toBeCloseTo(0.24)
   })
 
+  it('counts x uncertainties too, through the slope (effective variance)', () => {
+    // T² against m, from a lab: the masses known to about 1%, the periods to 0.01%.
+    const points = [
+      [0.0285, 0.0003, 0.16635, 0.00003], [0.0338, 0.0006, 0.20260, 0.00004], [0.0390, 0.0004, 0.22911, 0.00004],
+      [0.0442, 0.0004, 0.25813, 0.00004], [0.0497, 0.0003, 0.29240, 0.00005], [0.0544, 0.0004, 0.32039, 0.00005],
+      [0.0603, 0.0004, 0.35272, 0.00005],
+    ].map(([x, dx, y, dy]) => ({ x, dx, y, dy }))
+    const yOnly = linearFit(points.map(({ x, y, dy }) => ({ x, y, dy })))!
+    const both = linearFit(points)!
+    // By the periods alone, the line is trusted far beyond what the masses allow.
+    expect(yOnly.chi2).toBeGreaterThan(1000)
+    expect(yOnly.xWeighted).toBeUndefined()
+    // Counting the masses' uncertainties, the points scatter as their bars say.
+    expect(both.xWeighted).toBe(true)
+    expect(both.chi2).toBeCloseTo(0.53, 1)
+    expect(both.slope).toBeCloseTo(5.874, 2)
+    expect(both.slopeUnc).toBeCloseTo(0.077, 2)
+    // Its weights are the settled slope's: refitting once more changes nothing.
+    const w = points.map((p) => ({ x: p.x, y: p.y, dy: Math.hypot(p.dy, both.slope * p.dx) }))
+    expect(linearFit(w)!.slope).toBeCloseTo(both.slope, 9)
+  })
+
+  it('says so under a plot whose x values have uncertainties, and its slope is that fit’s', () => {
+    const sheet = 'm = @series(0.0285 kg pm 0.0003 kg, 0.0390 kg pm 0.0004 kg, 0.0497 kg pm 0.0003 kg, 0.0603 kg pm 0.0004 kg)\n'
+      + 'T2 = @series(0.16635 s^2 pm 0.00003 s^2, 0.22911 s^2 pm 0.00004 s^2, 0.29240 s^2 pm 0.00005 s^2, 0.35272 s^2 pm 0.00005 s^2)\n'
+      + 'p = @plot(m, T2; fit linear)\n'
+    expect(last(sheet).tex).toMatch(/weighted by \}\\delta T_\{2\}\\text\{ and \}\\delta m\\text\{\)\}/)
+    // An uncertainty the masses allow (0.08 s²/kg), not the periods' alone (about 0.002).
+    expect(value(`${sheet}k = p.slope`)).toBe('(5.88 ± 0.08) s^2/kg')
+  })
+
+  it('weights by y alone when no point has an x uncertainty', () => {
+    const fit = linearFit([{ x: 0, y: 0, dy: 0.5, dx: 0 }, { x: 1, y: 1.2, dy: 0.5 }, { x: 2, y: 1.8, dy: 0.5 }])!
+    expect(fit.xWeighted).toBeUndefined()
+    expect(fit.slopeUnc).toBeCloseTo(0.5 / Math.sqrt(2))
+  })
+
   it('counts every point the same unless every one has a y uncertainty', () => {
     expect(linearFit([{ x: 0, y: 0, dy: 1 }, { x: 1, y: 1 }, { x: 2, y: 2 }])!.weighted).toBe(false)
   })

@@ -111,6 +111,8 @@ describe('the expression lexer', () => {
     for (const text of [
       'F = m * a', '  v:km/h = d / t  ', '@tuple(r:3, theta:deg) = p', '<3.0, 4.0> N + <1, 2> N', 'M({H2O}) to g/mol',
       '@table(t, x; fit linear)', 'x ± 1', '"a" $ ¿', 'f(g(h(1)), [1, 2; 3, 4])', 'sqrt(', '<1, 2', '9.81 m/s^2 to ft/s^2',
+      // A rule reading past the end of a call's brackets (a `{species}` taking the call's `)`) read it twice.
+      'h({)}', 'f({a) + 1}', '2.0 mol ({EDTA)}',
     ]) {
       expect(lexExpression(text).map(textOf).join('')).toBe(text)
     }

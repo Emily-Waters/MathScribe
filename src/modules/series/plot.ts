@@ -61,7 +61,9 @@ function fitTex(
   // A weighted fit says so, with its reduced χ² (how well the line matches the
   // error bars), on a line of its own under the equation so it isn't too wide.
   const chi2 = fit.chi2 !== undefined ? `,\\quad \\chi^{2}_{\\nu} = ${Number(fit.chi2.toPrecision(FIT_DIGITS.chi2))}` : ''
-  return `${line} \\\\ ${r2}${chi2}\\quad \\text{(weighted by }\\delta ${symbolTex(s.name ?? UNNAMED_SERIES)}\\text{)}`
+  // (By δy, and by δx too where the points had x uncertainties: see linearFit.)
+  const by = fit.xWeighted ? `\\delta ${y}\\text{ and }\\delta ${x}` : `\\delta ${y}`
+  return `${line} \\\\ ${r2}${chi2}\\quad \\text{(weighted by }${by}\\text{)}`
 }
 
 export class PlotForm extends LineForm {

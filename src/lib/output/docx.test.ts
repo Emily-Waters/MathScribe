@@ -85,7 +85,8 @@ describe('the Word export', () => {
         expect(() => parseXml(xml), `${path} for:\n${src}`).not.toThrow()
       }
     }
-  })
+    // (Every example sheet exported takes a while: about 5 s on a slower machine running the whole suite.)
+  }, 30_000)
 
   it('is a zip Word can open: content types, relationships and the document', () => {
     const files = unzipSync(toDocx(sheet('F = 2.00 kg * 9.81 m/s^2').blocks, DEFAULT_LATEX_OPTIONS))

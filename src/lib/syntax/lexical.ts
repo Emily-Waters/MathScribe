@@ -56,11 +56,3 @@ export const MEMBER_DOT = '.'
 
 /** Between a series' name and a member's number: t_1. */
 export const SUBSCRIPT = '_'
-
-/**
- * A name with a dot: a selection's, named import's or named plot's member,
- * `a.x_1`, or a member's member, a substance's element's, `H2SO4.H.n` (its
- * groups: namespace, and members, each with its dot before it). Not after a
- * digit, so 2.5 isn't one. (How it's held inside, a__x_1, is in names.ts.)
- */
-export const DOT_ACCESS = regex(src`(?<![\w.${GREEK_CHARS}])${named('namespace', NAME)}${named('members', src`(?:\.${NAME})+`)}`, 'g')

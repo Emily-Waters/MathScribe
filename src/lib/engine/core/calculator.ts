@@ -8,8 +8,9 @@ import { EXACT, MAX_DIGITS, countSigFigs, formatExact, formatSigFigs, formatWith
 import { AGGREGATE_KIND, Variable, type Aggregate, type Contributions, type VariableFields, type VariableSummary } from '../../values.ts'
 import { DEFAULT_CONSTANT_SIG_FIGS, isNamespaceConstant, suggestConstant } from '../../constants.ts'
 import { BUILTINS, builtinConstant, builtinConstantKeys, isReservedConstantName } from '../../builtins.ts'
-import { splitInlineMath, CONSTANT_REF, EXACT_SETTING, IS_NAME, MEMBER_DOT, PERCENT, DISPLAY_MODE, VALUE_IN_TEXT, CONSTANTS_BLOCK, LABEL_WORDS, SIGIL, type DisplayMode, type Notation, type Precision, type UncertaintyWord } from '../../syntax.ts'
-import { INLINE_VALUE_NAME, INV_FUNCTION, JOIN, TUPLE_FUNCTION, RESERVED_NAMESPACES, constantKey, constantRefName, expandDots, typedConstant, isHiddenName, isUncertaintyName, memberName, parseNumberedName, parseUncertaintyName, readableMembers, seriesMemberName, uncertaintyName, unpackedName } from '../../names.ts'
+import { splitInlineMath, CONSTANT_WRITTEN, EXACT_SETTING, IS_NAME, MEMBER_DOT, PERCENT, DISPLAY_MODE, VALUE_IN_TEXT, CONSTANTS_BLOCK, LABEL_WORDS, SIGIL, type DisplayMode, type Notation, type Precision, type UncertaintyWord } from '../../syntax.ts'
+import { INLINE_VALUE_NAME, INV_FUNCTION, JOIN, TUPLE_FUNCTION, RESERVED_NAMESPACES, constantKey, constantRefName, typedConstant, isHiddenName, isUncertaintyName, memberName, parseNumberedName, parseUncertaintyName, readableMembers, seriesMemberName, uncertaintyName, unpackedName } from '../../names.ts'
+import { expandDots, lineTokens } from './memberAccess.ts'
 import { COMPARISONS, FN, OP, OP_SYMBOL, UNIT, isOp } from '../../mathjsNames.ts'
 
 import { nestBrackets } from '../../brackets.ts'
@@ -1141,7 +1142,8 @@ export class Calculator {
     const calls = expandNamespaceCalls(line)
     if (calls.error) return calls
     let error: string | undefined
-    const text = calls.text.replace(CONSTANT_REF, (match, typed: string, spec?: string) => {
+    /** A constant as written, `@c:4` (its name as typed, and its precision if it has one), as the hidden variable that holds it. */
+    const use = (match: string, typed: string, spec?: string): string => {
       // `@chem.mm.Na` is chem__mm__Na inside (with its first dot read already, or not).
       const name = constantKey(typed)
       const custom = this.customConstants.get(name)
@@ -1192,7 +1194,14 @@ export class Calculator {
         declared: spec !== undefined || this.constantPrecision.has(name) || custom?.declared || undefined,
       })
       return hidden
-    })
+    }
+    // Each constant is a built-in's token that isn't called (`@chem.mm(…)` is a call), as the lexer reads it
+    // (tree/lexer.ts): not one in a label's quotes, and with its precision, `@c:4`.
+    const text = lineTokens(lexExpression(calls.text)).map(({ token, callee }) => {
+      if (token.t !== TOKEN_KIND.builtin || callee) return token.text
+      const written = CONSTANT_WRITTEN.exec(token.text)?.groups
+      return written ? use(token.text, written.name, written.precision) : token.text
+    }).join('')
     return { text, error }
   }
 

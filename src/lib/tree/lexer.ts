@@ -26,7 +26,7 @@ import { NODE_KIND, TOKEN_KIND, isToken, type Part, type SyntaxNode, type Token 
 export const MATHJS_DELIMITERS = [
   '>>>',
   '.*', './', '.^', '^|', '?.', '??', '==', '!=', '<=', '>=', '<<', '>>',
-  ',', '(', ')', '[', ']', '{', '}', '"', '\'', ';', '+', '-', '*', '/', '%', '^', '~', '!', '&', '|', '=', ':', '?', '<', '>',
+  ',', '.', '(', ')', '[', ']', '{', '}', '"', '\'', ';', '+', '-', '*', '/', '%', '^', '~', '!', '&', '|', '=', ':', '?', '<', '>',
 ] as const
 
 /** mathjs's named delimiters: words that are operators (`2 m to cm`, `a mod b`). */

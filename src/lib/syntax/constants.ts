@@ -3,7 +3,7 @@
  * a line (`@c`, `@c:4`, `@chem.mm.Na:5`), and a line that sets one sheet-wide
  * (`@a_0:3 to angstrom`).
  */
-import { KEYWORD, NAME, NAME_CHAR, SIGIL } from './lexical.ts'
+import { KEYWORD, NAME, SIGIL } from './lexical.ts'
 import { EXACT_SETTING } from './settings.ts'
 import { named, optional, regex, src } from './patterns.ts'
 
@@ -23,10 +23,11 @@ const PRECISION = src`\d+|${EXACT_SETTING}`
 export const CONSTANT_PRECISION = optional(src`:${named('precision', PRECISION)}\b`)
 
 /**
- * Every constant in a line: `@c`, `@c:4`, `@c:exact`, `@chem.mm.Na:5` (its
- * groups: name, with any namespace, and precision). Not a call, `@chem.mm(…)`.
+ * A constant as the lexer reads one, its token: `@c`, `@c:4`, `@c:exact`,
+ * `@chem.mm.Na:5` (its groups: name, with any namespace, and precision). The
+ * lexer says which are constants and which are calls (`@chem.mm(…)`).
  */
-export const CONSTANT_REF = regex(src`${SIGIL}${named('name', CONSTANT_NAME)}(?!${NAME_CHAR}|\.|\s*\()${CONSTANT_PRECISION}`, 'g')
+export const CONSTANT_WRITTEN = regex(src`^${SIGIL}${named('name', CONSTANT_NAME)}${CONSTANT_PRECISION}$`)
 
 /**
  * A line that only sets a constant sheet-wide: `@c:4`, `@a_0 to angstrom`,

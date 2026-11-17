@@ -15,7 +15,7 @@
  * p.r2 and p.chi2.
  */
 import {
-  CALL, DOT_ACCESS, EXACT_SETTING, IS_NAME, MEMBER_DOT, NAME, SERIES_SUFFIXES, SIGIL, SUBSCRIPT, UNCERTAINTY_WORDS,
+  CALL, EXACT_SETTING, IS_NAME, MEMBER_DOT, NAME, SERIES_SUFFIXES, SIGIL, SUBSCRIPT, UNCERTAINTY_WORDS,
   type Precision, type SeriesSuffix, type UncertaintyWord,
 } from './syntax.ts'
 
@@ -155,20 +155,7 @@ export function parseMemberName(name: string): { namespace: string; member: stri
   return { namespace, member }
 }
 
-// ---------------------------------------------------------------------------
-// Members as typed, a.x_1
-// ---------------------------------------------------------------------------
-
-/**
- * Text with each `a.x_1` as its inside name, a__x_1, leaving quoted text
- * alone. A numbered member is kept as written (a.x1 → a__x1): t1 and t_1 are
- * the same variable, inside a namespace too.
- */
-export function expandDots(text: string): string {
-  if (!text.includes(MEMBER_DOT)) return text
-  return text.split(/("[^"]*")/).map((part, i) => (i % 2 ? part : part.replace(DOT_ACCESS, (typed: string, ns: string, members: string) =>
-    RESERVED_NAMESPACES.has(ns) ? typed : memberName(ns, members.slice(MEMBER_DOT.length).split(MEMBER_DOT).join(JOIN))))).join('')
-}
+// (Members as typed, `a.x_1`, are read into their inside names from the line's tokens: engine/core/memberAccess.ts.)
 
 /** A built-in function as typed: builtin__tuple → @tuple. */
 const BUILTIN_FUNCTION_NAME = new RegExp(String.raw`^${HIDDEN_PREFIX.builtin}${JOIN}(${NAME})$`)

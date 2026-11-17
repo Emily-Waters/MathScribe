@@ -251,6 +251,11 @@ export abstract class EngineModule {
     return undefined
   }
 
+  /** A subscript of a variable's name as LaTeX, if it's in this module's notation (`n_H2O`, chemistry). */
+  nameSubscriptTex(_subscript: string): string | undefined {
+    return undefined
+  }
+
   /** Text in a display name with this module's notation as inline maths, `$…$` (`{Na^+}` as chemistry). */
   markupText(text: string): string {
     return text
@@ -439,6 +444,9 @@ export const isUnwrittenFunction = (name: string) => shared().some((m) => m.unwr
 
 export const moduleSubscriptTex = (subscript: string) =>
   shared().map((m) => m.subscriptTex(subscript)).find((tex) => tex !== undefined)
+
+export const moduleNameSubscriptTex = (subscript: string) =>
+  shared().map((m) => m.nameSubscriptTex(subscript)).find((tex) => tex !== undefined)
 
 export const markupText = (text: string) => shared().reduce((t, m) => m.markupText(t), text)
 

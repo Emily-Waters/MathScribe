@@ -94,7 +94,7 @@ export class VectorModule extends EngineModule {
     // (Bracketing an argument only where it needs it, such as a sum.)
     const [a, b] = n.args.map((arg, i) => {
       const written = tex(arg)
-      return needsBrackets(arg, i === 0 ? SIDE.left : SIDE.right, false) ? `\\left(${written}\\right)` : written
+      return needsBrackets(arg, i === 0 ? SIDE.left : SIDE.right) ? `\\left(${written}\\right)` : written
     })
     return ` ${a} ${VECTOR_PRODUCTS[name]} ${b}`
   }

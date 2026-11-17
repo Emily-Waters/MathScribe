@@ -1,7 +1,7 @@
 /**
  * Brackets by nesting, as textbooks write them: a group with no groups inside
- * it gets round brackets, one with round ones inside gets square brackets, one
- * with square ones inside gets braces, and then round again:
+ * it gets round brackets, one with round ones inside gets square brackets, and
+ * then round again (never braces, which read as a set):
  *
  *   ((a + b)c)²  →  [(a + b)c]²
  *
@@ -17,7 +17,7 @@
 const DELIMITER = /\\left(\(|\[|\\\{|\\langle|\\\||\||\.)|\\right(\)|\]|\\\}|\\rangle|\\\||\||\.)/g
 
 /** The brackets for each level, innermost first; deeper levels start over. */
-const LEVELS = [['\\left(', '\\right)'], ['\\left[', '\\right]'], ['\\left\\{', '\\right\\}']] as const
+const LEVELS = [['\\left(', '\\right)'], ['\\left[', '\\right]']] as const
 
 /** A bracket pair found in the LaTeX. */
 interface Pair {

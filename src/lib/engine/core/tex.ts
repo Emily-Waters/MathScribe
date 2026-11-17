@@ -6,7 +6,7 @@ import { GREEK_BY_CHAR, GREEK_BY_NAME, GREEK_CHARS, SERIES_SUFFIXES } from '../.
 import { FIT, parseConstantRefName, parseMemberName, parseSeriesStatName, parseSolvedName, parseUncertaintyName } from '../../names.ts'
 import { FN, UNIT_LOOKS } from '../../mathjsNames.ts'
 import { math } from './math.ts'
-import { isLabelUnit, labelUnitTex } from './module.ts'
+import { isLabelUnit, labelUnitTex, moduleNameSubscriptTex } from './module.ts'
 
 /** In unitTex: between a unit and the label unit after it (mol EDTA), a space rather than a dot. */
 export const LABEL_GAP = '~'
@@ -83,7 +83,9 @@ export function symbolTex(name: string): string {
   // More than one subscript (`F_net_x`, a component) reads F_{net,x}.
   const [base, ...rest] = name.split('_')
   const subs = rest.filter(Boolean)
-  return subs.length ? `${namePart(base)}_{${subs.map(subscriptPart).join(',')}}` : namePart(base)
+  // (A module's notation first: a formula, `n_H2O`, drawn as chemistry.)
+  const sub = (s: string) => moduleNameSubscriptTex(s) ?? subscriptPart(s)
+  return subs.length ? `${namePart(base)}_{${subs.map(sub).join(',')}}` : namePart(base)
 }
 
 /** One letter, then a number and letters, without an underscore: `v1x` (1: the letter, 2: the rest). */
@@ -138,7 +140,7 @@ export function unitTex(s: string): string {
   norm = norm.replace(/\*(?=[a-z]+)/g, (star, at: number) => (isLabelUnit(/^[a-z]+/.exec(norm.slice(at + 1))![0]) ? LABEL_GAP : star))
     // A denominator that's one unit and its label needs no brackets: g H2O/mol H2O.
     .replace(/\/\(([A-Za-z]+~[a-z]+)\)$/, '/$1')
-  return norm.replace(/[A-Za-z]+|\^(-?[\d.]+)|\*|~/g, (tok, pow) => {
+  const tex = (part: string) => part.replace(/[A-Za-z]+|\^(-?[\d.]+)|\*|~/g, (tok, pow) => {
     if (tok === '*') return '\\cdot '
     if (tok === LABEL_GAP) return '\\,'
     if (pow !== undefined) return `^{${pow}}`
@@ -150,7 +152,29 @@ export function unitTex(s: string): string {
     if (hasMicroPrefix(tok)) return `\\mu\\mathrm{${tok.slice(1)}}`
     return `\\mathrm{${tok}}`
   })
+  // With a label above the line and below it (g H2O/mol H2O, grams of water per mole of it), it's stacked,
+  // so it reads as said; any other unit keeps its slash.
+  const stacked = STACKED_UNIT.exec(norm)
+  if (stacked && stacked[1].includes(LABEL_GAP) && stacked[2].includes(LABEL_GAP)) {
+    return `\\frac{${tex(stacked[1])}}{${tex(stacked[2].replace(/^\((.*)\)$/, '$1'))}}`
+  }
+  return tex(norm)
 }
+
+/** A unit with one division in it, at the top (1: above the line, 2: below it). */
+const STACKED_UNIT = /^([^/()]+)\/([^/]+)$/
+
+/** The words of a piecewise value's cases: `x, if x > 0`, `0, otherwise`. */
+export const CASE_WORDS = { if: 'if ', otherwise: 'otherwise' } as const
+
+/** One case of a piecewise value, as mathjs writes them: its value, then when it applies. */
+export const caseTex = (value: string, when: string) => `{${value.trim()}}, &\\quad{${when}}`
+
+/** The words before the unit a function's results are shown in, said after its equation. */
+export const RESULT_UNIT_WORDS = 'in '
+
+/** A function's result unit, after its equation: `ang(y, x) = tan⁻¹(y/x)   in °`. */
+export const resultUnitTex = (unit: string) => `\\quad\\text{${RESULT_UNIT_WORDS}}{}${unit}`
 
 /**
  * Put a unit after a number: a thin space before most units, none before a

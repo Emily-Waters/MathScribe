@@ -1,18 +1,18 @@
-/** Brackets by nesting: ( ) innermost, then [ ], then { }. */
+/** Brackets by nesting: ( ) innermost, then [ ], then ( ) again (never { }, which read as a set). */
 import { describe, expect, it } from 'vitest'
 import { nestBrackets } from './brackets.ts'
 
 const L = (s: string) => `\\left(${s}\\right)`
 
 describe('nestBrackets', () => {
-  it('uses square brackets around round ones, and braces around those', () => {
+  it('uses square brackets around round ones, and round around those', () => {
     expect(nestBrackets(`${L(`${L('a + b')} c`)}^{2}`)).toBe(`\\left[${L('a + b')} c\\right]^{2}`)
     expect(nestBrackets(L(`x ${L(`y ${L('z + 1')}`)}`)))
-      .toBe(`\\left\\{x \\left[y ${L('z + 1')}\\right]\\right\\}`)
+      .toBe(`\\left(x \\left[y ${L('z + 1')}\\right]\\right)`)
   })
 
-  it('goes back to round brackets after braces', () => {
-    expect(nestBrackets(L(L(L(L('a')))))).toBe(`\\left(\\left\\{\\left[${L('a')}\\right]\\right\\}\\right)`)
+  it('goes round and square in turn, never braces', () => {
+    expect(nestBrackets(L(L(L(L('a')))))).toBe(`\\left[\\left(\\left[${L('a')}\\right]\\right)\\right]`)
   })
 
   it('leaves a group with nothing nested inside it round', () => {

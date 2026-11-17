@@ -32,8 +32,8 @@ export interface CalcOptions {
   approxRounded?: boolean
   /**
    * Show a dot between every pair of factors (m·a). Off: products are written
-   * as in a textbook, ma, ½mv², mg cos θ, with a dot only where it's needed to
-   * keep numbers apart (2.0 kg · 9.81 m/s²).
+   * as in a textbook, ma, ½mv², mg cos θ, with × only where it's needed to keep
+   * numbers and units apart (2.0 kg × 9.81 m/s²).
    */
   productDots?: boolean
 }

@@ -171,7 +171,7 @@ what's here better.
       left are where a chain is written (on an expression, `@format.inv.sci(x)`;
       on a block, `@format.sci { … }`; or both) and whether the `:` settings on
       names become the same words.
-- [ ] **How expressions are typeset: brackets, multiplication signs and
+- [x] **How expressions are typeset: brackets, multiplication signs and
       fractions.** A lot of the output looks ugly, the chemistry especially:
       brackets where none are needed (or missing where they are), a mix of
       implicit products, `·` and `×`, and fractions that stack badly (units and
@@ -184,6 +184,29 @@ what's here better.
       sheets and the golden tests first, and decide on the rules before changing
       them. Nested conditions (`c1 ? a : (c2 ? b : c)`) are typeset as a brace
       inside a brace; they'd read better as one brace of three cases.
+      Decided (2026-11-16, from a page of each choice drawn now and as its
+      alternatives): (1) `×` before a factor that starts with a number, nothing
+      before a name, brackets only where needed, in place of bracketed
+      quantities side by side and `·` between numbers; (2) units keep the slash,
+      `m/s²`; (3) a unit with a species above and below the line is stacked,
+      g Na over mol Na; (4) nested brackets go `( [ ( [`, never braces; (5) a
+      formula after a name's underscore (`n_H2O`) is drawn as chemistry; (6) a
+      condition inside a condition is one brace with every case; (7) a
+      function's result unit is said after its equation, "in °", not as an
+      arrow after its name.
+      Resolved: (1) `productSeparator` (core/products.ts) puts `×` before a
+      factor that starts as a number (a number, a quantity, a negative, a value
+      in brackets, and Euler's e after a number) and after a quantity, nothing
+      between names; values are bracketed only where they'd read wrongly
+      (raised to a power, in scientific notation, a negative after another
+      factor); `delta`'s working follows the same rule. (3) `unitTex` stacks a
+      unit with a species above and below the line. (4) `nestBrackets` goes
+      round and square in turn. (5) A module hook, `nameSubscriptTex`, draws a
+      name's subscript in its notation: chemistry's, for two or more characters
+      of element symbols and counts (`F_N`, `v_AB` stay as they were). (6) The
+      Calculator writes a condition's cases itself, following its last case down
+      through nested conditions. (7) `resultUnitTex` after the equation. The
+      option *Show · in every product* is unchanged.
 
 ## 8. The sheet's schema: a tree of nodes
 

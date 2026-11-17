@@ -59,8 +59,8 @@ export function OptionsMenu({ options, onChange, hidden }: OptionsMenuProps) {
         <span>Show · in every product</span>
       </label>
       <p className="options__help">
-        Off: products are written as in a textbook (ma, ½mv²), with a dot only between
-        numbers (2.0 kg · 9.81 m/s²).
+        Off: products are written as in a textbook (ma, ½mv²), with × only where a
+        number comes next or a unit ends a factor (2.0 kg × 9.81 m/s²).
       </p>
     </Dropdown>
   )

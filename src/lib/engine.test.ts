@@ -9,13 +9,13 @@ import { bareTuple, symbolTex } from './engine/index.ts'
 
 describe('basic calculation', () => {
   it('substitutes values and tidies the unit', () => {
-    expect(shown('m = 2.00 kg\nF = m * 9.81 m/s^2')).toBe('F = m (9.81 m/s^2) = (2.00 kg) (9.81 m/s^2) = 19.6 N')
+    expect(shown('m = 2.00 kg\nF = m * 9.81 m/s^2')).toBe('F = m\\times 9.81 m/s^2 = 2.00 kg\\times 9.81 m/s^2 = 19.6 N')
   })
 
   it('brackets a negative value it substitutes, so its sign doesn’t read as an operator', () => {
     expect(shown('a = 3.5e3 J\nb = -1.9e3 J\nW = a + b')).toBe('W = a+ b = 3.5e3 J+ (-1.9e3 J) = 1.6 kJ')
-    expect(shown('g = -9.81 m/s^2\nF = g * 2.0 kg')).toBe('F = g (2.0 kg) = (-9.81 m/s^2) (2.0 kg) = -20. N')
-    expect(shown('k = -2.0\nz = k * 3')).toBe('z = k· 3 = (-2.0)· 3 = -6.0')
+    expect(shown('g = -9.81 m/s^2\nF = g * 2.0 kg')).toBe('F = g\\times 2.0 kg = (-9.81 m/s^2)\\times 2.0 kg = -20. N')
+    expect(shown('k = -2.0\nz = k * 3')).toBe('z = k\\times 3 = (-2.0)\\times 3 = -6.0')
   })
 
   it('converts with to', () => {
@@ -63,11 +63,11 @@ describe('products', () => {
     expect(last(`${src}G = Fn * m`).tex).toMatch(/^G = \\mathrm\{Fn\}\\,m =/)
   })
 
-  it('keep a dot where numbers would run together, or a number could read as a mixed fraction', () => {
-    // Substituted values: 2.00 kg · (4.0 m/s)².
-    expect(shown(`${src}E = 1/2 * m * v^2`)).toBe('E = \\frac12 m v^2 = \\frac12 (2.00 kg) (4.0 m/s)^2 = 16 J')
-    expect(readable(last(`${src}x = m * 2`).tex).split(' = ')[1]).toBe('m· 2')
-    expect(readable(last(`${src}x = 2 * (1/3)`).tex).split(/ = | ≈ /)[1]).toBe('2· \\frac13')
+  it('put × before a number, so numbers don’t run together or read as a mixed fraction', () => {
+    // Substituted values: ½ × 2.00 kg × (4.0 m/s)².
+    expect(shown(`${src}E = 1/2 * m * v^2`)).toBe('E = \\frac12 m v^2 = \\frac12\\times 2.00 kg\\times (4.0 m/s)^2 = 16 J')
+    expect(readable(last(`${src}x = m * 2`).tex).split(' = ')[1]).toBe('m\\times 2')
+    expect(readable(last(`${src}x = 2 * (1/3)`).tex).split(/ = | ≈ /)[1]).toBe('2\\times \\frac13')
   })
 
   it('bracket a sum or a negative factor', () => {
@@ -79,31 +79,31 @@ describe('products', () => {
     expect(readable(last(`${src}E = 1/2 * m * v^2`, { productDots: true }).tex).split(' = ')[1]).toBe('\\frac12· m· v^2')
   })
 
-  it('bracket a value in scientific notation, and need no dot before a bracket', () => {
-    // 8 (9.11 × 10⁻³¹ kg) (1.0 × 10⁻⁹ m)², not 8 · 9.11 × 10⁻³¹ kg · …
+  it('bracket only a value that needs it (in scientific notation, or raised to a power), with × before it', () => {
+    // 8 × (9.11 × 10⁻³¹ kg) × (1.0 × 10⁻⁹ m)², not 8 × 9.11 × 10⁻³¹ kg × …
     expect(shown('m_e = 9.11e-31 kg\nL = 1.0e-9 m\nE = 8 * m_e * L^2').split(' = ')[2])
-      .toBe('8 (9.11e-31 kg) (1.0e-9 m)^2')
+      .toBe('8\\times (9.11e-31 kg)\\times (1.0e-9 m)^2')
     expect(shown('r = 0.400 angstrom\np = 0.688 angstrom^-1.5\nP = 4 * pi * r^2 * p^2').split(' = ')[2])
-      .toBe('4 \\pi (0.400 Å)^2 (0.688 Å^-1.5)^2')
-    // A value with a unit is bracketed too: (9.81 m/s²)(2.0 s)², 4π(250.0 Å).
-    expect(shown('a = 9.81 m/s^2\nt = 2.0 s\nd = a * t^2').split(' = ')[2]).toBe('(9.81 m/s^2) (2.0 s)^2')
-    expect(shown('n = 4\nx = 250.0 angstrom\ny = n * pi * x').split(' = ')[2]).toBe('4 \\pi (250.0 Å)')
-    // A dot before Euler's number, which would read as scientific notation after a number.
-    expect(shown('s = 5.67\ny = s * e^2').split(' = ')[2]).toBe('5.67· e^2')
+      .toBe('4 \\pi\\times (0.400 Å)^2\\times (0.688 Å^-1.5)^2')
+    // A value with a unit isn't, unless it's raised to a power: 9.81 m/s² × (2.0 s)², 4π × 250.0 Å.
+    expect(shown('a = 9.81 m/s^2\nt = 2.0 s\nd = a * t^2').split(' = ')[2]).toBe('9.81 m/s^2\\times (2.0 s)^2')
+    expect(shown('n = 4\nx = 250.0 angstrom\ny = n * pi * x').split(' = ')[2]).toBe('4 \\pi\\times 250.0 Å')
+    // × before Euler's number, which would read as scientific notation after a number.
+    expect(shown('s = 5.67\ny = s * e^2').split(' = ')[2]).toBe('5.67\\times e^2')
   })
 
   it('bracket a squared negative value in scientific notation once', () => {
     expect(last('p:sci = -0.0707 angstrom^-0.5\np^2').tex).toMatch(/= \{\\left\(-7\.07 \\times 10\^\{-2\}[^()]*\\right\)\}\^\{2\} =/)
   })
 
-  it('bracket a negated value with a unit like the other values', () => {
-    expect(shown('F = 500. N\ntheta = 30. deg\ny = -F * sin(theta)').split(' = ')[2]).toBe('-(500. N) \\sin(30.°)')
+  it('end a negated value with a unit in its unit, so × follows it', () => {
+    expect(shown('F = 500. N\ntheta = 30. deg\ny = -F * sin(theta)').split(' = ')[2]).toBe('-500. N\\times \\sin(30.°)')
   })
 
-  it('nest brackets as ( ) inside [ ] inside { }, but keep a call’s round', () => {
+  it('nest brackets as ( ) inside [ ] inside ( ), never { }, and keep a call’s round', () => {
     const src = 'a = 1.0\nb = 2.0\nc = 3.0\n'
     expect(shown(`${src}y = ((a + b) * c)^2`).split(' = ')[1]).toBe('[(a+ b) c]^2')
-    expect(shown(`${src}y = (((a + b) * c)^2 * a)^2`).split(' = ')[1]).toBe('❴[(a+ b) c]^2 a❵^2')
+    expect(shown(`${src}y = (((a + b) * c)^2 * a)^2`).split(' = ')[1]).toBe('([(a+ b) c]^2 a)^2')
     expect(shown(`${src}y = sin((a + b) * c)`).split(' = ')[1]).toBe('\\sin((a+ b) c)')
   })
 })
@@ -129,7 +129,7 @@ describe('significant figures', () => {
   })
 
   it('keeps a plain 1 exact when 1.00 appears on the same line', () => {
-    expect(shown('y = 1 * 1.00 m')).toBe('y = 1 (1.00 m) = 1.00 m')
+    expect(shown('y = 1 * 1.00 m')).toBe('y = 1\\times 1.00 m = 1.00 m')
   })
 
   it('warns about ambiguous trailing zeros', () => {
@@ -159,7 +159,7 @@ describe('= or ≈', () => {
   it('uses ≈ only for rounded results of exact inputs, by default', () => {
     const shownLines = lines(src).map((l) => readable(l.tex))
     expect(shownLines[0]).toContain('≈ 0.333333')
-    expect(shownLines[1]).toBe('b = 2· 3 = 6')
+    expect(shownLines[1]).toBe('b = 2\\times 3 = 6')
     expect(shownLines[2]).toContain('≈ 0.785398')
     expect(shownLines[3]).toContain('= 0.5') // not ≈: floating-point noise isn't rounding
     expect(shownLines[4]).toContain('= 19.6 N')
@@ -199,8 +199,10 @@ describe('names with subscripts', () => {
     }
     for (const [name, tex] of [
       ['v_cm', 'v_{\\mathrm{cm}}'], ['x_eq', 'x_{\\mathrm{eq}}'], ['F_net_x', 'F_{\\mathrm{net},x}'], ['E_thermal', 'E_{\\mathrm{thermal}}'],
-      // Element symbols stay upright: c(Na), not c with an italic N and a.
-      ['c_Na', 'c_{\\mathrm{Na}}'], ['n_Mg', 'n_{\\mathrm{Mg}}'],
+      // A formula is drawn as chemistry: c(Na), not c with an italic N and a; n(H₂O).
+      ['c_Na', 'c_{\\ce{Na}}'], ['n_Mg', 'n_{\\ce{Mg}}'], ['n_H2', 'n_{\\ce{H2}}'], ['n_H2O', 'n_{\\ce{H2O}}'],
+      // …but a single letter, or labels that aren't elements, are the physics they usually are.
+      ['F_N', 'F_{N}'], ['T_C', 'T_{C}'],
     ]) {
       expect(symbolTex(name)).toBe(tex)
     }
@@ -242,7 +244,7 @@ describe('unit display', () => {
     expect(lines(src).map((l) => readable(l.tex))).toEqual([
       'm = 9.11e-31 kg',
       'm = 9.11e-31 kg', // not 0.911 rg
-      'x = 2 m = 2 (9.11e-31 kg) = 1.82e-30 kg',
+      'x = 2 m = 2\\times (9.11e-31 kg) = 1.82e-30 kg',
       'L = 1.00e-10 m',
       'L = 1.00e-10 m', // not 100 pm
     ])
@@ -290,12 +292,12 @@ describe('constants', () => {
 
 describe('functions', () => {
   it('shows working in terms of what was passed in', () => {
-    expect(shown('area(r) = pi * r^2\nr_1 = 2.0 cm\nA = area(r_1)')).toBe('A = \\pi r_1^2 = \\pi (2.0 cm)^2 = 13 cm^2')
+    expect(shown('area(r) = pi * r^2\nr_1 = 2.0 cm\nA = area(r_1)')).toBe('A = \\pi r_1^2 = \\pi\\times (2.0 cm)^2 = 13 cm^2')
   })
 
   it('shows a number argument once, and a negative one in brackets', () => {
-    expect(shown('f(x) = 2.0 m * x\ny = f(3.0)')).toBe('y = (2.0 m)· 3.0 = 6.0 m')
-    expect(shown('f(x) = 2.0 m * x\nz = f(-2.0)')).toBe('z = (2.0 m) (-2.0) = -4.0 m')
+    expect(shown('f(x) = 2.0 m * x\ny = f(3.0)')).toBe('y = 2.0 m\\times 3.0 = 6.0 m')
+    expect(shown('f(x) = 2.0 m * x\nz = f(-2.0)')).toBe('z = 2.0 m\\times (-2.0) = -4.0 m')
   })
 
   it('give a call inside a bigger expression the sig figs of its measured numbers', () => {
@@ -307,7 +309,7 @@ describe('functions', () => {
   describe('settings for the result', () => {
     it('give every call’s result those sig figs and unit, on an inline function', () => {
       const src = 'ang(y, x):3:deg = atan(y/x)\nphi = ang(1.0, 2.0)\nphi\ns = sin(ang(1.00, 2.00))'
-      expect(readable(lineAt(src, 1).tex)).toBe('ang(y, x)\\to[°] = \\tan^-1(\\fracyx)')
+      expect(readable(lineAt(src, 1).tex)).toBe('ang(y, x) = \\tan^-1(\\fracyx)\\quad\\textin °')
       expect(resultOfLine(src, 2)).toBe('26.6°') // 3 sig figs, though the inputs have 2
       expect(resultOfLine(src, 3)).toBe('26.6°') // phi keeps the unit
       expect(resultOfLine(src, 4)).toBe('0.447')
@@ -671,7 +673,7 @@ describe('display commands', () => {
   it('shows the right parts', () => {
     expect(lineAt(src, 2).tex).toContain('\\begin{aligned}F &= ')
     expect(readable(lineAt(src, 3).tex)).toBe('G = 19.6 N')
-    expect(readable(lineAt(src, 4).tex)).toBe('H = m (9.81 m/s^2)')
+    expect(readable(lineAt(src, 4).tex)).toBe('H = m\\times 9.81 m/s^2')
   })
 })
 

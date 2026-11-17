@@ -3,7 +3,7 @@
  * shared scope so variables defined on one line are usable on later lines,
  * and produces LaTeX for each line (symbolic = substituted = result).
  */
-import { isAssignmentNode, isConstantNode, isFunctionAssignmentNode, isFunctionNode, isOperatorNode, isParenthesisNode, isSymbolNode, type FunctionNode, type MathNode, type MathType, type SymbolNode, type Unit } from 'mathjs'
+import { isAssignmentNode, isConditionalNode, isConstantNode, isFunctionAssignmentNode, isFunctionNode, isOperatorNode, isParenthesisNode, isSymbolNode, type FunctionNode, type MathNode, type MathType, type SymbolNode, type Unit } from 'mathjs'
 import { EXACT, MAX_DIGITS, countSigFigs, formatExact, formatSigFigs, formatWithUncertainty, uncertaintySigFigs, hasAmbiguousZeros, isMeasuredLiteral, lastPlace, sigFigsFromPlace } from '../../sigfigs.ts'
 import { AGGREGATE_KIND, Variable, type Aggregate, type Contributions, type VariableFields, type VariableSummary } from '../../values.ts'
 import { DEFAULT_CONSTANT_SIG_FIGS, isNamespaceConstant, suggestConstant } from '../../constants.ts'
@@ -24,7 +24,7 @@ import { preprocess, typedNumbers } from './writer.ts'
 import { AUTO_PRECISION, ExplainedError, builtinCallHint, FIXED_UNCERTAINTY_SIG_FIGS, type CalcOptions, type EquationParts, layoutEquation, type TraceLine, type CalcResult, unexpectedError, fitHint, type DataColumn, type LineNotation, type LineResult, type ParsedLine, TO_PERCENT, RAW, rawNode, STEP, readableUnitError } from './results.ts'
 import { NAME_THEN_SETTINGS, DELTA_REF, expandParenPm, splitPm } from './uncertainty.ts'
 import { parseAggregateName, escapeRegExp } from './series.ts'
-import { symbolTex, numberTex, unitTex, attachUnit, isUnitCall, unitCallText, isLitCall } from './tex.ts'
+import { symbolTex, numberTex, unitTex, attachUnit, isUnitCall, unitCallText, isLitCall, resultUnitTex, CASE_WORDS, caseTex } from './tex.ts'
 import { unwrap, isLiteral, isTupleLiteral, isPureNumber, isConversion } from './nodes.ts'
 import { NODE_KIND } from '../../tree/nodes.ts'
 import { ASSIGN, lineShape } from '../../tree/shapes.ts'
@@ -35,7 +35,7 @@ import { isAngleUnit, toDisplayUnit, type TupleName, parseTupleName, declaration
 import { withRows } from './rows.ts'
 import { bracketed } from './tuples.ts'
 import { EXACT_DISPLAY_DIGITS, FIXED_FORMAT, FLOAT_NOISE, TINY, PERCENT_SCALE, parseParam, isValidUnit, castArgument } from './numbers.ts'
-import { isNumberWithUnit, SIDE, type Side, inScientificNotation, needsBrackets, productSeparator } from './products.ts'
+import { isNumberWithUnit, SIDE, type Side, inScientificNotation, needsBrackets, productSeparator, PRODUCT_SIGN, EVERY_PRODUCT_SIGN, signBeforeTex } from './products.ts'
 import { uncertaintyUnitError, columnValues } from './data.ts'
 
 /** Evaluates a sheet line by line, keeping its variables, their sig figs and uncertainties, and the functions it defines. */
@@ -460,18 +460,11 @@ export class Calculator {
       if (isOp(n, OP.unaryMinus) && (isNumberWithUnit(unwrap(n.args[0])) || isLiteral(n.args[0]))) {
         return ` -${unwrap(n.args[0]).toTex(options).trim()}`
       }
-      // Products as in a textbook, ma, ½mv², 2.0 kg · 9.81 m/s² (or with every dot, if the option is on).
+      // Products as in a textbook, ma, ½mv², 2.00 kg × 9.81 m/s² (or with every dot, if the option is on).
       if (isOp(n, OP.multiply)) {
         const factor = (a: MathNode, side: Side) => {
-          // A negative value with a unit keeps its value bracketed, like the other
-          // values in the product: −(500 N) sin(30°), not −500 N sin(30°).
-          const negated = unwrap(a)
-          if (!this.options.productDots && isOp(negated, OP.unaryMinus)
-            && isNumberWithUnit(unwrap(negated.args[0]))) {
-            return `-\\left(${unwrap(negated.args[0]).toTex(options).trim()}\\right)`
-          }
           const tex = a.toTex(options).trim()
-          return needsBrackets(a, side, !this.options.productDots) ? `\\left(${tex}\\right)` : tex
+          return needsBrackets(a, side) ? `\\left(${tex}\\right)` : tex
         }
         // A display name is words, so it's set apart from its neighbour with ×:
         // Molarity of EDTA × Average volume of EDTA.
@@ -481,10 +474,20 @@ export class Calculator {
           return isSymbolNode(e) && this.vars.get(e.name)?.label !== undefined
         }
         const separator = (l: MathNode, r: MathNode) => (labelled(l, SIDE.right) || labelled(r, SIDE.left)
-          ? '\\times '
-          : this.options.productDots ? '\\cdot ' : productSeparator(l, r))
+          ? PRODUCT_SIGN
+          : this.options.productDots ? EVERY_PRODUCT_SIGN : productSeparator(l, r))
         return ` ${n.args.slice(1).reduce((out, a, i) => `${out}${separator(n.args[i], a)}${factor(a, SIDE.right)}`,
           factor(n.args[0], SIDE.left))}`
+      }
+      // A condition inside a condition's last case (`c1 ? a : (c2 ? b : c)`) is one more case of the same brace.
+      if (isConditionalNode(n)) {
+        const cases: string[] = []
+        let at: MathNode = n
+        for (; isConditionalNode(at); at = unwrap(at.falseExpr)) {
+          cases.push(caseTex(at.trueExpr.toTex(options), `\\text{${CASE_WORDS.if}}\\; ${at.condition.toTex(options)}`))
+        }
+        cases.push(caseTex(at.toTex(options), `\\text{${CASE_WORDS.otherwise}}`))
+        return `\\begin{cases} ${cases.join('\\\\')}\\end{cases}`
       }
       // A value in scientific notation raised to a power is bracketed: (7.07 × 10⁻²)², not 7.07 × 10⁻²².
       if (isOp(n, OP.pow)) {
@@ -735,7 +738,8 @@ export class Calculator {
     // Same letter the user asked with: δx for `delta F`, Δx for `Delta F`.
     const uncOf = (n: string) => symbolTex(uncertaintyName(letter, n))
     const sqrt = (terms: string[]) => `\\sqrt{${terms.join(' + ')}}`
-    const term = (factor: string, delta: string) => `\\left(${factor}\\cdot ${delta}\\right)^{2}`
+    // (∂v/∂d δd, and its values (1/1.21 s) × 0.02 m: × before a number, as in any product.)
+    const term = (factor: string, delta: string) => `\\left(${factor}${signBeforeTex(delta)}${delta}\\right)^{2}`
     const steps = [sqrt(inputs.map((n) =>
       term(`\\frac{\\partial ${target}}{\\partial ${symbolTex(n)}}`, uncOf(n))))]
     try {
@@ -1208,7 +1212,9 @@ export class Calculator {
     const shownUnit = settings?.unit && settings.unit !== PERCENT ? settings.unit : undefined
     const signature = `${symbolTex(name)}\\left(${parsed.map((p, i) => (p
       ? `${symbolTex(p.name)}${p.unit ? `\\,[${unitTex(p.unit)}]` : ''}`
-      : paramSpecs[i])).join(', ')}\\right)${shownUnit ? `\\to[${unitTex(shownUnit)}]` : ''}`
+      : paramSpecs[i])).join(', ')}\\right)`
+    // (The unit its results are shown in is said after the equation: `… = tan⁻¹(y/x)   in °`.)
+    const inUnit = shownUnit ? resultUnitTex(unitTex(shownUnit)) : ''
     const fail = (error: string): LineResult => ({ tex: signature, error })
     if (ret && 'error' in ret) return fail(ret.error)
     if (settings?.unit === PERCENT) return fail(`${name}:percent isn't available on a function; show a result as a percentage where it's used.`)
@@ -1236,7 +1242,7 @@ export class Calculator {
       if (expanded.error) throw new Error(expanded.error)
       const node = math.parse(preprocess(expanded.text, this.isVariable).text)
       code = node.compile()
-      tex = `${signature} = ${this.toTex(node, typedNumbers(expression))}`
+      tex = `${signature} = ${this.toTex(node, typedNumbers(expression))}${inUnit}`
     } catch (e) {
       return fail((e as Error).message)
     }

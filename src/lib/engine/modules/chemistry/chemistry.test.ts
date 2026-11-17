@@ -33,8 +33,8 @@ describe('species', () => {
 
   it('qualify a mass or an amount as the unit says: a molar mass is a mass of it per amount of it', () => {
     expect(value('m = 5.00 g {NaOH}')).toBe('5.00 g NaOH')
-    expect(value('M = (40.00 g / 1 mol) {NaOH}')).toBe('40.00 g NaOH/mol NaOH')
-    expect(value('M = 40.00 g/mol {NaOH}')).toBe('40.00 g NaOH/mol NaOH')
+    expect(value('M = (40.00 g / 1 mol) {NaOH}')).toBe('40.00 \\fracg NaOHmol NaOH')
+    expect(value('M = 40.00 g/mol {NaOH}')).toBe('40.00 \\fracg NaOHmol NaOH')
     expect(value('rho = 2.0 g/L {NaOH}')).toBe('2.0 g NaOH/L')
     expect(last('d = 5.0 m {NaOH}').error).toMatch(/says what a mass or an amount is of, but this is neither/)
   })
@@ -42,7 +42,7 @@ describe('species', () => {
   it('can follow a bracket or a name, and are shown after it', () => {
     expect(value('n_1 = 2.0 mol\nn = n_1 {H2O}')).toBe('2.0 mol H2O')
     expect(last('M = (18.02 g / 1 mol) {H2O}').tex).toMatch(/\\right\)\\,\\ce\{H2O\}/)
-    expect(value('M = (18.02 g / 1 mol) {H2O}')).toBe('18.02 g H2O/mol H2O')
+    expect(value('M = (18.02 g / 1 mol) {H2O}')).toBe('18.02 \\fracg H2Omol H2O')
     expect(last('n = 2.0 mol {H2O}\nm = n {NaCl}').error).toMatch(/already of a species/)
   })
 
@@ -173,9 +173,9 @@ describe('display names', () => {
 
 describe('@chem: elements’ molar masses', () => {
   it('are molar masses of the element, with the digits IUPAC gives unless asked for others', () => {
-    expect(value('M = @chem.mm.Na')).toBe('22.990 g Na/mol Na')
-    expect(value('M = @chem.mm.Cl')).toBe('35.45 g Cl/mol Cl')
-    expect(value('M = @chem.mm.Na:3')).toBe('23.0 g Na/mol Na')
+    expect(value('M = @chem.mm.Na')).toBe('22.990 \\fracg Namol Na')
+    expect(value('M = @chem.mm.Cl')).toBe('35.45 \\fracg Clmol Cl')
+    expect(value('M = @chem.mm.Na:3')).toBe('23.0 \\fracg Namol Na')
   })
 
   it('suggest the element meant, and keep symbols case-sensitive', () => {
@@ -183,22 +183,22 @@ describe('@chem: elements’ molar masses', () => {
   })
 
   it('can be declared sheet-wide, as other constants can', () => {
-    expect(value('@chem.mm.Na:3\nM = @chem.mm.Na')).toBe('23.0 g Na/mol Na')
+    expect(value('@chem.mm.Na:3\nM = @chem.mm.Na')).toBe('23.0 \\fracg Namol Na')
   })
 })
 
 describe('@chem.mm: a compound’s molar mass', () => {
   it('adds up its elements, groups and hydrates included, with sig figs by the addition rule', () => {
-    expect(value('M = @chem.mm({H2O})')).toBe('18.015 g H2O/mol H2O')
-    expect(value('M = @chem.mm({NaCl})')).toBe('58.44 g NaCl/mol NaCl')
-    expect(value('M = @chem.mm({Ca(OH)2})')).toBe('74.092 g Ca(OH)2/mol Ca(OH)2')
-    expect(value('M = @chem.mm({CuSO4*5H2O})')).toBe('249.68 g CuSO4*5H2O/mol CuSO4*5H2O')
-    expect(value('M = @chem.mm({K4[Fe(CN)6]})')).toBe('368.35 g K4[Fe(CN)6]/mol K4[Fe(CN)6]')
+    expect(value('M = @chem.mm({H2O})')).toBe('18.015 \\fracg H2Omol H2O')
+    expect(value('M = @chem.mm({NaCl})')).toBe('58.44 \\fracg NaClmol NaCl')
+    expect(value('M = @chem.mm({Ca(OH)2})')).toBe('74.092 \\fracg Ca(OH)2mol Ca(OH)2')
+    expect(value('M = @chem.mm({CuSO4*5H2O})')).toBe('249.68 \\fracg CuSO4*5H2Omol CuSO4*5H2O')
+    expect(value('M = @chem.mm({K4[Fe(CN)6]})')).toBe('368.35 \\fracg K4[Fe(CN)6]mol K4[Fe(CN)6]')
   })
 
   it('leaves a charge and a state out of the sum, but they’re part of the species, as written', () => {
-    expect(value('M = @chem.mm({SO4^2-})')).toBe('96.06 g SO4^2-/mol SO4^2-')
-    expect(value('M = @chem.mm({NaCl(aq)})')).toBe('58.44 g NaCl(aq)/mol NaCl(aq)')
+    expect(value('M = @chem.mm({SO4^2-})')).toBe('96.06 \\fracg SO4^2-mol SO4^2-')
+    expect(value('M = @chem.mm({NaCl(aq)})')).toBe('58.44 \\fracg NaCl(aq)mol NaCl(aq)')
   })
 
   it('shows the sum as working', () => {
@@ -212,7 +212,7 @@ describe('@chem.mm: a compound’s molar mass', () => {
 
   it('shows each element’s term without its species, and the total with the compound’s', () => {
     expect(readable(last('M = @chem.mm({H2O})').tex))
-      .toBe('M = 2 M_H+ M_O = 2 (1.008 g/mol)+ 15.999 g/mol = 18.015 g H2O/mol H2O')
+      .toBe('M = 2 M_H+ M_O = 2\\times 1.008 g/mol+ 15.999 g/mol = 18.015 \\fracg H2Omol H2O')
   })
 
   it('works through a stoichiometric calculation, the mole ratio from the balanced equation', () => {
@@ -228,16 +228,16 @@ describe('@chem.mm: a compound’s molar mass', () => {
 
   it('counts a number against the first part of a formula with a dot as that part’s, like the one after the dot', () => {
     // Dietzeite: 7 Ca(IO3)2 and 8 CaCrO4.
-    expect(value('M = @chem.mm({7Ca(IO3)2*8CaCrO4})')).toBe('3977.7 g 7Ca(IO3)2*8CaCrO4/mol 7Ca(IO3)2*8CaCrO4')
+    expect(value('M = @chem.mm({7Ca(IO3)2*8CaCrO4})')).toBe('3977.7 \\fracg 7Ca(IO3)2*8CaCrO4mol 7Ca(IO3)2*8CaCrO4')
     // With a space, it's a coefficient of the whole.
-    expect(value('M = @chem.mm({2 CuSO4*5H2O})')).toBe('499.35 g CuSO4*5H2O/mol CuSO4*5H2O')
+    expect(value('M = @chem.mm({2 CuSO4*5H2O})')).toBe('499.35 \\fracg CuSO4*5H2Omol CuSO4*5H2O')
   })
 
   it('multiplies by a coefficient, as in a balanced equation, which is exact', () => {
-    expect(value('M = @chem.mm({2 H2O})')).toBe('36.030 g H2O/mol H2O')
-    expect(value('M = @chem.mm({2H2O})')).toBe('36.030 g H2O/mol H2O')
-    expect(value('M = @chem.mm({1/2 O2})')).toBe('15.999 g O2/mol O2')
-    expect(value('M = @chem.mm({3 Ca(OH)2})')).toBe('222.28 g Ca(OH)2/mol Ca(OH)2')
+    expect(value('M = @chem.mm({2 H2O})')).toBe('36.030 \\fracg H2Omol H2O')
+    expect(value('M = @chem.mm({2H2O})')).toBe('36.030 \\fracg H2Omol H2O')
+    expect(value('M = @chem.mm({1/2 O2})')).toBe('15.999 \\fracg O2mol O2')
+    expect(value('M = @chem.mm({3 Ca(OH)2})')).toBe('222.28 \\fracg Ca(OH)2mol Ca(OH)2')
     expect(readable(last('M = @chem.mm({2 H2O})').tex)).toMatch(/^M = 2 \(2 M_H\+ M_O\)/)
   })
 
@@ -290,7 +290,7 @@ describe('@chem.species: names for species', () => {
   const named = '@chem.species {\n    dietzeite = {7Ca(IO3)2*8CaCrO4}\n    edta:formula = {EDTA^4-}\n}\n'
 
   it('stand for their formula wherever braces take one, so they’re the same species', () => {
-    expect(value(`${named}M = @chem.mm({dietzeite})`)).toBe('3977.7 g dietzeite/mol dietzeite')
+    expect(value(`${named}M = @chem.mm({dietzeite})`)).toBe('3977.7 \\fracg dietzeitemol dietzeite')
     expect(value(`${named}m = 5.00 g {dietzeite}\nn = m / @chem.mm({dietzeite})`)).toBe('0.00126 mol dietzeite')
     // The name and the formula are one species: they cancel.
     expect(value(`${named}m = 5.00 g {7Ca(IO3)2*8CaCrO4}\nn = m / @chem.mm({dietzeite})`)).toBe('0.00126 mol dietzeite')

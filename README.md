@@ -10,7 +10,7 @@ install, no sign-in, and nothing leaves your browser).
 ```
 m = 2.00 kg pm 0.05 kg
 a = 9.81 m/s^2
-F = m * a              →  F = ma = (2.00 kg)(9.81 m/s²) = (19.6 ± 0.5) N
+F = m * a              →  F = ma = 2.00 kg × 9.81 m/s² = (19.6 ± 0.5) N
 ```
 
 **What it does:**
@@ -307,11 +307,11 @@ after the note:
 
 | Command | Shows | Example |
 | --- | --- | --- |
-| *(none)* or `#full` | everything | F = m·a = 2.0 kg · 9.81 m/s² = (20 ± 1) N |
+| *(none)* or `#full` | everything | F = ma = 2.0 kg × 9.81 m/s² = (20 ± 1) N |
 | `#sym` | the equation only | F = m·a |
 | `#val` | the result only | F = (20 ± 1) N |
 | `#hide` | nothing; the line is still calculated | |
-| `#multiline` | each `=` on its own row, lined up | F = m·a ⏎ = 2.0 kg · 9.81 m/s² ⏎ = (20 ± 1) N |
+| `#multiline` | each `=` on its own row, lined up | F = ma ⏎ = 2.0 kg × 9.81 m/s² ⏎ = (20 ± 1) N |
 | `#sci`, `#dec` | the result in scientific notation, or plain digits | ψ² = 5.000 × 10⁻³ Å⁻¹ |
 | `#center`, `#list`, `#numbered` | the line centered, as a bullet, or numbered (for several lines, see Layout blocks) | |
 
@@ -355,15 +355,17 @@ for those too. Values with a `±` always use =.
 
 **Products:** type `*` between factors, and they're written as in a textbook:
 `1/2 * m * v^2` shows ½mv², `m * @g * cos(theta)` shows mg cos θ, and `2 * pi * r`
-shows 2πr. Values with a unit, or in scientific notation, are bracketed, so a
-substitution step reads (2.00 kg)(9.81 m/s²), 4π(250.0 Å) and 8(9.11 × 10⁻³¹ kg).
-A dot is kept where it's needed: before a number (`m · 2`), and between a number and
-a fraction (2 · ½, not 2½). A word-like name gets a thin space (Fn m). Sums and
-negative factors are bracketed: m(v + u), m(−v). Turn on *Show · in every product*
-in the Output options for m·g·cos θ and 2.00 kg · 9.81 m/s².
+shows 2πr. Where a number comes next, or a unit ends a factor, a × keeps them
+apart, the same sign as in scientific notation: a substitution step reads
+2.00 kg × 9.81 m/s², 2 × 1.50 m, 9.81 m/s² × (2.0 s)², and 2 × ½ (not the mixed
+number 2½). Brackets go only where they're needed: a value raised to a power,
+(2.0 s)², one in scientific notation, 8 × (9.11 × 10⁻³¹ kg), a negative after
+another factor, × (−1.5 m/s), and a sum, m(v + u). A word-like name gets a thin
+space (Fn m). Turn on *Show · in every product* in the Output options for m·g·cos θ.
 
 **Brackets by nesting:** in the output, brackets with others inside them change,
-as in textbooks: ( ) innermost, then [ ], then { }: `((a + b) * c)^2` shows
+as in textbooks: ( ) innermost, then [ ], then ( ) again (never { }, which read as
+a set): `((a + b) * c)^2` shows
 [(a + b)c]². A function call's brackets stay round, sin((a + b)c), and so do a
 tuple's. What you type in the editor stays as you wrote it.
 
@@ -514,7 +516,7 @@ phi = ang(1.0, 2.0)               # 26.6°, to 3 sig figs
 polar(x, y):3 = @tuple(sqrt(x^2 + y^2), atan2(y, x))   # each value to 3 sig figs
 ```
 
-The definition shows the unit as ang(y, x) → [°]. A tuple result takes the unit
+The definition says the unit after its equation, ang(y, x) = tan⁻¹(y/x)  in °. A tuple result takes the unit
 on each value. Settings on the calling line still win: `w:2 = ang(y, x)`.
 
 **Conditions:** `condition ? a : b` gives `a` if the condition holds and `b`
@@ -961,7 +963,8 @@ m_2 = n_2 * @chem.mm({NaOH})              → 5.00 g NaOH
 
 **Molar masses:** `@chem.mm.Na` is an element's molar mass, and `@chem.mm({formula})`
 a compound's, added up from its elements. Both are under `mm`: after it, a dot gives
-an element and brackets a formula. Each is a molar mass of its species, g Na/mol Na.
+an element and brackets a formula. Each is a molar mass of its species, g Na/mol Na,
+written stacked (g Na over mol Na), as is any unit with a species above and below the line.
 
 ```
 M_Na = @chem.mm.Na                        → 22.990 g Na/mol Na
@@ -1024,10 +1027,13 @@ one member over another:
 r = @chem.reaction({2 H2 + O2 -> 2 H2O})   → checked: balanced; r.H2 = 2 mol H2, r.O2 = 1 mol O2, r.H2O = 2 mol H2O
 m_H2 = 4.00 g {H2}
 n_H2 = m_H2 / @chem.mm({H2})               → 1.98 mol H2
-n_H2O = n_H2 * r.H2O / r.H2                → 1.98 mol H2O
+n_H2O = n_H2 * r.H2O / r.H2                → 1.98 mol H2O   (n_H2O is drawn n with H₂O below it)
 m_H2O = n_H2O * @chem.mm({H2O})            → 35.7 g H2O
 ```
 
+- A name's subscript that's a formula, of two or more characters of element symbols
+  and counts (`n_H2`, `n_H2O`, `c_NaCl`), is drawn as chemistry, H₂O. A single letter
+  (`F_N`, `T_C`) or labels that aren't elements (`v_AB`) stay as they are.
 - It's checked atom by atom, and by charge: `{H2 + O2 -> H2O}` says O has 2 on the
   left and 1 on the right. Electrons in a half-reaction are `e^-`
   (`{Fe^3+ + 3 e^- -> Fe}`). The arrow can be `->`, `<=>`, `<->` or `=`.

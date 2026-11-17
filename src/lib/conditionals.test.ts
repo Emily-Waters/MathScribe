@@ -18,6 +18,13 @@ describe('cond ? a : b', () => {
 })
 
 describe('conditions that nest', () => {
+  it('are typeset as one brace with every case', () => {
+    const tex = last('friction(v) = v > 0 m/s ? -1.0 N : (v < 0 m/s ? 1.0 N : 0 N)').tex
+    expect(tex.match(/\\begin\{cases\}/g)).toHaveLength(1)
+    expect(tex.match(/\\text\{if \}/g)).toHaveLength(2)
+    expect(tex).toContain('\\text{otherwise}')
+  })
+
   it('give the first case whose condition holds, or the last', () => {
     expect(value(`${friction}a = friction(2.0 m/s)`)).toBe('-6.0 N')
     expect(value(`${friction}a = friction(-1.0 m/s)`)).toBe('6.0 N')

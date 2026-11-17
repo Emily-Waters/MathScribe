@@ -48,6 +48,22 @@ const FORMULA_SUBSCRIPT = /^[A-Z]/
 /** Whether a subscript in words is a formula (see FORMULA_SUBSCRIPT). */
 export const isFormulaSubscript = (subscript: string) => FORMULA_SUBSCRIPT.test(subscript.trim())
 
+/** Each element symbol in a formula without brackets or charge, with its count: `H2O` → H2, O (1: the symbol). */
+const ELEMENT_COUNT = /([A-Z][a-z]?)\d*/g
+/** A formula of element symbols and counts alone: `H2O`, `NaCl`. */
+const PLAIN_FORMULA = /^(?:[A-Z][a-z]?\d*)+$/
+
+/**
+ * Whether a subscript of a variable's name is a formula: two or more
+ * characters of element symbols and counts (`n_H2`, `n_H2O`, `c_NaCl`, `m_Na`).
+ * A single letter (`F_N`, `T_C`) or labels that aren't elements (`v_AB`) stay
+ * as the physics they usually are.
+ */
+export function isNameFormula(subscript: string): boolean {
+  if (subscript.length < 2 || !PLAIN_FORMULA.test(subscript)) return false
+  return [...subscript.matchAll(ELEMENT_COUNT)].every((m) => isElement(m[1]))
+}
+
 /** Text with each formula, `{Na^+}`, as inline maths: $\ce{Na^+}$. */
 export const withFormulas = (text: string) =>
   outsideMaths(text, (part) => part.replace(FORMULA_IN_TEXT, (_, inside: string) => {

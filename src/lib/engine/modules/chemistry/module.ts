@@ -15,7 +15,7 @@ import { CHEM_WRITERS } from './writers.ts'
 
 import { isLitCall } from '../../core/tex.ts'
 import { unwrap } from '../../core/nodes.ts'
-import { SpeciesNames, formulaTex, isFormulaSubscript, isSpeciesUnit, readableSpecies, setSpeciesNames, showSpeciesOnLine, speciesOf, speciesTex, withFormulas } from './chemistry.ts'
+import { SpeciesNames, formulaTex, isFormulaSubscript, isNameFormula, isSpeciesUnit, readableSpecies, setSpeciesNames, showSpeciesOnLine, speciesOf, speciesTex, withFormulas } from './chemistry.ts'
 import { SPECIES_RATIO_UNIT, isOneMole, isSpeciesCount, speciesOfConstant, speciesProblem, withSpecies, withoutSpecies, withoutSpeciesUnits } from './species.ts'
 import { chemNamespace } from './namespace.ts'
 import { CHEM_GRAMMAR } from './grammar.ts'
@@ -84,6 +84,11 @@ export class ChemistryModule extends EngineModule implements ReadsLines {
 
   override subscriptTex(subscript: string): string | undefined {
     return isFormulaSubscript(subscript) ? formulaTex(subscript) : undefined
+  }
+
+  /** `n_H2O`: a name's subscript that's a formula is drawn as one, H₂O (not `F_N` or `v_AB`: isNameFormula). */
+  override nameSubscriptTex(subscript: string): string | undefined {
+    return isNameFormula(subscript) ? formulaTex(subscript) : undefined
   }
 
   override markupText(text: string): string {

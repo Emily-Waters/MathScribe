@@ -1,21 +1,15 @@
 /**
- * The constructs for blocks over several lines that aren't layouts: an
- * `@constants { }` block, imported data, and a scoped
- * `Title { }` block.
+ * The constructs for blocks over several lines that aren't layouts: a card
+ * (`@constants { }`, species' names), imported data, and a scoped `Title { }` block.
  */
 import {
-  BLOCK_KIND, HEADING_LEVEL, type Block, type ConstantsBlock, type GroupBlock, type ImportBlock, type SpeciesBlock,
-  type HeadingLevel, type SpeciesEntry,
+  BLOCK_KIND, HEADING_LEVEL, type Block, type CardBlock, type GroupBlock, type ImportBlock, type HeadingLevel,
 } from '../../sheet/blocks.ts'
-import { formulaTex } from '../../engine/modules/chemistry/chemistry.ts'
 import { LINE_COMMAND } from '../../syntax.ts'
 import { errorComment, gather, heading as latexHeading, titleToLatex, titled as latexTitled } from '../latexKit.ts'
 import { equation, heading as docxHeading, run, titled as docxTitled, type Ctx, type Item } from '../docxKit.ts'
 import { EM_SPACE } from '../omml.ts'
 import { Construct, type DocxOut, type LatexOut } from './construct.ts'
-
-/** The title of an `@constants { }` block, in the exports. */
-const CONSTANTS_TITLE = 'Constants'
 
 /** The LaTeX counter a block titled as a heading takes its number from, by level (none for a bold paragraph's). */
 const SECTION_COUNTER: Record<HeadingLevel, string | undefined> = {
@@ -24,56 +18,30 @@ const SECTION_COUNTER: Record<HeadingLevel, string | undefined> = {
   [HEADING_LEVEL.paragraph]: undefined,
 }
 
-/** `@constants { … }`: constants usable anywhere as `@name`, shown as a card. */
-export class ConstantsConstruct extends Construct<ConstantsBlock> {
-  readonly kind = BLOCK_KIND.constants
+/**
+ * A card of equations under its title: `@constants { … }`, a module's
+ * (chemistry's species' names). One on a line of its own is its equation, without the card.
+ */
+export class CardConstruct extends Construct<CardBlock> {
+  readonly kind = BLOCK_KIND.card
 
-  latex(b: ConstantsBlock, out: LatexOut): string {
+  latex(b: CardBlock, out: LatexOut): string {
     if (b.hidden && !b.error && !b.entries.some((e) => e.error)) return ''
     const shown = b.entries.filter((e) => !e.error)
     const errors = b.entries.filter((e) => e.error).map((e) => errorComment(e.line, e.source, e.error!))
-    return latexTitled(out.o, latexHeading(CONSTANTS_TITLE, b.note), [...errors, ...(shown.length ? [gather(shown, out.share)] : [])].join('\n'))
-  }
-
-  docx(b: ConstantsBlock, ctx: Ctx): Item[] {
-    if (b.hidden && !b.error) return []
-    const shown = b.entries.filter((e) => !e.error)
-    if (!shown.length) return []
-    return docxTitled(ctx, docxHeading(CONSTANTS_TITLE, b.note), (inner) => shown.map((e) => equation(inner, e.tex, e.note)))
-  }
-
-  notes(b: ConstantsBlock): string[] {
-    return b.entries.map((e) => e.note).filter((n): n is string => !!n)
-  }
-}
-
-/** The title of an `@chem.species { }` block, in the exports. */
-const SPECIES_TITLE = 'Species'
-
-/** A species' name and its formula, as LaTeX: dietzeite = 7Ca(IO₃)₂·8CaCrO₄. */
-export const speciesEntryTex = (e: SpeciesEntry) => `\\mathrm{${e.name}} = ${formulaTex(e.formula)}`
-
-/** `@chem.species { … }`: names for species, as a card of name = formula (one on its own line, as an equation). */
-export class SpeciesConstruct extends Construct<SpeciesBlock> {
-  readonly kind = BLOCK_KIND.species
-
-  latex(b: SpeciesBlock, out: LatexOut): string {
-    if (b.hidden && !b.error && !b.entries.some((e) => e.error)) return ''
-    const shown = b.entries.filter((e) => !e.error).map((e) => ({ tex: speciesEntryTex(e), note: e.note }))
-    const errors = b.entries.filter((e) => e.error).map((e) => errorComment(e.line, e.name, e.error!))
     const body = [...errors, ...(shown.length ? [gather(shown, out.share)] : [])].join('\n')
-    return b.single ? body : latexTitled(out.o, latexHeading(SPECIES_TITLE, b.note), body)
+    return b.single ? body : latexTitled(out.o, latexHeading(b.title, b.note), body)
   }
 
-  docx(b: SpeciesBlock, ctx: Ctx): Item[] {
+  docx(b: CardBlock, ctx: Ctx): Item[] {
     if (b.hidden && !b.error) return []
     const shown = b.entries.filter((e) => !e.error)
     if (!shown.length) return []
-    const equations = (inner: Ctx) => shown.map((e) => equation(inner, speciesEntryTex(e), e.note))
-    return b.single ? equations(ctx) : docxTitled(ctx, docxHeading(SPECIES_TITLE, b.note), equations)
+    const equations = (inner: Ctx) => shown.map((e) => equation(inner, e.tex, e.note))
+    return b.single ? equations(ctx) : docxTitled(ctx, docxHeading(b.title, b.note), equations)
   }
 
-  notes(b: SpeciesBlock): string[] {
+  notes(b: CardBlock): string[] {
     return b.entries.map((e) => e.note).filter((n): n is string => !!n)
   }
 }

@@ -7,10 +7,10 @@ import { COLUMN_COUNT } from '../../syntax.ts'
 
 /**
  * Whether a block inside `@layout.column` is a column of its own: a `{ }` block,
- * a layout block (not a sub-list, which belongs to its item), constants or species.
+ * a layout block (not a sub-list, which belongs to its item), or a card (constants, species' names).
  */
 const isColumnOfItsOwn = (b: Block) =>
-  (isContainer(b) && !(b.kind === BLOCK_KIND.layout && b.nested)) || b.kind === BLOCK_KIND.constants || b.kind === BLOCK_KIND.species
+  (isContainer(b) && !(b.kind === BLOCK_KIND.layout && b.nested)) || b.kind === BLOCK_KIND.card
 
 /**
  * An `@layout.column` block's columns, row by row. Each block inside is a

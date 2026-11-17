@@ -7,12 +7,14 @@
  *   heading, text, latex, spacer      a line of the document (latex: an @latex block, or a reaction)
  *   calc                              a calculation
  *   group, layout                     blocks holding others (ContainerBlock)
- *   function, constants, species, import   blocks spanning several lines (Spans)
+ *   card                              a card of equations, a line each: `@constants { }`, a
+ *                                     module's (chemistry's species' names)
+ *   import                            imported data
  */
 import type { DataColumn, Definition, TraceLine } from '../engine/index.ts'
 import type { VariableSummary } from './values.ts'
 import { LINE_COMMAND, type LayoutStyle, type LineCommand, type Notation } from '../syntax.ts'
-import type { SpeciesDisplay } from '../engine/modules/chemistry/syntax.ts'
+import { words, type WordOf } from '../syntax.ts'
 import type { PlotData } from '../output/plot.ts'
 
 /** Each kind of block. */
@@ -24,8 +26,7 @@ export const BLOCK_KIND = {
   calc: 'calc',
   group: 'group',
   layout: 'layout',
-  constants: 'constants',
-  species: 'species',
+  card: 'card',
   import: 'import',
 } as const
 export type BlockKind = (typeof BLOCK_KIND)[keyof typeof BLOCK_KIND]
@@ -189,40 +190,41 @@ export interface Columns {
   breaks: number[]
 }
 
-/** One `name = value` line of an `@constants { … }` block. */
-export interface ConstantEntry extends Noted, Faulted {
+/** One line of a card: what's written, and as an equation (`g = 9.81 m/s^2`, `dietzeite = 7Ca(IO₃)₂·8CaCrO₄`). */
+export interface CardEntry extends Noted, Faulted {
   line: number
+  /** As written (shown as it is if it has no equation, an entry that went wrong). */
   source: string
   tex: string
   warning?: string
   info?: string
 }
 
-/** `@constants { … }`: constants usable anywhere in the sheet as `@name`. */
-export interface ConstantsBlock extends BlockBase, Spans, Noted, Faulted, Hideable {
-  kind: typeof BLOCK_KIND.constants
-  entries: ConstantEntry[]
-}
+/** Each kind of name a sheet defines, as the editor knows them. */
+export const SYMBOL_KIND = words({ variable: 'variable', parameter: 'parameter', function: 'function', constant: 'constant', species: 'species' })
+export type SymbolKind = WordOf<typeof SYMBOL_KIND>
 
-/** One species named in an `@chem.species { … }` block: `dietzeite = {7Ca(IO3)2*8CaCrO4}`. */
-export interface SpeciesEntry extends Noted, Faulted {
-  line: number
+/** A name a card's entry defines, usable elsewhere in the sheet (for the editor): `@g`, a species' `{dietzeite}`. */
+export interface DefinedName {
   name: string
-  /** Its formula, as written. */
-  formula: string
-  /** Whether it's shown by its name or its formula, unless a line says otherwise. */
-  display: SpeciesDisplay
+  kind: SymbolKind
+  line: number
+  tex: string
 }
 
 /**
- * `@chem.species { … }` (or one on a line of its own, `@chem.species dietzeite = {…}`):
- * names for species, usable anywhere in the sheet where braces take a formula.
+ * A card of equations, a line each, under a title: `@constants { … }`, a
+ * module's (chemistry's `@chem.species { … }`). One on a line of its own
+ * (`@chem.species dietzeite = {…}`) is `single`: its line, without the card.
  */
-export interface SpeciesBlock extends BlockBase, Spans, Noted, Faulted, Hideable {
-  kind: typeof BLOCK_KIND.species
-  entries: SpeciesEntry[]
-  /** Named on a line of its own, not in a block. */
-  single: boolean
+export interface CardBlock extends BlockBase, Spans, Noted, Faulted, Hideable {
+  kind: typeof BLOCK_KIND.card
+  /** Its title, in its header: Constants, Species. */
+  title: string
+  entries: CardEntry[]
+  single?: boolean
+  /** The names its entries define, usable anywhere in the sheet. */
+  defines: DefinedName[]
 }
 
 /**
@@ -249,8 +251,7 @@ export type Block =
   | CalcBlock
   | GroupBlock
   | LayoutBlock
-  | ConstantsBlock
-  | SpeciesBlock
+  | CardBlock
   | ImportBlock
 
 /** Whether a block holds others (a `{ }` block or a layout block). */
@@ -261,7 +262,7 @@ export const isContainer = (b: Block): b is GroupBlock | LayoutBlock =>
 export function isOmitted(b: Block): boolean {
   // Spacers, and imported data, which only defines variables.
   if (b.kind === BLOCK_KIND.spacer || b.kind === BLOCK_KIND.import) return true
-  if (b.kind === BLOCK_KIND.calc || b.kind === BLOCK_KIND.constants || b.kind === BLOCK_KIND.species) {
+  if (b.kind === BLOCK_KIND.calc || b.kind === BLOCK_KIND.card) {
     return !!b.hidden && !b.error
   }
   if (isContainer(b)) return b.command === LINE_COMMAND.hide && !b.error

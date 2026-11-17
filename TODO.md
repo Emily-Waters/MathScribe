@@ -564,6 +564,19 @@ edit reads again only what it changed, and nodes are shared between trees.
          editor token styles, vocabulary, symbols, LaTeX packages), so
          chemistry, series and vectors stop leaking; the boundary test over
          all of src/. `plotSettings.ts`, `tableSettings.ts` into the series module.
+         - [x] Block kinds: rather than a way for a module to add a kind, the
+           two kinds that were alike became one. `@constants { }` and
+           chemistry's `@chem.species { }` were both a card of equations under a
+           title, with a construct and a view each, nearly line for line the
+           same; they're one core kind now, `card` (`CardBlock`: a title, entries
+           of source and LaTeX, `single` for one on its own line, and `defines`,
+           the names its entries make usable anywhere, which the editor's
+           symbols read). One `CardConstruct`, one `CardView`. Chemistry's reader
+           makes its cards (title, each entry's LaTeX, the species' names);
+           core has no species block, construct or view any more, and
+           `sheetIndex.ts` no longer needs chemistry to list symbols. Seen
+           differently: an entry that can't be read shows what was written (as
+           a constant's does), not `\mathrm{…} =` with nothing after it.
       3. [ ] One view per block kind, in `components/blocks/`, beside the constructs.
       4. [ ] The Calculator's concerns into collaborators, and a line read as a
          pipeline of token stages (modules add stages); EngineModule's hooks

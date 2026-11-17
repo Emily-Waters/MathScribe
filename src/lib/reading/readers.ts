@@ -6,8 +6,9 @@ import {
   BLOCK_CLOSE, BLOCK_OPEN, CONSTANTS_BLOCK, DISPLAY_MODE, EXACT_SETTING, IMPORT, LATEX_BLOCK, LATEX_OPENER, LAYOUT_STYLE, LAYOUT_SYNTAX, LINE_COMMAND, SIGIL,
   PARAGRAPH_MARK, bracesBalance, splitNote, type SplitLine,
 } from '../syntax.ts'
-import { BLOCK_KIND, HEADING_LEVEL, type ConstantsBlock, type GroupBlock, type HeadingLevel, type SectionTitle, type ImportBlock, type LayoutBlock } from '../sheet/blocks.ts'
+import { BLOCK_KIND, HEADING_LEVEL, SYMBOL_KIND, type CardBlock, type CardEntry, type DefinedName, type GroupBlock, type HeadingLevel, type SectionTitle, type ImportBlock, type LayoutBlock } from '../sheet/blocks.ts'
 import { NODE_KIND } from '../tree/index.ts'
+import { lineShape } from '../tree/shapes.ts'
 import { parseConstantDeclaration, readCsv } from './lineSyntax.ts'
 import { NodeReader, SheetWideReader, bodyLines, type Line, type TreeItem } from './reader.ts'
 import type { SheetReader } from './sheetReader.ts'
@@ -48,8 +49,11 @@ class DeclarationsReader extends NodeReader {
   read(): void {}
 }
 
+/** An `@constants { }` block's title, on its card. */
+export const CONSTANTS_TITLE = 'Constants'
+
 /** Every `@constants { }` block's constants, defined first, so `@name` works anywhere in the sheet, above the block too. */
-class ConstantsReader extends SheetWideReader<ConstantsBlock> {
+class ConstantsReader extends SheetWideReader<CardBlock> {
   readonly kinds = [NODE_KIND.constants]
 
   override prepare(sheet: SheetReader): void {
@@ -57,7 +61,7 @@ class ConstantsReader extends SheetWideReader<ConstantsBlock> {
     for (const item of sheet.allItems()) {
       if (item.node.kind !== NODE_KIND.constants) continue
       const opener = item.line.parts
-      const entries: ConstantsBlock['entries'] = []
+      const entries: CardEntry[] = []
       /** Precision declarations in the block, shown once all its constants exist. */
       const declarations: number[] = []
       for (const { number, trimmed: text, parts: entry } of bodyLines(item)) {
@@ -79,8 +83,14 @@ class ConstantsReader extends SheetWideReader<ConstantsBlock> {
         }
       }
       const line = item.line.number
+      // Each constant is usable anywhere as `@name`.
+      const defines = entries.flatMap((e): DefinedName[] => {
+        const { target } = lineShape(e.source)
+        return target?.kind === NODE_KIND.assigned ? [{ name: `${SIGIL}${target.name}`, kind: SYMBOL_KIND.constant, line: e.line, tex: e.tex }] : []
+      })
       this.prepared.set(item, {
-        kind: BLOCK_KIND.constants, line, endLine: item.last + 1, note: opener.note, entries, hidden: opener.command === LINE_COMMAND.hide,
+        kind: BLOCK_KIND.card, title: CONSTANTS_TITLE, line, endLine: item.last + 1, note: opener.note, entries, defines,
+        hidden: opener.command === LINE_COMMAND.hide,
         error: item.closer ? undefined : `The ${SIGIL}${CONSTANTS_BLOCK} block on line ${line} is missing its closing ${BLOCK_CLOSE}.`,
       })
     }

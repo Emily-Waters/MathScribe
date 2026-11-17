@@ -5,10 +5,9 @@ import { DIAGNOSTIC_KIND, lineNumbering, type DiagnosticKind } from '../lib/shee
 import { TITLE_SEGMENT, titleSegments } from '../lib/output/textSegments.ts'
 import { columnParts } from '../lib/output/constructs/columns.ts'
 import {
-  BLOCK_KIND, HEADING_LEVEL, isContainer, listItems, type Block, type BlockKind, type CalcBlock, type ConstantsBlock, type GroupBlock,
-  type HeadingBlock, type HeadingLevel, type ImportBlock, type LatexBlock, type LayoutBlock, type SpeciesBlock, type TextBlock,
+  BLOCK_KIND, HEADING_LEVEL, isContainer, listItems, type Block, type BlockKind, type CalcBlock, type CardBlock, type GroupBlock,
+  type HeadingBlock, type HeadingLevel, type ImportBlock, type LatexBlock, type LayoutBlock, type TextBlock,
 } from '../lib/sheet/blocks.ts'
-import { speciesEntryTex } from '../lib/output/constructs/blocks.ts'
 import { LAYOUT_STYLE, LINE_COMMAND, splitInlineMath } from '../lib/syntax.ts'
 import { symbolTex, unitTex, type CalcOptions } from '../lib/engine/index.ts'
 import { THEME_PALETTE, plotSvg, type PlotData } from '../lib/output/plot.ts'
@@ -42,7 +41,7 @@ function Title({ text }: { text: string }) {
 /** Whether a block or anything inside it has an error (so a hidden block still shows it). */
 const hasError = (b: Block): boolean =>
   ((b.kind === BLOCK_KIND.calc || b.kind === BLOCK_KIND.import) && !!b.error)
-  || ((b.kind === BLOCK_KIND.constants || b.kind === BLOCK_KIND.species) && (!!b.error || b.entries.some((e) => e.error)))
+  || (b.kind === BLOCK_KIND.card && (!!b.error || b.entries.some((e) => e.error)))
   || (isContainer(b) && (!!b.error || b.children.some(hasError)))
 
 /** Linking between output and source lines: which line the cursor is on, and how to jump to one. */
@@ -196,52 +195,26 @@ function SpacerView() {
   return <div className="doc__spacer" aria-hidden="true" />
 }
 
-/** `@constants { … }`: a card of constants. */
-function ConstantsView({ block }: { block: ConstantsBlock }) {
+/** A card of equations under its title: `@constants { … }`, species' names (one on its own line, without the card). */
+function CardView({ block }: { block: CardBlock }) {
   const link = useLineLink()
-  if (block.hidden && !hasError(block)) return null
-  return (
-    <section className={`group group--constants${hasError(block) ? ' group--error' : ''}`}>
-      <header className="group__header" {...link(block.line)}>
-        <span className="group__title"><span className="group__kind">Constants</span></span>
-        {block.note && <span className="calc__note"><Title text={block.note} /></span>}
-      </header>
-      <div className="group__body">
-        {block.entries.map((e) => (
-          <div className={`calc${e.error ? ' calc--error' : ''}`} key={e.line} {...link(e.line)}>
-            <div className="calc__row">
-              {e.tex ? <Tex latex={e.tex} display /> : <code className="calc__source">{e.source}</code>}
-              {e.note && <span className="calc__note"><Title text={e.note} /></span>}
-            </div>
-            <BlockMessages line={e.line} error={e.error} warning={e.warning} />
-            {e.info && <p className="calc__msg calc__msg--info">{e.info}</p>}
-          </div>
-        ))}
-      </div>
-      {block.error && <p className="calc__msg calc__msg--error">{block.error}</p>}
-    </section>
-  )
-}
-
-/** `@chem.species { … }`: a card of species names and their formulas (one on its own line, without the card). */
-function SpeciesView({ block }: { block: SpeciesBlock }) {
-  const link = useLineLink()
-  const failed = !!block.error || block.entries.some((e) => e.error)
+  const failed = hasError(block)
   if (block.hidden && !failed) return null
   const entries = block.entries.map((e) => (
     <div className={`calc${e.error ? ' calc--error' : ''}`} key={e.line} {...link(e.line)}>
       <div className="calc__row">
-        <Tex latex={speciesEntryTex(e)} display />
+        {e.tex ? <Tex latex={e.tex} display /> : <code className="calc__source">{e.source}</code>}
         {e.note && <span className="calc__note"><Title text={e.note} /></span>}
       </div>
-      <BlockMessages line={e.line} error={e.error} />
+      <BlockMessages line={e.line} error={e.error} warning={e.warning} />
+      {e.info && <p className="calc__msg calc__msg--info">{e.info}</p>}
     </div>
   ))
   if (block.single) return <>{entries}</>
   return (
-    <section className={`group group--constants${failed ? ' group--error' : ''}`}>
+    <section className={`group group--card${failed ? ' group--error' : ''}`}>
       <header className="group__header" {...link(block.line)}>
-        <span className="group__title"><span className="group__kind">Species</span></span>
+        <span className="group__title"><span className="group__kind">{block.title}</span></span>
         {block.note && <span className="calc__note"><Title text={block.note} /></span>}
       </header>
       <div className="group__body">{entries}</div>
@@ -384,8 +357,7 @@ const BLOCK_VIEWS: { readonly [K in BlockKind]: (props: { block: Extract<Block, 
   calc: CalcView,
   group: GroupView,
   layout: LayoutView,
-  constants: ConstantsView,
-  species: SpeciesView,
+  card: CardView,
   import: ImportView,
 }
 

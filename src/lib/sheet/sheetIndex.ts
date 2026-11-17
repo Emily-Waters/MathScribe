@@ -7,8 +7,7 @@
 import type { VariableSummary } from './values.ts'
 import { NODE_KIND } from '../tree/nodes.ts'
 import { assignedOf, lineShape } from '../tree/shapes.ts'
-import { formulaTex } from '../engine/modules/chemistry/chemistry.ts'
-import { BLOCK_KIND, isContainer, type Block } from './blocks.ts'
+import { BLOCK_KIND, SYMBOL_KIND, isContainer, type Block, type SymbolKind } from './blocks.ts'
 import type { Sheet } from '../reading/sheetReader.ts'
 import { PLOT_CALL, SELECT_CALL } from '../engine/modules/series/syntax.ts'
 import { words, type WordOf } from '../syntax.ts'
@@ -28,9 +27,7 @@ export function collectDefinitions(blocks: Block[]): Map<string, number[]> {
   return out
 }
 
-/** Each kind of name the editor knows. */
-export const SYMBOL_KIND = words({ variable: 'variable', parameter: 'parameter', function: 'function', constant: 'constant', species: 'species' })
-export type SymbolKind = WordOf<typeof SYMBOL_KIND>
+export { SYMBOL_KIND, type SymbolKind }
 
 /** A name the editor can suggest or describe, and where it's visible. */
 export interface SheetSymbol {
@@ -112,16 +109,9 @@ export function collectSymbols(sheet: Sheet, source: string): SheetSymbol[] {
           if (target?.kind === NODE_KIND.assigned) out.push(variable(target.name, b.line, b.line + 1, to, scope))
           break
         }
-        case BLOCK_KIND.constants:
-          for (const e of b.entries) {
-            const { target } = lineShape(e.source)
-            const name = target?.kind === NODE_KIND.assigned ? target.name : undefined
-            if (name) out.push({ name: `@${name}`, kind: SYMBOL_KIND.constant, line: e.line, from: 1, to: lines.length, tex: e.tex })
-          }
-          break
-        case BLOCK_KIND.species:
-          // A species' name is usable everywhere: in braces, `{dietzeite}`.
-          for (const e of b.entries) if (!e.error) out.push({ name: e.name, kind: SYMBOL_KIND.species, line: e.line, from: 1, to: lines.length, tex: formulaTex(e.formula) })
+        case BLOCK_KIND.card:
+          // What a card defines is usable anywhere in the sheet: `@g`, a species' `{dietzeite}`.
+          for (const d of b.defines) out.push({ ...d, from: 1, to: lines.length })
           break
         case BLOCK_KIND.import:
           // Each value is a variable, t_1, t_2, …: listed by the first and last (a
@@ -192,16 +182,12 @@ export function collectDiagnostics(blocks: Block[]): Map<number, Diagnostic> {
       case BLOCK_KIND.latex:
         put(b.line, DIAGNOSTIC_KIND.error, b.error)
         break
-      case BLOCK_KIND.constants:
+      case BLOCK_KIND.card:
         put(b.line, DIAGNOSTIC_KIND.error, b.error)
         for (const e of b.entries) {
           put(e.line, DIAGNOSTIC_KIND.warning, e.warning)
           put(e.line, DIAGNOSTIC_KIND.error, e.error)
         }
-        break
-      case BLOCK_KIND.species:
-        put(b.line, DIAGNOSTIC_KIND.error, b.error)
-        for (const e of b.entries) put(e.line, DIAGNOSTIC_KIND.error, e.error)
         break
       case BLOCK_KIND.layout:
         put(b.line, DIAGNOSTIC_KIND.warning, b.warning)

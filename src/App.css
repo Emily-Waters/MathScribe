@@ -693,11 +693,11 @@ body {
   margin-right: 4px;
 }
 
-.group--constants {
+.group--card {
   border-left-color: var(--warn);
 }
 
-.group--constants .group__kind {
+.group--card .group__kind {
   color: var(--warn);
 }
 

@@ -49,7 +49,7 @@ describe('the Rendered tab', () => {
     expect(html).toContain('doc__heading--section')
     expect(html).toContain('doc__text')
     expect(html).toContain('doc__spacer')
-    expect(html).toContain('group--constants')
+    expect(html).toContain('group--card')
     expect(html).toContain('Species')
     expect(html).toContain('group--import')
     expect(html).toContain('<ol class="layout__list">')

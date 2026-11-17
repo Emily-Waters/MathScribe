@@ -333,7 +333,7 @@ describe('@chem.species: names for species', () => {
 
   it('can’t be a formula, an electron or a state, and can’t be named twice', () => {
     /** Each named species' error, in order. */
-    const errors = (src: string) => sheet(src).blocks.flatMap((b) => (b.kind === BLOCK_KIND.species ? b.entries.map((e) => e.error) : []))
+    const errors = (src: string) => sheet(src).blocks.flatMap((b) => (b.kind === BLOCK_KIND.card ? b.entries.map((e) => e.error) : []))
     expect(errors('@chem.species CO = {CO2}')[0]).toMatch(/is a formula already/)
     expect(errors('@chem.species aq = {H2O}')[0]).toMatch(/means something in a formula already/)
     expect(errors('@chem.species {\n    w = {H2O}\n    w = {D2O}\n}')[1]).toMatch(/already the name of \{H2O\}/)

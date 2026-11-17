@@ -8,6 +8,7 @@ import { BLOCK_KIND, isContainer, type Block } from '../lib/sheet/blocks.ts'
 import type { CalcOptions } from '../lib/engine/index.ts'
 import type { PlotData } from '../lib/output/plot.ts'
 import { EXAMPLE_CALC_OPTIONS } from '../config.ts'
+import { CONSTANTS_TITLE } from '../lib/reading/readers.ts'
 
 /** The settings tests evaluate with. */
 export const OPTIONS: CalcOptions = EXAMPLE_CALC_OPTIONS
@@ -31,12 +32,12 @@ export function sheet(source: string, options: Partial<CalcOptions> = {}): Sheet
   return evaluateSheet(source, { ...OPTIONS, ...options })
 }
 
-/** Every calculation and constants entry in the sheet, in order, from inside blocks too. */
+/** Every calculation and constant (an `@constants` card's entry) in the sheet, in order, from inside blocks too. */
 export function lines(source: string, options: Partial<CalcOptions> = {}): Line[] {
   const out: Line[] = []
   const visit = (b: Block) => {
     if (b.kind === BLOCK_KIND.calc) out.push(b)
-    else if (b.kind === BLOCK_KIND.constants) out.push(...b.entries)
+    else if (b.kind === BLOCK_KIND.card && b.title === CONSTANTS_TITLE) out.push(...b.entries)
     else if (isContainer(b)) b.children.forEach(visit)
   }
   sheet(source, options).blocks.forEach(visit)

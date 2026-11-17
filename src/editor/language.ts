@@ -16,11 +16,12 @@ import '../lib/engine/index.ts'
 import { CHEM_NODE, CHEM_TOKEN } from '../lib/engine/modules/chemistry/grammar.ts'
 import { SERIES_TOKEN } from '../lib/engine/modules/series/grammar.ts'
 import {
-  GREEK_CHARS, INDENT_WIDTH, LATEX_OPENER, COMMENT_START, NAME_CHAR, NUMBER,
+  INDENT_WIDTH, LATEX_OPENER, COMMENT_START,
   VALUE_BRACES, COMMAND_NAMES, indentOf, isComment,
 } from '../lib/syntax.ts'
 import { LINE_ROLE, NODE_KIND, TOKEN_KIND, TOP, isToken, stepLine, type LineState, type Part, type SyntaxNode } from '../lib/tree/index.ts'
 import { dataBlocks, foldRange, opensBody, readAs, sheetLine } from './sheetLines.ts'
+import { ROW_PIECE, rowPieces, type RowPiece, type RowPieceKind } from '../lib/csv.ts'
 
 /** What each piece of a line is coloured as (the keys of the language's tokenTable). */
 const TOKEN = {
@@ -83,6 +84,8 @@ interface State {
   /** The line's pieces, and how what it says is coloured. */
   pieces: readonly Piece[]
   says: Says
+  /** A row of imported data's values, names and units (csv.ts rowPieces). */
+  rowPieces: readonly RowPiece[]
 }
 
 /** How a line's text (`text`) is coloured, by its kind and role. */
@@ -106,6 +109,7 @@ function startLine(stream: StringStream, state: State): void {
   state.lines = step.state
   state.pieces = piecesOf(step.node)
   state.says = saysOf(step.node.kind, step.role)
+  state.rowPieces = state.says === SAYS.rows ? rowPieces(stream.string) : []
 }
 
 /** A line's tokens, its expression's nodes' too (a quantity's, a call's), as pieces where each ends on the line. */
@@ -211,11 +215,16 @@ function token(stream: StringStream, state: State): Token | null {
       // (A reaction on a line of its own: what it says is its formula.)
       stream.pos = at?.end ?? stream.string.length
       return TOKEN.formula
-    case SAYS.rows:
-      if (stream.match(NUMBER_TOKEN)) return TOKEN.number
-      if (stream.match(WORD)) return TOKEN.variable
-      stream.next()
+    case SAYS.rows: {
+      // (Imported data, as csv.ts reads it: values, and the first row's names and units.)
+      const next = state.rowPieces.find((p) => p.end > stream.pos)
+      if (next && next.start <= stream.pos) {
+        stream.pos = next.end
+        return ROW_STYLE[next.kind]
+      }
+      stream.pos = next?.start ?? stream.string.length
       return null
+    }
   }
   // (What's left: a line's text that isn't an expression's, as a closing `}`.)
   if (stream.match(/^[()[\]{}]/)) return TOKEN.bracket
@@ -223,16 +232,18 @@ function token(stream: StringStream, state: State): Token | null {
   return null
 }
 
-/** A word at the current position (in imported data's rows): a name (Greek letters included), or a unit (µm starts with the micro sign). */
-const WORD = new RegExp(`[A-Za-z_µ${GREEK_CHARS}]${NAME_CHAR}*`)
-/** A number at the current position (in imported data's rows). */
-const NUMBER_TOKEN = new RegExp(NUMBER)
+/** How each piece of imported data is coloured. */
+const ROW_STYLE: Readonly<Record<RowPieceKind, Token>> = {
+  [ROW_PIECE.number]: TOKEN.number,
+  [ROW_PIECE.name]: TOKEN.variable,
+  [ROW_PIECE.unit]: TOKEN.unit,
+}
 
 /** The MathScribe language: its tokens, and which highlighting tag each gets. */
 export const mathscribeLanguage = StreamLanguage.define<State>({
   name: 'mathscribe',
   startState: () => ({
-    lines: TOP, pieces: [], says: SAYS.expression,
+    lines: TOP, pieces: [], says: SAYS.expression, rowPieces: [],
   }),
   copyState: (s) => ({ ...s }),
   // An empty line is read in its place too (it ends an import's rows).

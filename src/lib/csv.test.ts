@@ -1,9 +1,22 @@
 /** Imported data: reading the rows, and putting a file's rows into the sheet. */
 import { describe, expect, it } from 'vitest'
-import { alignColumns, parseCsv, withImportedData, withoutImport } from './csv.ts'
+import { ROW_PIECE, alignColumns, parseCsv, rowPieces, withImportedData, withoutImport } from './csv.ts'
 import { lines, sheet, value } from '../test/helpers.ts'
 import { lineNumbering } from './sheetIndex.ts'
 import type { ImportBlock } from './blocks.ts'
+
+describe('rowPieces', () => {
+  /** A row's pieces, as kind:text. */
+  const pieces = (row: string) => rowPieces(row).map((p) => `${p.kind}:${row.slice(p.start, p.end)}`)
+
+  it('reads a row as parseCsv does: values, and a header’s names and units, where each is', () => {
+    expect(pieces('    t (s),  x [m],  n')).toEqual([`${ROW_PIECE.name}:t`, `${ROW_PIECE.unit}:s`, `${ROW_PIECE.name}:x`, `${ROW_PIECE.unit}:m`, `${ROW_PIECE.name}:n`])
+    expect(pieces('     0.10,  -1.5e-3, 2')).toEqual([`${ROW_PIECE.number}:0.10`, `${ROW_PIECE.number}:-1.5e-3`, `${ROW_PIECE.number}:2`])
+    // (Tabs and semicolons separate as they do in a header; what's neither a number nor a name is nothing.)
+    expect(pieces('t\tx (m)')).toEqual([`${ROW_PIECE.name}:t`, `${ROW_PIECE.name}:x`, `${ROW_PIECE.unit}:m`])
+    expect(pieces('1; 2 apples')).toEqual([`${ROW_PIECE.number}:1`])
+  })
+})
 
 describe('parseCsv', () => {
   it('reads the column names, units and values as typed', () => {

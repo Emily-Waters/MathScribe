@@ -86,8 +86,6 @@ export interface CsvData {
   error?: string
 }
 
-/** A header: a name, then optionally a unit in brackets (1: the name, 2: the unit). */
-const HEADER = /^\s*([^([\s]+)\s*(?:[([]\s*([^)\]]*?)\s*[)\]])?\s*$/
 
 /** The character that separates values: a tab or semicolon if the header uses one (and no commas), else a comma. */
 function separatorOf(header: string): string {
@@ -104,6 +102,50 @@ const cellsOf = (line: string, separator: string) =>
 /** A plain number as typed: 2, 0.10, -1.5e-3. */
 const NUMBER = /^[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?$/
 
+/** What each piece of a row is, as rowPieces reads it: a value, a column's name, its unit, or anything else (separators, brackets). */
+export const ROW_PIECE = { number: 'number', name: 'name', unit: 'unit' } as const
+export type RowPieceKind = (typeof ROW_PIECE)[keyof typeof ROW_PIECE]
+
+/** A piece of a row, where it is in the row: `start` up to (not including) `end`. */
+export interface RowPiece {
+  kind: RowPieceKind
+  start: number
+  end: number
+}
+
+/** A header: a name, then optionally a unit in brackets (groups: name and unit, and the spaces and bracket before each, for where they are). */
+const HEADER = /^(?<lead>\s*)(?<name>[^([\s]+)(?:(?<between>\s*[([]\s*)(?<unit>[^)\]]*?)\s*[)\]])?\s*$/
+
+/**
+ * A row's values, names and units, where each is in it (for the editor's
+ * colours), read as parseCsv reads them: cells split at the row's separator;
+ * a number is a value, and a header cell, `t (s)`, is a name and its unit.
+ */
+export function rowPieces(row: string): RowPiece[] {
+  const separator = separatorOf(row)
+  const out: RowPiece[] = []
+  let at = 0
+  for (const cell of row.split(separator)) {
+    const text = cell.trim()
+    const start = at + cell.indexOf(text)
+    if (text && NUMBER.test(text)) out.push({ kind: ROW_PIECE.number, start, end: start + text.length })
+    else {
+      const m = HEADER.exec(cell)
+      if (m && IS_NAME.test(m.groups!.name)) {
+        const nameAt = at + m.groups!.lead.length
+        out.push({ kind: ROW_PIECE.name, start: nameAt, end: nameAt + m.groups!.name.length })
+        const unit = m.groups!.unit
+        if (unit) {
+          const unitAt = nameAt + m.groups!.name.length + m.groups!.between!.length
+          out.push({ kind: ROW_PIECE.unit, start: unitAt, end: unitAt + unit.length })
+        }
+      }
+    }
+    at += cell.length + separator.length
+  }
+  return out
+}
+
 /**
  * Read a CSV's lines (header first). Empty cells are skipped (so a column can
  * be shorter than the others); anything that isn't a number is an error.
@@ -114,12 +156,12 @@ export function parseCsv(lines: string[]): CsvData {
   const separator = separatorOf(rows[0])
   const columns: CsvColumn[] = []
   for (const [i, header] of cellsOf(rows[0], separator).entries()) {
-    const m = HEADER.exec(header)
-    if (!m || !IS_NAME.test(m[1])) {
+    const m = HEADER.exec(header)?.groups
+    if (!m || !IS_NAME.test(m.name)) {
       return { columns: [], rows: 0, error: `Column ${i + 1}'s header, "${header}", isn't a variable name: use one like x, or x (m) with a unit.` }
     }
-    if (columns.some((c) => c.name === m[1])) return { columns: [], rows: 0, error: `Two columns are named ${m[1]}.` }
-    columns.push({ name: m[1], unit: m[2] || undefined, values: [] })
+    if (columns.some((c) => c.name === m.name)) return { columns: [], rows: 0, error: `Two columns are named ${m.name}.` }
+    columns.push({ name: m.name, unit: m.unit || undefined, values: [] })
   }
   for (const [r, line] of rows.slice(1).entries()) {
     const cells = cellsOf(line, separator)

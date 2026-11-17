@@ -520,6 +520,14 @@ edit reads again only what it changed, and nodes are shared between trees.
            nodes are read by), since block titles, which aren't read into
            tokens yet, go through it too, and paragraphs of prose are several
            lines joined.
+         - [x] Imported rows: kept as one `rows` token in the tree, as they were
+           (thousands of values as tokens of their own would bloat the tree and
+           every edit's read), but read for the editor's colours by csv.ts, the
+           one reader of a row: `rowPieces` says where each value, header name
+           and unit is, split at the row's separator as `parseCsv` splits it,
+           with the same header pattern (now with named groups). The editor's
+           own word and number patterns for rows are gone; a header's units are
+           coloured as units.
       Then: a codebase-wide audit of which patterns are working, toward one
       harmonious structure.
 

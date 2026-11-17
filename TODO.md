@@ -660,9 +660,56 @@ edit reads again only what it changed, and nodes are shared between trees.
       4. [ ] The Calculator's concerns into collaborators, and a line read as a
          pipeline of token stages (modules add stages); EngineModule's hooks
          grouped into interfaces a module opts into.
+         - [x] A, the line pipeline: a line goes through stages in order
+           (`LINE_STAGE`: raw, names, members, shape, settings, expand,
+           expression, check, work), each a list of steps (`LineStep`): the
+           core's first (`CoreStep`s, which were `evaluateLine`'s one long body:
+           names, shape, settings, expand, check, work), then the modules', in
+           the order given; the first step to give a result ends the line. A
+           `LineForm` is a step that works a whole line out (`run` offers it
+           the line); a module adds other steps with `lineSteps`. The pipeline
+           is made per Calculator from its own modules (not page-wide: see
+           Packaging). What the core's steps read of a line passes between them
+           on the line (`CoreLine`: its shape, settings, display name, percent,
+           numbers as typed). Each step reads the line's tokens when it needs
+           them (the lexer caches them), rather than the line carrying them:
+           the steps that write a line out still write text, as before.
+           `plugin.test.ts` adds a step (`sol`, a Martian day, written out at
+           `expand` from the line's tokens). Moved, not changed: the golden
+           tests and all others pass as they were.
       5. [ ] The editor's suggestions from the tokens of the half-typed line.
       6. [ ] Constants as `words()`, patterns with `src`/`named`, file by file
          as each is touched.
+
+## 9. Packaging: MathScribe in someone else's app
+
+- [ ] **MathScribe as a package** (2026-11-17, Emily): bundled so someone can
+      put `<MathScribe />` in their own React app, write plugins of their own or
+      install others', and inject them; a published plugin installing itself as
+      a package would be nice, with the internals still open to tweaking (a
+      module class can be subclassed: `class MyChemistry extends ChemistryModule`).
+      Not a rewrite, since a plugin is already a class using one API
+      (`src/lib/plugin.ts`) and registering is already a call
+      (`registerModules`); to do after the line pipeline:
+      1. [ ] Registration as the public way in: `<MathScribe modules={[...defaultModules, MyPlugin]} />`
+         and `registerModules`, with MathScribe's own modules exported as
+         `defaultModules` (the folder discovery stays for this app's own build).
+      2. [ ] A library build (Vite library mode, TypeScript types) with two
+         entries: `mathscribe` (the component, registration, the modules) and
+         `mathscribe/plugin` (the module API).
+      3. [ ] An embeddable `<MathScribe />`: `App.tsx` is a whole page (top bar,
+         tabs, files, a global stylesheet, storage keys); it needs props (the
+         starting text, `onChange`, options) and its styles scoped to it.
+      4. [ ] A plugin package: explicit (import it, pass it in `modules`), or
+         self-registering (importing it registers it); later, perhaps, a Vite
+         plugin that registers every dependency tagged `mathscribe-plugin`.
+      Known limit, to document rather than lift: modules install once per page
+      (their grammar, `@` members and lex rules are page-wide, and the line
+      cache with them), so several `<MathScribe />` on a page share them, and
+      a module can't be uninstalled. Per-instance registries would be a large
+      change; not unless it's needed. (Meanwhile, nothing new is made
+      page-wide that needn't be: a Calculator takes its line stages from the
+      modules it's given.)
 
 ## Done
 

@@ -17,7 +17,10 @@ import { nestBrackets } from '../../maths/brackets.ts'
 import type { CsvColumn } from '../../data/csv.ts'
 
 import { isTuple, math } from './math.ts'
-import { EngineModule, LINE_STAGE, inDependencyOrder, installModule, moduleReadableMessage, type DerivedVariable, type LineForm, type LineStage, type LookSetting, type ModuleHost, type PreparedLine, type TupleLook, SETTING_PLACE, moduleSettingProblem } from './module.ts'
+import {
+  EngineModule, LINE_STAGE, LINE_STAGES, LineStep, inDependencyOrder, installModule, moduleReadableMessage, moduleSettingProblem, SETTING_PLACE,
+  type DerivedVariable, type LineInProgress, type LineStage, type LookSetting, type ModuleHost, type TupleLook,
+} from './module.ts'
 import { outsideMaths, wordsTex } from './text.ts'
 import { expandNamespaceCalls, strayLineFormCall } from './builtinCalls.ts'
 import { BUILTIN_CONSTANT_NAMES, NAME_IN_LINE } from './literals.ts'
@@ -29,11 +32,11 @@ import { symbolTex, numberTex, unitTex, attachUnit, isUnitCall, unitCallText, is
 import { unwrap, isLiteral, isTupleLiteral, isPureNumber, isConversion } from './nodes.ts'
 import { NODE_KIND, TOKEN_KIND, isToken, type Part } from '../../tree/nodes.ts'
 import { lexExpression } from '../../tree/lexer.ts'
-import { ASSIGN, SETTING_MARK, lineShape } from '../../tree/shapes.ts'
+import { ASSIGN, SETTING_MARK, lineShape, type LineShape } from '../../tree/shapes.ts'
 import { normalise, displayUnit, magnitudeOf } from './normalise.ts'
 import { Scope, Views, type Variables, Values, innerValues } from './scope.ts'
 import { type UserFunction, type CustomConstant, MAX_TRACE_DEPTH } from './functions.ts'
-import { isAngleUnit, toDisplayUnit, type TupleName, parseTupleName, declarationOf } from './declarations.ts'
+import { isAngleUnit, toDisplayUnit, type Declaration, type TupleName, parseTupleName, declarationOf } from './declarations.ts'
 import { withRows } from './rows.ts'
 import { bracketed } from './tuples.ts'
 import { EXACT_DISPLAY_DIGITS, FIXED_FORMAT, FLOAT_NOISE, TINY, PERCENT_SCALE, parseParam, isValidUnit, castArgument } from './numbers.ts'
@@ -41,6 +44,34 @@ import { isNumberWithUnit, SIDE, type Side, inScientificNotation, needsBrackets,
 import { uncertaintyUnitError, columnValues } from './data.ts'
 
 /** Evaluates a sheet line by line, keeping its variables, their sig figs and uncertainties, and the functions it defines. */
+/** A line on its way through the core's steps: what they read of it, for the steps after. */
+interface CoreLine extends LineInProgress {
+  /** What it assigns to (`shape`). */
+  shape?: LineShape
+  /** The assigned name's settings (`settings`). */
+  declaration?: Declaration
+  /** Its display name, as LaTeX (`settings`). */
+  label?: string
+  /** `to percent`, or a `:percent` setting: the result shown as a percentage (`expand`). */
+  asPercent?: boolean
+}
+
+/** One of the core's steps of a line's pipeline: what it does, at its stage. */
+class CoreStep extends LineStep {
+  readonly stage: LineStage
+  private readonly does: (line: CoreLine) => LineResult | undefined
+
+  constructor(stage: LineStage, does: (line: CoreLine) => LineResult | undefined) {
+    super()
+    this.stage = stage
+    this.does = does
+  }
+
+  run(line: LineInProgress): LineResult | undefined {
+    return this.does(line as CoreLine)
+  }
+}
+
 export class Calculator {
   /** Selections' and named plots' series, as lookups (before the scopes, which share them). */
   private readonly views = new Views()
@@ -120,21 +151,6 @@ export class Calculator {
     uncertainParts: (value, unc, uncSf) => this.uncertainParts(value, unc, uncSf),
     inNotation: (notation, fn) => this.inNotation(notation, fn),
     expressionTex: (expr) => this.expressionTex(expr),
-  }
-
-  /** The modules' line forms at a stage, in the order the modules were given. */
-  private formsAt(stage: LineStage): LineForm[] {
-    return this.modules.flatMap((m) => m.lineForms).filter((f) => f.stage === stage)
-  }
-
-  /** The line worked out by the first form at this stage that takes it, if one does. */
-  private byForm(stage: LineStage, input: string, mode: DisplayMode, explicit: boolean, prepared?: PreparedLine): LineResult | undefined {
-    for (const form of this.formsAt(stage)) {
-      const result = form.evaluate({ text: input.trim(), mode, explicit, prepared }, this.host)
-      // (A form whose name is a namespace defines what it says, nothing if it says nothing: not its name as a variable.)
-      if (result) return form.assignsNamespace ? { ...result, defines: result.defines ?? [] } : result
-    }
-    return undefined
   }
 
   constructor(options: CalcOptions, modules: readonly EngineModule[] = []) {
@@ -1515,23 +1531,64 @@ export class Calculator {
     this.vars.delete(name)
   }
 
+  /**
+   * A line's pipeline: the core's steps and the modules' (their line forms and
+   * other steps), in the order of their stages (LINE_STAGE), the core's first at
+   * each stage. Made once, from the modules this Calculator was given.
+   */
+  private get steps(): readonly LineStep[] {
+    if (!this.pipeline) {
+      const steps: LineStep[] = [...this.coreSteps(), ...this.modules.flatMap((m) => [...m.lineForms, ...m.lineSteps])]
+      // (Sorting keeps the order within a stage: the core's, then each module's as given.)
+      this.pipeline = steps.sort((a, b) => LINE_STAGES.indexOf(a.stage) - LINE_STAGES.indexOf(b.stage))
+    }
+    return this.pipeline
+  }
+
+  private pipeline: readonly LineStep[] | undefined
+
+  /** Work a line out: through its pipeline, until a step gives its result (`work`, the last, always does). */
   private evaluateLine(input: string, requestedMode: DisplayMode, explicit = false): LineResult {
-    // A line a module works out itself, as written: a reaction, `r = @chem.reaction({2 H2 + O2 -> 2 H2O})`.
-    const raw = this.byForm(LINE_STAGE.raw, input, requestedMode, explicit)
-    if (raw) return raw
-    // `a.x_1`, a namespace's member, is the variable a__x_1 inside.
-    input = expandDots(input)
-    // …and once its members are inside names: `@table(t, x)`, `@plot(t, x)`.
-    const form = this.byForm(LINE_STAGE.members, input, requestedMode, explicit)
-    if (form) return form
+    const line: CoreLine = { text: input, mode: requestedMode, explicit }
+    for (const step of this.steps) {
+      const result = step.run(line, this.host)
+      if (result) return result
+    }
+    throw new Error('A line went through every step of its pipeline without being worked out.')
+  }
 
-    // What the line assigns to, read from its tokens (tree/shapes.ts): a name, a function's head, or names to unpack into.
-    const shape = lineShape(input.trim())
+  /** The core's steps of a line's pipeline, each at its stage. */
+  private coreSteps(): LineStep[] {
+    const step = (stage: LineStage, run: (line: CoreLine) => LineResult | undefined) => new CoreStep(stage, run)
+    return [
+      // `a.x_1`, a namespace's member, is the variable a__x_1 inside.
+      step(LINE_STAGE.names, (line) => {
+        line.text = expandDots(line.text)
+        return undefined
+      }),
+      step(LINE_STAGE.shape, (line) => this.byShape(line)),
+      step(LINE_STAGE.settings, (line) => this.readSettings(line)),
+      step(LINE_STAGE.expand, (line) => this.expand(line)),
+      // A call that's a line of its own, inside an expression: `x = 2 * @table(t)`.
+      step(LINE_STAGE.check, (line) => {
+        const stray = strayLineFormCall(line.text)
+        return stray ? { tex: '', error: stray } : undefined
+      }),
+      step(LINE_STAGE.work, (line) => this.work(line)),
+    ]
+  }
+
+  /**
+   * What the line assigns to, read from its tokens (tree/shapes.ts): names to
+   * unpack into, a function's head, or a display-name template, each worked out
+   * as a whole; or a name, which goes on.
+   */
+  private byShape(line: CoreLine): LineResult | undefined {
+    const shape = lineShape(line.text.trim())
+    line.shape = shape
     const { target } = shape
-
     // `@tuple(a, b, c) = …` unpacks a tuple.
-    if (target?.kind === NODE_KIND.unpack && shape.value) return this.evaluateUnpack(target.entries!, shape.value, requestedMode, explicit)
-
+    if (target?.kind === NODE_KIND.unpack && shape.value) return this.evaluateUnpack(target.entries!, shape.value, line.mode, line.explicit)
     if (target?.kind === NODE_KIND.functionHead && shape.value) {
       // (Bad parameters, like `g(x y)`, get defineFunction's error rather than mathjs's.)
       const params = target.entries!.filter(Boolean)
@@ -1542,8 +1599,12 @@ export class Calculator {
       // `f(x):3:deg = …`: settings for what the function gives back.
       return this.defineFunction(target.name, params, shape.value, this.multiline, target.settings)
     }
+    return undefined
+  }
 
-    // `m:3 = …`, `phi:3:deg = …` set how what's assigned is shown; take them off the name.
+  /** `m:3 = …`, `phi:3:deg = …`: settings on the name being assigned, taken off it; and its display name. */
+  private readSettings(line: CoreLine): LineResult | undefined {
+    const { target, value } = line.shape!
     const declaration = target?.kind === NODE_KIND.assigned && target.settings.length ? declarationOf(target.name, target.settings) : null
     if (declaration && 'error' in declaration) return { tex: '', error: declaration.error }
     // Settings that are a module's: `m:formula = …`, how the named species on this line are shown.
@@ -1555,12 +1616,21 @@ export class Calculator {
     const labelSource = declaration?.label ?? labelWords?.words
     const label = labelSource !== undefined ? this.labelTex(labelSource) : undefined
     if (label?.error) return { tex: '', error: label.error }
-    const declaredSf = declaration?.sf
-    const displayUnit = declaration?.unit === PERCENT ? undefined : declaration?.unit
-    if (declaration) input = `${declaration.name} ${ASSIGN} ${shape.value}`
+    line.declaration = declaration ?? undefined
+    line.label = label?.tex
+    if (declaration) line.text = `${declaration.name} ${ASSIGN} ${value}`
+    return undefined
+  }
 
+  /**
+   * What stands for something else, written out: constants (`@c:4`), a
+   * series' statistics (`t_avg`), `to percent`, `delta F`, `(a pm b)`; and the
+   * line's numbers as typed, so `2.0 kg` keeps its trailing zero.
+   */
+  private expand(line: CoreLine): LineResult | undefined {
+    const { declaration } = line
     // `delta F =` asks for F's uncertainty; a trailing = is just a prompt.
-    const constants = this.expandConstants(input.replace(/=\s*$/, '').trim())
+    const constants = this.expandConstants(line.text.replace(/=\s*$/, '').trim())
     if (constants.error) return { tex: '', error: constants.error }
     const cleaned = constants.text
     const cleanedShape = lineShape(cleaned)
@@ -1568,32 +1638,32 @@ export class Calculator {
     const aggregateError = this.defineAggregates(cleaned, assignedName)
     if (aggregateError) return { tex: '', error: aggregateError }
     // `… to percent` isn't a mathjs unit: take it off and show the result as a percentage.
-    const asPercent = TO_PERCENT.test(cleaned) || declaration?.unit === PERCENT
-    const line = expandParenPm(this.expandDeltaRefs(cleaned.replace(TO_PERCENT, '')))
+    line.asPercent = TO_PERCENT.test(cleaned) || declaration?.unit === PERCENT
+    line.text = expandParenPm(this.expandDeltaRefs(cleaned.replace(TO_PERCENT, '')))
+    line.prepared = {
+      literals: typedNumbers(line.text),
+      declaredSf: declaration?.sf,
+      displayUnit: declaration?.unit === PERCENT ? undefined : declaration?.unit,
+      notation: declaration?.notation,
+    }
+    return undefined
+  }
 
-    // Number literals as typed, so `2.0 kg` keeps its trailing zero.
-    const literals = typedNumbers(line)
-
-    // A line a module works out itself once it's read this far: `x = @solve(lhs = rhs, x)`.
-    const expression = this.byForm(LINE_STAGE.expression, line, requestedMode, explicit, {
-      literals, declaredSf, displayUnit, notation: declaration?.notation,
-    })
-    if (expression) return expression
-    // A call that's a line of its own, inside an expression: `x = 2 * @table(t)`.
-    const stray = strayLineFormCall(line)
-    if (stray) return { tex: '', error: stray }
-
+  /** A line worked out as an assignment or an expression: written for mathjs, evaluated, and shown. */
+  private work(line: CoreLine): LineResult {
+    const { declaration } = line
+    const { literals, declaredSf, displayUnit } = line.prepared!
     // Separate `value pm uncertainty` on the right-hand side.
-    const lineHead = lineShape(line)
+    const lineHead = lineShape(line.text)
     const lhs = lineHead.target?.kind === NODE_KIND.assigned ? lineHead.head : ''
-    const pm = splitPm(line.slice(lhs.length))
+    const pm = splitPm(line.text.slice(lhs.length))
     const percent = !!pm?.[1].endsWith('%')
 
     let node: MathNode
     let uncNode: MathNode | undefined
     const warnings: string[] = []
     try {
-      const { text, shadowed } = preprocess(pm ? lhs + pm[0] : line, this.isVariable)
+      const { text, shadowed } = preprocess(pm ? lhs + pm[0] : line.text, this.isVariable)
       if (shadowed.length) {
         warnings.push(`"${shadowed.join('", "')}" after a number is read as a unit, not your variable. `
           + `Write 2 * ${shadowed[0]} to use the variable.`)
@@ -1617,10 +1687,10 @@ export class Calculator {
     }
 
     const result = this.evaluateParsed(node, {
-      uncNode, percent, literals, warnings, mode: requestedMode, explicit, declaredSf, asPercent, displayUnit,
-      notation: declaration?.notation, look: this.lookSettingOf(declaration?.moduleSettings), label: label?.tex,
+      uncNode, percent, literals, warnings, mode: line.mode, explicit: line.explicit, declaredSf, asPercent: line.asPercent, displayUnit,
+      notation: declaration?.notation, look: this.lookSettingOf(declaration?.moduleSettings), label: line.label,
     })
-    return declaration?.moduleSettings && !result.error ? this.withDerived(declaration.name, result, requestedMode, declaration.moduleSettings) : result
+    return declaration?.moduleSettings && !result.error ? this.withDerived(declaration.name, result, line.mode, declaration.moduleSettings) : result
   }
 
   /**

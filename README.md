@@ -1493,7 +1493,11 @@ renamed, change it there too.
   it needs, where an exception to the core's rules comes from; it uses
   MathScribe only through the module API, `src/lib/plugin.ts` (the engine's
   `ModuleHost`, the tree's rules, the readers, the sheet's syntax, …), and can
-  add kinds of line as `LineForm`s (`@table(…)`, `r = @chem.reaction(…)`). A
+  add steps to a line's pipeline: a line goes through stages in order (`LINE_STAGE`:
+  raw, names, members, shape, settings, expand, expression, check, work), the
+  core's steps first at each, then the modules' (`LineStep`, which can change the
+  line on its way, and `LineForm`, a step that works a whole kind of line out:
+  `@table(…)`, `r = @chem.reaction(…)`), until a step gives its result. A
   module that builds on another says so (`requires`): it's installed after it,
   and may import from it (its `public.ts`) and no other. What the rest of the app
   may use of a module is its `public.ts` (`modules/series/public.ts`: what the ⚙

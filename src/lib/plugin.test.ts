@@ -7,9 +7,10 @@ import { describe, expect, it } from 'vitest'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import {
-  BLOCK_KIND, CONTENT, ConstantMember, Construct, EngineModule, LINE_CONTEXT, NodeReader, SIGIL, latexKit,
-  type CustomBlock, type Member, type ModuleBlockKind, type ModuleGrammar, type NodeReader as Reader, type ReadsLines,
-  type SheetReader, type TreeItem,
+  BLOCK_KIND, CONTENT, ConstantMember, Construct, EngineModule, LINE_CONTEXT, LINE_STAGE, LineStep, NodeReader, SIGIL, latexKit,
+  lexExpression, textOf, TOKEN_KIND, isToken,
+  type CustomBlock, type LineInProgress, type LineResult, type Member, type ModuleBlockKind, type ModuleGrammar,
+  type NodeReader as Reader, type ReadsLines, type SheetReader, type TreeItem,
 } from './plugin.ts'
 import { Calculator, moduleSettingWords, sheetModules } from './engine/index.ts'
 import { evaluateSheet } from './sheet/document.ts'
@@ -61,6 +62,22 @@ const GRAMMAR: ModuleGrammar = {
   syntaxes: [{ kind: ORBIT.node, contexts: [LINE_CONTEXT.sheet], content: CONTENT.noted, matches: (_, split) => split().body.startsWith(ORBIT.opener) }],
 }
 
+/** A Martian day, as a word in a line: written out before the line is worked out. */
+const SOL = { word: 'sol', value: '88775.244 s' } as const
+
+/** A step of a line's pipeline: `sol`, wherever it's a name, as the length of a Martian day. */
+class SolStep extends LineStep {
+  readonly stage = LINE_STAGE.expand
+
+  run(line: LineInProgress): LineResult | undefined {
+    // (The line's tokens, as the lexer reads them: only a name `sol` is one, not `solar` or `"sol"`.)
+    line.text = lexExpression(line.text)
+      .map((p) => (isToken(p) && p.t === TOKEN_KIND.symbol && p.text === SOL.word ? `(${SOL.value})` : textOf(p)))
+      .join('')
+    return undefined
+  }
+}
+
 /** A module of one's own: Mars's surface gravity as `@g_mars`, a setting, and an orbit line with a block of its own. */
 class MarsModule extends EngineModule implements ReadsLines {
   override builtinMembers(): Member[] {
@@ -68,6 +85,8 @@ class MarsModule extends EngineModule implements ReadsLines {
   }
 
   override readonly lineSettings = { mars: 'shown as on Mars (an example)' }
+
+  override readonly lineSteps = [new SolStep()]
 
   override grammar(): ModuleGrammar {
     return GRAMMAR
@@ -89,6 +108,12 @@ describe('a module of one’s own', () => {
     const line = new Calculator(OPTIONS, modules()).evaluate('w = 2.0 kg * @g_mars', DISPLAY_MODE.val)
     expect(line.error).toBeUndefined()
     expect(line.tex).toContain('7.4')
+  })
+
+  it('can add a step to a line’s pipeline, which changes the line on its way', () => {
+    const line = new Calculator(OPTIONS, modules()).evaluate('t = 2 * sol to h', DISPLAY_MODE.val)
+    expect(line.error).toBeUndefined()
+    expect(line.tex).toContain('49.3')
   })
 
   it('is known to the editor too, once installed', () => {

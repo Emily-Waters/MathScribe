@@ -110,11 +110,60 @@ export interface ModuleHost {
 }
 
 /**
- * When in reading a line a form is offered it: as written (`raw`), or once a
- * namespace's members are inside names (`a.x_1` → a__x_1, `members`).
+ * The stages a line goes through, in order: each is a step of the line's
+ * pipeline, the core's steps and the modules' (LineStep). At a stage the core's
+ * steps run first, then the modules', in the order the modules were given; the
+ * first step to give a result (a line it works out as a whole) ends the line.
+ *
+ *   raw         as written: a module's line it reads itself (a reaction)
+ *   names       a namespace's members as inside names: `a.x_1` → a__x_1
+ *   members     once they are: `@table(t, x)`, `@plot(t, x)`, a solve system
+ *   shape       what's assigned: names to unpack into, a function, a display-name template
+ *   settings    the assigned name's settings, `m:3:g`, taken off it, and its display name
+ *   expand      what stands for something else written out: constants (`@c:4`),
+ *               a series' statistics (`t_avg`), `delta F`, `(a pm b)`, `to percent`;
+ *               and the numbers as typed
+ *   expression  a line a module works out once it's read this far: `x = @solve(…)`
+ *   check       a call that has to be a line of its own, inside an expression
+ *   work        worked out: written for mathjs, evaluated, sig figs, uncertainty, shown
  */
-export const LINE_STAGE = { raw: 'raw', members: 'members', expression: 'expression' } as const
+export const LINE_STAGE = {
+  raw: 'raw', names: 'names', members: 'members', shape: 'shape', settings: 'settings',
+  expand: 'expand', expression: 'expression', check: 'check', work: 'work',
+} as const
 export type LineStage = (typeof LINE_STAGE)[keyof typeof LINE_STAGE]
+
+/** The stages in the order a line goes through them. */
+export const LINE_STAGES: readonly LineStage[] = Object.values(LINE_STAGE)
+
+/**
+ * A line on its way through its pipeline: its text as the steps so far have
+ * left it (each step can change it, as `names` writes a.x_1 as a__x_1), what
+ * it was asked to show, and what the steps have read of it.
+ */
+export interface LineInProgress {
+  /** Its text as it stands, at this step. */
+  text: string
+  mode: DisplayMode
+  /** Whether the mode was asked for (on the line, or by its block). */
+  explicit: boolean
+  /** By the `expression` stage: what the core has read of it. */
+  prepared?: PreparedLine
+}
+
+/**
+ * One step of a line's pipeline, at a stage (LINE_STAGE): it changes the line
+ * on its way (writing something out, reading something off it), or works the
+ * line out as a whole and gives its result, which ends the line. A module adds
+ * its own (EngineModule.lineSteps); a LineForm is a step that only does the second.
+ */
+export abstract class LineStep {
+  /** When it runs. */
+  abstract readonly stage: LineStage
+
+  /** Run on the line: its result, if this step works it out, else undefined (the line, changed or not, goes on). */
+  abstract run(line: LineInProgress, host: ModuleHost): LineResult | undefined
+}
 
 /**
  * What the core has read of a line by the `expression` stage: its settings
@@ -145,7 +194,7 @@ export interface FormLine {
  * adds its own (EngineModule.lineForms); a line goes to the first whose
  * `evaluate` takes it.
  */
-export abstract class LineForm {
+export abstract class LineForm extends LineStep {
   /** When it's offered the line. */
   readonly stage: LineStage = LINE_STAGE.members
 
@@ -158,6 +207,12 @@ export abstract class LineForm {
 
   /** The line worked out, if it's this form's; undefined if it isn't. */
   abstract evaluate(line: FormLine, host: ModuleHost): LineResult | undefined
+
+  /** As a step: offered the line as it stands; a form whose name is a namespace defines what it says, nothing if it says nothing. */
+  run(line: LineInProgress, host: ModuleHost): LineResult | undefined {
+    const result = this.evaluate({ text: line.text.trim(), mode: line.mode, explicit: line.explicit, prepared: line.prepared }, host)
+    return result && this.assignsNamespace ? { ...result, defines: result.defines ?? [] } : result
+  }
 }
 
 /**
@@ -345,8 +400,14 @@ export abstract class EngineModule {
   /** After a line is worked out, whatever happened. */
   endLine(): void {}
 
-  /** The kinds of line this module works out itself (a reaction, a table), offered before the core's. */
+  /** The kinds of line this module works out itself (a reaction, a table): steps of a line's pipeline that take the whole line. */
   readonly lineForms: readonly LineForm[] = []
+
+  /**
+   * Its other steps of a line's pipeline (LineStep): what it changes on a line
+   * on its way, at a stage (LINE_STAGE), after the core's steps there.
+   */
+  readonly lineSteps: readonly LineStep[] = []
 
   /**
    * A call as LaTeX, if it's one of this module's functions (and not the sheet's own of that name); `tex` writes a node.

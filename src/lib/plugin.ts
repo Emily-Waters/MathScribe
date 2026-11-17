@@ -22,8 +22,8 @@
 
 // The module itself, and what the engine offers it.
 export {
-  EngineModule, LINE_STAGE, LineForm, SETTING_PLACE, registerModules,
-  type DerivedVariable, type InstallableModule, type ModuleBlockKind, type ModuleClass, type FormLine, type LookSetting, type ModuleGrammar, type ModuleHost, type PreparedLine, type SettingPlace,
+  EngineModule, LINE_STAGE, LINE_STAGES, LineForm, LineStep, SETTING_PLACE, registerModules,
+  type DerivedVariable, type InstallableModule, type LineInProgress, type LineStage, type ModuleBlockKind, type ModuleClass, type FormLine, type LookSetting, type ModuleGrammar, type ModuleHost, type PreparedLine, type SettingPlace,
   type TupleLook,
 } from './engine/core/module.ts'
 

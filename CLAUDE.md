@@ -16,7 +16,8 @@ by the engine (`src/lib/engine/`), and the blocks drawn in the Rendered tab
   is a subclass of `EngineModule` (`src/lib/engine/core/module.ts`) that
   overrides the hooks it needs: its grammar (`grammar()`: kinds of line, node and
   token, lex and text rules, token roles), its `@` members (`builtinMembers()`),
-  its line forms (`LineForm` subclasses), its readers (`ReadsLines`), its
+  its steps of a line's pipeline (`LineStep` and `LineForm` subclasses, at a
+  stage of `LINE_STAGE`), its readers (`ReadsLines`), its
   settings, its LaTeX preamble, and so on. It lives in a folder of its own in
   `src/modules/`, whose `index.ts` exports the class as its default; every folder
   there is found and registered (`src/modules/index.ts`, which `main.tsx` and the
@@ -30,9 +31,9 @@ by the engine (`src/lib/engine/`), and the blocks drawn in the Rendered tab
   core. A module can also have kinds of block of its own (`blockKinds`: a
   construct for the exports and a view for the Rendered tab, of a
   `CustomBlock` its readers make) and add to the editor (`editorExtensions`).
-  (Still being completed: see "One harmonious structure" in `TODO.md`, for the
-  line pipeline. Where a module still has to be named outside its own folder,
-  that's a gap to close, not a pattern to follow.)
+  (Still being completed: see "One harmonious structure" in `TODO.md`. Where a
+  module still has to be named outside its own folder, that's a gap to close,
+  not a pattern to follow.)
 - **A module uses MathScribe only through the module API,** `src/lib/plugin.ts`:
   it imports from there, its own folder, and the `public.ts` of a module it
   `requires`. What a module needs that isn't there is added there, documented.

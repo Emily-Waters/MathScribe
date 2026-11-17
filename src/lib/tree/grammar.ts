@@ -74,6 +74,8 @@ export interface LineSyntax {
   matches(trimmed: string, split: () => NotedLine): boolean
   /** What it opens, if anything: the lines after it are its body. (Declared, so the schema can list it.) */
   readonly opens?: Body
+  /** The kind of token what it says is, before its #commands and note, if not `body` (a reaction's: a formula). */
+  readonly bodyToken?: string
 }
 
 /** A context: what a line is inside, and what its lines are when no syntax of it matches. */

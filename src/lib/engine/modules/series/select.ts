@@ -13,7 +13,7 @@ import type { Unit } from 'mathjs'
 import { IS_NAME, NAME } from '../../../syntax.ts'
 import { RESERVED_NAMESPACES, memberName, parseMemberName, readableMembers } from '../../../sheet/names.ts'
 import { EXACT } from '../../../maths/sigfigs.ts'
-import { SETTING, parseRowRange, settingParts, splitCallArgs } from '../../../tableSettings.ts'
+import { SETTING, parseRowRange, settingParts, splitCallArgs } from './tableSettings.ts'
 import { splitArgs } from '../../../maths/solve.ts'
 import { math } from '../../core/math.ts'
 import { LineForm, type FormLine, type ModuleHost } from '../../core/module.ts'
@@ -25,6 +25,7 @@ import { SELECT_CALL } from './syntax.ts'
 const SELECT_RANGE = new RegExp(String.raw`^(${NAME})\s+(?:${SETTING.from}\s+(.+?))?\s*(?:\b${SETTING.to}\s+(.+))?$`)
 
 export class SelectForm extends LineForm {
+  override readonly assignsNamespace = true
   evaluate(line: FormLine, host: ModuleHost): LineResult | undefined {
     const select = SELECT_CALL.exec(line.text)
     if (!select) return undefined

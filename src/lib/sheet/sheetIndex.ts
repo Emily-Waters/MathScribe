@@ -9,7 +9,6 @@ import { NODE_KIND } from '../tree/nodes.ts'
 import { assignedOf, lineShape } from '../tree/shapes.ts'
 import { BLOCK_KIND, SYMBOL_KIND, isContainer, type Block, type SymbolKind } from './blocks.ts'
 import type { Sheet } from '../reading/sheetReader.ts'
-import { PLOT_CALL, SELECT_CALL } from '../engine/modules/series/syntax.ts'
 import { words, type WordOf } from '../syntax.ts'
 
 /** Where each function is defined, by name: its `f(…) = …` lines, in order. (For go-to-definition in the editor.) */
@@ -38,6 +37,9 @@ export interface SheetSymbol {
   /** Lines it can be used on (a `{ }` block or function body scopes it). */
   from: number
   to: number
+  /** What it is, in a sentence and in a word or two, if what defined it says (DefinedName). */
+  about?: string
+  detail?: string
   /** TeX for its value (`m = 2.00 kg`) or signature, if known. */
   tex?: string
   /** Plain-text parameters of a function, e.g. "n, m to kg, L to m". */
@@ -101,8 +103,8 @@ export function collectSymbols(sheet: Sheet, source: string): SheetSymbol[] {
             })
             break
           }
-          // A select or named plot: the variables it made, a.x_1, p.slope (not a variable a).
-          if (b.defines || SELECT_CALL.test(b.source) || PLOT_CALL.test(b.source)) {
+          // A line that says what it defines (a selection, a named plot, a reaction): those, a.x_1, p.slope (not a variable a).
+          if (b.defines) {
             for (const d of b.defines ?? []) out.push(variable(d.name, b.line, b.line + 1, to, scope, d.members))
             break
           }

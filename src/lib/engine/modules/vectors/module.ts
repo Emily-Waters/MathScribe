@@ -70,7 +70,10 @@ export class VectorModule extends EngineModule {
     return `for a vector, write <${bare.slice(1, -1)}>`
   }
 
-  override readonly lineSettings: readonly string[] = VECTOR_SETTINGS
+  override readonly lineSettings: Readonly<Record<string, string>> = {
+    [UNIT_VECTOR_SETTING]: 'a vector with unit vectors: (3.0 î + 4.0 ĵ) N',
+    [COMPONENTS_SETTING]: 'a vector’s components as variables too: F_x, F_y, F_z',
+  }
 
   override settingProblem(name: string, setting: string, place: SettingPlace): string | undefined {
     if (place === SETTING_PLACE.unpacked && VECTOR_SETTINGS.includes(setting)) {

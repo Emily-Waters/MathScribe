@@ -560,7 +560,7 @@ edit reads again only what it changed, and nodes are shared between trees.
          beside `syntax/`, `tree/`, `reading/`, `engine/`. Tests moved with
          their subjects; the cross-cutting ones (golden, engine, robustness, …)
          stay at the top. Imports rewritten by path, so nothing else changed.
-      2. [ ] Module extension points (block kinds with construct and view,
+      2. [x] Module extension points (block kinds with construct and view,
          editor token styles, vocabulary, symbols, LaTeX packages), so
          chemistry, series and vectors stop leaking; the boundary test over
          all of src/. `plotSettings.ts`, `tableSettings.ts` into the series module.
@@ -577,6 +577,25 @@ edit reads again only what it changed, and nodes are shared between trees.
            `sheetIndex.ts` no longer needs chemistry to list symbols. Seen
            differently: an entry that can't be read shows what was written (as
            a constant's does), not `\mathrm{…} =` with nothing after it.
+         - [x] The rest of the leaks, each through a hook rather than an import:
+           the LaTeX packages a module's notation needs (`EngineModule.latexPreamble`:
+           chemistry's mhchem); a line form whose name is a namespace says so
+           (`LineForm.assignsNamespace`: plot, select, reaction, substance), so
+           `sheetIndex.ts` needs no series patterns; what a module's token
+           kinds are (`ModuleGrammar.tokenRoles`, the registry's `TOKEN_ROLE`:
+           formula, text), which the editor colours by, and a line's body can be
+           a token of a module's kind (`LineSyntax.bodyToken`: a reaction's is a
+           formula), so `language.ts` imports no module; a module's `lineSettings`
+           carry what each does, which the editor's suggestions list; names
+           written in braces are a core kind, `braced`, whose hover and
+           suggestion text the module that defines them gives
+           (`DefinedName.about`, `detail`), so the editor has no species in it.
+           `plotSettings.ts` and `tableSettings.ts` moved into the series module,
+           which has a public face (`modules/series/index.ts`) for the ⚙ menus
+           and the plot drawing. The boundary test now covers the whole app:
+           outside the engine, only `engine/index.ts` and a module's `index.ts`
+           may be imported (one exception, documented: the tree's lexer reads
+           mathjs's units from `core/literals.ts`).
       3. [ ] One view per block kind, in `components/blocks/`, beside the constructs.
       4. [ ] The Calculator's concerns into collaborators, and a line read as a
          pipeline of token stages (modules add stages); EngineModule's hooks

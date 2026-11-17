@@ -1,7 +1,7 @@
 /** @plot(): its settings, its linear fit, the engine's plot data, and its drawings. */
 import { describe, expect, it } from 'vitest'
 import { last, value } from '../../test/helpers.ts'
-import { formatPlotSettings, parsePlotSettings } from '../plotSettings.ts'
+import { formatPlotSettings, parsePlotSettings } from '../engine/modules/series/index.ts'
 import { PRINT_PALETTE, linearFit, plotSvg } from './plot.ts'
 
 const data = 't1 = 0.10 s\nt2 = 0.20 s\nt3 = 0.30 s\nt4 = 0.40 s\n'

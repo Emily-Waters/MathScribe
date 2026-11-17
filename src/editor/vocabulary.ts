@@ -7,8 +7,7 @@
 import {
   COMMAND_NAMES, EXACT_SETTING, KEYWORD, NOTATION, PERCENT, UNCERTAINTY_WORDS, type CommandName, type Notation, type SeriesSuffix,
 } from '../lib/syntax.ts'
-import { COMPONENTS_SETTING, UNIT_VECTOR_SETTING } from '../lib/engine/modules/vectors/syntax.ts'
-import { SPECIES_DISPLAY } from '../lib/engine/modules/chemistry/syntax.ts'
+import { moduleSettingWords } from '../lib/engine/index.ts'
 
 /** What each display command does. */
 const COMMAND_DESCRIPTIONS: Record<CommandName, string> = {
@@ -39,10 +38,8 @@ export const SETTING_WORDS: { name: string; description: string }[] = [
   { name: EXACT_SETTING, description: 'full precision; never limits a result' },
   ...NOTATION.words.map((n) => ({ name: n, description: NOTATION_DESCRIPTIONS[n] })),
   { name: PERCENT, description: 'a unitless result ×100, with %' },
-  { name: UNIT_VECTOR_SETTING, description: 'a vector with unit vectors: (3.0 î + 4.0 ĵ) N' },
-  { name: COMPONENTS_SETTING, description: 'a vector’s components as variables too: F_x, F_y, F_z' },
-  { name: SPECIES_DISPLAY.name, description: 'named species on this line shown by their names (dietzeite)' },
-  { name: SPECIES_DISPLAY.formula, description: 'named species on this line shown by their formulas' },
+  // (And the modules': a vector's `:ijk`, chemistry's `:formula`, ….)
+  ...moduleSettingWords(),
 ]
 
 /** Words of the sheet language, with what they do. */

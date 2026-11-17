@@ -11,8 +11,8 @@ import type { Unit } from 'mathjs'
 import { SUBSCRIPT } from '../../../syntax.ts'
 import { FIT, JOIN, RESERVED_NAMESPACES, memberName, parseMemberName } from '../../../sheet/names.ts'
 import { EXACT } from '../../../maths/sigfigs.ts'
-import { splitCallArgs } from '../../../tableSettings.ts'
-import { PLOT_FIT, parsePlotSettings } from '../../../plotSettings.ts'
+import { splitCallArgs } from './tableSettings.ts'
+import { PLOT_FIT, parsePlotSettings } from './plotSettings.ts'
 import { linearFit, type LinearFit, type PlotData, type PlotPoint, type PlotSeries } from '../../../output/plot.ts'
 import { splitArgs } from '../../../maths/solve.ts'
 import { math } from '../../core/math.ts'
@@ -70,6 +70,7 @@ function fitTex(
 }
 
 export class PlotForm extends LineForm {
+  override readonly assignsNamespace = true
   evaluate(line: FormLine, host: ModuleHost): LineResult | undefined {
     const call = PLOT_CALL.exec(line.text)
     if (!call) return undefined

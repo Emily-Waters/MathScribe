@@ -5,7 +5,7 @@
  * shown in the output, in the app's colours, and exported as an image, in
  * fixed ones.
  */
-import { PLOT_STYLE, type PlotSettings } from '../plotSettings.ts'
+import { PLOT_STYLE, type PlotSettings } from '../engine/modules/series/index.ts'
 import { GREEK_BY_NAME, GREEK_CHARS, SUBSCRIPT } from '../syntax.ts'
 import { parseMemberName } from '../sheet/names.ts'
 import { UNIT_LOOKS } from '../maths/mathjsNames.ts'

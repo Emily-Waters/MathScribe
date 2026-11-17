@@ -344,7 +344,7 @@ describe('@chem.species: names for species', () => {
 
   it('are suggested in the editor’s symbols, with their formula', () => {
     const src = `${named}x = 1`
-    const symbols = collectSymbols(sheet(src), src).filter((s) => s.kind === SYMBOL_KIND.species)
+    const symbols = collectSymbols(sheet(src), src).filter((s) => s.kind === SYMBOL_KIND.braced)
     expect(symbols.map((s) => s.name)).toEqual(['dietzeite', 'edta'])
     expect(symbols[0].tex).toBe('\\ce{7Ca(IO3)2*8CaCrO4}')
   })

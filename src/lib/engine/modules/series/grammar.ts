@@ -7,6 +7,7 @@
 import type { ModuleGrammar } from '../../core/module.ts'
 import { SIGIL } from '../../../syntax.ts'
 import { TOKEN_KIND } from '../../../tree/nodes.ts'
+import { TOKEN_ROLE } from '../../../tree/registry.ts'
 import { token, type LexRule } from '../../../tree/lexer.ts'
 import { SERIES_CALL } from './syntax.ts'
 
@@ -42,4 +43,6 @@ const SETTINGS_RULE: LexRule = {
 export const SERIES_GRAMMAR: ModuleGrammar = {
   tokenKinds: { [SERIES_TOKEN.settings]: 'The settings after a ; in @table(…), @plot(…) or @select(…): fit linear, x from 0 to 2' } satisfies Record<(typeof SERIES_TOKEN)[keyof typeof SERIES_TOKEN], string>,
   lexRules: [SETTINGS_RULE],
+  // (A call's settings are words, read by their own language, not maths.)
+  tokenRoles: { [SERIES_TOKEN.settings]: TOKEN_ROLE.text },
 }

@@ -40,7 +40,12 @@ export class SpeciesReader extends SheetWideReader<CardBlock> {
     const name = (line: number, source: string, note: string | undefined, species: string, display: string | undefined, formula: string): CardEntry => {
       const shownAs = (display as SpeciesDisplay | undefined) ?? SPECIES_DISPLAY.name
       const error = names.define(species, formula, shownAs)
-      if (!error) defines.push({ name: species, kind: SYMBOL_KIND.species, line, tex: formulaTex(formula) })
+      if (!error) {
+        defines.push({
+          name: species, kind: SYMBOL_KIND.braced, line, tex: formulaTex(formula), detail: 'your species',
+          about: `Your species ${species}, named on line ${line}: {${species}} is this formula`,
+        })
+      }
       return { line, source, tex: speciesEntryTex(species, formula), note, error }
     }
     for (const item of sheet.allItems()) {

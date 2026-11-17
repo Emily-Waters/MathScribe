@@ -131,7 +131,8 @@ export class Calculator {
   private byForm(stage: LineStage, input: string, mode: DisplayMode, explicit: boolean, prepared?: PreparedLine): LineResult | undefined {
     for (const form of this.formsAt(stage)) {
       const result = form.evaluate({ text: input.trim(), mode, explicit, prepared }, this.host)
-      if (result) return result
+      // (A form whose name is a namespace defines what it says, nothing if it says nothing: not its name as a variable.)
+      if (result) return form.assignsNamespace ? { ...result, defines: result.defines ?? [] } : result
     }
     return undefined
   }

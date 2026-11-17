@@ -6,7 +6,7 @@ import { sheetModules } from './index.ts'
 const SOURCES = import.meta.glob<string>(['../**/*.ts', '!../**/*.test.ts'], { query: '?raw', import: 'default', eager: true })
 
 /** The path each import (or re-export) of a file is from. */
-const IMPORT_PATH = /^(?:import|export)\b[^'"]*?from\s+['"]([^'"]+)['"]/gm
+const IMPORT_PATH = /^(?:import|export)\b[^'"]*?(?:from\s+)?['"]([^'"]+)['"]/gm
 
 /** A relative import from a file, as a path from here (so it's a key of SOURCES); undefined for a package. */
 function resolve(from: string, imported: string): string | undefined {
@@ -56,6 +56,56 @@ describe('engine boundaries', () => {
   it.each(CORE_FILES)('%s needs no module, at any depth', (path) => {
     const intoModules = [...reachable(path).values()].filter((chain) => chain.at(-1)!.startsWith('./modules/'))
     expect(intoModules.map((chain) => chain.join(' → '))).toEqual([])
+  })
+})
+
+/** Every source file of the app outside the engine (the editor, the components, the rest of lib), by its path from here. */
+const OUTSIDE = import.meta.glob<string>(['../../**/*.{ts,tsx}', '!./**', '!../../**/*.test.ts'], { query: '?raw', import: 'default', eager: true })
+
+/** What the rest of the app may import of the engine: its public entry, and each module's public face. */
+const PUBLIC_FACE = /^\.\/(?:index\.ts|modules\/[^/]+\/index\.ts)$/
+
+/**
+ * The one file outside that reaches inside, and why: the tree's lexer reads
+ * units as mathjs knows them (the engine's mathjs instance, which the engine's
+ * entry would load all of the engine to give it).
+ */
+const REACHES_INSIDE: ReadonlyMap<string, string> = new Map([['../tree/lexer.ts', './core/literals.ts']])
+
+/** Where this folder is, from src/: a path from here starts there. */
+const HERE = ['lib', 'engine']
+
+/** A path from here, as one inside the engine (`./core/math.ts`) if it is, so it compares with PUBLIC_FACE; else as it is. */
+function fromEngine(path: string): string {
+  const parts = [...HERE]
+  for (const step of path.split('/')) {
+    if (step === '..') parts.pop()
+    else if (step !== '.') parts.push(step)
+  }
+  return parts[0] === HERE[0] && parts[1] === HERE[1] ? `./${parts.slice(2).join('/')}` : path
+}
+
+/** What a file outside imports of the engine, as paths inside it. */
+const engineImportsOf = (file: string) =>
+  [...(OUTSIDE[file] ?? '').matchAll(IMPORT_PATH)].map((m) => resolve(file, m[1])).filter((p) => p !== undefined)
+    .map(fromEngine).filter((p) => p.startsWith('./'))
+
+describe('the engine, from outside', () => {
+  it('finds the files outside it, and what they import of it', () => {
+    expect(Object.keys(OUTSIDE)).toContain('../../editor/language.ts')
+    expect(Object.keys(OUTSIDE)).toContain('../../components/PreviewPane.tsx')
+    expect(Object.keys(OUTSIDE)).not.toContain('./index.ts')
+    expect(engineImportsOf('../../editor/language.ts')).toContain('./index.ts')
+    expect(engineImportsOf('../../editor/tableMenu.ts')).toContain('./modules/series/index.ts')
+  })
+
+  // The rest of the app uses the engine through its entry, and a module through its
+  // public face, never a module's or the core's own files: so those can change freely.
+  it('is used only through its entry and its modules’ public faces', () => {
+    const inside = Object.keys(OUTSIDE).flatMap((file) => engineImportsOf(file)
+      .filter((p) => !PUBLIC_FACE.test(p) && REACHES_INSIDE.get(file) !== p)
+      .map((p) => `${file} → ${p}`))
+    expect(inside).toEqual([])
   })
 })
 

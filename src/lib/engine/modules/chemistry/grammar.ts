@@ -5,6 +5,7 @@
 import type { ModuleGrammar } from '../../core/module.ts'
 import { BODY_END, CONTENT } from '../../../tree/grammar.ts'
 import { LINE_CONTEXT } from '../../../tree/nodes.ts'
+import { TOKEN_ROLE } from '../../../tree/registry.ts'
 import { token, type LexRule } from '../../../tree/lexer.ts'
 import { REACTION_LINE } from './chemistry.ts'
 import { FORMULA_AT, SPECIES_LINE, SPECIES_OPENER } from './syntax.ts'
@@ -68,13 +69,14 @@ export const CHEM_GRAMMAR: ModuleGrammar = {
   } satisfies Record<(typeof CHEM_NODE)[keyof typeof CHEM_NODE], string>,
   tokenKinds: {
     [CHEM_TOKEN.species]: 'A formula in braces in an expression: the species a value is of (5.00 g {H2O}), or a compound (@chem.substance({H2O}))',
-    [CHEM_TOKEN.formula]: 'A formula in braces in text: {Na^+} in prose or a heading',
+    [CHEM_TOKEN.formula]: 'A formula in braces in text, {Na^+} in prose or a heading; or a reaction on a line of its own',
   } satisfies Record<(typeof CHEM_TOKEN)[keyof typeof CHEM_TOKEN], string>,
   contexts: [{ name: SPECIES_CONTEXT, lineKind: CHEM_NODE.speciesEntry, content: CONTENT.noted }],
   lexRules: [SPECIES_RULE],
   // (After a unit, a species is part of it: `2.0 mol {EDTA}`, mol of EDTA.)
   unitRules: [SPECIES_RULE],
   textRules: [FORMULA_RULE],
+  tokenRoles: { [CHEM_TOKEN.species]: TOKEN_ROLE.formula, [CHEM_TOKEN.formula]: TOKEN_ROLE.formula },
   syntaxes: [
     { kind: CHEM_NODE.speciesLine, contexts: [LINE_CONTEXT.sheet], content: CONTENT.noted, matches: (_, split) => SPECIES_LINE.test(split().body) },
     {
@@ -82,6 +84,10 @@ export const CHEM_GRAMMAR: ModuleGrammar = {
       matches: (_, split) => SPECIES_OPENER.test(split().body),
       opens: { node: CHEM_NODE.species, context: SPECIES_CONTEXT, ends: BODY_END.brace },
     },
-    { kind: CHEM_NODE.reaction, contexts: [LINE_CONTEXT.sheet], content: CONTENT.noted, matches: (_, split) => REACTION_LINE.test(split().body) },
+    // (What a reaction's line says is a formula.)
+    {
+      kind: CHEM_NODE.reaction, contexts: [LINE_CONTEXT.sheet], content: CONTENT.noted, bodyToken: CHEM_TOKEN.formula,
+      matches: (_, split) => REACTION_LINE.test(split().body),
+    },
   ],
 }

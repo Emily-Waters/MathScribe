@@ -1568,7 +1568,7 @@
       }
     },
     "token.formula": {
-      "description": "A formula in braces in text: {Na^+} in prose or a heading (ChemistryModule)",
+      "description": "A formula in braces in text, {Na^+} in prose or a heading; or a reaction on a line of its own (ChemistryModule)",
       "type": "object",
       "required": [
         "t",

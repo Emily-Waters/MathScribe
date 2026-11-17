@@ -8,6 +8,7 @@
  * JSON Schema for checking trees from elsewhere are all made from it.
  */
 import { NODE_KIND, TOKEN_KIND } from './nodes.ts'
+import { words, type WordOf } from '../syntax/patterns.ts'
 
 /** Who declared a kind: the core, or a module by name. */
 export const CORE_OWNER = 'core'
@@ -36,6 +37,25 @@ export const declareNodeKinds = (owner: string, kinds: Record<string, string>) =
 
 /** Declare kinds of token, each with what it is. */
 export const declareTokenKinds = (owner: string, kinds: Record<string, string>) => declare(tokenKinds, 'token', owner, kinds)
+
+/**
+ * What a module's kind of token is, among the sorts of thing a sheet says
+ * (so the editor, or anything else reading a tree, can treat it as one): a
+ * formula (`{H2O}`), or text that's words rather than maths (a plot's settings).
+ */
+export const TOKEN_ROLE = words({ formula: 'formula', text: 'text' })
+export type TokenRole = WordOf<typeof TOKEN_ROLE>
+
+/** The role of each module's kind of token that has one. */
+const tokenRoles = new Map<string, TokenRole>()
+
+/** Declare what a module's kinds of token are (TOKEN_ROLE). */
+export function declareTokenRoles(roles: Readonly<Record<string, TokenRole>>): void {
+  for (const [kind, role] of Object.entries(roles)) tokenRoles.set(kind, role)
+}
+
+/** What a kind of token is, if it's a module's with a role declared. */
+export const tokenRoleOf = (kind: string): TokenRole | undefined => tokenRoles.get(kind)
 
 /** Every kind of node declared, in the order they were. */
 export const declaredNodeKinds = (): readonly KindInfo[] => [...nodeKinds.values()]

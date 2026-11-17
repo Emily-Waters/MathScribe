@@ -16,7 +16,7 @@
 import type { FunctionNode, MathNode } from 'mathjs'
 import type { Values } from './scope.ts'
 import { BUILTINS, type Member } from '../../builtins.ts'
-import { declareNodeKinds, declareTokenKinds } from '../../tree/registry.ts'
+import { declareNodeKinds, declareTokenKinds, declareTokenRoles, type TokenRole } from '../../tree/registry.ts'
 import { declareContexts, declareLineSyntaxes, type ContextInfo, type LineSyntax } from '../../tree/grammar.ts'
 import { declareLexRules, declareUnitRules, type LexRule } from '../../tree/lexer.ts'
 import { declareTextRules, type TextRule } from '../../tree/lines.ts'
@@ -145,6 +145,13 @@ export abstract class LineForm {
   /** When it's offered the line. */
   readonly stage: LineStage = LINE_STAGE.members
 
+  /**
+   * Whether the name it assigns is a namespace for what it makes (`p.slope`
+   * of `p = @plot(…)`, `a.x_1` of a selection), rather than a variable: its
+   * line then defines only what it says it does (LineResult.defines), even nothing.
+   */
+  readonly assignsNamespace: boolean = false
+
   /** The line worked out, if it's this form's; undefined if it isn't. */
   abstract evaluate(line: FormLine, host: ModuleHost): LineResult | undefined
 }
@@ -185,6 +192,8 @@ export interface ModuleGrammar {
   readonly unitRules?: readonly LexRule[]
   /** Its rules for markup in text (lines.ts): `{Na^+}` in prose, a formula. */
   readonly textRules?: readonly TextRule[]
+  /** What its kinds of token are (registry.ts TOKEN_ROLE): a species is a formula. */
+  readonly tokenRoles?: Readonly<Record<string, TokenRole>>
 }
 
 /** A kind of module: its class, by which another module says it needs it. */
@@ -268,6 +277,15 @@ export abstract class EngineModule {
     return text
   }
 
+  /**
+   * What a LaTeX document needs in its preamble for this module's notation, if
+   * its LaTeX (`tex`, the document's body) uses any: lines of the preamble,
+   * a comment then a package (chemistry's formulas, `\ce{…}`, need mhchem).
+   */
+  latexPreamble(_tex: string): string[] {
+    return []
+  }
+
   /** A message with the engine's inside names written as the sheet wrote them. */
   readableMessage(message: string): string {
     return message
@@ -276,8 +294,8 @@ export abstract class EngineModule {
   /** A sentence added to the explanation of units that don't match. */
   readonly unitMismatchNote: string | undefined = undefined
 
-  /** Settings after an assigned name that are this module's (`m:formula = …`). */
-  readonly lineSettings: readonly string[] = []
+  /** Settings after an assigned name that are this module's (`m:formula = …`), each with what it does (for the editor's suggestions). */
+  readonly lineSettings: Readonly<Record<string, string>> = {}
 
   // -------------------------------------------------------------------------
   // Per calculator
@@ -423,6 +441,7 @@ export function installModule(module: EngineModule): void {
     declareLexRules(kind.name, grammar.lexRules ?? [])
     declareUnitRules(kind.name, grammar.unitRules ?? [])
     declareTextRules(kind.name, grammar.textRules ?? [])
+    declareTokenRoles(grammar.tokenRoles ?? {})
   }
   writersByKind = undefined
 }
@@ -458,11 +477,18 @@ export const moduleNameSubscriptTex = (subscript: string, inPath = false) =>
 
 export const markupText = (text: string) => shared().reduce((t, m) => m.markupText(t), text)
 
+/** What a LaTeX document's body needs in its preamble for the modules' notation. */
+export const modulePreamble = (tex: string) => shared().flatMap((m) => m.latexPreamble(tex))
+
 export const moduleReadableMessage = (message: string) => shared().reduce((s, m) => m.readableMessage(s), message)
 
 export const unitMismatchNotes = () => shared().map((m) => m.unitMismatchNote).filter((n) => n !== undefined)
 
-export const isModuleLineSetting = (setting: string) => shared().some((m) => m.lineSettings.includes(setting))
+export const isModuleLineSetting = (setting: string) => shared().some((m) => Object.hasOwn(m.lineSettings, setting))
+
+/** The settings the modules add after a name, each with what it does: `ijk`, `formula`. */
+export const moduleSettingWords = (): { name: string; description: string }[] =>
+  shared().flatMap((m) => Object.entries(m.lineSettings).map(([name, description]) => ({ name, description })))
 
 export const bareTupleHints = (bare: string) => shared().map((m) => m.bareTupleHint(bare)).filter((h) => h !== undefined)
 

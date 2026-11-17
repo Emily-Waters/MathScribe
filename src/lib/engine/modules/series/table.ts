@@ -6,7 +6,7 @@
  * shown. A long table shows its first and last rows.
  */
 import { EXACT } from '../../../maths/sigfigs.ts'
-import { TABLE_LINE, parseTableSettings, splitCallArgs } from '../../../tableSettings.ts'
+import { TABLE_LINE, parseTableSettings, splitCallArgs } from './tableSettings.ts'
 import { splitArgs } from '../../../maths/solve.ts'
 import { LineForm, type FormLine, type ModuleHost } from '../../core/module.ts'
 import type { LineResult } from '../../core/results.ts'

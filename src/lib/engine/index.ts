@@ -22,8 +22,10 @@ export { numberTex, symbolTex, unitTex } from './core/tex.ts'
 export { outsideMaths, wordsTex } from './core/text.ts'
 export { bareTuple } from './core/tuples.ts'
 export { expandNamespaceCalls } from './core/builtinCalls.ts'
-export { EngineModule, LineForm, markupText, moduleSubscriptTex, type ModuleHost } from './core/module.ts'
+export { EngineModule, LineForm, markupText, modulePreamble, moduleSettingWords, moduleSubscriptTex, type ModuleHost } from './core/module.ts'
 export { ChemistryModule, SeriesModule, SolveModule, VectorModule }
+// (A module's public face, what the rest of MathScribe may use of it besides what's here, is its own index.ts:
+// modules/series/index.ts. It's imported from there, not through here, so it needn't load the engine.)
 
 /**
  * The modules MathScribe works a sheet out with, made fresh for each sheet (each

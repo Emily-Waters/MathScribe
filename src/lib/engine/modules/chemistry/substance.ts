@@ -137,6 +137,7 @@ function hasSpecies(value: string, host: ModuleHost): boolean {
  * on its own (shown with how it's worked out).
  */
 export class SubstanceForm extends LineForm {
+  override readonly assignsNamespace = true
   /** (As written: `@chem.substance` isn't a namespace's member to read, nor are its members inside names yet.) */
   override readonly stage = LINE_STAGE.raw
   private readonly substances: Substances

@@ -11,14 +11,10 @@
 import { type EditorState, type Extension } from '@codemirror/state'
 import { Decoration, EditorView, WidgetType } from '@codemirror/view'
 import {
-  TABLE_LINES, formatTableSettings, parseTableSettings, splitCallArgs, withSettingsText,
-  type TableLines, type TableSettings,
-} from '../lib/tableSettings.ts'
-import {
-  PLOT_FITS, PLOT_STYLES, formatPlotSettings, parsePlotSettings,
-  type AxisSettings, type PlotFit, type PlotSettings, type PlotStyle,
-} from '../lib/plotSettings.ts'
-import { SERIES_CALL, SETTINGS_CALL_OPENING as CALL_OPENING, type CallWithSettings as CallKind } from '../lib/engine/modules/series/syntax.ts'
+  PLOT_FITS, PLOT_STYLES, SERIES_CALL, SETTINGS_CALL_OPENING as CALL_OPENING, TABLE_LINES, formatPlotSettings, formatTableSettings,
+  parsePlotSettings, parseTableSettings, splitCallArgs, withSettingsText,
+  type AxisSettings, type CallWithSettings as CallKind, type PlotFit, type PlotSettings, type PlotStyle, type TableLines, type TableSettings,
+} from '../lib/engine/modules/series/index.ts'
 
 /** How each choice reads in the panels. */
 const LINE_NAMES: Record<TableLines, string> = { header: 'Under the header', grid: 'Grid', none: 'None' }

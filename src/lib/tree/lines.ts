@@ -133,7 +133,7 @@ const notedLines = new WeakMap<SyntaxNode, NotedLine>()
 export const notedOf = (node: SyntaxNode): NotedLine | undefined => notedLines.get(node)
 
 /** A line's content as tokens, read as its kind reads it (`noted`: its content read as a noted line, if it was already). */
-function contentTokens(content: string, style: Content, into: Part[], noted?: NotedLine): void {
+function contentTokens(content: string, style: Content, into: Part[], noted?: NotedLine, bodyToken?: string): void {
   if (style === CONTENT.whole) {
     into.push(token(TOKEN_KIND.text, content))
     return
@@ -151,7 +151,9 @@ function contentTokens(content: string, style: Content, into: Part[], noted?: No
     return
   }
   if (style === CONTENT.noted || style === CONTENT.expression || style === CONTENT.opener) {
-    notedTokens(content, into, BODY_READER[style], noted)
+    // (A line whose body is a token of its own kind, a reaction's formula, has it as that.)
+    const body: BodyReader = bodyToken && style === CONTENT.noted ? (text, parts) => spaced(bodyToken, text, parts) : BODY_READER[style]
+    notedTokens(content, into, body, noted)
     return
   }
   const marks = HEADING_MARKS.exec(content)![0]
@@ -284,7 +286,7 @@ function parseLine(line: SourceLine, context: string): ReadLine {
     body = syntax?.opens
     const style = syntax?.content ?? info.content
     if (style === CONTENT.noted || style === CONTENT.expression || style === CONTENT.opener) notedOnce()
-    contentTokens(content, style, parts, noted)
+    contentTokens(content, style, parts, noted, syntax?.bodyToken)
   }
   if (trailing) parts.push(token(TOKEN_KIND.space, trailing))
   if (line.eol) parts.push(token(TOKEN_KIND.eol, line.eol))

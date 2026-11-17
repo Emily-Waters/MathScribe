@@ -15,7 +15,7 @@ import { CHEM_WRITERS } from './writers.ts'
 
 import { isLitCall } from '../../core/tex.ts'
 import { unwrap } from '../../core/nodes.ts'
-import { SpeciesNames, formulaTex, isFormulaSubscript, isNameFormula, isSpeciesUnit, readableSpecies, setSpeciesNames, showSpeciesOnLine, speciesOf, speciesTex, withFormulas } from './chemistry.ts'
+import { SpeciesNames, formulaTex, isFormulaSubscript, isNameFormula, isSpeciesUnit, readableSpecies, setSpeciesNames, showSpeciesOnLine, speciesOf, speciesTex, usesFormulas, withFormulas } from './chemistry.ts'
 import { SPECIES_RATIO_UNIT, isOneMole, isSpeciesCount, speciesOfConstant, speciesProblem, withSpecies, withoutSpecies, withoutSpeciesUnits } from './species.ts'
 import { chemNamespace } from './namespace.ts'
 import { isElement } from './elements.ts'
@@ -24,7 +24,7 @@ import { ReactionForm } from './reaction.ts'
 import { SubstanceForm, Substances } from './substance.ts'
 import { ReactionLineReader, SpeciesReader } from './readers.ts'
 import type { NodeReader, ReadsLines } from '../../../reading/reader.ts'
-import { ANY_SPECIES_FUNCTION, SPECIES_DISPLAYS, SPECIES_FUNCTION, type SpeciesDisplay } from './syntax.ts'
+import { ANY_SPECIES_FUNCTION, SPECIES_DISPLAY, SPECIES_DISPLAYS, SPECIES_FUNCTION, type SpeciesDisplay } from './syntax.ts'
 
 /** Whether a setting on an assigned name says how its line's named species are shown (`m:formula`). */
 const isSpeciesDisplay = (setting: string): setting is SpeciesDisplay => (SPECIES_DISPLAYS as readonly string[]).includes(setting)
@@ -103,13 +103,22 @@ export class ChemistryModule extends EngineModule implements ReadsLines {
     return withFormulas(text)
   }
 
+  /** Formulas, `\ce{…}`, need mhchem. */
+  override latexPreamble(tex: string): string[] {
+    return usesFormulas(tex) ? ['% Chemical formulas, \\ce{…}.', '\\usepackage[version=4]{mhchem}'] : []
+  }
+
   override readableMessage(message: string): string {
     return readableSpecies(message)
   }
 
   override readonly unitMismatchNote = 'That includes amounts of different species (mol {Na^+} and mol {Cl^-}).'
 
-  override readonly lineSettings: readonly string[] = SPECIES_DISPLAYS
+  override readonly lineSettings: Readonly<Record<string, string>> = {
+    [SPECIES_DISPLAY.name]: 'named species on this line shown by their names (dietzeite)',
+    [SPECIES_DISPLAY.formula]: 'named species on this line shown by their formulas',
+  } satisfies Record<SpeciesDisplay, string>
+
 
   // -------------------------------------------------------------------------
   // Per calculator

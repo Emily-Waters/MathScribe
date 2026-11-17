@@ -13,13 +13,13 @@ import { StreamLanguage, foldService, foldedRanges, indentService, type StringSt
 import { tags } from '@lezer/highlight'
 // (The engine installs its modules as it loads: their kinds of line and their rules for expressions are then the tree's.)
 import '../lib/engine/index.ts'
-import { CHEM_NODE, CHEM_TOKEN } from '../lib/engine/modules/chemistry/grammar.ts'
-import { SERIES_TOKEN } from '../lib/engine/modules/series/grammar.ts'
 import {
   INDENT_WIDTH, LATEX_OPENER, COMMENT_START,
   VALUE_BRACES, COMMAND_NAMES, indentOf, isComment,
 } from '../lib/syntax.ts'
-import { LINE_ROLE, NODE_KIND, TOKEN_KIND, TOP, isToken, stepLine, type LineState, type Part, type SyntaxNode } from '../lib/tree/index.ts'
+import {
+  LINE_ROLE, NODE_KIND, TOKEN_KIND, TOKEN_ROLE, TOP, isToken, stepLine, tokenRoleOf, type LineState, type Part, type SyntaxNode, type TokenRole,
+} from '../lib/tree/index.ts'
 import { dataBlocks, foldRange, opensBody, readAs, sheetLine } from './sheetLines.ts'
 import { ROW_PIECE, rowPieces, type RowPiece, type RowPieceKind } from '../lib/data/csv.ts'
 
@@ -61,8 +61,6 @@ const SAYS = {
   latexOpener: 'latexOpener',
   /** A heading's title. */
   heading: 'heading',
-  /** A reaction's formula. */
-  formula: 'formula',
   /** Imported data: numbers, and the column names (with units) in the first row. */
   rows: 'rows',
 } as const
@@ -98,7 +96,6 @@ function saysOf(kind: string, role: string): Says {
     case NODE_KIND.latexLine: return SAYS.latex
     case NODE_KIND.latex:
     case NODE_KIND.latexOpener: return SAYS.latexOpener
-    case CHEM_NODE.reaction: return SAYS.formula
     default: return SAYS.expression
   }
 }
@@ -134,9 +131,19 @@ const EXPRESSION_STYLE: Readonly<Record<string, Token | null>> = {
   [TOKEN_KIND.keyword]: TOKEN.keyword,
   [TOKEN_KIND.string]: TOKEN.text,
   [TOKEN_KIND.unknown]: null,
-  [CHEM_TOKEN.species]: TOKEN.formula,
-  [CHEM_TOKEN.formula]: TOKEN.formula,
-  [SERIES_TOKEN.settings]: TOKEN.text,
+}
+
+/** How a module's kind of token is coloured, by what it is (its role: the tree's registry). */
+const ROLE_STYLE: Readonly<Record<TokenRole, Token>> = {
+  [TOKEN_ROLE.formula]: TOKEN.formula,
+  [TOKEN_ROLE.text]: TOKEN.text,
+}
+
+/** How a kind of token is coloured as an expression's (or a module's, by its role), if it is. */
+const expressionStyleOf = (kind: string): Token | null | undefined => {
+  if (kind in EXPRESSION_STYLE) return EXPRESSION_STYLE[kind]
+  const role = tokenRoleOf(kind)
+  return role === undefined ? undefined : ROLE_STYLE[role]
 }
 
 /** Brackets, among the delimiters (the rest are operators). */
@@ -149,7 +156,7 @@ function expressionStyle(piece: Piece, text: string): Token | null {
     return BRACKETS.test(text) ? TOKEN.bracket : TOKEN.operator
   }
   if (piece.callee) return piece.t === TOKEN_KIND.symbol && piece.defines ? TOKEN.definition : TOKEN.function
-  return EXPRESSION_STYLE[piece.t] ?? null
+  return expressionStyleOf(piece.t) ?? null
 }
 
 /** How each token coloured all at once is coloured: #commands, notes, and a block opener's name, title and brace. */
@@ -173,7 +180,7 @@ function token(stream: StringStream, state: State): Token | null {
   // (Imported data's rows are rows, whatever's in them: a `#` or `//` in one is the file's.)
   const at = state.says === SAYS.rows ? undefined : pieceAt(state.pieces, stream.pos)
   // An expression's token: coloured as it is, all of it at once.
-  if (at && (at.t in EXPRESSION_STYLE || at.t === TOKEN_KIND.delimiter)) {
+  if (at && (expressionStyleOf(at.t) !== undefined || at.t === TOKEN_KIND.delimiter)) {
     const text = stream.string.slice(stream.pos, at.end)
     stream.pos = at.end
     return expressionStyle(at, text)
@@ -211,10 +218,6 @@ function token(stream: StringStream, state: State): Token | null {
       // (After its name and `{`: the LaTeX, on one line.)
       stream.skipToEnd()
       return TOKEN.latex
-    case SAYS.formula:
-      // (A reaction on a line of its own: what it says is its formula.)
-      stream.pos = at?.end ?? stream.string.length
-      return TOKEN.formula
     case SAYS.rows: {
       // (Imported data, as csv.ts reads it: values, and the first row's names and units.)
       const next = state.rowPieces.find((p) => p.end > stream.pos)

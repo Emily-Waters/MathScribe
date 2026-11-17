@@ -1458,7 +1458,7 @@ renamed, change it there too.
   read in one place; `src/lib/maths/mathjsNames.ts`: mathjs's operator and function names
   and the units the engine uses by name
 - Shared values are named once: a word, marker or setting used in more than one
-  place is a constant in one of the modules above (or `tableSettings.ts` for the
+  place is a constant in one of the modules above (or the series module's `tableSettings.ts` for the
   words settings are written with), not repeated as text
 - Kinds come from one definition: every set of tags (a block's kind, a symbol's,
   a display mode, a layout style, …) is a const object, `BLOCK_KIND = { group:
@@ -1489,14 +1489,23 @@ renamed, change it there too.
   `sheetModules()` in `index.ts` lists the modules a sheet is worked out with.
   A module that builds on another says so (`requires`): it's installed after
   it, and may import from it and no other module. The core never imports a
-  module (`boundaries.test.ts` checks both). Each variable is one record (`Variable`: value, sig figs,
+  module (`boundaries.test.ts` checks both). The rest of MathScribe uses the
+  engine only through `index.ts` and a module's public face, its own `index.ts`
+  (`modules/series/index.ts`: what the ⚙ menus and the plot drawing need), never
+  a module's or the core's own files; the same test checks that too. A module
+  adds to what the rest of the app knows through hooks, not by being imported:
+  the LaTeX packages its notation needs (`latexPreamble`), the settings it adds
+  after a name with what each does (`lineSettings`), what its kinds of token are
+  (`ModuleGrammar.tokenRoles`, which the editor colours by), the names its
+  blocks define (`CardBlock.defines`), and whether a line form's name is a
+  namespace (`LineForm.assignsNamespace`). Each variable is one record (`Variable`: value, sig figs,
   uncertainty, how it's shown) in a scope per `{ }` block or function call; each
   scope keeps a series index, and selections and named plots are lookups into the
   variables they pick (`Views`). mathjs sees just the values, through `Values`.
 - `src/lib/data/csv.ts`: reading imported data (columns, units, uncertainty columns);
   `src/editor/dataBlocks.ts`, `dataBlockLines.ts`: an import's rows in the editor
   (row numbers, folding, the table look, moving and deleting them as one)
-- `src/lib/tableSettings.ts`, `plotSettings.ts`: a table's and plot's settings
+- `src/lib/engine/modules/series/tableSettings.ts`, `plotSettings.ts`: a table's and plot's settings
   after the semicolon, read and written; `src/editor/tableMenu.ts`: their ⚙ menus
 - `src/lib/output/plot.ts`: the linear fit, axes, and drawing a plot as SVG;
   `src/lib/output/plotImage.ts`: plots as pictures for the Word export

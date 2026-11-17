@@ -20,6 +20,7 @@ import { speciesUnitName } from './species.ts'
 import { REACTION_DEFINITION } from './syntax.ts'
 
 export class ReactionForm extends LineForm {
+  override readonly assignsNamespace = true
   /** (As written: `@chem.reaction` isn't a namespace's member to read as an inside name.) */
   override readonly stage = LINE_STAGE.raw
   /** The sheet's species names: a named species is a member by its name (r.dietzeite). */

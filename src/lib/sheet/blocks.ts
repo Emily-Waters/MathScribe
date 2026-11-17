@@ -200,8 +200,11 @@ export interface CardEntry extends Noted, Faulted {
   info?: string
 }
 
-/** Each kind of name a sheet defines, as the editor knows them. */
-export const SYMBOL_KIND = words({ variable: 'variable', parameter: 'parameter', function: 'function', constant: 'constant', species: 'species' })
+/**
+ * Each kind of name a sheet defines, as the editor knows them. A `braced` name
+ * is written in braces, `{dietzeite}` (a module's: chemistry's species' names).
+ */
+export const SYMBOL_KIND = words({ variable: 'variable', parameter: 'parameter', function: 'function', constant: 'constant', braced: 'braced' })
 export type SymbolKind = WordOf<typeof SYMBOL_KIND>
 
 /** A name a card's entry defines, usable elsewhere in the sheet (for the editor): `@g`, a species' `{dietzeite}`. */
@@ -210,6 +213,10 @@ export interface DefinedName {
   kind: SymbolKind
   line: number
   tex: string
+  /** What it is, in a sentence, for its hover (a module's name says what it is: `Your species dietzeite, …`). */
+  about?: string
+  /** What it is, in a word or two, beside it in suggestions: `your species`. */
+  detail?: string
 }
 
 /**

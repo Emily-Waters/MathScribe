@@ -6,9 +6,9 @@
  */
 import { STORAGE_KEYS } from '../../config.ts'
 import { isOmitted } from '../sheet/blocks.ts'
+import { modulePreamble } from '../engine/index.ts'
 import { BLOCK_KIND, isContainer, type Block } from '../sheet/blocks.ts'
 import { ALIGN } from './alignment.ts'
-import { usesFormulas } from '../engine/modules/chemistry/chemistry.ts'
 import { readStoredJson, writeStoredJson } from '../data/storage.ts'
 import { escapeTex, fitMacroDefinition, gather, noteMacroDefinition, type Equation } from './latexKit.ts'
 import { constructOf, type LatexOut } from './constructs/index.ts'
@@ -113,14 +113,15 @@ const hasPlot = (blocks: Block[]): boolean => blocks.some((b) =>
 // ---------------------------------------------------------------------------
 
 /** The document's preamble: its class, packages and settings, from the Document options. */
-function preamble(o: LatexOptions, plots = false, formulas = false): string[] {
+function preamble(o: LatexOptions, plots = false, modules: readonly string[] = []): string[] {
   const left = o.align === ALIGN.left
   return [
     `\\documentclass[${[o.fontSize, o.paper, ...(left ? ['fleqn'] : [])].join(',')}]{article}`,
     `\\usepackage[margin=${MARGIN_CM[o.margins]}cm]{geometry}`,
     '\\usepackage{amsmath, amssymb}',
     ...(plots ? ['% Plots.', '\\usepackage{pgfplots}', '\\pgfplotsset{compat=1.18}'] : []),
-    ...(formulas ? ['% Chemical formulas, \\ce{…}.', '\\usepackage[version=4]{mhchem}'] : []),
+    // (What the modules' notation needs: chemistry's formulas, mhchem.)
+    ...modules,
     '% Long runs of equations may break across pages.',
     '\\allowdisplaybreaks',
     ...(o.compact ? [
@@ -167,7 +168,7 @@ export function toLatexDocument(blocks: Block[], options: LatexOptions = DEFAULT
   const body = joinBlocks(blocks, options, FULL_WIDTH)
   return [
     '% Made with MathScribe',
-    ...preamble(options, hasPlot(blocks), usesFormulas(body)),
+    ...preamble(options, hasPlot(blocks), modulePreamble(body)),
     '',
     '\\begin{document}',
     ...(options.title.trim() ? ['\\maketitle'] : []),

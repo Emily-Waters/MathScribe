@@ -1572,7 +1572,9 @@ renamed, change it there too.
 - `src/lib/output/constructs/`: one class per kind of block (a heading, a calculation,
   an `@layout` block, …) that writes its blocks to each export; `layout.ts` has a
   class per layout, `columns.ts` how `@layout.column` splits into columns. The exports ask each block's construct to write it, and the
-  Rendered tab has a component per kind (`BLOCK_VIEWS` in `PreviewPane.tsx`)
+  Rendered tab has a view per kind in `src/components/blocks/`, file for file
+  beside them (`lines.tsx`, `blocks.tsx`, `layout.tsx`; `BLOCK_VIEWS` in `index.tsx`;
+  what they draw with in `shared.tsx`, what the Output pane gives them in `context.ts`)
 - `src/lib/output/latex.ts`: the `.tex` export and its document options, joining up
   what the constructs write; `src/lib/output/latexKit.ts`: the pieces they write with;
   `src/components/ExportDialog.tsx`: the Export dialog (the format, the document

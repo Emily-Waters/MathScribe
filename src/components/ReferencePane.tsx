@@ -4,7 +4,7 @@ import { evaluateSheetSafely } from '../lib/sheet/document.ts'
 import { BUILTIN_CONSTANTS } from '../lib/constants.ts'
 import { REFERENCE } from '../lib/content/reference.ts'
 import { copyText, useFlash } from '../useFlash.ts'
-import { RenderedBlock, Tex } from './PreviewPane.tsx'
+import { RenderedBlock, Tex } from './blocks/index.tsx'
 
 /** The id of the built-in constants list, for the section links. */
 const BUILTINS_ID = 'builtins'

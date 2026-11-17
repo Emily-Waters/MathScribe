@@ -4,7 +4,7 @@ import { evaluateSheetSafely } from '../lib/sheet/document.ts'
 import { symbolTex } from '../lib/engine/index.ts'
 import { LIBRARY, searchLibrary, type LibraryEntry } from '../lib/content/library.ts'
 import { copyText, useFlash } from '../useFlash.ts'
-import { RenderedBlock, Tex } from './PreviewPane.tsx'
+import { RenderedBlock, Tex } from './blocks/index.tsx'
 import { SectionLinks } from './ReferencePane.tsx'
 
 interface LibraryPaneProps {

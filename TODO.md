@@ -596,7 +596,17 @@ edit reads again only what it changed, and nodes are shared between trees.
            outside the engine, only `engine/index.ts` and a module's `index.ts`
            may be imported (one exception, documented: the tree's lexer reads
            mathjs's units from `core/literals.ts`).
-      3. [ ] One view per block kind, in `components/blocks/`, beside the constructs.
+      3. [x] One view per block kind, in `components/blocks/`, beside the constructs.
+         Resolved: `PreviewPane.tsx` (440 lines) is now just the Output pane
+         (90). The views are in `components/blocks/`, file for file as the
+         constructs are in `lib/output/constructs/`: `lines.tsx` (heading,
+         text, LaTeX, gap, calculation), `blocks.tsx` (card, import, `{ }`
+         block), `layout.tsx`, and `index.tsx` with `BLOCK_VIEWS` and
+         `RenderedBlock`; `shared.tsx` has what they draw with (`Tex`,
+         `Title`, messages), and `context.ts` what the pane gives them (the
+         line link, line numbers, removing an import), kept apart so editing
+         a view reloads in place. `hasError` moved to `blocks.ts`, by the block
+         types; `ImportSummary` folded into `ImportView`.
       4. [ ] The Calculator's concerns into collaborators, and a line read as a
          pipeline of token stages (modules add stages); EngineModule's hooks
          grouped into interfaces a module opts into.

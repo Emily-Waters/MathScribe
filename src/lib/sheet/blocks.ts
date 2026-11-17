@@ -286,3 +286,9 @@ export function listItems(children: Block[]): { item: Block; subs: Block[] }[] {
   }
   return items
 }
+
+/** Whether a block, or anything inside it, has an error (so a hidden block still shows it). */
+export const hasError = (b: Block): boolean =>
+  ((b.kind === BLOCK_KIND.calc || b.kind === BLOCK_KIND.import) && !!b.error)
+  || (b.kind === BLOCK_KIND.card && (!!b.error || b.entries.some((e) => e.error)))
+  || (isContainer(b) && (!!b.error || b.children.some(hasError)))

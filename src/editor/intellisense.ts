@@ -28,7 +28,7 @@ import { isNamespaceConstant, type BuiltinConstant, type NamespaceConstant } fro
 import {
   BUILTINS, BlockMember, ConstantMember, FunctionMember, Namespace as BuiltinNamespace, type Member,
 } from '../lib/builtins.ts'
-import { SYMBOL_KIND, type SheetSymbol } from '../lib/document.ts'
+import { SYMBOL_KIND, type SheetSymbol } from '../lib/sheetIndex.ts'
 import { describeUnit, isUnitName, numberTex, symbolTex, unitNames, unitTex } from '../lib/engine/index.ts'
 import { STORAGE_KEYS } from '../config.ts'
 import { readStored, writeStored } from '../lib/storage.ts'

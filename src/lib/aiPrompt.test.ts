@@ -1,7 +1,7 @@
 /** Create: the prompt's rules hold (their examples evaluate), and an answer reads back as a sheet. */
 import { describe, expect, it } from 'vitest'
 import { lines, sheet } from '../test/helpers.ts'
-import { collectDiagnostics } from './document.ts'
+import { collectDiagnostics } from './sheetIndex.ts'
 import {
   CREATE_KINDS, CREATE_KIND_INFO, EXAMPLE_SHEET, PRIMER, SNIPPETS, buildPrompt, defaultChoices, sheetFromAnswer, sheetName,
 } from './aiPrompt.ts'

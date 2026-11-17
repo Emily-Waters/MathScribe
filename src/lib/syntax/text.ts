@@ -39,3 +39,16 @@ export const VALUE_IN_TEXT = regex(src`\{\{${named('value', '[^{}]+')}\}\}`, 'g'
 
 /** Inline maths in text, `$x^2$` (a `{{` in it is the maths's, not a value). */
 export const INLINE_MATHS = /\$[^$]*\$/
+
+/** Inline maths with something in it, kept as a piece when text is split at it. */
+const INLINE_MATHS_PIECE = /(\$[^$]+\$)/
+
+/** Text split into its inline maths, `$…$` (without the dollars), and the plain text between. */
+export function splitInlineMath(text: string): { math: boolean; value: string }[] {
+  return text
+    .split(INLINE_MATHS_PIECE)
+    .filter(Boolean)
+    .map((s) => (s.length > 2 && s.startsWith('$') && s.endsWith('$')
+      ? { math: true, value: s.slice(1, -1) }
+      : { math: false, value: s }))
+}

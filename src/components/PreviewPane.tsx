@@ -1,14 +1,15 @@
 import katex from '../lib/katex.ts'
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react'
+import type { Sheet } from '../lib/document.ts'
+import { DIAGNOSTIC_KIND, lineNumbering, type DiagnosticKind } from '../lib/sheetIndex.ts'
+import { TITLE_SEGMENT, titleSegments } from '../lib/textSegments.ts'
+import { columnParts } from '../lib/constructs/columns.ts'
 import {
-  DIAGNOSTIC_KIND, TITLE_SEGMENT, columnParts, lineNumbering, listItems, splitInlineMath, titleSegments, type DiagnosticKind, type Sheet,
-} from '../lib/document.ts'
-import {
-  BLOCK_KIND, HEADING_LEVEL, isContainer, type Block, type BlockKind, type CalcBlock, type ConstantsBlock, type GroupBlock,
+  BLOCK_KIND, HEADING_LEVEL, isContainer, listItems, type Block, type BlockKind, type CalcBlock, type ConstantsBlock, type GroupBlock,
   type HeadingBlock, type HeadingLevel, type ImportBlock, type LatexBlock, type LayoutBlock, type SpeciesBlock, type TextBlock,
 } from '../lib/blocks.ts'
 import { speciesEntryTex } from '../lib/constructs/blocks.ts'
-import { LAYOUT_STYLE, LINE_COMMAND } from '../lib/syntax.ts'
+import { LAYOUT_STYLE, LINE_COMMAND, splitInlineMath } from '../lib/syntax.ts'
 import { symbolTex, unitTex, type CalcOptions } from '../lib/engine/index.ts'
 import { THEME_PALETTE, plotSvg, type PlotData } from '../lib/plot.ts'
 import { ReferencePane } from './ReferencePane.tsx'

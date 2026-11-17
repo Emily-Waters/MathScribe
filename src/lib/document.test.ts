@@ -4,9 +4,8 @@
  * symbols).
  */
 import { describe, expect, it } from 'vitest'
-import {
-  DIAGNOSTIC_KIND, SYMBOL_KIND, TITLE_SEGMENT, collectDefinitions, collectDiagnostics, collectSymbols, titleSegments,
-} from './document.ts'
+import { DIAGNOSTIC_KIND, SYMBOL_KIND, collectDefinitions, collectDiagnostics, collectSymbols } from './sheetIndex.ts'
+import { TITLE_SEGMENT, titleSegments } from './textSegments.ts'
 import { LAYOUT_STYLE } from './syntax.ts'
 import { BLOCK_KIND, HEADING_LEVEL, type Block, type LayoutBlock } from './blocks.ts'
 import { last, lines, sheet } from '../test/helpers.ts'

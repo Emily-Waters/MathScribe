@@ -3,8 +3,8 @@
  * lines are arranged in each export. A block with no layout (`@layout.val { }`,
  * only display settings) keeps its lines as they are.
  */
-import { BLOCK_KIND, type Block, type LayoutBlock } from '../blocks.ts'
-import { columnParts, listItems } from '../document.ts'
+import { BLOCK_KIND, listItems, type Block, type LayoutBlock } from '../blocks.ts'
+import { columnParts } from './columns.ts'
 import { LAYOUT_STYLE, LAYOUT_SYNTAX, LINE_COMMAND, type LayoutStyle } from '../syntax.ts'
 import { ALIGN } from '../alignment.ts'
 import { errorComment, heading as latexHeading, titleToLatex } from '../latexKit.ts'

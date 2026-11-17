@@ -5,7 +5,7 @@
  * options for the page and the look.
  */
 import { STORAGE_KEYS } from '../config.ts'
-import { isOmitted } from './document.ts'
+import { isOmitted } from './blocks.ts'
 import { BLOCK_KIND, isContainer, type Block } from './blocks.ts'
 import { ALIGN } from './alignment.ts'
 import { usesFormulas } from './engine/modules/chemistry/chemistry.ts'

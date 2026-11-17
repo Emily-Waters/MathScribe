@@ -9,7 +9,7 @@
  * become Google Docs equations.
  */
 import { strToU8, zipSync } from 'fflate'
-import { isOmitted } from './document.ts'
+import { isOmitted } from './blocks.ts'
 import { BLOCK_KIND, type Block } from './blocks.ts'
 import { ALIGN } from './alignment.ts'
 import { MARGIN_CM, type LatexOptions } from './latex.ts'

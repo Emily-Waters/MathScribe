@@ -8,7 +8,7 @@
  *   row 3 is the row whose values are t_3, x_3, …. The header row shows a dash.
  * - They count as part of the import's line, so the sheet's numbering goes on
  *   from it: after a 27-row import on line 1 comes line 2. (The output's
- *   messages are numbered the same way; see lineNumbering in document.ts.)
+ *   messages are numbered the same way; see lineNumbering in sheetIndex.ts.)
  * - They look like a table: the header in bold, the commas faint, the rows on
  *   a shaded band.
  */

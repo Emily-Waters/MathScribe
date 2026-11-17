@@ -4,7 +4,7 @@
  * none of them knows about blocks, so a construct can use them without the
  * export (latex.ts) being involved.
  */
-import { TITLE_SEGMENT, titleSegments } from './document.ts'
+import { TITLE_SEGMENT, titleSegments } from './textSegments.ts'
 import { GREEK_BY_CHAR } from './syntax.ts'
 import { symbolTex, unitTex } from './engine/index.ts'
 import type { PlotData, PlotName } from './plot.ts'

@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { BLOCK_KIND, type Block, type LayoutBlock } from './blocks.ts'
-import { columnGrid, columnParts } from './document.ts'
+import { columnGrid, columnParts } from './constructs/columns.ts'
 import { DEFAULT_LATEX_OPTIONS, toLatexDocument } from './latex.ts'
 import { docxParts } from './docx.ts'
 import { LAYOUT_SYNTAX } from './syntax.ts'

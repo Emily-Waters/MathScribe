@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest'
 import { last, lines, sheet, value } from '../test/helpers.ts'
 import { symbolTex } from './engine/index.ts'
-import { collectSymbols } from './document.ts'
+import { collectSymbols } from './sheetIndex.ts'
 import type { ImportBlock } from './blocks.ts'
 import { expandDots, parseMemberName, readableMembers } from './names.ts'
 

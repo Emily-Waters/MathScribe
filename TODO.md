@@ -451,7 +451,7 @@ edit reads again only what it changed, and nodes are shared between trees.
       1. [x] Dead exports out of `syntax.ts` (`LEADING_NAME`, `UNPACK_SO_FAR`,
          `CONSTANT_TOKEN`, `NAMESPACE_CALL_TOKEN`, the `Namespace` type); ones
          used only inside it no longer exported (`SETTING`, `opening`, `NOTATION`).
-      2. [ ] A pattern builder (named groups) and a word-list helper; `syntax.ts`
+      2. [x] A pattern builder (named groups) and a word-list helper; `syntax.ts`
          split into `syntax/` by concept, `@layout` as one `LayoutSyntax` class;
          `document.ts` down to evaluation (block queries by the block types,
          columns in `constructs/layout.ts`, editor services in `sheetIndex.ts`).
@@ -464,6 +464,14 @@ edit reads again only what it changed, and nodes are shared between trees.
          named and read as `.groups`; the plural lists (`DISPLAY_MODES`,
          `NOTATIONS`, …) are each list's `.words`. `reading/lineSyntax.ts` keeps
          only the constant declaration and the imported-data cache.
+         Resolved, `document.ts` half: it's now only the evaluation entry
+         points. `isOmitted` and `listItems` are in `blocks.ts`, by the block
+         types; `splitInlineMath` in `syntax/text.ts`; `titleSegments` in
+         `textSegments.ts` (not syntax/, since it asks the engine's modules how
+         to draw a subscript); the column grid in `constructs/columns.ts`
+         (shared by the app and both exports); symbols, definitions,
+         diagnostics and line numbering in `sheetIndex.ts`. The two kits
+         (`latexKit.ts`, `docxKit.ts`) no longer import the sheet reader.
       3. [ ] The tree tokenizes once what's now re-read: #commands and notes
          (`tree/lines.ts` and `splitNote`), block openers (`tree/core.ts`,
          `reading/lineSyntax.ts`, the editor), text markup (`$…$`, `{formula}`,

@@ -5,7 +5,7 @@ import { BLOCK_KIND, type Block } from '../../../blocks.ts'
 import { DEFAULT_LATEX_OPTIONS, toLatexDocument } from '../../../latex.ts'
 import { docxParts } from '../../../docx.ts'
 import { formulaTex, withFormulas } from './chemistry.ts'
-import { SYMBOL_KIND, collectSymbols } from '../../../document.ts'
+import { SYMBOL_KIND, collectSymbols } from '../../../sheetIndex.ts'
 
 const blocksOf = (source: string, kind: Block['kind']) => sheet(source).blocks.filter((b) => b.kind === kind)
 

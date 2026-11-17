@@ -1,5 +1,5 @@
 /**
- * The blocks a sheet is read into (see document.ts, which reads them): what
+ * The blocks a sheet is read into (see reading/, which reads them): what
  * each kind is, and what each holds. Every block has a kind from BLOCK_KIND and
  * the line it starts on (BlockBase); the rest is built from small shared parts,
  * so what's common is written once:
@@ -11,7 +11,7 @@
  */
 import type { DataColumn, Definition, TraceLine } from './engine/index.ts'
 import type { VariableSummary } from './values.ts'
-import type { LayoutStyle, LineCommand, Notation } from './syntax.ts'
+import { LINE_COMMAND, type LayoutStyle, type LineCommand, type Notation } from './syntax.ts'
 import type { SpeciesDisplay } from './engine/modules/chemistry/syntax.ts'
 import type { PlotData } from './plot.ts'
 
@@ -256,3 +256,25 @@ export type Block =
 /** Whether a block holds others (a `{ }` block or a layout block). */
 export const isContainer = (b: Block): b is GroupBlock | LayoutBlock =>
   b.kind === BLOCK_KIND.group || b.kind === BLOCK_KIND.layout
+
+/** Whether a block is left out of the output (and so isn't a list item). */
+export function isOmitted(b: Block): boolean {
+  // Spacers, and imported data, which only defines variables.
+  if (b.kind === BLOCK_KIND.spacer || b.kind === BLOCK_KIND.import) return true
+  if (b.kind === BLOCK_KIND.calc || b.kind === BLOCK_KIND.constants || b.kind === BLOCK_KIND.species) {
+    return !!b.hidden && !b.error
+  }
+  if (isContainer(b)) return b.command === LINE_COMMAND.hide && !b.error
+  return false
+}
+
+/** A list block's items, each with the sub-lists indented under it. */
+export function listItems(children: Block[]): { item: Block; subs: Block[] }[] {
+  const items: { item: Block; subs: Block[] }[] = []
+  for (const c of children) {
+    if (isOmitted(c)) continue
+    if (c.kind === BLOCK_KIND.layout && c.nested && items.length) items.at(-1)!.subs.push(c)
+    else items.push({ item: c, subs: [] })
+  }
+  return items
+}

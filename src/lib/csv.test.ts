@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest'
 import { alignColumns, parseCsv, withImportedData, withoutImport } from './csv.ts'
 import { lines, sheet, value } from '../test/helpers.ts'
-import { lineNumbering } from './document.ts'
+import { lineNumbering } from './sheetIndex.ts'
 import type { ImportBlock } from './blocks.ts'
 
 describe('parseCsv', () => {

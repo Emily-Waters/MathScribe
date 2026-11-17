@@ -5,7 +5,7 @@
  * of them knows about blocks, so a construct can use them without the export
  * (docx.ts) being involved.
  */
-import { TITLE_SEGMENT, titleSegments } from './document.ts'
+import { TITLE_SEGMENT, titleSegments } from './textSegments.ts'
 import { ALIGN, type Align } from './alignment.ts'
 import type { LatexOptions } from './latex.ts'
 import { PLOT_SIZE, type PlotData } from './plot.ts'

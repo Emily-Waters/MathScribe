@@ -1,7 +1,8 @@
 /** Awkward and malformed sheets: each gives errors on its lines, never an exception. */
 import { describe, expect, it } from 'vitest'
 import { sheet } from '../test/helpers.ts'
-import { collectDefinitions, collectDiagnostics, collectSymbols, evaluateSheetSafely, lineNumbering } from './document.ts'
+import { evaluateSheetSafely } from './document.ts'
+import { collectDefinitions, collectDiagnostics, collectSymbols, lineNumbering } from './sheetIndex.ts'
 import { DEFAULT_LATEX_OPTIONS, toLatexDocument } from './latex.ts'
 import { docxParts } from './docx.ts'
 import { EXAMPLE_CALC_OPTIONS } from '../config.ts'

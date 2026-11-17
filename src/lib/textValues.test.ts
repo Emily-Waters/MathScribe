@@ -1,7 +1,7 @@
 /** Comments (`// …`), and values in text (`{{c_Na}}`). */
 import { describe, expect, it } from 'vitest'
 import { lines, sheet } from '../test/helpers.ts'
-import { collectDiagnostics } from './document.ts'
+import { collectDiagnostics } from './sheetIndex.ts'
 import { BLOCK_KIND, isContainer, type Block } from './blocks.ts'
 import { toLatexDocument, DEFAULT_LATEX_OPTIONS } from './latex.ts'
 import { docxParts } from './docx.ts'

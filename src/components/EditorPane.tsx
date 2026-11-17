@@ -9,7 +9,7 @@ import {
   bracketMatching, codeFolding, foldGutter, foldKeymap, indentOnInput, indentUnit, syntaxHighlighting,
 } from '@codemirror/language'
 import { highlightSelectionMatches, search, searchKeymap } from '@codemirror/search'
-import type { Diagnostic, SheetSymbol } from '../lib/document.ts'
+import type { Diagnostic, SheetSymbol } from '../lib/sheetIndex.ts'
 import { INDENT } from '../lib/syntax.ts'
 import { mathscribeFolding, mathscribeIndent, mathscribeLanguage } from '../editor/language.ts'
 import { SYNTAX_TOKENS, mathscribeHighlight, type Palette, type SyntaxThemeId } from '../editor/themes.ts'

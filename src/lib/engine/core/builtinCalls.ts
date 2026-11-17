@@ -1,8 +1,8 @@
 /** Calls to built-in functions (`@tuple(…)`, `@chem.mm(…)`), written out as what they stand for. */
 import { FunctionMember, builtinAt, builtinFunction } from '../../builtins.ts'
 import { NAME } from '../../syntax.ts'
-import { JOIN, constantKey } from '../../names.ts'
-import { matchingParen } from '../../solve.ts'
+import { JOIN, constantKey } from '../../sheet/names.ts'
+import { matchingParen } from '../../maths/solve.ts'
 
 /**
  * A call to a built-in function, `@tuple(`, or one in a namespace, `@chem.mm(`,

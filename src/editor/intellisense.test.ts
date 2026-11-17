@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest'
 import { EditorState } from '@codemirror/state'
 import { CompletionContext } from '@codemirror/autocomplete'
 import { complete, intellisense, setSymbols } from './intellisense.ts'
-import { collectSymbols } from '../lib/sheetIndex.ts'
+import { collectSymbols } from '../lib/sheet/sheetIndex.ts'
 import { sheet } from '../test/helpers.ts'
 
 const SOURCE = [

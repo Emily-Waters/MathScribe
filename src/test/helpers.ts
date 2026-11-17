@@ -3,10 +3,10 @@
  * engine's LaTeX into short readable text, so a test can say
  * `expect(value('F = 2.00 kg * 9.81 m/s^2')).toBe('19.6 N')`.
  */
-import { evaluateSheet, type Sheet } from '../lib/document.ts'
-import { BLOCK_KIND, isContainer, type Block } from '../lib/blocks.ts'
+import { evaluateSheet, type Sheet } from '../lib/sheet/document.ts'
+import { BLOCK_KIND, isContainer, type Block } from '../lib/sheet/blocks.ts'
 import type { CalcOptions } from '../lib/engine/index.ts'
-import type { PlotData } from '../lib/plot.ts'
+import type { PlotData } from '../lib/output/plot.ts'
 import { EXAMPLE_CALC_OPTIONS } from '../config.ts'
 
 /** The settings tests evaluate with. */

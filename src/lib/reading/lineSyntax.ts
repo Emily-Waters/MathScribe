@@ -3,8 +3,8 @@
  * sheet-wide constant declaration, and imported data's rows.
  */
 import { CONSTANT_DECLARATION } from '../syntax.ts'
-import { constantKey } from '../names.ts'
-import { parseCsv, type CsvData } from '../csv.ts'
+import { constantKey } from '../sheet/names.ts'
+import { parseCsv, type CsvData } from '../data/csv.ts'
 
 // ---------------------------------------------------------------------------
 // Sheet-wide constant declarations

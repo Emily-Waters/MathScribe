@@ -4,7 +4,7 @@
  * line of its own (`{2 H2 + O2 -> 2 H2O}`). See ReadsLines.
  */
 import { BLOCK_CLOSE, LINE_COMMAND, SIGIL } from '../../../syntax.ts'
-import { BLOCK_KIND, type SpeciesBlock, type SpeciesEntry } from '../../../blocks.ts'
+import { BLOCK_KIND, type SpeciesBlock, type SpeciesEntry } from '../../../sheet/blocks.ts'
 import { NodeReader, SheetWideReader, bodyLines, type TreeItem } from '../../../reading/reader.ts'
 import type { SheetReader } from '../../../reading/sheetReader.ts'
 import { REACTION_LINE, formulaTex, setSpeciesNames, type SpeciesNames } from './chemistry.ts'

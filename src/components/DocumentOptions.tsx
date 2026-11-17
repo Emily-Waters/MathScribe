@@ -1,5 +1,5 @@
-import { DEFAULT_LATEX_OPTIONS, MARGIN_CM, type LatexOptions } from '../lib/latex.ts'
-import { ALIGN } from '../lib/alignment.ts'
+import { DEFAULT_LATEX_OPTIONS, MARGIN_CM, type LatexOptions } from '../lib/output/latex.ts'
+import { ALIGN } from '../lib/output/alignment.ts'
 
 interface DocumentOptionsProps {
   options: LatexOptions

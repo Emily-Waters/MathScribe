@@ -3,7 +3,7 @@
  * the settings on a name that show one with unit vectors (`F:ijk`) or break it
  * into components (`F:xyz`), and how it's drawn.
  */
-import { builtinFunctionName } from '../../../names.ts'
+import { builtinFunctionName } from '../../../sheet/names.ts'
 
 /** A vector typed with its function: `@vector(3.0, 4.0) N`, the same as `<3.0, 4.0> N`. */
 export const VECTOR_CALL = 'vector'

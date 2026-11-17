@@ -540,6 +540,38 @@ edit reads again only what it changed, and nodes are shared between trees.
       Then: a codebase-wide audit of which patterns are working, toward one
       harmonious structure.
 
+- [ ] **One harmonious structure** (2026-11-17, from the codebase-wide audit).
+      Working, to spread: a base class per kind in a typed table (Construct,
+      NodeReader, Member, LineForm, EngineModule); the tree's registry, which
+      modules add to as data; the boundary test; syntax/. Not working: modules
+      leak outside the engine (chemistry's species block, construct and view
+      are core; latex.ts, sheetIndex.ts and the editor import module
+      internals); the Calculator holds six concerns and evaluates a line as a
+      chain of text rewrites, each lexing again; EngineModule has ~30 hooks,
+      some for one module only; src/lib's root was a grab bag; the Rendered
+      tab's views live apart from the constructs; the editor's suggestions
+      parse the half-typed line with regexes of their own; constants are
+      written two ways. Steps, each behaviour-neutral and checked in:
+      1. [x] Folders: `src/lib/` by purpose: `sheet/` (blocks, document,
+         sheetIndex, values, names), `output/` (latex, docx, their kits, omml,
+         katex, plot, plotImage, textSegments, alignment, `constructs/`),
+         `content/` (library, reference, sample, aiPrompt), `data/` (csv,
+         files, storage), `maths/` (sigfigs, solve, brackets, mathjsNames),
+         beside `syntax/`, `tree/`, `reading/`, `engine/`. Tests moved with
+         their subjects; the cross-cutting ones (golden, engine, robustness, …)
+         stay at the top. Imports rewritten by path, so nothing else changed.
+      2. [ ] Module extension points (block kinds with construct and view,
+         editor token styles, vocabulary, symbols, LaTeX packages), so
+         chemistry, series and vectors stop leaking; the boundary test over
+         all of src/. `plotSettings.ts`, `tableSettings.ts` into the series module.
+      3. [ ] One view per block kind, in `components/blocks/`, beside the constructs.
+      4. [ ] The Calculator's concerns into collaborators, and a line read as a
+         pipeline of token stages (modules add stages); EngineModule's hooks
+         grouped into interfaces a module opts into.
+      5. [ ] The editor's suggestions from the tokens of the half-typed line.
+      6. [ ] Constants as `words()`, patterns with `src`/`named`, file by file
+         as each is touched.
+
 ## Done
 
 - [x] **`@layout.column(n)`** (2026-11-16): lines side by side in columns. As

@@ -22,9 +22,9 @@
  */
 import { DISPLAY_MODE, MEMBER_DOT, NAME, NUMBER, SIGIL } from '../../../syntax.ts'
 import type { Unit } from 'mathjs'
-import { JOIN, memberName } from '../../../names.ts'
+import { JOIN, memberName } from '../../../sheet/names.ts'
 import { expandDots } from '../../core/memberAccess.ts'
-import { UNIT } from '../../../mathjsNames.ts'
+import { UNIT } from '../../../maths/mathjsNames.ts'
 import { lexExpression } from '../../../tree/lexer.ts'
 import { NODE_KIND, isToken } from '../../../tree/nodes.ts'
 import { math } from '../../core/math.ts'

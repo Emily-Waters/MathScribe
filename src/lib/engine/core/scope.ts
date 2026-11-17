@@ -1,8 +1,8 @@
 /** Scopes: the variables visible on a line, as the engine and mathjs see them. */
-import { EXACT } from '../../sigfigs.ts'
-import { Variable } from '../../values.ts'
+import { EXACT } from '../../maths/sigfigs.ts'
+import { Variable } from '../../sheet/values.ts'
 import { GREEK_CHARS, SUBSCRIPT } from '../../syntax.ts'
-import { JOIN, parseMemberName, parseNumberedName, seriesMemberName } from '../../names.ts'
+import { JOIN, parseMemberName, parseNumberedName, seriesMemberName } from '../../sheet/names.ts'
 
 // ---------------------------------------------------------------------------
 // Evaluation

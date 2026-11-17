@@ -3,7 +3,7 @@
  * layout, an arrangement, display settings), and LayoutSyntax, which reads and
  * writes their openers.
  */
-import type { BlockSettings, Columns, LayoutBlock } from '../blocks.ts'
+import type { BlockSettings, Columns, LayoutBlock } from '../sheet/blocks.ts'
 import { DISPLAY_MODE, LINE_COMMAND, LINE_LAYOUT, MULTILINE, type DisplayMode } from './commands.ts'
 import { MEMBER_DOT, NAME, NAME_CHAR, NAMESPACE, SIGIL } from './lexical.ts'
 import { NOTATION, type Notation } from './settings.ts'

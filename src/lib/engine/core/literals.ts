@@ -1,6 +1,6 @@
 /** Unit literals (`9.81 m/s^2` as a number times a unit) and numbers kept as typed. */
 import { NAME, NAME_CHAR, KEYWORD } from '../../syntax.ts'
-import { MATHJS_IN } from '../../mathjsNames.ts'
+import { MATHJS_IN } from '../../maths/mathjsNames.ts'
 import { math } from './math.ts'
 import { DERIVED_UNITS } from './normalise.ts'
 import { MESSAGE_DIGITS } from './numbers.ts'

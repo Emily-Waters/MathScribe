@@ -8,8 +8,8 @@
  * quadratic's two solutions, the first is used.)
  */
 import { isSymbolNode, type MathNode } from 'mathjs'
-import { OP, OP_SYMBOL } from '../../../mathjsNames.ts'
-import { Solver, contains, countOccurrences, splitArgs, splitEquation } from '../../../solve.ts'
+import { OP, OP_SYMBOL } from '../../../maths/mathjsNames.ts'
+import { Solver, contains, countOccurrences, splitArgs, splitEquation } from '../../../maths/solve.ts'
 import { math } from '../../core/math.ts'
 import { typedNumbers } from '../../core/writer.ts'
 import { LineForm, type FormLine, type ModuleHost } from '../../core/module.ts'

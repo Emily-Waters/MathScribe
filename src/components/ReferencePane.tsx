@@ -1,8 +1,8 @@
 import { useMemo, useRef, type RefObject } from 'react'
 import { EXAMPLE_CALC_OPTIONS } from '../config.ts'
-import { evaluateSheetSafely } from '../lib/document.ts'
+import { evaluateSheetSafely } from '../lib/sheet/document.ts'
 import { BUILTIN_CONSTANTS } from '../lib/constants.ts'
-import { REFERENCE } from '../lib/reference.ts'
+import { REFERENCE } from '../lib/content/reference.ts'
 import { copyText, useFlash } from '../useFlash.ts'
 import { RenderedBlock, Tex } from './PreviewPane.tsx'
 

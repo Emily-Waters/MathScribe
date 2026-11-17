@@ -6,7 +6,7 @@
 import { lexExpression } from '../../tree/lexer.ts'
 import { NODE_KIND, TOKEN_KIND, isToken, type Part, type Token } from '../../tree/nodes.ts'
 import { MEMBER_DOT, SIGIL } from '../../syntax.ts'
-import { JOIN, RESERVED_NAMESPACES, memberName } from '../../names.ts'
+import { JOIN, RESERVED_NAMESPACES, memberName } from '../../sheet/names.ts'
 
 /** A token of a line, and whether it's what a call calls (`f` in `f(x)`, `@chem.mm` in `@chem.mm({H2O})`). */
 export interface LineToken {

@@ -4,7 +4,7 @@
  * own syntax is in src/lib/syntax.ts, which this builds on.)
  */
 import { NAME, named, regex, src } from '../../../syntax.ts'
-import { memberName } from '../../../names.ts'
+import { memberName } from '../../../sheet/names.ts'
 
 /**
  * A formula in text, `{Na^+}`: single braces, not a value's `{{…}}`, nor a

@@ -4,10 +4,10 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { STORAGE_KEYS } from '../config.ts'
-import type { Block } from '../lib/blocks.ts'
-import { downloadFile, splitExtension } from '../lib/files.ts'
-import { loadLatexOptions, saveLatexOptions, toLatexDocument, type LatexOptions } from '../lib/latex.ts'
-import { readStored, writeStored } from '../lib/storage.ts'
+import type { Block } from '../lib/sheet/blocks.ts'
+import { downloadFile, splitExtension } from '../lib/data/files.ts'
+import { loadLatexOptions, saveLatexOptions, toLatexDocument, type LatexOptions } from '../lib/output/latex.ts'
+import { readStored, writeStored } from '../lib/data/storage.ts'
 import { copyText, useFlash } from '../useFlash.ts'
 import { DocumentOptions } from './DocumentOptions.tsx'
 
@@ -81,7 +81,7 @@ export function ExportDialog({ open, onClose, blocks, fileName }: Props) {
     setBusy(true)
     try {
       // The Word writer loads only when it's first used.
-      const [{ toDocx, DOCX_TYPE }, { plotImages }] = await Promise.all([import('../lib/docx.ts'), import('../lib/plotImage.ts')])
+      const [{ toDocx, DOCX_TYPE }, { plotImages }] = await Promise.all([import('../lib/output/docx.ts'), import('../lib/output/plotImage.ts')])
       const images = await plotImages(blocks)
       downloadFile(`${fileStem}${info.extension}`, toDocx(blocks, options, images) as Uint8Array<ArrayBuffer>, DOCX_TYPE)
     } catch (e) {

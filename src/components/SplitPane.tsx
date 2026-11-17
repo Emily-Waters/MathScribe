@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react'
 import { SPLIT, STORAGE_KEYS } from '../config.ts'
-import { readStored, writeStored } from '../lib/storage.ts'
+import { readStored, writeStored } from '../lib/data/storage.ts'
 
 /** Keep the divider within its limits. */
 const clamp = (v: number) => Math.min(SPLIT.max, Math.max(SPLIT.min, v))

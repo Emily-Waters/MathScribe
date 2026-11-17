@@ -1,7 +1,7 @@
 /** The schema, described: the listing (introspect) and the JSON Schema, made from what's declared. */
 import { describe, expect, it } from 'vitest'
-import { SAMPLE } from '../sample.ts'
-import { REFERENCE } from '../reference.ts'
+import { SAMPLE } from '../content/sample.ts'
+import { REFERENCE } from '../content/reference.ts'
 // (The engine installs its modules as it loads: their kinds are then the schema's.)
 import '../engine/index.ts'
 import { CHEM_NODE } from '../engine/modules/chemistry/grammar.ts'

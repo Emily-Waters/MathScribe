@@ -1,6 +1,6 @@
 /** Questions about expression trees: brackets, literals, conversions. */
 import { isConstantNode, isFunctionNode, isOperatorNode, isParenthesisNode, type MathNode } from 'mathjs'
-import { OP, isOp } from '../../mathjsNames.ts'
+import { OP, isOp } from '../../maths/mathjsNames.ts'
 import { isUnitCall, isLitCall } from './tex.ts'
 import { isUnwrittenFunction } from './module.ts'
 

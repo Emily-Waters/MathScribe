@@ -21,7 +21,7 @@ import {
 } from '../lib/syntax.ts'
 import { LINE_ROLE, NODE_KIND, TOKEN_KIND, TOP, isToken, stepLine, type LineState, type Part, type SyntaxNode } from '../lib/tree/index.ts'
 import { dataBlocks, foldRange, opensBody, readAs, sheetLine } from './sheetLines.ts'
-import { ROW_PIECE, rowPieces, type RowPiece, type RowPieceKind } from '../lib/csv.ts'
+import { ROW_PIECE, rowPieces, type RowPiece, type RowPieceKind } from '../lib/data/csv.ts'
 
 /** What each piece of a line is coloured as (the keys of the language's tokenTable). */
 const TOKEN = {

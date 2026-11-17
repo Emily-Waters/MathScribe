@@ -4,7 +4,7 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { RenderedBlock } from './PreviewPane.tsx'
 import { sheet } from '../test/helpers.ts'
-import { BLOCK_KIND, isContainer, type Block, type BlockKind } from '../lib/blocks.ts'
+import { BLOCK_KIND, isContainer, type Block, type BlockKind } from '../lib/sheet/blocks.ts'
 
 /** A sheet with a block of every kind. */
 const SOURCE = [

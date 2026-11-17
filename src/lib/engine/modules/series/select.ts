@@ -11,10 +11,10 @@
  */
 import type { Unit } from 'mathjs'
 import { IS_NAME, NAME } from '../../../syntax.ts'
-import { RESERVED_NAMESPACES, memberName, parseMemberName, readableMembers } from '../../../names.ts'
-import { EXACT } from '../../../sigfigs.ts'
+import { RESERVED_NAMESPACES, memberName, parseMemberName, readableMembers } from '../../../sheet/names.ts'
+import { EXACT } from '../../../maths/sigfigs.ts'
 import { SETTING, parseRowRange, settingParts, splitCallArgs } from '../../../tableSettings.ts'
-import { splitArgs } from '../../../solve.ts'
+import { splitArgs } from '../../../maths/solve.ts'
 import { math } from '../../core/math.ts'
 import { LineForm, type FormLine, type ModuleHost } from '../../core/module.ts'
 import { readableUnitError, seriesDefinitions, type LineResult } from '../../core/results.ts'

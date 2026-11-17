@@ -1,11 +1,11 @@
 /** Chemistry: molarity, species as units, formulas in text, reactions, and display names. */
 import { describe, expect, it } from 'vitest'
 import { last, lines, readable, sheet, value } from '../../../../test/helpers.ts'
-import { BLOCK_KIND, type Block } from '../../../blocks.ts'
-import { DEFAULT_LATEX_OPTIONS, toLatexDocument } from '../../../latex.ts'
-import { docxParts } from '../../../docx.ts'
+import { BLOCK_KIND, type Block } from '../../../sheet/blocks.ts'
+import { DEFAULT_LATEX_OPTIONS, toLatexDocument } from '../../../output/latex.ts'
+import { docxParts } from '../../../output/docx.ts'
 import { formulaTex, withFormulas } from './chemistry.ts'
-import { SYMBOL_KIND, collectSymbols } from '../../../sheetIndex.ts'
+import { SYMBOL_KIND, collectSymbols } from '../../../sheet/sheetIndex.ts'
 
 const blocksOf = (source: string, kind: Block['kind']) => sheet(source).blocks.filter((b) => b.kind === kind)
 

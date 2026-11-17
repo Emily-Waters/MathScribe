@@ -2,9 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   canLinkFiles, chooseSaveFile, downloadFile, loadDrafts, openFiles, saveDrafts, uniqueName, writeFile,
   type FileHandle,
-} from './lib/files.ts'
+} from './lib/data/files.ts'
 import { SHEET_FILE, TIMING } from './config.ts'
-import { SAMPLE } from './lib/sample.ts'
+import { SAMPLE } from './lib/content/sample.ts'
 /** Whether a sheet's latest text has been saved (to its file, or the browser). */
 export type SaveState = 'saved' | 'unsaved' | 'saving' | 'error'
 

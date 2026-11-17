@@ -6,9 +6,9 @@
  * that isn't a name (Ca(OH)2, Na^+) is a member by its letters and digits:
  * r.CaOH2, r.Na.
  */
-import { memberName } from '../../../names.ts'
-import { UNIT } from '../../../mathjsNames.ts'
-import { EXACT } from '../../../sigfigs.ts'
+import { memberName } from '../../../sheet/names.ts'
+import { UNIT } from '../../../maths/mathjsNames.ts'
+import { EXACT } from '../../../maths/sigfigs.ts'
 import { math } from '../../core/math.ts'
 import { LINE_STAGE, LineForm, type FormLine, type ModuleHost } from '../../core/module.ts'
 import type { LineResult } from '../../core/results.ts'

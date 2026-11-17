@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { canLinkFiles, chooseDataFile } from './lib/files.ts'
-import { withImportedData, withoutImport } from './lib/csv.ts'
+import { canLinkFiles, chooseDataFile } from './lib/data/files.ts'
+import { withImportedData, withoutImport } from './lib/data/csv.ts'
 import { useSheets, type SaveState } from './useSheets.ts'
 import { SheetTabs } from './components/SheetTabs.tsx'
 import { EditorPane } from './components/EditorPane.tsx'
 import { PreviewPane } from './components/PreviewPane.tsx'
 import { SplitPane } from './components/SplitPane.tsx'
-import { evaluateSheetTimed } from './lib/document.ts'
-import { collectDefinitions, collectDiagnostics, collectSymbols } from './lib/sheetIndex.ts'
+import { evaluateSheetTimed } from './lib/sheet/document.ts'
+import { collectDefinitions, collectDiagnostics, collectSymbols } from './lib/sheet/sheetIndex.ts'
 import type { CalcOptions } from './lib/engine/index.ts'
 import {
   DEFAULT_SYNTAX_THEME, customPalette, loadCustomSyntax, loadSyntaxTheme, saveCustomSyntax, saveSyntaxTheme,

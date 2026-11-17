@@ -1,5 +1,5 @@
 /** What's kept about the sheet's functions and constants. */
-import { type Contributions } from '../../values.ts'
+import { type Contributions } from '../../sheet/values.ts'
 import { type Notation } from '../../syntax.ts'
 import type { TupleLook } from './module.ts'
 import { type Variables } from './scope.ts'

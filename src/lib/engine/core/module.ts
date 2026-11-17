@@ -22,9 +22,9 @@ import { declareLexRules, declareUnitRules, type LexRule } from '../../tree/lexe
 import { declareTextRules, type TextRule } from '../../tree/lines.ts'
 import type { PartWriter } from './writer.ts'
 import type { BuiltinConstant, NamespaceConstant } from '../../constants.ts'
-import type { Contributions, Variable, VariableFields } from '../../values.ts'
+import type { Contributions, Variable, VariableFields } from '../../sheet/values.ts'
 import type { DisplayMode, Notation, Precision } from '../../syntax.ts'
-import type { formatWithUncertainty } from '../../sigfigs.ts'
+import type { formatWithUncertainty } from '../../maths/sigfigs.ts'
 import type { LineResult, ParsedLine } from './results.ts'
 
 /** A value as shown: its number (in its display unit), formatted, and its unit. */

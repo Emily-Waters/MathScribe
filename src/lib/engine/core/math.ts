@@ -1,7 +1,7 @@
 /** The engine's own mathjs instance, and the functions it adds to it or replaces. */
 import { all, create, type MathType, type Unit } from 'mathjs'
-import { FN, OP, UNIT } from '../../mathjsNames.ts'
-import { INV_FUNCTION, TUPLE_FUNCTION } from '../../names.ts'
+import { FN, OP, UNIT } from '../../maths/mathjsNames.ts'
+import { INV_FUNCTION, TUPLE_FUNCTION } from '../../sheet/names.ts'
 import { CALL, SIGIL } from '../../syntax.ts'
 import { isLabelUnit } from './module.ts'
 

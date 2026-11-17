@@ -6,7 +6,7 @@ import {
   BLOCK_CLOSE, BLOCK_OPEN, CONSTANTS_BLOCK, DISPLAY_MODE, EXACT_SETTING, IMPORT, LATEX_BLOCK, LATEX_OPENER, LAYOUT_STYLE, LAYOUT_SYNTAX, LINE_COMMAND, SIGIL,
   PARAGRAPH_MARK, bracesBalance, splitNote, type SplitLine,
 } from '../syntax.ts'
-import { BLOCK_KIND, HEADING_LEVEL, type ConstantsBlock, type GroupBlock, type HeadingLevel, type SectionTitle, type ImportBlock, type LayoutBlock } from '../blocks.ts'
+import { BLOCK_KIND, HEADING_LEVEL, type ConstantsBlock, type GroupBlock, type HeadingLevel, type SectionTitle, type ImportBlock, type LayoutBlock } from '../sheet/blocks.ts'
 import { NODE_KIND } from '../tree/index.ts'
 import { parseConstantDeclaration, readCsv } from './lineSyntax.ts'
 import { NodeReader, SheetWideReader, bodyLines, type Line, type TreeItem } from './reader.ts'

@@ -11,7 +11,7 @@
  */
 import { BlockMember, ConstantMember, FunctionMember, LineFormMember, Namespace, type Expansion } from '../../../builtins.ts'
 import { SIGIL } from '../../../syntax.ts'
-import { splitArgs } from '../../../solve.ts'
+import { splitArgs } from '../../../maths/solve.ts'
 import { ANY_SPECIES_FUNCTION, CHEM_FUNCTION, CHEM_NAMESPACE, SPECIES_BLOCK } from './syntax.ts'
 import { ELEMENTS, MOLAR_MASS_UNIT, elementDescription, type ElementSymbol } from './elements.ts'
 import { formulaTex } from './chemistry.ts'

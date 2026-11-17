@@ -19,7 +19,7 @@
  * added once, and each of them knows about it.
  */
 import { BUILTIN_CONSTANTS, type BuiltinConstant, type NamespaceConstant } from './constants.ts'
-import { INV_FUNCTION, JOIN, TUPLE_FUNCTION } from './names.ts'
+import { INV_FUNCTION, JOIN, TUPLE_FUNCTION } from './sheet/names.ts'
 import {
   CALL, CONSTANTS_BLOCK, LATEX_BLOCK, LAYOUT_ARRANGEMENT, LAYOUT_MODIFIER, LAYOUT_STYLE, MEMBER_DOT, NAMESPACE, SIGIL,
   type LayoutArrangement, type LayoutModifier, type LayoutStyle,

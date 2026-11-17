@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import { STORAGE_KEYS } from './config.ts'
-import { readStored, writeStored } from './lib/storage.ts'
+import { readStored, writeStored } from './lib/data/storage.ts'
 
 /**
  * App colour themes. The chosen theme is applied as data-theme on <html> (its

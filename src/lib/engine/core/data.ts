@@ -1,7 +1,7 @@
 /** Imported data: columns, their values and uncertainties. */
-import { EXACT, countSigFigs, formatWithUncertainty, isMeasuredLiteral } from '../../sigfigs.ts'
-import { seriesMemberName } from '../../names.ts'
-import type { CsvColumn } from '../../csv.ts'
+import { EXACT, countSigFigs, formatWithUncertainty, isMeasuredLiteral } from '../../maths/sigfigs.ts'
+import { seriesMemberName } from '../../sheet/names.ts'
+import type { CsvColumn } from '../../data/csv.ts'
 import { math } from './math.ts'
 import { PERCENT_SCALE, isValidUnit } from './numbers.ts'
 

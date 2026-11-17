@@ -1,7 +1,7 @@
 /** Species in units: giving a value its species, taking them off, and the strict rules. */
 import { isConstantNode, type FunctionNode, type MathNode, type MathType, type Unit } from 'mathjs'
 import { isNamespaceConstant, type BuiltinConstant, type NamespaceConstant } from '../../../constants.ts'
-import { BASE_DIMENSION, FN, UNIT } from '../../../mathjsNames.ts'
+import { BASE_DIMENSION, FN, UNIT } from '../../../maths/mathjsNames.ts'
 import { math } from '../../core/math.ts'
 import { isUnitCall, unitCallText } from '../../core/tex.ts'
 import { SPECIES_KINDS, SpeciesError, isSpeciesUnit, speciesOf, speciesPowers, speciesUnit, type SpeciesKind } from './chemistry.ts'

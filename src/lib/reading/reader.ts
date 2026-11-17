@@ -10,7 +10,7 @@
  * constructs/.)
  */
 import { indentOf, splitNote, type SplitLine } from '../syntax.ts'
-import type { Block } from '../blocks.ts'
+import type { Block } from '../sheet/blocks.ts'
 import { NODE_KIND, type SyntaxNode } from '../tree/index.ts'
 import type { SheetReader } from './sheetReader.ts'
 

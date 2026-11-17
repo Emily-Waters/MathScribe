@@ -5,10 +5,10 @@
  */
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { STORAGE_KEYS } from '../config.ts'
-import { readStoredJson, writeStoredJson } from '../lib/storage.ts'
+import { readStoredJson, writeStoredJson } from '../lib/data/storage.ts'
 import {
   CREATE_KINDS, CREATE_KIND_INFO, buildPrompt, defaultChoices, sheetFromAnswer, sheetName, type CreateKind,
-} from '../lib/aiPrompt.ts'
+} from '../lib/content/aiPrompt.ts'
 import { copyText, useFlash } from '../useFlash.ts'
 
 /** What's kept between visits: the kind chosen, and each kind's request and tickboxes. */

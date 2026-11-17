@@ -1,7 +1,7 @@
 /** Series aggregates (`t_avg`, `t_std`, …). */
-import { AGGREGATE_KIND, type AggregateKind } from '../../values.ts'
+import { AGGREGATE_KIND, type AggregateKind } from '../../sheet/values.ts'
 import { SERIES_SUFFIXES } from '../../syntax.ts'
-import { parseSeriesStatName } from '../../names.ts'
+import { parseSeriesStatName } from '../../sheet/names.ts'
 
 // ---------------------------------------------------------------------------
 // Series aggregates

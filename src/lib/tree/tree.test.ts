@@ -1,8 +1,8 @@
 /** A sheet as a tree: text → tree → text exactly, through JSON too; its kinds declared; its lines cached. */
 import { describe, expect, it } from 'vitest'
-import { SAMPLE } from '../sample.ts'
-import { REFERENCE } from '../reference.ts'
-import { LIBRARY } from '../library.ts'
+import { SAMPLE } from '../content/sample.ts'
+import { REFERENCE } from '../content/reference.ts'
+import { LIBRARY } from '../content/library.ts'
 import {
   NODE_KIND, SCHEMA, TOKEN_KIND, declareNodeKinds, isBlockKind, declaredNodeKinds, decode, encode, isSheetTree, isToken, schemaId, splitLines,
   textOf, treeProblems, type SheetTree, type SyntaxNode,

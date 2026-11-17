@@ -1,10 +1,10 @@
 /** Comments (`// …`), and values in text (`{{c_Na}}`). */
 import { describe, expect, it } from 'vitest'
 import { lines, sheet } from '../test/helpers.ts'
-import { collectDiagnostics } from './sheetIndex.ts'
-import { BLOCK_KIND, isContainer, type Block } from './blocks.ts'
-import { toLatexDocument, DEFAULT_LATEX_OPTIONS } from './latex.ts'
-import { docxParts } from './docx.ts'
+import { collectDiagnostics } from './sheet/sheetIndex.ts'
+import { BLOCK_KIND, isContainer, type Block } from './sheet/blocks.ts'
+import { toLatexDocument, DEFAULT_LATEX_OPTIONS } from './output/latex.ts'
+import { docxParts } from './output/docx.ts'
 
 /** The sheet's blocks of a kind, at any depth. */
 function blocksOf<K extends Block['kind']>(source: string, kind: K): Extract<Block, { kind: K }>[] {

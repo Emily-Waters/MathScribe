@@ -4,7 +4,7 @@
  */
 import { DISPLAY_MODE, IS_NAME, NAME, NAME_CHAR } from '../../../syntax.ts'
 import { NAME_IN_LINE } from '../../core/literals.ts'
-import { seriesMemberName, unpackedColumnName } from '../../../names.ts'
+import { seriesMemberName, unpackedColumnName } from '../../../sheet/names.ts'
 import type { ModuleHost } from '../../core/module.ts'
 import { symbolTex } from '../../core/tex.ts'
 

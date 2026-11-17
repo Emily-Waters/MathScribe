@@ -5,9 +5,9 @@
  * v_2, …, so v_avg works afterwards); an expression without a name is just
  * shown. A long table shows its first and last rows.
  */
-import { EXACT } from '../../../sigfigs.ts'
+import { EXACT } from '../../../maths/sigfigs.ts'
 import { TABLE_LINE, parseTableSettings, splitCallArgs } from '../../../tableSettings.ts'
-import { splitArgs } from '../../../solve.ts'
+import { splitArgs } from '../../../maths/solve.ts'
 import { LineForm, type FormLine, type ModuleHost } from '../../core/module.ts'
 import type { LineResult } from '../../core/results.ts'
 import { attachUnit, numberTex, unitTex } from '../../core/tex.ts'

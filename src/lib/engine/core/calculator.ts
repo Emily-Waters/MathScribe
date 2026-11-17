@@ -4,17 +4,17 @@
  * and produces LaTeX for each line (symbolic = substituted = result).
  */
 import { isAssignmentNode, isConditionalNode, isConstantNode, isFunctionAssignmentNode, isFunctionNode, isOperatorNode, isParenthesisNode, isSymbolNode, type FunctionNode, type MathNode, type MathType, type SymbolNode, type Unit } from 'mathjs'
-import { EXACT, MAX_DIGITS, countSigFigs, formatExact, formatSigFigs, formatWithUncertainty, uncertaintySigFigs, hasAmbiguousZeros, isMeasuredLiteral, lastPlace, sigFigsFromPlace } from '../../sigfigs.ts'
-import { AGGREGATE_KIND, Variable, type Aggregate, type Contributions, type VariableFields, type VariableSummary } from '../../values.ts'
+import { EXACT, MAX_DIGITS, countSigFigs, formatExact, formatSigFigs, formatWithUncertainty, uncertaintySigFigs, hasAmbiguousZeros, isMeasuredLiteral, lastPlace, sigFigsFromPlace } from '../../maths/sigfigs.ts'
+import { AGGREGATE_KIND, Variable, type Aggregate, type Contributions, type VariableFields, type VariableSummary } from '../../sheet/values.ts'
 import { DEFAULT_CONSTANT_SIG_FIGS, isNamespaceConstant, suggestConstant } from '../../constants.ts'
 import { BUILTINS, builtinConstant, builtinConstantKeys, isReservedConstantName } from '../../builtins.ts'
 import { splitInlineMath, CONSTANT_WRITTEN, EXACT_SETTING, IS_NAME, MEMBER_DOT, PERCENT, DISPLAY_MODE, VALUE_IN_TEXT, CONSTANTS_BLOCK, LABEL_WORDS, SIGIL, type DisplayMode, type Notation, type Precision, type UncertaintyWord } from '../../syntax.ts'
-import { INLINE_VALUE_NAME, INV_FUNCTION, JOIN, TUPLE_FUNCTION, RESERVED_NAMESPACES, constantKey, constantRefName, typedConstant, isHiddenName, isUncertaintyName, memberName, parseNumberedName, parseUncertaintyName, readableMembers, seriesMemberName, uncertaintyName, unpackedName } from '../../names.ts'
+import { INLINE_VALUE_NAME, INV_FUNCTION, JOIN, TUPLE_FUNCTION, RESERVED_NAMESPACES, constantKey, constantRefName, typedConstant, isHiddenName, isUncertaintyName, memberName, parseNumberedName, parseUncertaintyName, readableMembers, seriesMemberName, uncertaintyName, unpackedName } from '../../sheet/names.ts'
 import { expandDots, lineTokens } from './memberAccess.ts'
-import { COMPARISONS, FN, OP, OP_SYMBOL, UNIT, isOp } from '../../mathjsNames.ts'
+import { COMPARISONS, FN, OP, OP_SYMBOL, UNIT, isOp } from '../../maths/mathjsNames.ts'
 
-import { nestBrackets } from '../../brackets.ts'
-import type { CsvColumn } from '../../csv.ts'
+import { nestBrackets } from '../../maths/brackets.ts'
+import type { CsvColumn } from '../../data/csv.ts'
 
 import { isTuple, math } from './math.ts'
 import { EngineModule, LINE_STAGE, inDependencyOrder, installModule, moduleReadableMessage, type DerivedVariable, type LineForm, type LineStage, type LookSetting, type ModuleHost, type PreparedLine, type TupleLook, SETTING_PLACE, moduleSettingProblem } from './module.ts'

@@ -1,10 +1,10 @@
 /** Names, numbers and units as LaTeX. */
 import { isConstantNode, isFunctionNode, type FunctionNode, type MathNode } from 'mathjs'
-import { AGGREGATE_KIND } from '../../values.ts'
+import { AGGREGATE_KIND } from '../../sheet/values.ts'
 import { builtinConstant } from '../../builtins.ts'
 import { GREEK_BY_CHAR, GREEK_BY_NAME, GREEK_CHARS, SERIES_SUFFIXES } from '../../syntax.ts'
-import { FIT, JOIN, parseConstantRefName, parseMemberName, parseSeriesStatName, parseSolvedName, parseUncertaintyName } from '../../names.ts'
-import { FN, UNIT_LOOKS } from '../../mathjsNames.ts'
+import { FIT, JOIN, parseConstantRefName, parseMemberName, parseSeriesStatName, parseSolvedName, parseUncertaintyName } from '../../sheet/names.ts'
+import { FN, UNIT_LOOKS } from '../../maths/mathjsNames.ts'
 import { math } from './math.ts'
 import { isLabelUnit, labelUnitTex, moduleNameSubscriptTex } from './module.ts'
 

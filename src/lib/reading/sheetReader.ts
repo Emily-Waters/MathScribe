@@ -5,9 +5,9 @@
  * before it, and the section numbers so far.
  */
 import { Calculator, markupText, outsideMaths, sheetModules, type CalcOptions } from '../engine/index.ts'
-import type { VariableSummary } from '../values.ts'
+import type { VariableSummary } from '../sheet/values.ts'
 import { BLOCK_CLOSE, EXACT_SETTING, LAYOUT_STYLE, LAYOUT_SYNTAX, LINE_COMMAND, SIGIL, VALUE_IN_TEXT, closesBlock, type Notation } from '../syntax.ts'
-import { BLOCK_KIND, type Block, type Command, type GroupBlock, type LayoutBlock } from '../blocks.ts'
+import { BLOCK_KIND, type Block, type Command, type GroupBlock, type LayoutBlock } from '../sheet/blocks.ts'
 import { NODE_KIND, TOKEN_KIND, encode, isBlockKind, isToken, notedOf, splitLines, textOf, type SyntaxNode } from '../tree/index.ts'
 import { parseConstantDeclaration } from './lineSyntax.ts'
 import { Line, readsLines, type NodeReader, type TreeItem } from './reader.ts'

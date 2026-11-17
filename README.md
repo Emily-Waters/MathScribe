@@ -1439,12 +1439,23 @@ renamed, change it there too.
   (`EVALUATION`), sheet file type, timings, the pane divider's limits;
   `src/useSettled.ts`: a value once it stops changing (for working out slow sheets
   after a pause)
-- `src/lib/syntax.ts`: the sheet language's words and patterns (keywords and calls,
-  names, settings, assignments, functions, constants, display commands, series
-  names, indentation), shared by the engine, the sheet structure and the editor
-- `src/lib/names.ts`: the names the engine makes for itself (`delta__F`, `at__c__5`,
+- `src/lib/` is in folders by what each part is for: `syntax/` (the sheet
+  language's words and patterns), `tree/` (a sheet as a tree of nodes),
+  `reading/` (the tree read into blocks), `engine/` (working lines out),
+  `sheet/` (the blocks, their values and names, and what the editor is told),
+  `output/` (the Rendered tab's pieces and the two exports, with `constructs/`),
+  `content/` (the sample, Reference, Library and Create's prompt), `data/`
+  (imported data, files, browser storage) and `maths/` (sig figs, algebra,
+  brackets, mathjs's names). `builtins.ts` and `constants.ts` (everything under
+  `@`) are at its top.
+- `src/lib/syntax/`: the sheet language's words and patterns, one file per
+  concept (names and numbers, settings, text markup, blocks, constants,
+  #commands, `@layout`), written with `patterns.ts` (`src`, `named`, `words`);
+  `src/lib/syntax.ts` gathers them. Shared by the tree, the engine, the outputs
+  and the editor
+- `src/lib/sheet/names.ts`: the names the engine makes for itself (`delta__F`, `at__c__5`,
   `a__x_1` for `a.x_1`, series members and statistics, a plot's fit), each built and
-  read in one place; `src/lib/mathjsNames.ts`: mathjs's operator and function names
+  read in one place; `src/lib/maths/mathjsNames.ts`: mathjs's operator and function names
   and the units the engine uses by name
 - Shared values are named once: a word, marker or setting used in more than one
   place is a constant in one of the modules above (or `tableSettings.ts` for the
@@ -1453,11 +1464,11 @@ renamed, change it there too.
   a display mode, a layout style, …) is a const object, `BLOCK_KIND = { group:
   'group', … }`, with its type derived from it; code writes `BLOCK_KIND.group`, never
   `'group'`. Related types extend a shared base rather than repeating fields.
-- `src/lib/blocks.ts`: the blocks a sheet is read into: `BLOCK_KIND`, `BlockBase`
+- `src/lib/sheet/blocks.ts`: the blocks a sheet is read into: `BLOCK_KIND`, `BlockBase`
   and the small parts blocks share (a note, an error, hidden, spanning lines,
-  holding other blocks), and each block's type; `src/lib/alignment.ts`: left,
+  holding other blocks), and each block's type; `src/lib/output/alignment.ts`: left,
   centre and right, for the Document option and the Word export
-- `src/lib/storage.ts`: reading and writing the browser's storage safely;
+- `src/lib/data/storage.ts`: reading and writing the browser's storage safely;
   `src/useFlash.ts`: copying to the clipboard, and the brief "Copied" messages
 - `src/lib/engine/`: evaluation with scoped variables, unit-literal handling,
   sig-fig tracking, uncertainty propagation, functions, tables, plots and
@@ -1482,14 +1493,14 @@ renamed, change it there too.
   uncertainty, how it's shown) in a scope per `{ }` block or function call; each
   scope keeps a series index, and selections and named plots are lookups into the
   variables they pick (`Views`). mathjs sees just the values, through `Values`.
-- `src/lib/csv.ts`: reading imported data (columns, units, uncertainty columns);
+- `src/lib/data/csv.ts`: reading imported data (columns, units, uncertainty columns);
   `src/editor/dataBlocks.ts`, `dataBlockLines.ts`: an import's rows in the editor
   (row numbers, folding, the table look, moving and deleting them as one)
 - `src/lib/tableSettings.ts`, `plotSettings.ts`: a table's and plot's settings
   after the semicolon, read and written; `src/editor/tableMenu.ts`: their ⚙ menus
-- `src/lib/plot.ts`: the linear fit, axes, and drawing a plot as SVG;
-  `src/lib/plotImage.ts`: plots as pictures for the Word export
-- `src/lib/brackets.ts`: choosing ( ), [ ] and { } by nesting in the output
+- `src/lib/output/plot.ts`: the linear fit, axes, and drawing a plot as SVG;
+  `src/lib/output/plotImage.ts`: plots as pictures for the Word export
+- `src/lib/maths/brackets.ts`: choosing ( ), [ ] and { } by nesting in the output
 - `src/lib/engine/modules/chemistry/`: the chemistry module. `chemistry.ts`:
   formulas in braces, species as units, reading a formula's atoms for a substance's molar mass,
   reactions and species names; `species.ts`: giving values their species and the
@@ -1500,13 +1511,13 @@ renamed, change it there too.
   its own); `grammar.ts`: its kinds of line and token (a species, after a
   unit or a value); `writers.ts`: writing a species for mathjs; `module.ts`:
   `ChemistryModule`, where the engine's hooks meet them.
-  `src/lib/katex.ts`: KaTeX with mhchem, which everything that draws maths imports
+  `src/lib/output/katex.ts`: KaTeX with mhchem, which everything that draws maths imports
 - `src/lib/engine/modules/series/`: the series module: `@table(…)`, `@plot(…)`
   and `@select(…)` as line forms (`table.ts`, `plot.ts`, `select.ts`), and the
   columns they share (`columns.ts`)
 - `src/lib/engine/modules/solve/`: the solve module: `x = @solve(eq, x)`, by
   rearranging or numerically from a guess (`solve.ts`), and `@tuple(x, y) =
-  @solve(eq_1, eq_2)` by substitution (`system.ts`); `src/lib/solve.ts` has the
+  @solve(eq_1, eq_2)` by substitution (`system.ts`); `src/lib/maths/solve.ts` has the
   algebra they use (isolating an unknown, polynomials)
 - `src/lib/engine/modules/vectors/`: the vectors module: a vector is a tuple
   with a look of its own. `syntax.ts`: `<…>`, `@vector(…)`, `:ijk` and `:xyz`;
@@ -1516,11 +1527,11 @@ renamed, change it there too.
   cross products
 - `src/components/ErrorBoundary.tsx`: keeps a failure drawing the output from
   blanking the app
-- `src/lib/aiPrompt.ts`: Create's prompt (what can be made, its tickboxes, and the
+- `src/lib/content/aiPrompt.ts`: Create's prompt (what can be made, its tickboxes, and the
   rules of writing a sheet, whose examples a test evaluates) and reading the AI's
   answer back; `src/components/CreateDialog.tsx`: the dialog
-- `src/lib/document.ts`: evaluating a sheet, diagnostics, definitions and
-  symbols for the editor
+- `src/lib/sheet/document.ts`: evaluating a sheet; `src/lib/sheet/sheetIndex.ts`:
+  what the editor is told about it (symbols, definitions, diagnostics, line numbers)
 - `src/lib/tree/`: a sheet as a tree of nodes, every character in a token, so
   text → tree → text gives back the text exactly (`encode`, `decode`), through
   JSON too. `nodes.ts`: the shapes (`Token`, `SyntaxNode`, `SheetTree`) and the
@@ -1548,32 +1559,32 @@ renamed, change it there too.
   layout block, a calculation, …), with the sheet-wide ones (`@constants`,
   `@c:4` declarations) read before everything else. A module with kinds of node
   of its own (`ReadsLines`: chemistry's `@chem.species { }`) adds their readers;
-  `lineSyntax.ts`: a line's #commands and note, and layout openers
-- `src/lib/constructs/`: one class per kind of block (a heading, a calculation,
+  `lineSyntax.ts`: sheet-wide constant declarations, and imported data's rows, read once
+- `src/lib/output/constructs/`: one class per kind of block (a heading, a calculation,
   an `@layout` block, …) that writes its blocks to each export; `layout.ts` has a
-  class per layout. The exports ask each block's construct to write it, and the
+  class per layout, `columns.ts` how `@layout.column` splits into columns. The exports ask each block's construct to write it, and the
   Rendered tab has a component per kind (`BLOCK_VIEWS` in `PreviewPane.tsx`)
-- `src/lib/latex.ts`: the `.tex` export and its document options, joining up
-  what the constructs write; `src/lib/latexKit.ts`: the pieces they write with;
+- `src/lib/output/latex.ts`: the `.tex` export and its document options, joining up
+  what the constructs write; `src/lib/output/latexKit.ts`: the pieces they write with;
   `src/components/ExportDialog.tsx`: the Export dialog (the format, the document
   options in `DocumentOptions.tsx`, used by both exports, and the download)
-- `src/lib/docx.ts`: the `.docx` (Word) export's package; `src/lib/docxKit.ts`:
+- `src/lib/output/docx.ts`: the `.docx` (Word) export's package; `src/lib/output/docxKit.ts`:
   its look, paragraphs, equations and cards, which the constructs write with;
-  `src/lib/omml.ts`: LaTeX → Word equations (OMML), by way of KaTeX's MathML
-- `src/lib/sigfigs.ts`: counting, propagating and formatting significant figures
-- `src/lib/solve.ts`: `@solve(…)`: rearranging, linear, quadratic and numeric solving
+  `src/lib/output/omml.ts`: LaTeX → Word equations (OMML), by way of KaTeX's MathML
+- `src/lib/maths/sigfigs.ts`: counting, propagating and formatting significant figures
+- `src/lib/maths/solve.ts`: `@solve(…)`: rearranging, linear, quadratic and numeric solving
 - `src/lib/builtins.ts`: everything built in under `@` as one tree of members
   (constants, functions, blocks, namespaces), which the engine and the editor's
   suggestions and hovers read. An engine module adds its own namespace (`@chem`)
   when it's installed (`src/lib/engine/index.ts` installs MathScribe's as it
   loads); `src/lib/constants.ts`: the physics constants' values
-- `src/lib/library.ts`: the equations in the Library tab (each tested with its
+- `src/lib/content/library.ts`: the equations in the Library tab (each tested with its
   example); `src/components/LibraryPane.tsx`: the tab
-- `src/lib/reference.ts`: the examples shown in the Reference tab;
-  `src/lib/sample.ts`: the example sheet shown the first time
+- `src/lib/content/reference.ts`: the examples shown in the Reference tab;
+  `src/lib/content/sample.ts`: the example sheet shown the first time
 - `*.test.ts` beside the code they test; `src/test/helpers.ts`: shared test
   helpers (evaluate a sheet, read a result as plain text)
-- `src/lib/files.ts`, `src/useSheets.ts`: the open sheets (tabs), opening, saving,
+- `src/lib/data/files.ts`, `src/useSheets.ts`: the open sheets (tabs), opening, saving,
   auto-saving and the browser's copy; `src/components/SheetTabs.tsx`: the tab bar
 - `src/editor/language.ts`: the MathScribe language for CodeMirror (highlighting,
   indentation, folding), reading each line as the sheet's tree does (`stepLine`);

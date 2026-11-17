@@ -10,7 +10,7 @@
 import { HighlightStyle } from '@codemirror/language'
 import { tags } from '@lezer/highlight'
 import { STORAGE_KEYS } from '../config.ts'
-import { readStored, readStoredJson, writeStored, writeStoredJson } from '../lib/storage.ts'
+import { readStored, readStoredJson, writeStored, writeStoredJson } from '../lib/data/storage.ts'
 
 /** The built-in syntax colour themes. */
 export const PRESET_THEMES = [

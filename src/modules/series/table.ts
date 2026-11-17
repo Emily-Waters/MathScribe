@@ -32,8 +32,8 @@ const TABLE_TEX = {
   columnRule: '|',
 } as const
 
-/** A table cell: a variable's value as a number (± its uncertainty), and its unit, in its own notation. */
-function cellParts(host: ModuleHost, name: string): { num: string; unit?: string } {
+/** A table cell (or a value in an @series line): a variable's value as a number (± its uncertainty), and its unit, in its own notation. */
+export function cellParts(host: ModuleHost, name: string): { num: string; unit?: string } {
   const value = host.value(name)
   const v = host.variable(name)
   const sf = v?.sf ?? EXACT

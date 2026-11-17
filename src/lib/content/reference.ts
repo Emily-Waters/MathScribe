@@ -131,6 +131,17 @@ export const REFERENCE: ReferenceSection[] = [
       },
       {
         source: [
+          'F = @series(2.00 N, 3.00 N, 10.0 N)',
+          'g_0 = 9.81 m/s^2 pm 0.02 m/s^2',
+          'm = @series(F / g_0)',
+          'm_avg',
+        ].join('\n'),
+        explain: '@series(…) makes a series on one line: its values listed (F_1, F_2, F_3), or a rule worked out row by row '
+          + 'from other series, with any other name used as it is. Series of different lengths use the rows they all have '
+          + '(with a warning); ; rows 2-5 works out just those.',
+      },
+      {
+        source: [
           't1 = 0.10 s',
           't2 = 0.20 s',
           't3 = 0.30 s',

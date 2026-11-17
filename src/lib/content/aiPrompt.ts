@@ -272,6 +272,8 @@ ${code(SNIPPETS.system)}
 ${code(SNIPPETS.series)}
 - \`T1\`, \`T2\`, … (or \`T_1\`, \`T_2\`) form a series \`T\`: \`T_avg\` (mean ± standard error),
   \`T_std\`, \`T_sem\`, \`T_count\`, and \`T\` (the sum) show their working on their own line.
+- \`T = @series(1.21 s, 1.17 s, 1.24 s)\` makes a series on one line; \`m = @series(F / g)\` works one
+  out row by row from other series.
 - \`@table(T, x, v = x / T)\` shows series side by side; \`v = x / T\` makes a new series.
 ${code(SNIPPETS.plot)}
 - \`p = @plot(x, y; fit linear)\` graphs y against x with a best-fit line; \`p.slope\`,

@@ -263,7 +263,7 @@ block's first line to hide it. The dialog remembers your last choices.
 
 **`@` is MathScribe's own:** everything built in rather than written in the sheet
 starts with `@`: constants (`@c`), the `@constants { }` block, MathScribe's own
-functions (`@tuple(…)`, `@inv(…)`, `@vector(…)`, `@import(…)`, `@table(…)`, `@plot(…)`,
+functions (`@tuple(…)`, `@inv(…)`, `@vector(…)`, `@import(…)`, `@series(…)`, `@table(…)`, `@plot(…)`,
 `@select(…)`, `@solve(…)`), and namespaces, whose members are written with a dot: `@layout`
 holds the layout blocks (`@layout.text`, `@layout.list`, `@layout.numbered`,
 `@layout.center`, `@layout.titlepage`) and `@chem` the chemistry (`@chem.substance(…)`,
@@ -1247,6 +1247,32 @@ available:
   defines `psi_200` and you write `psi`, it means that one-member series. Check the
   name if a value appears where you expected an "undefined" error.
 
+**A series on one line:** `@series(…)` makes one without a line per value, either
+listing its values or working them out row by row from other series:
+
+```
+t = @series(1.52 s, 1.48 s, 1.55 s)   # t_1, t_2, t_3: t = (1.52, 1.48, 1.55) s
+m = @series(F / g)                    # m_i = F_i / g, for every row of F
+v = @series(d / t)                    # row by row from two series: v_3 = d_3 / t_3
+v = @series(d / t; rows 5-20)         # only those rows
+```
+
+- Each value is worked out as if it were typed on a line of its own (`t_2 = 1.48 s`),
+  so units, sig figs, `pm` uncertainties and settings on the name
+  (`m:3 = @series(F / g)`) work as they do anywhere.
+- In a rule, a name that's a series stands for that row's value; any other name
+  is used as it is. `g`'s uncertainty goes into every `m_i` from one source, so
+  `m_avg` treats them as correlated.
+- A series worked out from others keeps their row numbers: `v_5` comes from `d_5`
+  and `t_5`, so `@table(d, t, v)` lines up. It has the rows every series it uses
+  has; if they don't all have the same rows, a warning says which has how many,
+  and `; rows …` chooses the rows yourself.
+- Making a series again replaces it: `t = @series(5.0 s, 6.0 s)` after a
+  three-value `t` leaves just `t_1` and `t_2`.
+- The line shows the values (the first three and last two of a long series) and
+  how many there are; `#sym` shows just the rule, `#val` just the values. Use
+  `@table(t)` to see them all.
+
 ### Tables
 
 `@table(…)` on a line of its own shows series side by side, one row per number:
@@ -1533,9 +1559,9 @@ renamed, change it there too.
   unit or a value); `writers.ts`: writing a species for mathjs; `module.ts`:
   `ChemistryModule`, where the engine's hooks meet them.
   `src/lib/output/katex.ts`: KaTeX with mhchem, which everything that draws maths imports
-- `src/modules/series/`: the series module: `@table(…)`, `@plot(…)`
-  and `@select(…)` as line forms (`table.ts`, `plot.ts`, `select.ts`), and the
-  columns they share (`columns.ts`)
+- `src/modules/series/`: the series module: `@series(…)`, `@table(…)`, `@plot(…)`
+  and `@select(…)` as line forms (`series.ts`, `table.ts`, `plot.ts`, `select.ts`), and the
+  columns they share (`columns.ts`: a column, or a series, worked out row by row)
 - `src/modules/solve/`: the solve module: `x = @solve(eq, x)`, by
   rearranging or numerically from a guess (`solve.ts`), and `@tuple(x, y) =
   @solve(eq_1, eq_2)` by substitution (`system.ts`); `src/lib/maths/solve.ts` has the

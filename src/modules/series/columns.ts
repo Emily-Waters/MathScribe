@@ -35,6 +35,27 @@ export function withRowValues(expr: string, series: Map<string, Map<number, stri
   })
 }
 
+/**
+ * The series an expression uses, each with its rows: every name in it that's a
+ * series (t in `x / t`) and not a variable of its own (`g` stays a value).
+ */
+export function seriesUsedIn(host: ModuleHost, expr: string): Map<string, Map<number, string>> {
+  const used = new Map<string, Map<number, string>>()
+  for (const m of expr.matchAll(NAME_IN_LINE)) {
+    const id = m[1]
+    if (used.has(id) || (host.has(id) && !host.variable(id)?.agg)) continue
+    const rows = host.seriesRows(id)
+    if (rows.size) used.set(id, rows)
+  }
+  return used
+}
+
+/** The rows every one of these series has, in order. */
+export const sharedRows = (used: Map<string, Map<number, string>>): number[] => {
+  const all = [...used.values()]
+  return all.length ? [...all[0].keys()].filter((n) => all.every((rows) => rows.has(n))).sort((a, b) => a - b) : []
+}
+
 /** A table's or plot's columns: or what's wrong with one of its arguments. */
 export type Columns = { columns: SeriesColumn[]; errors: string[]; hidden: string[] } | { error: string }
 
@@ -62,15 +83,9 @@ export function seriesColumns(host: ModuleHost, args: string[], purpose: string)
     const name = named?.[1]
     const expr = named ? named[2] : arg
     // The series it uses, and the rows where all of them have a value.
-    const used = new Map<string, Map<number, string>>()
-    for (const m of expr.matchAll(NAME_IN_LINE)) {
-      const id = m[1]
-      if (used.has(id) || (host.has(id) && !host.variable(id)?.agg)) continue
-      const rows = host.seriesRows(id)
-      if (rows.size) used.set(id, rows)
-    }
+    const used = seriesUsedIn(host, expr)
     if (!used.size) return { error: `${expr} doesn't use any series, so it would be the same in every row.` }
-    const numbers = [...[...used.values()][0].keys()].filter((n) => [...used.values()].every((rows) => rows.has(n)))
+    const numbers = sharedRows(used)
     const rows = new Map<number, string>()
     for (const n of numbers) {
       const target = name ? seriesMemberName(name, n) : unpackedColumnName(i, n)

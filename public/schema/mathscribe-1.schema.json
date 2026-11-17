@@ -1585,7 +1585,7 @@
       }
     },
     "token.settings": {
-      "description": "The settings after a ; in @table(…), @plot(…) or @select(…): fit linear, x from 0 to 2 (SeriesModule)",
+      "description": "The settings after a ; in @table(…), @plot(…), @select(…) or @series(…): fit linear, x from 0 to 2 (SeriesModule)",
       "type": "object",
       "required": [
         "t",

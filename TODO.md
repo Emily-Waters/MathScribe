@@ -21,6 +21,11 @@ what's here better.
       2x sin x + x² cos x), by way of a computer algebra library.
 - [ ] **Ranges and sums**: `x = range(0, 10, 0.5)` as a series, `sum(f(n), n, 1, 10)`
       and products, so a series can be generated as well as typed or imported.
+      Progress (2026-11-17): `@series(…)` (group 3) makes a series on one line;
+      a range would be a third form of it. Decided with Emily for then: words
+      with settings after `;`, `t = @series(0 s to 2.0 s; step 0.1 s)` (or
+      `count 21`), and each value's sig figs from the decimal places of the
+      inputs (exact when they're whole numbers without units).
 - [ ] **Matrices typeset**: matrices and vectors shown as matrices, with
       determinant, inverse, transpose and solving A·x = b shown as working.
 - [ ] **Differential equations**: a numerical ODE solver (`odesolve`) whose result
@@ -61,6 +66,27 @@ what's here better.
 - [ ] **More plots**: bar charts and histograms, two y axes, residuals under a fit.
 - [ ] **Spreadsheet data**: paste from Excel or Google Sheets, and import `.xlsx`.
 - [ ] **Text columns** in imported data (labels, categories), to group and filter by.
+- [x] **`@series`** (2026-11-17, Emily): define a series on one line,
+      `t = @series(1 s, 2 s, 3 s)`, and make one from others: `m = @series(F / g)`
+      (each F divided by the one g, with or without an uncertainty), or
+      `v = @series(d / t)` from two series. For series of different lengths,
+      perhaps use the shortest, with a warning, and a way to choose the range,
+      for a slice.
+      Resolved (2026-11-17): `SeriesForm` (`modules/series/series.ts`), a line
+      form of the series module. Listed values become `t_1`, `t_2`, …; a rule
+      (one argument that uses a series) is worked out row by row as `@table`'s
+      columns are, sharing `columns.ts` (`seriesUsedIn`, `sharedRows`,
+      `withRowValues`). Each value is worked out as a line assigning it, so units,
+      sig figs, uncertainty (one source for `g` across every row) and settings
+      on the name (`m:3`) are the core's. Decided: rows keep their numbers
+      (`v_5` from `d_5`, so `@table(d, t, v)` lines up; not renumbered as
+      `@select` does); different lengths use the rows every series has, with
+      a warning saying how many each has, and `; rows 5-20` (the words `@table`
+      and `@select` use) chooses a slice; a series made again replaces the
+      one before. The line shows `m_i = F_i/g = (…) kg  3 values`, a long one
+      shortened (first three, last two); `#sym` the rule, `#val` the values.
+      In the Reference tab, the AI prompt and the editor's `@` suggestions.
+      Not yet: a range (see Ranges and sums), and a ⚙ menu for its rows.
 
 ## 4. Chemistry
 

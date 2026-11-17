@@ -450,6 +450,13 @@ edit reads again only what it changed, and nodes are shared between trees.
       so it's small and italic in every output: grey italic at 12.5 px in the
       app, `\small\itshape` in its LaTeX `\tag*`, and a point smaller (and grey
       italic) in Word. A block's note, in its title line, stays upright.
+      Later the same day: a note (and a `>` text line) shows a name's subscript as a title does
+      (`v_f` → v with f below; `$…$` is maths), and @solve's "solving for"
+      names the unknown as it's drawn. In LaTeX, a note too wide to sit beside
+      its line goes just under it, with room after, so it doesn't look like the
+      next line's (`\msnoted`, measured like `\msfit`). And a word-like name in
+      a product is set apart with a dot: mass · speed², Fn · m (½ mass after a
+      number).
 - [x] **`@inv(x)`** (2026-11-16, from the `@format` discussion): 1/x, written as
       the fraction turned over, `@inv(m / V)` as V/m, and a value whose unit is a
       fraction turned over whole, a molar mass as 1 mol H₂O / 18.015 g H₂O (a

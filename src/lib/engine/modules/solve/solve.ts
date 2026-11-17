@@ -77,7 +77,7 @@ function solve(text: string, call: RegExpExecArray, line: FormLine, prepared: Pr
   }
 
   const equationTex = `${host.tex(lhs, literals)} = ${host.tex(rhs, literals)}`
-  const prelude: TraceLine[] = [{ tex: equationTex, note: `solving for ${x}` }]
+  const prelude: TraceLine[] = [{ tex: equationTex, note: `solving for $${symbolTex(x)}$` }] // (the unknown as it's drawn)
   const occurrences = countOccurrences(lhs, x) + countOccurrences(rhs, x)
   if (!occurrences) return fail(`${x} doesn't appear in the equation.`, equationTex)
 

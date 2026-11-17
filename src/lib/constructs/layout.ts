@@ -9,7 +9,7 @@ import { LAYOUT_STYLE, LINE_COMMAND, layoutOpenerText, type LayoutStyle } from '
 import { ALIGN } from '../alignment.ts'
 import { errorComment, heading as latexHeading, titleToLatex } from '../latexKit.ts'
 import {
-  PAGE_BREAK, SPACING, TITLE_PAGE_SIZE_STEP, TITLE_STYLE, baseProps, fontSizeOf, heading as docxHeading, run, titleRuns,
+  PAGE_BREAK, SPACING, TITLE_PAGE_SIZE_STEP, TITLE_STYLE, baseProps, fontSizeOf, heading as docxHeading, titleRuns,
   type Ctx, type Item,
 } from '../docxKit.ts'
 import { Construct, type DocxOut, type LatexOut } from './construct.ts'
@@ -127,7 +127,7 @@ class TitlePageLayout extends Layout {
         props: { style: TITLE_STYLE, before: SPACING.titlePage },
         content: titleRuns(b.title, { bold: true, size: fontSizeOf(ctx.o) + TITLE_PAGE_SIZE_STEP }),
       }] : []),
-      ...(b.note ? [{ props: { jc: ALIGN.center, after: SPACING.author }, content: run(b.note) }] : []),
+      ...(b.note ? [{ props: { jc: ALIGN.center, after: SPACING.author }, content: titleRuns(b.note) }] : []),
       ...out.blocks(b.children, { ...ctx, center: true }),
       { xml: PAGE_BREAK },
     ]

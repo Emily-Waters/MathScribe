@@ -72,7 +72,8 @@ function solveSystem(entries: readonly string[], equationsText: string, line: Fo
   const shownNames = names.map(symbolTex).join(', ')
   const prelude: TraceLine[] = equations.map((e, i) => ({
     tex: `${host.tex(e.lhs, literals)} = ${host.tex(e.rhs, literals)}`,
-    note: i === 0 ? `solving for ${names.join(', ')}` : undefined,
+    // (The unknowns as they're drawn, d_stop as d with stop below: the note's `$…$` is maths.)
+    note: i === 0 ? `solving for $${shownNames}$` : undefined,
   }))
   const failTex = prelude.map((p) => p.tex).join(' \\\\ ')
   const missing = names.find((x) => equations.every((e) => !contains(e.lhs, x) && !contains(e.rhs, x)))

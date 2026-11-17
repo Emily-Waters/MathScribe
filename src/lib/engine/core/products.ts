@@ -23,8 +23,10 @@ export const isNumberWithUnit = (n: MathNode): n is math.OperatorNode =>
 export const PRODUCT_SIGN = '\\times '
 /** Between every factor, with "Show · in every product" on (CalcOptions.productDots). */
 export const EVERY_PRODUCT_SIGN = '\\cdot '
-/** Between a wide name (an upright word) and its neighbour: a thin space, Fn F. */
+/** After a number, before a wide name (an upright word): a thin space, ½ mass. */
 const NAME_GAP = '\\,'
+/** Between a wide name and any other factor but a number before it: a dot, mass · speed², Fn · F (words side by side would read as a phrase). */
+const WORD_SIGN = '\\cdot '
 /** Between names: nothing (a space in LaTeX, which isn't shown). */
 const NO_SIGN = ' '
 
@@ -147,8 +149,9 @@ const STARTS_AS_NUMBER: ReadonlySet<Edge> = new Set([EDGE.number, EDGE.quantity,
 /**
  * What goes between two factors: × where a number comes next (x × 2, not x2;
  * 2 × 1.50 m; × (2.0 s)²), after a quantity ending in its unit (9.81 m/s² × t²),
- * or between a number and a fraction (2 × ½, not the mixed number 2½); a thin
- * space beside a wide name (Fn F); otherwise nothing: ma, ½mv², 2π(a + b).
+ * or between a number and a fraction (2 × ½, not the mixed number 2½); a dot
+ * beside a wide name (mass · speed², Fn · F), but a thin space after a number
+ * (½ mass); otherwise nothing: ma, ½mv², 2π(a + b).
  */
 export function productSeparator(left: MathNode, right: MathNode): string {
   const l = edgeOf(left, SIDE.right)
@@ -158,7 +161,8 @@ export function productSeparator(left: MathNode, right: MathNode): string {
   // m × 1/M × n_Cr/n × M_Cr, as conversion factors are written.)
   if (STARTS_AS_NUMBER.has(r) || l === EDGE.quantity || l === EDGE.fraction || r === EDGE.fraction
     || (r === EDGE.euler && afterNumber)) return PRODUCT_SIGN
-  if (l === EDGE.wide || r === EDGE.wide) return NAME_GAP
+  if (r === EDGE.wide && afterNumber) return NAME_GAP
+  if (l === EDGE.wide || r === EDGE.wide) return WORD_SIGN
   return NO_SIGN
 }
 

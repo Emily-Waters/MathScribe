@@ -27,7 +27,7 @@ export function Tex({ latex, display = false }: { latex: string; display?: boole
     : <span dangerouslySetInnerHTML={{ __html: html }} />
 }
 
-/** A heading or block title, with `p_z` subscripts and `$…$` maths. */
+/** A heading, block title, note or line of text, with `p_z` subscripts and `$…$` maths. */
 function Title({ text }: { text: string }) {
   return (
     <>
@@ -94,7 +94,7 @@ function ImportSummary({ block }: { block: ImportBlock }) {
           {block.name && <span className="import__rows"> as <strong>{block.name}</strong></span>}
           {loaded && <span className="import__rows"> · {block.rows} row{block.rows === 1 ? '' : 's'}</span>}
         </span>
-        {block.note && <span className="calc__note">{block.note}</span>}
+        {block.note && <span className="calc__note"><Title text={block.note} /></span>}
         {removeImport && (
           <span className="import__actions">
             <button className="import__choose" onClick={remove} title="Remove this import and its data from the sheet">Remove</button>
@@ -172,9 +172,7 @@ function TextView({ block }: { block: TextBlock }) {
   return (
     <>
       <p className="doc__text" {...link(block.line)}>
-        {splitInlineMath(block.text).map((seg, i) =>
-          seg.math ? <Tex key={i} latex={seg.value} /> : <span key={i}>{seg.value}</span>,
-        )}
+        <Title text={block.text} />
       </p>
       <BlockMessages line={block.line} error={block.error} />
     </>
@@ -205,14 +203,14 @@ function ConstantsView({ block }: { block: ConstantsBlock }) {
     <section className={`group group--constants${hasError(block) ? ' group--error' : ''}`}>
       <header className="group__header" {...link(block.line)}>
         <span className="group__title"><span className="group__kind">Constants</span></span>
-        {block.note && <span className="calc__note">{block.note}</span>}
+        {block.note && <span className="calc__note"><Title text={block.note} /></span>}
       </header>
       <div className="group__body">
         {block.entries.map((e) => (
           <div className={`calc${e.error ? ' calc--error' : ''}`} key={e.line} {...link(e.line)}>
             <div className="calc__row">
               {e.tex ? <Tex latex={e.tex} display /> : <code className="calc__source">{e.source}</code>}
-              {e.note && <span className="calc__note">{e.note}</span>}
+              {e.note && <span className="calc__note"><Title text={e.note} /></span>}
             </div>
             <BlockMessages line={e.line} error={e.error} warning={e.warning} />
             {e.info && <p className="calc__msg calc__msg--info">{e.info}</p>}
@@ -233,7 +231,7 @@ function SpeciesView({ block }: { block: SpeciesBlock }) {
     <div className={`calc${e.error ? ' calc--error' : ''}`} key={e.line} {...link(e.line)}>
       <div className="calc__row">
         <Tex latex={speciesEntryTex(e)} display />
-        {e.note && <span className="calc__note">{e.note}</span>}
+        {e.note && <span className="calc__note"><Title text={e.note} /></span>}
       </div>
       <BlockMessages line={e.line} error={e.error} />
     </div>
@@ -243,7 +241,7 @@ function SpeciesView({ block }: { block: SpeciesBlock }) {
     <section className={`group group--constants${failed ? ' group--error' : ''}`}>
       <header className="group__header" {...link(block.line)}>
         <span className="group__title"><span className="group__kind">Species</span></span>
-        {block.note && <span className="calc__note">{block.note}</span>}
+        {block.note && <span className="calc__note"><Title text={block.note} /></span>}
       </header>
       <div className="group__body">{entries}</div>
       <BlockMessages line={block.line} error={block.error} />
@@ -269,7 +267,7 @@ function CalcView({ block }: { block: CalcBlock }) {
           {block.trace.map((t, i) => (
             <div className="calc__row" key={i}>
               <Tex latex={t.tex} display />
-              {t.note && <span className="calc__note">{t.note}</span>}
+              {t.note && <span className="calc__note"><Title text={t.note} /></span>}
             </div>
           ))}
         </div>
@@ -280,7 +278,7 @@ function CalcView({ block }: { block: CalcBlock }) {
           {block.tex
             ? <Tex latex={block.tex} display />
             : <code className="calc__source">{block.source}</code>}
-          {block.note && <span className="calc__note">{block.note}</span>}
+          {block.note && <span className="calc__note"><Title text={block.note} /></span>}
         </div>
       )}
       <BlockMessages line={block.line} error={block.error} warning={block.warning} />
@@ -301,7 +299,7 @@ function LayoutView({ block }: { block: LayoutBlock }) {
   const title = (block.title || block.note) && (
     <p className="layout__title" {...link(block.line)}>
       <Title text={block.title} />
-      {block.note && <span className="calc__note">{block.note}</span>}
+      {block.note && <span className="calc__note"><Title text={block.note} /></span>}
     </p>
   )
   const messages = <BlockMessages line={block.line} error={block.error} warning={block.warning} />
@@ -351,7 +349,7 @@ function GroupView({ block }: { block: GroupBlock }) {
             {block.section?.number && <span className="doc__heading-number">{block.section.number}</span>}
             {block.title && <Title text={block.title} />}
           </span>
-          {block.note && <span className="calc__note">{block.note}</span>}
+          {block.note && <span className="calc__note"><Title text={block.note} /></span>}
         </header>
       )}
       <div className="group__body">

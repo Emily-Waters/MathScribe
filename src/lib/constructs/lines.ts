@@ -3,9 +3,8 @@
  * and calculations.
  */
 import { BLOCK_KIND, type CalcBlock, type HeadingBlock, type LatexBlock, type SpacerBlock, type TextBlock } from '../blocks.ts'
-import { splitInlineMath } from '../document.ts'
-import { errorComment, escapeTex, gather, plotToLatex, titleToLatex, type Equation } from '../latexKit.ts'
-import { baseProps, equation, picture, richText, run, titleRuns, type Ctx, type Item } from '../docxKit.ts'
+import { errorComment, gather, plotToLatex, titleToLatex, type Equation } from '../latexKit.ts'
+import { baseProps, equation, picture, run, titleRuns, type Ctx, type Item } from '../docxKit.ts'
 import { EM_SPACE } from '../omml.ts'
 import { Construct, type LatexOut } from './construct.ts'
 
@@ -32,11 +31,12 @@ export class TextConstruct extends Construct<TextBlock> {
   readonly kind = BLOCK_KIND.text
 
   latex(b: TextBlock): string {
-    return splitInlineMath(b.text).map((seg) => (seg.math ? `$${seg.value}$` : escapeTex(seg.value))).join('')
+    // (As in a title: a name's subscript, t_avg, and `$…$` as maths.)
+    return titleToLatex(b.text)
   }
 
   docx(b: TextBlock, ctx: Ctx): Item[] {
-    return [{ props: baseProps(ctx), content: richText(b.text) }]
+    return [{ props: baseProps(ctx), content: titleRuns(b.text) }]
   }
 }
 
@@ -110,7 +110,7 @@ export class CalcConstruct extends Construct<CalcBlock> {
 
   latexItem(b: CalcBlock): string {
     if (b.error || b.trace?.length) return this.latex(b)
-    return `$\\displaystyle ${b.tex}$${b.note ? ` \\hfill ${escapeTex(b.note)}` : ''}`
+    return `$\\displaystyle ${b.tex}$${b.note ? ` \\hfill ${titleToLatex(b.note)}` : ''}`
   }
 
   notes(b: CalcBlock): string[] {

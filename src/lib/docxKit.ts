@@ -5,7 +5,7 @@
  * of them knows about blocks, so a construct can use them without the export
  * (docx.ts) being involved.
  */
-import { TITLE_SEGMENT, splitInlineMath, titleSegments } from './document.ts'
+import { TITLE_SEGMENT, titleSegments } from './document.ts'
 import { ALIGN, type Align } from './alignment.ts'
 import type { LatexOptions } from './latex.ts'
 import { PLOT_SIZE, type PlotData } from './plot.ts'
@@ -167,11 +167,7 @@ export function run(text: string, f: RunFormat = {}): string {
 /** A tab, as a run. */
 export const tab = '<w:r><w:tab/></w:r>'
 
-/** Text with `$…$` inline maths. */
-export const richText = (text: string, f: RunFormat = {}) =>
-  splitInlineMath(text).map((s) => (s.math ? texToOmml(s.value, f.size) : run(s.value, f))).join('')
-
-/** A heading or block title: `2p_z` → 2p with a subscript z, `$…$` as maths. */
+/** A heading, block title, note or line of text: `2p_z` → 2p with a subscript z, `$…$` as maths. */
 export const titleRuns = (text: string, f: RunFormat = {}) =>
   titleSegments(text).map((s) => (s.kind === TITLE_SEGMENT.math
     ? texToOmml(s.value, f.size)
@@ -259,7 +255,7 @@ export function equation(ctx: Ctx, tex: string, note?: string, small = false): I
   if (!note) return { props: { ...spacing, indent: indent || undefined }, content: display }
 
   // (A note is a comment on its line: italic, grey, and a point smaller than what it's beside.)
-  const noteRuns = run(note, { ...NOTE, size: (size ?? fontSizeOf(ctx.o)) - NOTE_SIZE_STEP })
+  const noteRuns = titleRuns(note,{ ...NOTE, size: (size ?? fontSizeOf(ctx.o)) - NOTE_SIZE_STEP })
   if (ctx.inList) {
     return { props: { ...spacing, tabs: [{ kind: ALIGN.right, pos: ctx.width - indent }] }, content: `${math}${tab}${noteRuns}` }
   }
@@ -325,7 +321,7 @@ export function titled(ctx: Ctx, title: string, body: (inner: Ctx) => Item[]): I
 
 /** Title and note of a block, as bold runs. */
 export const heading = (title: string, note?: string) =>
-  [title && titleRuns(title, { bold: true }), note && run(` — ${note}`, { bold: true })].filter(Boolean).join('')
+  [title && titleRuns(title, { bold: true }), note && titleRuns(` — ${note}`, { bold: true })].filter(Boolean).join('')
 
 
 /** A paragraph's place here: its indent, and centred if the block it's in is. */

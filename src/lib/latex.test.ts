@@ -24,8 +24,16 @@ describe('equations', () => {
   it('in a row share one gather*, with notes as tags; a hidden line doesn’t split them', () => {
     const tex = body(exportOf('m = 2.00 kg   # mass\nh = 3   #hide\nF = m * 9.81 m/s^2'))
     expect(tex.match(/\\begin\{gather\*\}/g)).toHaveLength(1)
-    // (A note is small and italic.)
-    expect(tex).toContain('m = 2.00\\,\\mathrm{kg} \\tag*{\\small\\itshape mass} \\\\\n  F = ')
+    // (A note is small and italic, beside its line or, if they don't fit, under it, with room after.)
+    expect(tex).toContain('\\msnoted{m = 2.00\\,\\mathrm{kg}}{\\small\\itshape mass} \\msnotesep\n  F = ')
+    expect(exportOf('x = 1')).toContain('\\ifdim\\dimexpr\\wd\\msnoteeqbox+\\wd\\msnotebox+1em\\relax>\\dimexpr\\linewidth-\\mathindent\\relax')
+    expect(exportOf('x = 1', { align: 'center' })).toContain('\\ifdim\\dimexpr\\wd\\msnoteeqbox+2\\wd\\msnotebox+2\\dimexpr1em\\relax\\relax>\\dimexpr\\linewidth\\relax')
+  })
+
+  it('show a name’s subscript in a note, and @solve’s unknown as it’s drawn', () => {
+    const tex = body(exportOf('v_f = 2 m/s   # speed v_f\nd_stop = @solve(v_f^2 = 2 * 1 m/s^2 * d_stop, d_stop)'))
+    expect(tex).toContain('speed v\\textsubscript{f}')
+    expect(tex).toContain('solving for $d_{\\mathrm{stop}}$')
     expect(tex).not.toContain('h = 3')
   })
 
@@ -58,6 +66,10 @@ describe('text', () => {
   it('sets characters pdflatex can’t set as text as maths: Greek letters, √, ≈', () => {
     const tex = body(exportOf('> The mean ± σ/√n, about ≈ 2 μm.'))
     expect(tex).toContain('± $\\sigma$/$\\surd$n, about $\\approx$ 2 $\\mu$m.')
+  })
+
+  it('shows a name’s subscript, as a title does, unless the _ is escaped', () => {
+    expect(body(exportOf('> t_avg is the mean; my\\_file is a name.'))).toContain('t\\textsubscript{avg} is the mean; my\\_file is a name.')
   })
 })
 

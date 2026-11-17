@@ -45,7 +45,7 @@ export function titleToLatex(text: string): string {
 
 /** Title and note of a block, as one heading. */
 export const heading = (title: string, note?: string) =>
-  [title, note && escapeTex(note)].filter(Boolean).join(' --- ')
+  [title, note && titleToLatex(note)].filter(Boolean).join(' --- ')
 
 /** An equation to display, with its note (set at the right margin). */
 export interface Equation {
@@ -59,9 +59,53 @@ export interface Equation {
  * with its note on the right.
  */
 export function gather(eqs: Equation[]): string {
-  // (A note is a comment on its line: small and italic, at the right margin.)
-  const rows = eqs.map((e) => `  ${fitted(e.tex)}${e.note ? ` \\tag*{${NOTE_STYLE}${escapeTex(e.note)}}` : ''}`)
-  return ['\\begin{gather*}', rows.join(' \\\\\n'), '\\end{gather*}'].join('\n')
+  // (A note is a comment on its line: small and italic, at the right margin. Like a
+  // title, it shows a name's subscript, v_f, and `$…$` as maths.)
+  // A noted line goes through NOTE_MACRO, which drops the note under it if they
+  // don't fit side by side, and then leaves more room before the next line (NOTE_SEPARATOR).
+  const rows = eqs.map((e) => (e.note
+    ? `  \\${NOTE_MACRO}{${fitted(e.tex)}}{${NOTE_STYLE}${titleToLatex(e.note)}}`
+    : `  ${fitted(e.tex)}`))
+  const separators = eqs.map((e) => (e.note ? ` \\${NOTE_SEPARATOR}\n` : ' \\\\\n'))
+  return ['\\begin{gather*}', rows.map((r, i) => (i ? separators[i - 1] : '') + r).join(''), '\\end{gather*}'].join('\n')
+}
+
+/**
+ * The macro (defined in the preamble: noteMacroDefinition) that sets a line
+ * with its note: `\msnoted{equation}{note}`. Side by side if they fit (LaTeX
+ * measures them, as amsmath would), and otherwise the note just under its line,
+ * with more room after it, so it reads as its line's and not the next one's.
+ */
+export const NOTE_MACRO = 'msnoted'
+/** The row break after a noted line: `\\`, with the room a dropped note leaves. */
+export const NOTE_SEPARATOR = 'msnotesep'
+const NOTE_EQUATION_BOX = 'msnoteeqbox'
+const NOTE_BOX = 'msnotebox'
+const NOTE_ROOM = 'msnoteroom'
+/** The least gap between a line and its note beside it. */
+const NOTE_GAP = '1em'
+/** The room after a dropped note, before the next line. */
+const NOTE_DROPPED_ROOM = '0.5\\baselineskip'
+
+/** The noting macro's definition, for the preamble (after the fitting macro's, whose helpers it uses). */
+export const noteMacroDefinition = (flushLeft: boolean) => {
+  // The width they need side by side. (Centred, the line leaves only half of what's left on its right.)
+  const needed = flushLeft
+    ? `\\wd\\${NOTE_EQUATION_BOX}+\\wd\\${NOTE_BOX}+${NOTE_GAP}`
+    : `\\wd\\${NOTE_EQUATION_BOX}+2\\wd\\${NOTE_BOX}+2\\dimexpr${NOTE_GAP}\\relax`
+  return [
+  '% A line and its note side by side if they fit; else the note just under it.',
+  `\\newsavebox{\\${NOTE_EQUATION_BOX}}`,
+  `\\newsavebox{\\${NOTE_BOX}}`,
+  `\\newdimen\\${NOTE_ROOM}`,
+  `\\newcommand{\\${NOTE_SEPARATOR}}{\\\\[\\${NOTE_ROOM}]}`,
+  `\\newcommand{\\${NOTE_MACRO}}[2]{\\sbox{\\${NOTE_EQUATION_BOX}}{$\\displaystyle #1$}\\sbox{\\${NOTE_BOX}}{#2}%`,
+  `  \\ifdim\\dimexpr${needed}\\relax>\\dimexpr\\linewidth${flushLeft ? '-\\mathindent' : ''}\\relax`,
+  `  \\expandafter\\${FIT_SECOND}\\else\\expandafter\\${FIT_FIRST}\\fi`,
+  `  {\\global\\${NOTE_ROOM}=0pt\\relax #1\\tag*{#2}}`,
+  // (Dropped: a row of its own, pulled up to its line.)
+  `  {\\global\\${NOTE_ROOM}=${NOTE_DROPPED_ROOM}\\relax #1\\\\*[-\\jot]{}\\tag*{#2}}}`,
+  ]
 }
 
 /** How a line's note is set, in its \tag*: small and italic (maths in it stays upright). */

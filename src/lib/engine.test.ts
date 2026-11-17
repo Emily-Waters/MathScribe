@@ -59,8 +59,9 @@ describe('products', () => {
     expect(readable(last(`${src}E = 1/2 * m * v^2`).tex).split(' = ')[1]).toBe('\\frac12 m v^2') // ½mv²
     expect(readable(last(`${src}N = m * @g * cos(theta)`).tex).split(' = ')[1]).toBe('m g \\cos(\\theta)')
     expect(readable(last(`${src}C = 2 * pi * r`).tex).split(' = ')[1]).toBe('2 \\pi r')
-    // Beside a word-like name, a thin space keeps the names apart.
-    expect(last(`${src}G = Fn * m`).tex).toMatch(/^G = \\mathrm\{Fn\}\\,m =/)
+    // Beside a word-like name, a dot, so words don't read as a phrase; after a number, a thin space.
+    expect(last(`${src}G = Fn * m`).tex).toMatch(/^G = \\mathrm\{Fn\}\\cdot m =/)
+    expect(last(`${src}H = 2 * Fn`).tex).toMatch(/^H = 2\\,\\mathrm\{Fn\} =/)
   })
 
   it('put × before a number, so numbers don’t run together or read as a mixed fraction', () => {

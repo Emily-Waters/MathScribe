@@ -28,7 +28,7 @@ export const NAME = String.raw`[A-Za-z${GREEK_CHARS}]${NAME_CHAR}*`
 const SETTING_VALUE = String.raw`"[^"]*"|${NAME}\([^()]*\)|[^:=\s"]+`
 
 /** One display setting after a name, with its colon: `:3`, `:deg`, `:"Moles"`, `:massName(H2O)`. */
-export const SETTING = String.raw`:(?:${SETTING_VALUE})`
+const SETTING = String.raw`:(?:${SETTING_VALUE})`
 
 /** Around a display name: `n_Na:"Moles of {Na^+}"`. */
 export const LABEL_QUOTE = '"'
@@ -76,9 +76,6 @@ export const GREEK_BY_CHAR: ReadonlyMap<string, string> = new Map(GREEK_LETTERS.
 /** Exactly a name. */
 export const IS_NAME = new RegExp(`^${NAME}$`)
 
-/** The name at the start of some text. */
-export const LEADING_NAME = new RegExp(`^${NAME}`)
-
 // ---------------------------------------------------------------------------
 // The sheet's own words
 // ---------------------------------------------------------------------------
@@ -111,7 +108,7 @@ export const CALL = {
 } as const
 
 /** A call by name, up to its opening bracket: `import (` (for building patterns). */
-export const opening = (call: string) => String.raw`${call}\s*\(`
+const opening = (call: string) => String.raw`${call}\s*\(`
 
 /** A built-in call, up to its opening bracket: `@table (` (for building patterns). */
 export const builtinOpening = (call: string) => opening(`${SIGIL}${call}`)
@@ -132,9 +129,6 @@ export const LABEL_WORDS = new RegExp(String.raw`^${LABEL_QUOTE}([^"]*)${LABEL_Q
 
 /** A display name made with a template, as a setting: `massName(H2O)` (1: the template, 2: its arguments). */
 export const TEMPLATE_USE = new RegExp(String.raw`^(${NAME})${PARAMETERS}$`)
-
-/** An unpacking being typed, before its `=`: `@tuple(a, b` (for the editor). */
-export const UNPACK_SO_FAR = new RegExp(String.raw`^\s*${builtinOpening(CALL.tuple)}[^()=]*$`)
 
 /**
  * A name with a dot: a selection's, named import's or named plot's member,
@@ -215,7 +209,7 @@ export const EXACT_SETTING = 'exact'
 export type Precision = number | typeof EXACT_SETTING
 
 /** Always scientific (`x:sci`) or always decimal (`x:dec`) notation. */
-export const NOTATION = { sci: 'sci', dec: 'dec' } as const
+const NOTATION = { sci: 'sci', dec: 'dec' } as const
 export type Notation = (typeof NOTATION)[keyof typeof NOTATION]
 export const NOTATIONS: readonly Notation[] = Object.values(NOTATION)
 
@@ -253,7 +247,6 @@ export type SeriesSuffix = keyof typeof SERIES_SUFFIXES
 
 /** MathScribe's namespaces under @, whose members are written with a dot: `@layout.list`. (An engine module adds its own: `@chem`.) */
 export const NAMESPACE = { layout: 'layout' } as const
-export type Namespace = (typeof NAMESPACE)[keyof typeof NAMESPACE]
 
 /**
  * The layouts in @layout, each a block opened `@layout.list Title {` (the title
@@ -355,12 +348,6 @@ export const CONSTANT_PRECISION = String.raw`(?::(\d+|${EXACT_SETTING})\b)?`
  * (1: the name, with any namespace; 2: the precision). Not a call, `@chem.mm(…)`.
  */
 export const CONSTANT_REF = new RegExp(String.raw`@(${CONSTANT_NAME})(?!${NAME_CHAR}|\.|\s*\()${CONSTANT_PRECISION}`, 'g')
-
-/** One constant at the current position (for the editor's tokenizer). */
-export const CONSTANT_TOKEN = new RegExp(`@${CONSTANT_NAME}${CONSTANT_PRECISION}`)
-
-/** A call to a built-in function at the current position: `@tuple(`, `@chem.mm(` (for the editor; 1: the path, `chem.mm`). */
-export const NAMESPACE_CALL_TOKEN = new RegExp(String.raw`${SIGIL}(${NAME}(?:\.${NAME})*)(?=\s*\()`)
 
 /**
  * A line that only sets a constant sheet-wide: `@c:4`, `@a_0 to angstrom`,

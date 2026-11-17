@@ -444,6 +444,27 @@ edit reads again only what it changed, and nodes are shared between trees.
       on a value inside it, and procedures without a value. The only body whose
       extent comes from indentation now is imported data's rows.
 
+- [ ] **Syntax tidy** (2026-11-16): `syntax.ts` and `document.ts` are grouped by
+      mechanism (patterns, words, helpers) rather than by concept, and several
+      kinds of text are read again by regex wherever they're used. Steps, each
+      checked in:
+      1. [x] Dead exports out of `syntax.ts` (`LEADING_NAME`, `UNPACK_SO_FAR`,
+         `CONSTANT_TOKEN`, `NAMESPACE_CALL_TOKEN`, the `Namespace` type); ones
+         used only inside it no longer exported (`SETTING`, `opening`, `NOTATION`).
+      2. [ ] A pattern builder (named groups) and a word-list helper; `syntax.ts`
+         split into `syntax/` by concept, `@layout` as one `LayoutSyntax` class;
+         `document.ts` down to evaluation (block queries by the block types,
+         columns in `constructs/layout.ts`, editor services in `sheetIndex.ts`).
+      3. [ ] The tree tokenizes once what's now re-read: #commands and notes
+         (`tree/lines.ts` and `splitNote`), block openers (`tree/core.ts`,
+         `reading/lineSyntax.ts`, the editor), text markup (`$…$`, `{formula}`,
+         subscripts: `document.ts`, `engine/core/text.ts`, the editor,
+         `sheetReader.withValues`), imported rows (the editor, `csv.ts`), and
+         `@constant` references and dot access in expressions (`calculator.ts`,
+         `names.ts`).
+      Then: a codebase-wide audit of which patterns are working, toward one
+      harmonious structure.
+
 ## Done
 
 - [x] **`@layout.column(n)`** (2026-11-16): lines side by side in columns. As

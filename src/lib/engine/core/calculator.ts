@@ -9,7 +9,7 @@ import { AGGREGATE_KIND, Variable, type Aggregate, type Contributions, type Vari
 import { DEFAULT_CONSTANT_SIG_FIGS, isNamespaceConstant, suggestConstant } from '../../constants.ts'
 import { BUILTINS, builtinConstant, builtinConstantKeys, isReservedConstantName } from '../../builtins.ts'
 import { CONSTANT_REF, EXACT_SETTING, IS_NAME, MEMBER_DOT, PERCENT, DISPLAY_MODE, VALUE_IN_TEXT, CONSTANTS_BLOCK, LABEL_WORDS, SIGIL, type DisplayMode, type Notation, type Precision, type UncertaintyWord } from '../../syntax.ts'
-import { INLINE_VALUE_NAME, JOIN, TUPLE_FUNCTION, RESERVED_NAMESPACES, constantKey, constantRefName, expandDots, typedConstant, isHiddenName, isUncertaintyName, memberName, parseNumberedName, parseUncertaintyName, readableMembers, seriesMemberName, uncertaintyName, unpackedName } from '../../names.ts'
+import { INLINE_VALUE_NAME, INV_FUNCTION, JOIN, TUPLE_FUNCTION, RESERVED_NAMESPACES, constantKey, constantRefName, expandDots, typedConstant, isHiddenName, isUncertaintyName, memberName, parseNumberedName, parseUncertaintyName, readableMembers, seriesMemberName, uncertaintyName, unpackedName } from '../../names.ts'
 import { COMPARISONS, FN, OP, OP_SYMBOL, UNIT, isOp } from '../../mathjsNames.ts'
 
 import { nestBrackets } from '../../brackets.ts'
@@ -24,7 +24,7 @@ import { preprocess, typedNumbers } from './writer.ts'
 import { AUTO_PRECISION, ExplainedError, builtinCallHint, FIXED_UNCERTAINTY_SIG_FIGS, type CalcOptions, type EquationParts, layoutEquation, type TraceLine, type CalcResult, unexpectedError, fitHint, type DataColumn, type LineNotation, type LineResult, type ParsedLine, TO_PERCENT, RAW, rawNode, STEP, readableUnitError } from './results.ts'
 import { NAME_THEN_SETTINGS, DELTA_REF, expandParenPm, splitPm } from './uncertainty.ts'
 import { parseAggregateName, escapeRegExp } from './series.ts'
-import { symbolTex, numberTex, unitTex, attachUnit, isUnitCall, unitCallText, isLitCall, resultUnitTex, CASE_WORDS, caseTex } from './tex.ts'
+import { symbolTex, numberTex, unitTex, attachUnit, isUnitCall, unitCallText, isLitCall, resultUnitTex, CASE_WORDS, caseTex, splitUnit } from './tex.ts'
 import { unwrap, isLiteral, isTupleLiteral, isPureNumber, isConversion } from './nodes.ts'
 import { NODE_KIND, TOKEN_KIND, isToken, type Part } from '../../tree/nodes.ts'
 import { lexExpression } from '../../tree/lexer.ts'
@@ -500,6 +500,18 @@ export class Calculator {
       if (isSymbolNode(n)) {
         if (n.name.startsWith(RAW)) return ` ${n.name.slice(1)}`
         return ` ${this.nameTex(n.name)}`
+      }
+      // `@inv(x)`: a fraction turned over, m/V as V/m; a value whose unit is one,
+      // 18.015 g/mol as 1 mol / 18.015 g (a conversion factor turned over); anything else, 1/x.
+      if (isFunctionNode(n) && n.fn.name === INV_FUNCTION) {
+        const arg = unwrap(n.args[0])
+        const tex = (a: MathNode) => a.toTex(options).trim()
+        if (isOp(arg, OP.divide)) return `\\frac{${tex(arg.args[1])}}{${tex(arg.args[0])}}`
+        if (isNumberWithUnit(arg)) {
+          const unit = splitUnit(unitCallText(arg.args[1] as FunctionNode))
+          if (unit) return `\\frac{${attachUnit('1', unitTex(unit.below))}}{${attachUnit(tex(arg.args[0]), unitTex(unit.above))}}`
+        }
+        return `\\frac{1}{${tex(n.args[0])}}`
       }
       if (isFunctionNode(n) && n.fn.name === TUPLE_FUNCTION) {
         return `\\left(${n.args.map((a) => a.toTex(options).trim()).join(', ')}\\right)`

@@ -237,6 +237,7 @@ block's first line to hide it. The dialog remembers your last choices.
 | `F:ijk = …`, `F:xyz = …` | a vector with unit vectors, or broken into components F_x, F_y |
 | `r = @tuple(x, y, z)` | a tuple, such as coordinates |
 | `@tuple(a, b, c) = r` | unpack a tuple into variables |
+| `@inv(x)` | 1/x, written turned over: `@inv(m / V)` is V/m |
 | `x = 3  # note` | text after `#` becomes the line's description |
 | `x = 3  #val` | a display command (see below) |
 | `# Title` | `\section{Title}`, numbered 1, 2, … |
@@ -257,7 +258,7 @@ block's first line to hide it. The dialog remembers your last choices.
 
 **`@` is MathScribe's own:** everything built in rather than written in the sheet
 starts with `@`: constants (`@c`), the `@constants { }` block, MathScribe's own
-functions (`@tuple(…)`, `@vector(…)`, `@import(…)`, `@table(…)`, `@plot(…)`,
+functions (`@tuple(…)`, `@inv(…)`, `@vector(…)`, `@import(…)`, `@table(…)`, `@plot(…)`,
 `@select(…)`, `@solve(…)`), and namespaces, whose members are written with a dot: `@layout`
 holds the layout blocks (`@layout.text`, `@layout.list`, `@layout.numbered`,
 `@layout.center`, `@layout.titlepage`) and `@chem` the chemistry (`@chem.substance(…)`,
@@ -518,6 +519,19 @@ polar(x, y):3 = @tuple(sqrt(x^2 + y^2), atan2(y, x))   # each value to 3 sig fig
 
 The definition says the unit after its equation, ang(y, x) = tan⁻¹(y/x)  in °. A tuple result takes the unit
 on each value. Settings on the calling line still win: `w:2 = ang(y, x)`.
+
+**Turning a fraction over:** `@inv(x)` is 1/x, but written as the fraction turned
+over rather than with ⁻¹ after it: `@inv(m / V)` is V/m, and a value whose unit is
+a fraction is turned over whole, so a conversion factor reads flipped, as in
+factor-label working:
+
+```
+n = 36.0 g {H2O} * @inv(H2O.M)   → n = 36.0 g H₂O × (1 mol H₂O / 18.015 g H₂O) = 2.00 mol H₂O
+f = @inv(T)                      → f = 1/T = 1/(2.0 s) = 0.50 Hz
+```
+
+Units, species, sig figs and uncertainty follow as for any division. Zero, or a
+tuple, has nothing to turn over.
 
 **Conditions:** `condition ? a : b` gives `a` if the condition holds and `b`
 otherwise, so a function can be piecewise; it's typeset with a brace, as piecewise

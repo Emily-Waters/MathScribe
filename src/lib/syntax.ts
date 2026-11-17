@@ -106,6 +106,8 @@ export const SIGIL = '@'
 export const CALL = {
   import: 'import',
   tuple: 'tuple',
+  /** `@inv(x)`: 1/x, written as its fraction flipped (m/V as V/m). */
+  inv: 'inv',
 } as const
 
 /** A call by name, up to its opening bracket: `import (` (for building patterns). */

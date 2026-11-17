@@ -172,6 +172,15 @@ export function unitTex(s: string): string {
 /** A unit with one division in it, at the top (1: above the line, 2: below it). */
 const STACKED_UNIT = /^([^/()]+)\/([^/]+)$/
 
+/** A unit as mathjs writes one with one division, either side bracketed or not: `kg / m^3`, `(g H2O) / (mol H2O)` (1: above, 2: below). */
+const DIVIDED_UNIT = /^\(?([^/()]+)\)?\/\(?([^/()]+)\)?$/
+
+/** A unit's parts above and below its line, if it has one (`kg / m^3`, `(g H2O) / (mol H2O)`); undefined if not. */
+export function splitUnit(s: string): { above: string; below: string } | undefined {
+  const m = DIVIDED_UNIT.exec(s.trim().replace(/\s*\/\s*/g, '/'))
+  return m ? { above: m[1].trim(), below: m[2].trim() } : undefined
+}
+
 /** The words of a piecewise value's cases: `x, if x > 0`, `0, otherwise`. */
 export const CASE_WORDS = { if: 'if ', otherwise: 'otherwise' } as const
 

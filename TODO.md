@@ -190,6 +190,22 @@ what's here better.
       left are where a chain is written (on an expression, `@format.inv.sci(x)`;
       on a block, `@format.sci { … }`; or both) and whether the `:` settings on
       names become the same words.
+
+      **Decided (2026-11-16):** `@format.inv(x)` is 1/x (it acts as ^-1), but
+      written by inverting the fraction (m/V as V/m), not with ^-1 appended. A
+      chain is written on a value, `@format.sci.frac(x)` (in `{{…}}` text and
+      table columns too); blocks already have `@layout.sci { }`. The `:`
+      settings on names are the same words (`x:eng` ≡ `@format.eng(x)`). First
+      members: inv, sci, dec, eng, frac, percent, exact; the vectors module adds
+      polar as its own; not prefix(k) (`to kN` does it) or abs (mathjs's maths).
+
+      **Set aside (2026-11-16):** after weighing it up (formatting in `{{…}}`
+      text and table columns, eng and frac, against a fourth place to set
+      notation beside `#sci`, `:sci` and `@layout.sci`, and frac's clash with
+      sig figs), `@format` waits until there's a clearer need: investigate how
+      people would use it first (which notations they reach for, and where a
+      `:` can't go). Flipping a fraction, which changes the value rather than
+      how it's shown, became its own function instead: `@inv(x)`.
 - [x] **How expressions are typeset: brackets, multiplication signs and
       fractions.** A lot of the output looks ugly, the chemistry especially:
       brackets where none are needed (or missing where they are), a mix of
@@ -399,6 +415,12 @@ edit reads again only what it changed, and nodes are shared between trees.
 
 ## Done
 
+- [x] **`@inv(x)`** (2026-11-16, from the `@format` discussion): 1/x, written as
+      the fraction turned over, `@inv(m / V)` as V/m, and a value whose unit is a
+      fraction turned over whole, a molar mass as 1 mol H₂O / 18.015 g H₂O (a
+      conversion factor flipped, as in factor-label working); anything else as
+      1/x. A hidden mathjs function, so units, species, sig figs and uncertainty
+      are a division's; zero and a tuple are explained.
 - [x] **The `@` namespace**: `@layout` blocks (`@layout.text Title { … }`, and
       `list`, `numbered`, `center`, `titlepage`, and display settings such as `.hidden` and `.val.multiline` that combine); `@chem.mm.Na` molar masses,
       `@chem.mm({formula})` with the sum as working, `@chem.total(…)` to add

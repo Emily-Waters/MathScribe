@@ -275,6 +275,10 @@ export const REFERENCE: ReferenceSection[] = [
         explain: '@chem.reaction checks a reaction balances; each coefficient is a member, an exact amount, so r.H2O / r.H2 is a mole ratio.',
       },
       {
+        source: 'H2O = @chem.substance({H2O})\nn = 36.0 g {H2O} * @inv(H2O.M)',
+        explain: '@inv(x) is 1/x, written turned over: a molar mass as 1 mol over its grams, a conversion factor flipped. @inv(m / V) is V/m.',
+      },
+      {
         source: 'n_Na = 0.100 mol {Na^+}\nn_Cl = 0.200 mol {Cl^-}\nn = @chem.total(n_Na, n_Cl)',
         explain: 'Amounts of different species can’t be added with +; @chem.total adds them as plain amounts.',
       },

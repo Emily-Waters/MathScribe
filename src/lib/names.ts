@@ -62,6 +62,9 @@ export const builtinFunctionName = (name: string) => `${HIDDEN_PREFIX.builtin}${
 /** The function `@tuple(…)` makes a tuple with. */
 export const TUPLE_FUNCTION = builtinFunctionName(CALL.tuple)
 
+/** The function `@inv(x)` works 1/x out with. */
+export const INV_FUNCTION = builtinFunctionName(CALL.inv)
+
 /** An unknown @solve(…) worked out: x → solved__x. */
 export const solvedName = (x: string) => `${HIDDEN_PREFIX.solved}${JOIN}${x}`
 

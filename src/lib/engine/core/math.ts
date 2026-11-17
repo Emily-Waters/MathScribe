@@ -1,7 +1,8 @@
 /** The engine's own mathjs instance, and the functions it adds to it or replaces. */
 import { all, create, type MathType, type Unit } from 'mathjs'
 import { FN, OP, UNIT } from '../../mathjsNames.ts'
-import { TUPLE_FUNCTION } from '../../names.ts'
+import { INV_FUNCTION, TUPLE_FUNCTION } from '../../names.ts'
+import { CALL, SIGIL } from '../../syntax.ts'
 import { isLabelUnit } from './module.ts'
 
 /** Our own mathjs instance, with the functions below added or replaced. */
@@ -29,6 +30,19 @@ math.import({ [FN.literal]: (text: string) => Number(text) })
  * into separate variables (see evaluateUnpack).
  */
 math.import({ [TUPLE_FUNCTION]: (...values: MathType[]) => math.matrix(values as never) })
+
+/**
+ * `@inv(x)`: 1/x, units and species flipped with it (g/mol → mol/g). It's
+ * written as its fraction flipped (see the Calculator's toTex). A tuple has no
+ * inverse to flip, and zero none at all.
+ */
+math.import({
+  [INV_FUNCTION]: (x: MathType) => {
+    if (isTuple(x)) throw new Error(`${SIGIL}${CALL.inv}(…) flips one value: a tuple has none to flip.`)
+    if (math.isZero((math.isUnit(x) ? (x as Unit).toNumber() : x) as never)) throw new Error(`${SIGIL}${CALL.inv}(…) of zero isn't defined.`)
+    return math.divide(1, x as never) as MathType
+  },
+})
 
 /**
  * atan2(y, x) of two lengths (or any matching units), such as a point's

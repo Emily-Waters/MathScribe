@@ -255,6 +255,12 @@ exports[`the Reference tab’s examples > Chemistry: CuSO4 = @chem.substance({Cu
 4: m_O,CuSO4 = n_O,CuSO4 M_O,CuSO4 = 0.180 mol O\\times 15.999 \\fracg Omol O = 2.88 g O"
 `;
 
+exports[`the Reference tab’s examples > Chemistry: H2O = @chem.substance({H2O}) 1`] = `
+"1: H2O:\\quad M_H2O = 2 M_H+ M_O = 2\\times 1.008 g/mol+ 15.999 g/mol = 18.015 \\fracg H2Omol H2O
+     INFO H2O is 1 mol of H2O until its amount is set (H2O.n = …, or H2O.m = …). Its members: H2O.M, .n, .m, and each element's, as H2O.H.n, .m, .M and .w (its mass fraction).
+2: n = 36.0 g H2O\\times \\frac1M_H2O = 36.0 g H2O\\times \\frac1 mol H2O18.015 g H2O = 2.00 mol H2O"
+`;
+
 exports[`the Reference tab’s examples > Chemistry: H2SO4 = @chem.substance({H2SO4}) 1`] = `
 "1: H2SO4:\\quad M_H2SO4 = 2 M_H+ M_S+ 4 M_O = 2\\times 1.008 g/mol+ 32.06 g/mol+ 4\\times 15.999 g/mol = 98.07 \\fracg H2SO4mol H2SO4
      INFO H2SO4 is 1 mol of H2SO4 until its amount is set (H2SO4.n = …, or H2SO4.m = …). Its members: H2SO4.M, .n, .m, and each element's, as H2SO4.H.n, .m, .M and .w (its mass fraction).

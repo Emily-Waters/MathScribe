@@ -19,7 +19,7 @@
  * added once, and each of them knows about it.
  */
 import { BUILTIN_CONSTANTS, type BuiltinConstant, type NamespaceConstant } from './constants.ts'
-import { JOIN, TUPLE_FUNCTION } from './names.ts'
+import { INV_FUNCTION, JOIN, TUPLE_FUNCTION } from './names.ts'
 import {
   CALL, CONSTANTS_BLOCK, LATEX_BLOCK, LAYOUT_MODIFIER, LAYOUT_STYLE, MEMBER_DOT, NAMESPACE, SIGIL,
   type LayoutModifier, type LayoutStyle,
@@ -282,6 +282,20 @@ class TupleFunction extends FunctionMember {
   }
 }
 
+/** `@inv(x)`: 1/x, written as its fraction flipped (m/V as V/m), so a conversion factor reads turned over. */
+class InvFunction extends FunctionMember {
+  readonly parameters = 'x'
+
+  constructor() {
+    super(CALL.inv, 'One over a value, written as its fraction flipped: @inv(m/V) is V/m, @inv(r) is 1/r')
+  }
+
+  expand(args: string): Expansion {
+    if (!args.trim()) return { error: `${this.typed} needs the value to flip: ${this.typed}(m/V).` }
+    return { text: `${INV_FUNCTION}(${args})` }
+  }
+}
+
 // ---------------------------------------------------------------------------
 // @layout's members
 // ---------------------------------------------------------------------------
@@ -314,6 +328,7 @@ const LAYOUT_MODIFIER_DESCRIPTIONS: Record<LayoutModifier, string> = {
 export const BUILTINS = new Namespace('', 'Built in', [
   ...Object.entries(BUILTIN_CONSTANTS).map(([name, c]) => new ConstantMember(name, c)),
   new TupleFunction(),
+  new InvFunction(),
   new LineFormMember(CALL.import, '"file.csv"', 'Import a CSV file: each value becomes a variable, x_1, x_2, …',
     '@import("run1.csv"), or run1 = @import("run1.csv"), with the file’s rows indented under it'),
   new Namespace(NAMESPACE.layout, 'Blocks that arrange lines (text, list, numbered, center, titlepage) or set how they’re shown (hidden, sym, val, multiline, …)', [

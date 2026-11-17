@@ -446,6 +446,11 @@ edit reads again only what it changed, and nodes are shared between trees.
 
 ## Done
 
+- [x] **Headings set apart in the Rendered tab** (2026-11-16): a section or
+      subsection heading is a band like a block's header (shaded, the accent
+      bar at its left), a subsection's lighter. Only in the app: the exports
+      set headings as LaTeX does.
+
 - [x] **Line notes set apart** (2026-11-16): a line's `# note` is a comment on it,
       so it's small and italic in every output: grey italic at 12.5 px in the
       app, `\small\itshape` in its LaTeX `\tag*`, and a point smaller (and grey

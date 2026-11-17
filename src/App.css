@@ -161,7 +161,7 @@ body {
 }
 
 .filebar__status--unsaved .filebar__name::after {
-  content: ' •';
+  content: ' â€¢';
   color: var(--warn);
 }
 
@@ -299,7 +299,7 @@ body {
   background: var(--warn);
 }
 
-/* ---------- Syntax themes (Options → Editor colours) ----------
+/* ---------- Syntax themes (Options â†’ Editor colours) ----------
    Each theme sets the colours the highlighter uses (editor/themes.ts), with a
    dark version for dark mode. */
 
@@ -503,6 +503,26 @@ body {
   margin-top: 4px;
 }
 
+/*
+ * In the Rendered tab (only: the exports set headings as LaTeX does), a section
+ * or subsection heading is a band like a block's header: shaded, with the
+ * accent bar at its left. A subsection's is lighter, so the two read as levels.
+ */
+.doc .doc__heading--section,
+.doc .doc__heading--subsection {
+  padding: 6px 12px;
+  border-left: 3px solid var(--accent);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--surface-2) 70%, var(--surface));
+}
+
+.doc .doc__heading--subsection {
+  padding: 4px 12px;
+  border-left-width: 2px;
+  border-left-color: color-mix(in srgb, var(--accent) 60%, transparent);
+  background: color-mix(in srgb, var(--surface-2) 35%, transparent);
+}
+
 .doc__text {
   margin: 8px 0;
   line-height: 1.6;
@@ -641,7 +661,7 @@ body {
   padding: 0 12px;
 }
 
-/* A plot(…) line's plot: as wide as the output allows, up to its drawn size */
+/* A plot(â€¦) line's plot: as wide as the output allows, up to its drawn size */
 .plot {
   max-width: 640px;
   margin: 6px 0;
@@ -1137,7 +1157,7 @@ body {
   margin-bottom: 0;
 }
 
-/* A table's settings panel (its ⚙ in the editor), built on the options panel above */
+/* A table's settings panel (its âš™ in the editor), built on the options panel above */
 .cm-ms-table-menu .options__row {
   margin-bottom: 8px;
 }
@@ -1283,7 +1303,7 @@ body {
   margin: 0;
 }
 
-/* ---------- Custom syntax colours (Input → Options → Colours → Custom) ---------- */
+/* ---------- Custom syntax colours (Input â†’ Options â†’ Colours â†’ Custom) ---------- */
 
 /* Long panels (the custom colour list) scroll inside the window. */
 .options__panel {

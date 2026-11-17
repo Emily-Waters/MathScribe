@@ -80,14 +80,14 @@ export class SpacerConstruct extends Construct<SpacerBlock> {
 export class CalcConstruct extends Construct<CalcBlock> {
   readonly kind = BLOCK_KIND.calc
 
-  latex(b: CalcBlock): string {
+  latex(b: CalcBlock, out: LatexOut): string {
     if (b.error) return errorComment(b.line, b.source, b.error)
     if (b.hidden) return ''
     // A plot, as a pgfplots graph, then its fits' equations (if any).
-    if (b.plot) return [plotToLatex(b.plot), b.tex ? gather([{ tex: b.tex, note: b.note }]) : ''].filter(Boolean).join('\n')
+    if (b.plot) return [plotToLatex(b.plot), b.tex ? gather([{ tex: b.tex, note: b.note }], out.share) : ''].filter(Boolean).join('\n')
     // The working inside a function call: indented and a little smaller, above the line.
-    const working = b.trace?.length ? ['\\begin{msworking}', gather(b.trace), '\\end{msworking}'].join('\n') : ''
-    return [working, gather([{ tex: b.tex, note: b.note }])].filter(Boolean).join('\n')
+    const working = b.trace?.length ? ['\\begin{msworking}', gather(b.trace, out.share), '\\end{msworking}'].join('\n') : ''
+    return [working, gather([{ tex: b.tex, note: b.note }], out.share)].filter(Boolean).join('\n')
   }
 
   docx(b: CalcBlock, ctx: Ctx): Item[] {
@@ -108,8 +108,8 @@ export class CalcConstruct extends Construct<CalcBlock> {
     return !b.error && !b.hidden && !b.trace?.length && !b.plot ? { tex: b.tex, note: b.note } : null
   }
 
-  latexItem(b: CalcBlock): string {
-    if (b.error || b.trace?.length) return this.latex(b)
+  latexItem(b: CalcBlock, out: LatexOut): string {
+    if (b.error || b.trace?.length) return this.latex(b, out)
     return `$\\displaystyle ${b.tex}$${b.note ? ` \\hfill ${titleToLatex(b.note)}` : ''}`
   }
 

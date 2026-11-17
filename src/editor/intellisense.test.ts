@@ -74,7 +74,7 @@ describe('suggestions', () => {
 
   it('offer the layouts and display settings after @layout. at the start of a line (not ones already chosen), and not @layout after it', () => {
     expect(suggestions(23)).toEqual(['numbered'])
-    expect(suggestions(33)).toEqual(['text', 'list', 'numbered', 'center', 'titlepage', 'hidden', 'full', 'sym', 'multiline', 'sci', 'dec'])
+    expect(suggestions(33)).toEqual(['text', 'list', 'numbered', 'center', 'titlepage', 'column', 'hidden', 'full', 'sym', 'multiline', 'sci', 'dec'])
     expect(suggestions(32)).toEqual(['@N_A'])
   })
 

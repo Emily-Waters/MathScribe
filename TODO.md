@@ -446,6 +446,21 @@ edit reads again only what it changed, and nodes are shared between trees.
 
 ## Done
 
+- [x] **`@layout.column(n)`** (2026-11-16): lines side by side in columns. As
+      asked: n columns, a blank line starting the next. Then, since the breaks
+      already say how many there are, `n` became optional; and each block inside
+      is a column of its own, so spacing inside it doesn't matter. Settled: `n` is
+      how many a row has (2–4, rounded into that with a warning), wrapping to
+      further rows; unsaid, a row has as many as there are, up to 4. With no
+      breaks the lines are shared out evenly (2 columns unless `n` says). A
+      layout applies within each column (`.column(3).numbered`, the count
+      carrying on); in prose two blank lines start a column. Exports: LaTeX
+      minipages (not `multicol`, which flows text rather than keeping the
+      columns as written), with equations fitted to the column's share of the
+      line; Word, a borderless table. The app's long equations in a narrow
+      column scroll, as they do anywhere (the app doesn't wrap them yet: see the
+      wide-equations item).
+
 - [x] **Headings set apart in the Rendered tab** (2026-11-16): a section or
       subsection heading is a band like a block's header (shaded, the accent
       bar at its left), a subsection's lighter. Only in the app: the exports

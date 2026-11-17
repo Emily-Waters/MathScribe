@@ -124,7 +124,13 @@ export class SheetReader {
     const parent = this.open.at(-1)
     const container = parent?.children ?? this.root
     const inList = parent?.kind === BLOCK_KIND.layout && isList(parent)
-    if (this.blankRun >= 2 && container.length && !closesBlock(line.trimmed) && !inList) this.add({ kind: BLOCK_KIND.spacer, line: line.number })
+    // In columns, any blank line starts the next column instead.
+    const columns = parent?.kind === BLOCK_KIND.layout ? parent.columns : undefined
+    if (columns) {
+      if (this.blankRun && container.length && !closesBlock(line.trimmed) && columns.breaks.at(-1) !== container.length) columns.breaks.push(container.length)
+    } else if (this.blankRun >= 2 && container.length && !closesBlock(line.trimmed) && !inList) {
+      this.add({ kind: BLOCK_KIND.spacer, line: line.number })
+    }
     this.blankRun = 0
   }
 

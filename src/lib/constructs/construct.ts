@@ -16,6 +16,10 @@ import type { Ctx, Item } from '../docxKit.ts'
 /** What a construct asks of the LaTeX export, for the blocks inside it. */
 export interface LatexOut {
   readonly o: LatexOptions
+  /** The share of the line's width the blocks have: 1, or less in a column (so a shorter equation might not fit). */
+  readonly share: number
+  /** The same, for blocks with a `share` of this width: a column's. */
+  within(share: number): LatexOut
   /** A block, of any kind, as LaTeX. */
   block(b: Block): string
   /** Blocks in a row, as LaTeX: hidden ones left out, equations in a row gathered into one display. */

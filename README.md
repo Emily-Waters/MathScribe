@@ -131,7 +131,7 @@ Accept suggestions with.
 | a name | variables defined above and in scope (not another block's locals), with their value; a function's parameters inside its body; your functions with their parameters (accepting one puts the cursor between the brackets); series names like `t_avg` (once there are two or more `t_1`, `t_2`, …); built-in functions, `pi`/`e`, and keywords |
 | `@` | constants with their description and value, including your own `@constants`; `@chem`; and, at the start of a line, `@layout` and `@constants { }` |
 | `@chem.` | its elements, with their molar masses, and its functions `mm` and `total` |
-| `@layout.`, at the start of a line | the layouts (`text`, `list`, `numbered`, `center`, `titlepage`) and display settings (`hidden`, `sym`, `val`, …); after another dot, the ones not chosen yet |
+| `@layout.`, at the start of a line | the layouts (`text`, `list`, `numbered`, `center`, `titlepage`), `column` and display settings (`hidden`, `sym`, `val`, …); after another dot, the ones not chosen yet |
 | a unit, after a number or `to` | units, with what they are in SI (`angstrom = 1e-10 m`); `percent` after `to` |
 | `#` after a line's text | display commands, with what each does |
 | `\` and a Greek letter's name | the letter: `\Delta` gives Δ (see Greek letters) |
@@ -433,6 +433,42 @@ F = 2.00 kg * 9.81 m/s^2   #center        (a single calculation, centered)
   then every line inside goes under it. In the exports a title page is a page of
   its own (a `titlepage` in LaTeX; a page break after it in Word); in the Rendered
   tab a dashed line marks where the page ends.
+- `@layout.column` sets the lines inside **side by side in columns**. A blank line
+  starts the next column, and each block inside (a `Title { }` block, another
+  layout block, `@constants`) is a column of its own, whatever blank lines are in
+  it. A row has as many columns as there are, up to 4, then another row starts;
+  `@layout.column(n)` sets `n` a row (2 to 4; another number is rounded into that,
+  with a warning). With no breaks at all, the lines are shared out evenly between
+  `n` columns (2 if it doesn't say):
+
+  ```
+  @layout.column Givens {
+      m = 2.00 kg
+      g_0 = 9.81 m/s^2
+                                  (a blank line: the next column)
+      theta = 30.0 deg
+      d = 3.50 m
+  }
+
+  @layout.column {                (each block a column)
+      Forces {
+          F_g = m * g_0
+      }
+      Motion {
+          a = g_0 * sin(theta)
+      }
+  }
+
+  @layout.column(3).numbered Steps {   (six lines shared out: two a column, numbered 1 to 6)
+      …
+  }
+  ```
+
+  It combines with a layout, which then applies within each column: a numbered
+  list's count carries on from column to column. In `.text` prose, where a blank
+  line starts a paragraph, two start a column. In the exports each column is a
+  `minipage` (LaTeX) or a cell of a borderless table (Word), and a long equation
+  is set one `=` per row sooner, as its column is narrower than the page.
 - **Display settings** are members too, and set how every line inside is shown,
   as the same `#command` would on each line:
 

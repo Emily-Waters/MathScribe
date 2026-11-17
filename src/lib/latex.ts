@@ -64,12 +64,15 @@ export function saveLatexOptions(options: LatexOptions): void {
 // Blocks: each kind's construct writes it (constructs/); this joins them up
 // ---------------------------------------------------------------------------
 
+/** The share of the line's width blocks have outside columns: all of it. */
+const FULL_WIDTH = 1
+
 /** LaTeX for a list of blocks, leaving out hidden ones, with equations in a row gathered together. */
-function joinBlocks(blocks: Block[], o: LatexOptions): string {
+function joinBlocks(blocks: Block[], o: LatexOptions, share: number): string {
   const out: string[] = []
   let run: Equation[] = []
   const flush = () => {
-    if (run.length) out.push(gather(run))
+    if (run.length) out.push(gather(run, share))
     run = []
   }
   for (const b of blocks) {
@@ -81,23 +84,25 @@ function joinBlocks(blocks: Block[], o: LatexOptions): string {
     // A hidden line doesn't interrupt a run of equations; a gap (spacer) does.
     if (b.kind !== BLOCK_KIND.spacer && isOmitted(b)) continue
     flush()
-    const tex = blockToLatex(b, o)
+    const tex = blockToLatex(b, o, share)
     if (tex) out.push(tex)
   }
   flush()
   return out.join('\n\n')
 }
 
-/** What a construct asks of the export, for the blocks inside it. */
-const writer = (o: LatexOptions): LatexOut => ({
+/** What a construct asks of the export, for the blocks inside it (with `share` of the line's width). */
+const writer = (o: LatexOptions, share = FULL_WIDTH): LatexOut => ({
   o,
-  block: (b) => blockToLatex(b, o),
-  join: (blocks) => joinBlocks(blocks, o),
-  item: (b) => constructOf(b).latexItem(b, writer(o)),
+  share,
+  within: (part) => writer(o, share * part),
+  block: (b) => blockToLatex(b, o, share),
+  join: (blocks) => joinBlocks(blocks, o, share),
+  item: (b) => constructOf(b).latexItem(b, writer(o, share)),
 })
 
 /** One block as LaTeX, as its construct writes it. */
-const blockToLatex = (b: Block, o: LatexOptions): string => constructOf(b).latex(b, writer(o))
+const blockToLatex = (b: Block, o: LatexOptions, share = FULL_WIDTH): string => constructOf(b).latex(b, writer(o, share))
 
 /** Whether any block, at any depth, is a plot (so the preamble loads pgfplots). */
 const hasPlot = (blocks: Block[]): boolean => blocks.some((b) =>
@@ -159,7 +164,7 @@ function preamble(o: LatexOptions, plots = false, formulas = false): string[] {
 
 /** Full, compilable LaTeX source for the sheet. */
 export function toLatexDocument(blocks: Block[], options: LatexOptions = DEFAULT_LATEX_OPTIONS): string {
-  const body = joinBlocks(blocks, options)
+  const body = joinBlocks(blocks, options, FULL_WIDTH)
   return [
     '% Made with MathScribe',
     ...preamble(options, hasPlot(blocks), usesFormulas(body)),

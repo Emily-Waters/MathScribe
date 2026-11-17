@@ -1246,6 +1246,23 @@ body {
   padding-left: 1.8em;
 }
 
+/* @layout.column: the columns side by side, in rows; each column's top lined up with the others' */
+.layout__columns {
+  display: grid;
+  gap: 8px 24px;
+  align-items: start;
+}
+
+.layout__columns > .layout {
+  margin: 0;
+  min-width: 0;
+}
+
+/* A block that's a column: no extra space above it, so its top lines up with lines beside it */
+.layout__columns .group:first-child {
+  margin-top: 0;
+}
+
 .layout__list > li::marker {
   color: var(--muted);
 }

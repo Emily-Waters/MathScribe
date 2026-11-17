@@ -98,13 +98,13 @@ const constantTex = (c: BuiltinConstant | NamespaceConstant) => {
 }
 
 /** `@` and any namespaces, each with its dot, then what's typed of the next member: `@chem.mm.N` (1: the namespaces and dots, 2: what's typed). */
-const BUILTIN_SO_FAR = /@((?:\w+\.)*)(\w*)$/
+const BUILTIN_SO_FAR = /@((?:\w+(?:\([^()\n]*\))?\.)*)(\w*)$/
 
 /** `@` and any namespaces with their dots, just before a word: the `@chem.mm.` of `@chem.mm.Na` (1: the namespaces and dots). */
 const BUILTIN_BEFORE = /@((?:\w+\.)*)$/
 
 /** Namespaces as typed, each with its dot, as a path of names: `chem.mm.` → chem, mm. */
-const pathOf = (dotted: string) => dotted.split(MEMBER_DOT).filter(Boolean)
+const pathOf = (dotted: string) => dotted.replace(/\([^()\n]*\)/g, '').split(MEMBER_DOT).filter(Boolean) // (a member's brackets, `column(3)`, aren't its name)
 
 /**
  * The namespace whose members come after a path: chem, mm → @chem.mm. In a

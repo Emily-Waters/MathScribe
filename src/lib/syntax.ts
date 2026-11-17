@@ -309,7 +309,10 @@ export const layoutOpenerText = (members: readonly string[], title = '') =>
  * Any name is read as a member, so one that isn't gets a message rather than
  * being taken for something else.
  */
-const LAYOUT_NAME = String.raw`@${NAMESPACE.layout}((?:\.${NAME})+)(?!${NAME_CHAR})`
+const LAYOUT_NAME = String.raw`@${NAMESPACE.layout}((?:\.${NAME}(?:\([^()\n]*\))?)+)(?!${NAME_CHAR})`
+
+/** One member of a layout block's name, with what's in its brackets if it has them: `.column(3)` (1: the name, 2: the argument). */
+const LAYOUT_MEMBER = new RegExp(String.raw`\.(${NAME})(?:\(([^()\n]*)\))?`, 'g')
 
 /** A layout block's name at the current position (for the editor's tokenizer). */
 export const LAYOUT_NAME_TOKEN = new RegExp(LAYOUT_NAME)
@@ -317,8 +320,14 @@ export const LAYOUT_NAME_TOKEN = new RegExp(LAYOUT_NAME)
 /** The opener of a layout block: `@layout.list Steps {`, `@layout.val.multiline {` (1: the members, 2: the title, if any). */
 export const LAYOUT_OPENER = new RegExp(String.raw`^${LAYOUT_NAME}(?:\s+(.*?))?\s*\{$`)
 
-/** A layout block's members, as LAYOUT_OPENER reads them: `.val.multiline` → val, multiline. */
-export const layoutMembers = (chain: string) => chain.split(MEMBER_DOT).filter(Boolean)
+/** A layout block's members as written, as LAYOUT_OPENER reads them: `.val.multiline` → val, multiline; `.column(3)` → column(3). */
+export const layoutMembers = (chain: string) => [...chain.matchAll(LAYOUT_MEMBER)].map((m) => m[0].slice(MEMBER_DOT.length))
+
+/** A member as written, read: its name, and what's in its brackets if it has them (`column(3)` → column, 3). */
+export function layoutMemberParts(member: string): { name: string; argument?: string } {
+  const m = new RegExp(LAYOUT_MEMBER.source).exec(`${MEMBER_DOT}${member}`)
+  return { name: m?.[1] ?? member, argument: m?.[2] }
+}
 
 /** The opener of an `@constants { }` block. */
 export const CONSTANTS_OPENER = new RegExp(String.raw`^@${CONSTANTS_BLOCK}\s*\{$`)
@@ -403,8 +412,23 @@ export const LAYOUT_MODIFIER = {
 export type LayoutModifier = (typeof LAYOUT_MODIFIER)[keyof typeof LAYOUT_MODIFIER]
 export const LAYOUT_MODIFIERS: readonly LayoutModifier[] = Object.values(LAYOUT_MODIFIER)
 
-/** Everything that can follow `@layout.`: the layouts, then the display settings. */
-export const LAYOUT_MEMBERS: readonly (LayoutStyle | LayoutModifier)[] = [...LAYOUT_STYLES, ...LAYOUT_MODIFIERS]
+/**
+ * How a layout block's lines are arranged on the page, besides its layout, which
+ * then applies within each part: `@layout.column { }` sets them side by side in
+ * columns, `@layout.column(3).list { }`.
+ */
+export const LAYOUT_ARRANGEMENT = { column: 'column' } as const
+export type LayoutArrangement = (typeof LAYOUT_ARRANGEMENT)[keyof typeof LAYOUT_ARRANGEMENT]
+export const LAYOUT_ARRANGEMENTS: readonly LayoutArrangement[] = Object.values(LAYOUT_ARRANGEMENT)
+
+/**
+ * How many columns a row of `@layout.column(n)` has: from 2 to 4 (more would be
+ * too narrow on a page), 2 if a block with no breaks doesn't say.
+ */
+export const COLUMN_COUNT = { min: 2, max: 4, unbroken: 2 } as const
+
+/** Everything that can follow `@layout.`: the layouts, the arrangements, then the display settings. */
+export const LAYOUT_MEMBERS: readonly (LayoutStyle | LayoutArrangement | LayoutModifier)[] = [...LAYOUT_STYLES, ...LAYOUT_ARRANGEMENTS, ...LAYOUT_MODIFIERS]
 
 /** Every display command, in the order the editor lists them. (`#sci` and `#dec` are the notations, NOTATIONS.) */
 export const COMMAND_NAMES = [...LINE_COMMANDS, MULTILINE, ...NOTATIONS, ...LINE_LAYOUTS] as const

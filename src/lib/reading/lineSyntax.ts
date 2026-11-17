@@ -4,14 +4,14 @@
  * declaration, and imported data's rows.
  */
 import {
-  BLOCK_CLOSE, BLOCK_OPEN, CONSTANT_DECLARATION, DISPLAY_MODES, LAYOUT_MEMBERS, LAYOUT_MODIFIER, LAYOUT_MODIFIERS, LAYOUT_OPENER,
-  LAYOUT_STYLE, LAYOUT_STYLES, LINE_COMMAND, LINE_COMMANDS, LINE_LAYOUTS, MEMBER_DOT, MULTILINE, NAMESPACE, NOTATIONS, PROSE_LAYOUTS,
-  SIGIL, commandPattern, layoutMembers, layoutName, layoutOpenerText,
-  type DisplayMode, type LayoutModifier, type LayoutStyle, type LineLayout, type Notation,
+  BLOCK_CLOSE, BLOCK_OPEN, COLUMN_COUNT, CONSTANT_DECLARATION, DISPLAY_MODES, LAYOUT_ARRANGEMENT, LAYOUT_ARRANGEMENTS, LAYOUT_MEMBERS,
+  LAYOUT_MODIFIER, LAYOUT_MODIFIERS, LAYOUT_OPENER, LAYOUT_STYLE, LAYOUT_STYLES, LINE_COMMAND, LINE_COMMANDS, LINE_LAYOUTS, MEMBER_DOT,
+  MULTILINE, NAMESPACE, NOTATIONS, PROSE_LAYOUTS, SIGIL, commandPattern, layoutMemberParts, layoutMembers, layoutName, layoutOpenerText,
+  type DisplayMode, type LayoutArrangement, type LayoutModifier, type LayoutStyle, type LineLayout, type Notation,
 } from '../syntax.ts'
 import { constantKey } from '../names.ts'
 import { parseCsv, type CsvData } from '../csv.ts'
-import type { BlockSettings, Command, LayoutBlock } from '../blocks.ts'
+import type { BlockSettings, Columns, Command, LayoutBlock } from '../blocks.ts'
 
 // ---------------------------------------------------------------------------
 // A line's note and #commands
@@ -92,6 +92,8 @@ export interface LayoutOpener extends BlockSettings {
   members: string[]
   style?: LayoutStyle
   title: string
+  /** `.column`, `.column(n)`: the lines in columns (the breaks are found as the block is read). */
+  columns?: Columns
   /** A member @layout doesn't have. */
   error?: string
   /** Members that clash, such as .sym with .val: the block still works, as described. */
@@ -100,6 +102,20 @@ export interface LayoutOpener extends BlockSettings {
 
 const isLayoutStyle = (m: string): m is LayoutStyle => (LAYOUT_STYLES as readonly string[]).includes(m)
 const isLayoutModifier = (m: string): m is LayoutModifier => (LAYOUT_MODIFIERS as readonly string[]).includes(m)
+const isLayoutArrangement = (m: string): m is LayoutArrangement => (LAYOUT_ARRANGEMENTS as readonly string[]).includes(m)
+
+/**
+ * `.column`'s count, `.column(3)`, read: a whole number from 2 to 4 (another is
+ * rounded into that, with a warning), or what's wrong with it.
+ */
+function columnCount(argument: string | undefined): { count?: number; error?: string; warning?: string } {
+  if (argument === undefined) return {}
+  const written = Number(argument.trim())
+  const name = `${MEMBER_DOT}${LAYOUT_ARRANGEMENT.column}(n)`
+  if (!argument.trim() || !Number.isFinite(written)) return { error: `${name} takes how many columns a row has, ${COLUMN_COUNT.min} to ${COLUMN_COUNT.max}: ${argument.trim() || 'nothing'} isn't a number.` }
+  const count = Math.min(COLUMN_COUNT.max, Math.max(COLUMN_COUNT.min, Math.round(written)))
+  return count === written ? { count } : { count, warning: `${name} has ${COLUMN_COUNT.min} to ${COLUMN_COUNT.max} columns a row; ${argument.trim()} is set as ${count}.` }
+}
 
 /** The display modes a layout block's members can set, of which only one can apply: .full, .sym, .val. */
 const MODE_MODIFIERS: ReadonlySet<string> = new Set(DISPLAY_MODES)
@@ -118,12 +134,21 @@ export function layoutOpener(body: string): LayoutOpener | null {
   if (!m) return null
   const members = layoutMembers(m[1])
   const opener: LayoutOpener = { members, title: m[2] ?? '' }
-  const unknown = members.find((x) => !isLayoutStyle(x) && !isLayoutModifier(x))
+  const parts = members.map(layoutMemberParts)
+  const names = parts.map((p) => p.name)
+  const unknown = names.find((x) => !isLayoutStyle(x) && !isLayoutModifier(x) && !isLayoutArrangement(x))
   if (unknown) {
     return { ...opener, error: `${SIGIL}${NAMESPACE.layout} has no ${unknown}; its members are ${LAYOUT_MEMBERS.join(', ')}.` }
   }
-  const styles = members.filter(isLayoutStyle)
-  const modifiers = members.filter(isLayoutModifier)
+  // Only .column takes something in brackets.
+  const bracketed = parts.find((p) => p.argument !== undefined && !isLayoutArrangement(p.name))
+  if (bracketed) return { ...opener, error: `${asMember(bracketed.name)} takes nothing in brackets; only ${asMember(LAYOUT_ARRANGEMENT.column)}(n) does.` }
+  const column = parts.findLast((p) => p.name === LAYOUT_ARRANGEMENT.column)
+  const counted = columnCount(column?.argument)
+  if (counted.error) return { ...opener, error: counted.error }
+  if (column) opener.columns = { count: counted.count, breaks: [] }
+  const styles = names.filter(isLayoutStyle)
+  const modifiers = names.filter(isLayoutModifier)
   const modes = modifiers.filter((x) => MODE_MODIFIERS.has(x)) as DisplayMode[]
   const notations = modifiers.filter((x) => (NOTATIONS as readonly string[]).includes(x)) as Notation[]
   opener.style = styles[0]
@@ -138,6 +163,7 @@ export function layoutOpener(body: string): LayoutOpener | null {
     notations.length > 1 && `${name} has both ${NOTATIONS.map(asMember).join(' and ')}; the last, ${asMember(notations.at(-1)!)}, is used.`,
     opener.style && PROSE_LAYOUTS.has(opener.style) && shown.length > 0
       && `Nothing in ${layoutName(opener.style)} is worked out, so ${shown.map(asMember).join(', ')} does nothing there.`,
+    counted.warning,
   ].filter((w): w is string => !!w)
   if (warnings.length) opener.warning = warnings.join(' ')
   return opener

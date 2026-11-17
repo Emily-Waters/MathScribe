@@ -192,7 +192,7 @@ export interface Ctx {
   /** Inside a bulleted or numbered list. */
   inList?: boolean
   /** List numbering instances made so far: each list restarts its count. */
-  nums: { abstract: 0 | 1 }[]
+  nums: { abstract: 0 | 1; start?: number }[]
   /** Plots' pictures, drawn beforehand (by plotPng, in the browser). */
   images: PlotImages
   /** The pictures placed so far: each is a file in word/media. */

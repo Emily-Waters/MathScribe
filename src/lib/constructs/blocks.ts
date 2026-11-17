@@ -32,7 +32,7 @@ export class ConstantsConstruct extends Construct<ConstantsBlock> {
     if (b.hidden && !b.error && !b.entries.some((e) => e.error)) return ''
     const shown = b.entries.filter((e) => !e.error)
     const errors = b.entries.filter((e) => e.error).map((e) => errorComment(e.line, e.source, e.error!))
-    return latexTitled(out.o, latexHeading(CONSTANTS_TITLE, b.note), [...errors, ...(shown.length ? [gather(shown)] : [])].join('\n'))
+    return latexTitled(out.o, latexHeading(CONSTANTS_TITLE, b.note), [...errors, ...(shown.length ? [gather(shown, out.share)] : [])].join('\n'))
   }
 
   docx(b: ConstantsBlock, ctx: Ctx): Item[] {
@@ -61,7 +61,7 @@ export class SpeciesConstruct extends Construct<SpeciesBlock> {
     if (b.hidden && !b.error && !b.entries.some((e) => e.error)) return ''
     const shown = b.entries.filter((e) => !e.error).map((e) => ({ tex: speciesEntryTex(e), note: e.note }))
     const errors = b.entries.filter((e) => e.error).map((e) => errorComment(e.line, e.name, e.error!))
-    const body = [...errors, ...(shown.length ? [gather(shown)] : [])].join('\n')
+    const body = [...errors, ...(shown.length ? [gather(shown, out.share)] : [])].join('\n')
     return b.single ? body : latexTitled(out.o, latexHeading(SPECIES_TITLE, b.note), body)
   }
 

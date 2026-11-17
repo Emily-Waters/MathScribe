@@ -172,6 +172,21 @@ export interface LayoutBlock extends ContainerBlock {
   indent: number
   /** Indentation of its first line; a line indented further starts a sub-list. */
   itemIndent?: number
+  /** `@layout.column`: its lines side by side in columns (see columnGrid). */
+  columns?: Columns
+  /** A numbered list's first number: a column's, carrying on from the column before it. */
+  firstNumber?: number
+}
+
+/**
+ * How an `@layout.column` block splits into columns: at each blank line
+ * (`breaks`, the indexes of the children that start a column), and at each block
+ * inside, which is a column of its own.
+ */
+export interface Columns {
+  /** How many columns a row has, `@layout.column(3)`, if it says. */
+  count?: number
+  breaks: number[]
 }
 
 /** One `name = value` line of an `@constants { … }` block. */

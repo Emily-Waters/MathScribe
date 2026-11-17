@@ -209,6 +209,9 @@ class CloseReader extends NodeReader {
   }
 }
 
+/** The blank lines that start a new column in columns of prose (one only starts a paragraph). */
+const PROSE_COLUMN_BREAK = 2
+
 /**
  * `@layout.text Title {` and `@layout.titlepage {`: the lines up to the `}` are
  * prose, not calculations. In a text block, lines run together into paragraphs
@@ -227,6 +230,7 @@ class ProseLayoutReader extends NodeReader {
     const titlePage = style === LAYOUT_STYLE.titlepage
     const block: LayoutBlock = {
       kind: BLOCK_KIND.layout, line: line.number, title: '', note, style, members: opener.members, children: [], indent: line.indent,
+      columns: opener.columns,
       // (Prose only takes .hidden, or #hide.)
       command: (opener.command === LINE_COMMAND.hide ? opener.command : undefined) ?? command ?? sheet.inheritedHide,
       warning: opener.warning,
@@ -234,6 +238,8 @@ class ProseLayoutReader extends NodeReader {
     let titleSource = opener.title
     let paragraph: { line: number; text: string[] } | null = null
     let gap = false
+    // In columns of prose, where a blank line starts a paragraph, two start a column.
+    let blanks = 0
     const endParagraph = () => {
       if (paragraph) block.children.push({ kind: BLOCK_KIND.text, line: paragraph.line, ...sheet.withValues(paragraph.text.join(' ')) })
       paragraph = null
@@ -242,8 +248,14 @@ class ProseLayoutReader extends NodeReader {
       if (!text) {
         endParagraph()
         gap = block.children.length > 0
+        blanks++
         continue
       }
+      if (block.columns && blanks >= PROSE_COLUMN_BREAK && block.children.length && block.columns.breaks.at(-1) !== block.children.length) {
+        block.columns.breaks.push(block.children.length)
+        gap = false
+      }
+      blanks = 0
       if (!titlePage) {
         paragraph ??= { line: number, text: [] }
         paragraph.text.push(text)
@@ -286,6 +298,7 @@ class LayoutReader extends NodeReader {
     const title = sheet.withValues(opener.title)
     const block: LayoutBlock = {
       kind: BLOCK_KIND.layout, line: line.number, title: title.text, note, style: opener.style, members: opener.members, children: [], indent: line.indent,
+      columns: opener.columns,
       command: opener.command ?? command ?? sheet.inheritedHide,
       multiline: opener.multiline || multiline || undefined,
       notation: opener.notation ?? notation,

@@ -58,14 +58,14 @@ export interface Equation {
  * Rendered tab (separate displays would each get a paragraph's spacing), each
  * with its note on the right.
  */
-export function gather(eqs: Equation[]): string {
+export function gather(eqs: Equation[], share = 1): string {
   // (A note is a comment on its line: small and italic, at the right margin. Like a
   // title, it shows a name's subscript, v_f, and `$…$` as maths.)
   // A noted line goes through NOTE_MACRO, which drops the note under it if they
   // don't fit side by side, and then leaves more room before the next line (NOTE_SEPARATOR).
   const rows = eqs.map((e) => (e.note
-    ? `  \\${NOTE_MACRO}{${fitted(e.tex)}}{${NOTE_STYLE}${titleToLatex(e.note)}}`
-    : `  ${fitted(e.tex)}`))
+    ? `  \\${NOTE_MACRO}{${fitted(e.tex, share)}}{${NOTE_STYLE}${titleToLatex(e.note)}}`
+    : `  ${fitted(e.tex, share)}`))
   const separators = eqs.map((e) => (e.note ? ` \\${NOTE_SEPARATOR}\n` : ' \\\\\n'))
   return ['\\begin{gather*}', rows.map((r, i) => (i ? separators[i - 1] : '') + r).join(''), '\\end{gather*}'].join('\n')
 }
@@ -203,8 +203,9 @@ function stepsOf(tex: string): { steps: string[]; relations: string[] } {
  * than one step to put on rows of their own; otherwise as it is. (One already
  * on rows, #multiline's, is as it is.)
  */
-export function fitted(tex: string): string {
-  if (drawnLength(tex) <= MIGHT_NOT_FIT || tex.includes('\\begin{aligned}')) return tex
+export function fitted(tex: string, share = 1): string {
+  // (In a column, `share` of the line, a shorter one might not fit.)
+  if (drawnLength(tex) <= MIGHT_NOT_FIT * share || tex.includes('\\begin{aligned}')) return tex
   const { steps, relations } = stepsOf(tex)
   if (relations.length < 2) return tex
   const rows = steps.slice(1).map((s, i) => `&${relations[i]} ${s}`)

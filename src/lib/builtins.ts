@@ -21,8 +21,8 @@
 import { BUILTIN_CONSTANTS, type BuiltinConstant, type NamespaceConstant } from './constants.ts'
 import { INV_FUNCTION, JOIN, TUPLE_FUNCTION } from './names.ts'
 import {
-  CALL, CONSTANTS_BLOCK, LATEX_BLOCK, LAYOUT_MODIFIER, LAYOUT_STYLE, MEMBER_DOT, NAMESPACE, SIGIL,
-  type LayoutModifier, type LayoutStyle,
+  CALL, CONSTANTS_BLOCK, LATEX_BLOCK, LAYOUT_ARRANGEMENT, LAYOUT_MODIFIER, LAYOUT_STYLE, MEMBER_DOT, NAMESPACE, SIGIL,
+  type LayoutArrangement, type LayoutModifier, type LayoutStyle,
 } from './syntax.ts'
 
 /** Each kind of member of the tree. */
@@ -32,6 +32,7 @@ export const MEMBER_KIND = {
   function: 'function',
   block: 'block',
   layout: 'layout',
+  arrangement: 'arrangement',
   modifier: 'modifier',
 } as const
 export type MemberKind = (typeof MEMBER_KIND)[keyof typeof MEMBER_KIND]
@@ -144,6 +145,17 @@ export class LayoutMember extends Member {
   constructor(style: LayoutStyle, description: string) {
     super(style, description)
     this.style = style
+  }
+}
+
+/** How lines are arranged on the page in @layout: `@layout.column`. */
+export class ArrangementMember extends Member {
+  readonly kind = MEMBER_KIND.arrangement
+  readonly arrangement: LayoutArrangement
+
+  constructor(arrangement: LayoutArrangement, description: string) {
+    super(arrangement, description)
+    this.arrangement = arrangement
   }
 }
 
@@ -309,6 +321,10 @@ const LAYOUT_DESCRIPTIONS: Record<LayoutStyle, string> = {
   titlepage: 'A title page of prose: the first line is the title, bold and larger; each line after it centered, then a new page',
 }
 
+/** What `@layout.column` does. */
+const COLUMN_DESCRIPTION = 'The lines inside side by side in columns: a blank line starts the next, and each block inside is one; '
+  + 'column(n) for n a row (2 to 4), or the lines shared out evenly if there are no breaks'
+
 /** What each display setting does, `@layout.val.multiline { … }`. */
 const LAYOUT_MODIFIER_DESCRIPTIONS: Record<LayoutModifier, string> = {
   hidden: 'Work the lines inside out, but don’t show them (as #hide)',
@@ -333,6 +349,7 @@ export const BUILTINS = new Namespace('', 'Built in', [
     '@import("run1.csv"), or run1 = @import("run1.csv"), with the file’s rows indented under it'),
   new Namespace(NAMESPACE.layout, 'Blocks that arrange lines (text, list, numbered, center, titlepage) or set how they’re shown (hidden, sym, val, multiline, …)', [
     ...Object.values(LAYOUT_STYLE).map((style) => new LayoutMember(style, LAYOUT_DESCRIPTIONS[style])),
+    new ArrangementMember(LAYOUT_ARRANGEMENT.column, COLUMN_DESCRIPTION),
     ...Object.values(LAYOUT_MODIFIER).map((modifier) => new ModifierMember(modifier, LAYOUT_MODIFIER_DESCRIPTIONS[modifier])),
   ], { atLineStart: true, chained: true }),
   new BlockMember(CONSTANTS_BLOCK, 'Constants usable anywhere in the sheet as @name'),

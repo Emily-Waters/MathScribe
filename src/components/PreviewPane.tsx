@@ -1,7 +1,7 @@
 import katex from '../lib/katex.ts'
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react'
 import {
-  DIAGNOSTIC_KIND, TITLE_SEGMENT, lineNumbering, listItems, splitInlineMath, titleSegments, type DiagnosticKind, type Sheet,
+  DIAGNOSTIC_KIND, TITLE_SEGMENT, columnParts, lineNumbering, listItems, splitInlineMath, titleSegments, type DiagnosticKind, type Sheet,
 } from '../lib/document.ts'
 import {
   BLOCK_KIND, HEADING_LEVEL, isContainer, type Block, type BlockKind, type CalcBlock, type ConstantsBlock, type GroupBlock,
@@ -303,6 +303,19 @@ function LayoutView({ block }: { block: LayoutBlock }) {
     </p>
   )
   const messages = <BlockMessages line={block.line} error={block.error} warning={block.warning} />
+  // In columns: each column laid out as the block is, side by side, wrapping to a new row after a row's worth.
+  if (block.columns) {
+    const { perRow, rows } = columnParts(block)
+    return (
+      <div className="layout layout--columns">
+        {title}
+        <div className="layout__columns" style={{ gridTemplateColumns: `repeat(${perRow}, minmax(0, 1fr))` }}>
+          {rows.flat().map((part) => <LayoutView key={`${part.children[0].line}-column`} block={part} />)}
+        </div>
+        {messages}
+      </div>
+    )
+  }
   if (block.style === LAYOUT_STYLE.list || block.style === LAYOUT_STYLE.numbered) {
     const List = block.style === LAYOUT_STYLE.numbered ? 'ol' : 'ul'
     const items = listItems(block.children).map(({ item, subs }) => (
@@ -313,7 +326,8 @@ function LayoutView({ block }: { block: LayoutBlock }) {
     ))
     // A sub-list is just the list, inside its parent's item.
     if (block.nested) return <List className="layout__list">{items}</List>
-    return <div className="layout">{title}<List className="layout__list">{items}</List>{messages}</div>
+    // (A column of a numbered list carries on from the one before it.)
+    return <div className="layout">{title}<List className="layout__list" start={block.firstNumber}>{items}</List>{messages}</div>
   }
   return (
     <div className={`layout layout--${block.style ?? 'plain'}`}>

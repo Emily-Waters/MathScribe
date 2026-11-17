@@ -78,10 +78,10 @@ function numberingXml(nums: Ctx['nums']): string {
     + `<w:pPr><w:ind w:left="${LIST_INDENT.hanging * (i + 1) + LIST_INDENT.gap}" w:hanging="${LIST_INDENT.hanging}"/></w:pPr></w:lvl>`
   const abstract = (id: number, numbered: boolean) =>
     `<w:abstractNum w:abstractNumId="${id}"><w:multiLevelType w:val="hybridMultilevel"/>${[0, 1, 2].map((i) => lvl(i, numbered)).join('')}</w:abstractNum>`
-  // Every list is its own instance, restarting at 1.
+  // Every list is its own instance, restarting at 1 (or where the column before it left off).
   const instances = nums.map((n, i) =>
     `<w:num w:numId="${i + 1}"><w:abstractNumId w:val="${n.abstract}"/>`
-    + [0, 1, 2].map((l) => `<w:lvlOverride w:ilvl="${l}"><w:startOverride w:val="1"/></w:lvlOverride>`).join('')
+    + [0, 1, 2].map((l) => `<w:lvlOverride w:ilvl="${l}"><w:startOverride w:val="${l === 0 ? n.start ?? 1 : 1}"/></w:lvlOverride>`).join('')
     + '</w:num>').join('')
   return `${HEAD}<w:numbering ${W}>${abstract(0, false)}${abstract(1, true)}${instances}</w:numbering>`
 }

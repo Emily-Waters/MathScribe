@@ -15,12 +15,15 @@
  *   the tree               nodes and tokens, lex and text rules, contexts, line shapes
  *   reading a sheet        NodeReader, SheetWideReader, blocks
  *   working lines out      mathjs (math), values, results, sig figs, LaTeX for values and names
+ *   its own kinds of block a construct (LaTeX and Word, with the kits `latexKit` and `docxKit`) and a
+ *                          view (the Rendered tab, with Tex, Title, BlockMessages, useLineLink)
+ *   the editor             CodeMirror extensions (`Extension`)
  */
 
 // The module itself, and what the engine offers it.
 export {
-  EngineModule, LINE_STAGE, LineForm, SETTING_PLACE,
-  type DerivedVariable, type InstallableModule, type ModuleClass, type FormLine, type LookSetting, type ModuleGrammar, type ModuleHost, type PreparedLine, type SettingPlace,
+  EngineModule, LINE_STAGE, LineForm, SETTING_PLACE, registerModules,
+  type DerivedVariable, type InstallableModule, type ModuleBlockKind, type ModuleClass, type FormLine, type LookSetting, type ModuleGrammar, type ModuleHost, type PreparedLine, type SettingPlace,
   type TupleLook,
 } from './engine/core/module.ts'
 
@@ -45,7 +48,7 @@ export { lineShape, soleCall } from './tree/shapes.ts'
 // Reading a sheet into blocks.
 export { NodeReader, SheetWideReader, bodyLines, type ReadsLines, type TreeItem } from './reading/reader.ts'
 export type { SheetReader } from './reading/sheetReader.ts'
-export { BLOCK_KIND, SYMBOL_KIND, type CardBlock, type CardEntry, type DefinedName } from './sheet/blocks.ts'
+export { BLOCK_KIND, SYMBOL_KIND, type CardBlock, type CardEntry, type CustomBlock, type DefinedName } from './sheet/blocks.ts'
 export type { Contributions } from './sheet/values.ts'
 
 // Working lines out: mathjs, values, results, and writing them.
@@ -68,3 +71,13 @@ export { SIDE, needsBrackets } from './engine/core/products.ts'
 export { attachUnit, isLitCall, isUnitCall, numberTex, symbolTex, unitCallText, unitTex } from './engine/core/tex.ts'
 export { outsideMaths } from './engine/core/text.ts'
 export { linearFit, type LinearFit, type PlotData, type PlotPoint, type PlotSeries } from './output/plot.ts'
+
+// A module's own kinds of block: a construct for the exports, and a view for the Rendered tab.
+export { Construct, type DocxOut, type LatexOut } from './output/constructs/construct.ts'
+export * as latexKit from './output/latexKit.ts'
+export * as docxKit from './output/docxKit.ts'
+export { BlockMessages, Tex, Title } from '../components/blocks/shared.tsx'
+export { useLineLink } from '../components/blocks/context.ts'
+
+// The editor.
+export type { Extension } from '@codemirror/state'

@@ -8,7 +8,7 @@
 import type { ReactNode } from 'react'
 import type { Block, BlockKind } from '../../lib/sheet/blocks.ts'
 import { CalcView, HeadingView, LatexView, SpacerView, TextView } from './lines.tsx'
-import { CardView, GroupView, ImportView } from './blocks.tsx'
+import { CardView, CustomView, GroupView, ImportView } from './blocks.tsx'
 import { LayoutView } from './layout.tsx'
 
 /** Each kind of block's view. */
@@ -22,6 +22,7 @@ const BLOCK_VIEWS: { readonly [K in BlockKind]: (props: { block: Extract<Block, 
   layout: LayoutView,
   card: CardView,
   import: ImportView,
+  custom: CustomView,
 }
 
 /** One block of the sheet as it appears in the Rendered tab, as its kind's view draws it. */

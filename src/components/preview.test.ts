@@ -40,9 +40,10 @@ describe('the Rendered tab', () => {
   const blocks = sheet(SOURCE).blocks
   const html = blocks.map((block) => renderToStaticMarkup(createElement(RenderedBlock, { block }))).join('\n')
 
+  // (Every kind but a module's own, `custom`, which only a module's lines make: plugin.test.ts draws one.)
   it('has a sheet with every kind of block to draw', () => {
     const kinds = new Set<BlockKind>(allBlocks(blocks).map((b) => b.kind))
-    expect([...kinds].sort()).toEqual(Object.values(BLOCK_KIND).sort())
+    expect([...kinds].sort()).toEqual(Object.values(BLOCK_KIND).filter((k) => k !== BLOCK_KIND.custom).sort())
   })
 
   it('draws each kind', () => {

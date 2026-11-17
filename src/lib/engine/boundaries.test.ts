@@ -6,7 +6,8 @@
  *   - a module imports only the module API (src/lib/plugin.ts), its own folder,
  *     and the public face of a module it `requires`;
  *   - the rest of the app uses the engine only through its entry
- *     (engine/index.ts), and a module only through its `public.ts`.
+ *     (engine/index.ts), and a module only through its `public.ts` (and
+ *     loads them all through src/modules/index.ts, which registers them).
  */
 import { describe, expect, it } from 'vitest'
 import { EngineModule, inDependencyOrder, type ModuleClass } from './core/module.ts'
@@ -117,14 +118,14 @@ describe('the engine and the modules, from the rest of the app', () => {
     expect(rest).toContain('editor/language.ts')
     expect(rest).toContain('components/PreviewPane.tsx')
     expect(importsOf('editor/vocabulary.ts')).toContain(ENGINE_ENTRY)
-    expect(importsOf('editor/tableMenu.ts')).toContain(`${MODULES}series/public.ts`)
+    expect(importsOf('lib/output/plot.ts')).toContain(`${MODULES}series/public.ts`)
   })
 
   // The rest of the app uses the engine through its entry, and a module through its
   // public face, never the core's or a module's own files: so those can change freely.
   it('uses the engine only through its entry, and a module only through its public face', () => {
     const inside = rest.flatMap((file) => importsOf(file)
-      .filter((p) => (p.startsWith(ENGINE) && p !== ENGINE_ENTRY) || (p.startsWith(MODULES) && !isPublicFace(p)))
+      .filter((p) => (p.startsWith(ENGINE) && p !== ENGINE_ENTRY) || (p.startsWith(MODULES) && p !== MODULE_LIST && !isPublicFace(p)))
       .filter((p) => !REACHES_INSIDE.get(file)?.(p))
       .map((p) => `${file} → ${p}`))
     expect(inside).toEqual([])
@@ -160,8 +161,11 @@ describe('modules', () => {
     expect(outside).toEqual([])
   })
 
-  it('are found from src/modules/, through its list', () => {
-    expect(importsOf(ENGINE_ENTRY)).toContain(MODULE_LIST)
+  // (The engine's entry doesn't load them: a module loads the module API, which mustn't load every module back.)
+  it('are registered from src/modules/, through its list, which the app and the tests load first', () => {
+    expect(importsOf('main.tsx')[0]).toBe(MODULE_LIST)
+    expect(importsOf('test/setup.ts')).toContain(MODULE_LIST)
+    expect(importsOf(ENGINE_ENTRY)).not.toContain(MODULE_LIST)
   })
 
   it('orders modules after those they require', () => {

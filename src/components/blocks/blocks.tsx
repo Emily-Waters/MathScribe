@@ -4,10 +4,12 @@
  * `Title { }` block (the app's side of lib/output/constructs/blocks.ts).
  */
 import { useContext, type MouseEvent } from 'react'
-import { HEADING_LEVEL, hasError, type CardBlock, type GroupBlock, type HeadingLevel, type ImportBlock } from '../../lib/sheet/blocks.ts'
+import {
+  HEADING_LEVEL, hasError, type CardBlock, type CustomBlock, type GroupBlock, type HeadingLevel, type ImportBlock,
+} from '../../lib/sheet/blocks.ts'
 import { DIAGNOSTIC_KIND } from '../../lib/sheet/sheetIndex.ts'
 import { LINE_COMMAND } from '../../lib/syntax.ts'
-import { symbolTex, unitTex } from '../../lib/engine/index.ts'
+import { moduleBlockKind, symbolTex, unitTex } from '../../lib/engine/index.ts'
 import { BlockMessages, LineMessage, Tex, Title } from './shared.tsx'
 import { ImportFile, useLineLink } from './context.ts'
 import { RenderedBlock } from './index.tsx'
@@ -124,4 +126,13 @@ export function GroupView({ block }: { block: GroupBlock }) {
       {block.error && <p className="calc__msg calc__msg--error">{block.error}</p>}
     </section>
   )
+}
+
+/** A block of a module's own kind: drawn by the view its module gives for its `type` (EngineModule.blockKinds). */
+export function CustomView({ block }: { block: CustomBlock }) {
+  const kind = moduleBlockKind(block.type)
+  if (block.hidden && !block.error) return null
+  if (!kind) return <BlockMessages line={block.line} error={`No module installed has the kind of block ${block.type}.`} />
+  const View = kind.view
+  return <View block={block} />
 }

@@ -26,6 +26,10 @@ import type { Contributions, Variable, VariableFields } from '../../sheet/values
 import type { DisplayMode, Notation, Precision } from '../../syntax.ts'
 import type { formatWithUncertainty } from '../../maths/sigfigs.ts'
 import type { LineResult, ParsedLine } from './results.ts'
+import type { ReactNode } from 'react'
+import type { Extension } from '@codemirror/state'
+import type { Construct } from '../../output/constructs/construct.ts'
+import type { CustomBlock } from '../../sheet/blocks.ts'
 
 /** A value as shown: its number (in its display unit), formatted, and its unit. */
 export interface ValueParts {
@@ -200,6 +204,12 @@ export interface ModuleGrammar {
 // (Whatever its constructor takes: a module makes its own state.)
 export type ModuleClass = abstract new (...args: never[]) => EngineModule
 
+/** A module's own kind of block: how it's written to LaTeX and Word, and drawn in the Rendered tab. */
+export interface ModuleBlockKind {
+  readonly construct: Construct<CustomBlock>
+  readonly view: (props: { block: CustomBlock }) => ReactNode
+}
+
 /** A module class that can be installed: made with no arguments (each sheet makes its own, keeping its own state). */
 export type InstallableModule = new () => EngineModule
 
@@ -225,6 +235,23 @@ export abstract class EngineModule {
 
   /** Its own members of the `@` tree (`@chem`, `@vector(…)`), made fresh: put in @ when it's installed. */
   builtinMembers(): Member[] {
+    return []
+  }
+
+  /**
+   * Its own kinds of block, by their `type` (`CustomBlock`, which its readers
+   * make): how each is written to LaTeX and Word (its construct) and drawn in
+   * the Rendered tab (its view). Return the same object each time (a constant).
+   */
+  blockKinds(): Readonly<Record<string, ModuleBlockKind>> {
+    return {}
+  }
+
+  /**
+   * What it adds to the editor, for its own syntax: CodeMirror extensions
+   * (series' ⚙ menu after a table or plot, which edits its settings).
+   */
+  editorExtensions(): readonly Extension[] {
     return []
   }
 
@@ -427,6 +454,25 @@ export function inDependencyOrder(modules: readonly EngineModule[]): EngineModul
 }
 
 /** Install a module's shared hooks, if one of its class isn't installed already (the modules it requires must be). */
+/** The module classes MathScribe works sheets out with: those registered (src/modules/index.ts registers every one there). */
+const registered: InstallableModule[] = []
+
+/**
+ * Register module classes: a sheet is worked out with them from now on, and
+ * their shared parts (their kinds of line and token, their `@` members, their
+ * units) are installed now, so the editor knows them before any sheet is.
+ */
+export function registerModules(classes: readonly InstallableModule[]): void {
+  registered.push(...classes.filter((c) => !registered.includes(c)))
+  for (const m of inDependencyOrder(sheetModules())) installModule(m)
+}
+
+/**
+ * The modules a sheet is worked out with, made fresh for each sheet: each
+ * keeps the sheet's own state, such as its species' names.
+ */
+export const sheetModules = (): EngineModule[] => registered.map((Module) => new Module())
+
 export function installModule(module: EngineModule): void {
   const kind = classOf(module)
   if (installed.has(kind)) return
@@ -482,6 +528,13 @@ export const markupText = (text: string) => shared().reduce((t, m) => m.markupTe
 
 /** What a LaTeX document's body needs in its preamble for the modules' notation. */
 export const modulePreamble = (tex: string) => shared().flatMap((m) => m.latexPreamble(tex))
+
+/** A module's own kind of block, by its type: its construct and view (undefined if no module installed has it). */
+export const moduleBlockKind = (type: string): ModuleBlockKind | undefined =>
+  shared().map((m) => m.blockKinds()[type]).find((kind) => kind !== undefined)
+
+/** What the modules add to the editor. */
+export const moduleEditorExtensions = (): Extension[] => shared().flatMap((m) => [...m.editorExtensions()])
 
 export const moduleReadableMessage = (message: string) => shared().reduce((s, m) => m.readableMessage(s), message)
 

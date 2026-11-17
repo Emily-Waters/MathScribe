@@ -19,17 +19,20 @@ by the engine (`src/lib/engine/`), and the blocks drawn in the Rendered tab
   its line forms (`LineForm` subclasses), its readers (`ReadsLines`), its
   settings, its LaTeX preamble, and so on. It lives in a folder of its own in
   `src/modules/`, whose `index.ts` exports the class as its default; every folder
-  there is found and installed (`src/modules/index.ts`). MathScribe's own modules
+  there is found and registered (`src/modules/index.ts`, which `main.tsx` and the
+  tests' setup load first). MathScribe's own modules
   (chemistry, series, solve, vectors) are there in just that form. Nothing else in
   the app is edited to add one. This is meant to be within reach of someone
   running MathScribe locally who wants a module of their own
   (`src/lib/plugin.test.ts` is one), so every hook is documented where it's
   declared, and a module can't need more than the hooks offer: if it does, the
   hook is added to the base (with a no-op default), not a special case to the
-  core. (Still being completed: see "One harmonious structure" in `TODO.md`, for
-  a module's own block kinds, views and editor features, and the line pipeline.
-  Where a module still has to be named outside its own folder, that's a gap to
-  close, not a pattern to follow.)
+  core. A module can also have kinds of block of its own (`blockKinds`: a
+  construct for the exports and a view for the Rendered tab, of a
+  `CustomBlock` its readers make) and add to the editor (`editorExtensions`).
+  (Still being completed: see "One harmonious structure" in `TODO.md`, for the
+  line pipeline. Where a module still has to be named outside its own folder,
+  that's a gap to close, not a pattern to follow.)
 - **A module uses MathScribe only through the module API,** `src/lib/plugin.ts`:
   it imports from there, its own folder, and the `public.ts` of a module it
   `requires`. What a module needs that isn't there is added there, documented.

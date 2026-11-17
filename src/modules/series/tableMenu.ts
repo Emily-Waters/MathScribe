@@ -1,8 +1,9 @@
 /**
  * The settings button of a table or plot: a ⚙ after `@table(…)` or `@plot(…)` in
  * the editor, which opens a small panel of its settings. Changing one rewrites
- * the settings after the semicolon in the brackets (see lib/tableSettings.ts and
- * lib/plotSettings.ts), so the sheet's text is always what's shown.
+ * the settings after the semicolon in the brackets (see tableSettings.ts and
+ * plotSettings.ts), so the sheet's text is always what's shown. The series module
+ * adds it to the editor (SeriesModule.editorExtensions).
  *
  * - A table: which rows, how the lines are drawn, the n column, showing every row.
  * - A plot: which rows, points or lines, a best-fit line, each axis's range and
@@ -14,7 +15,7 @@ import {
   PLOT_FITS, PLOT_STYLES, SERIES_CALL, SETTINGS_CALL_OPENING as CALL_OPENING, TABLE_LINES, formatPlotSettings, formatTableSettings,
   parsePlotSettings, parseTableSettings, splitCallArgs, withSettingsText,
   type AxisSettings, type CallWithSettings as CallKind, type PlotFit, type PlotSettings, type PlotStyle, type TableLines, type TableSettings,
-} from '../modules/series/public.ts'
+} from './public.ts'
 
 /** How each choice reads in the panels. */
 const LINE_NAMES: Record<TableLines, string> = { header: 'Under the header', grid: 'Grid', none: 'None' }

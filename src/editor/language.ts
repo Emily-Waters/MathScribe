@@ -11,8 +11,8 @@
  */
 import { StreamLanguage, foldService, foldedRanges, indentService, type StringStream } from '@codemirror/language'
 import { tags } from '@lezer/highlight'
-// (The engine installs its modules as it loads: their kinds of line and their rules for expressions are then the tree's.)
-import '../lib/engine/index.ts'
+// (The modules are registered before this runs, by src/modules/index.ts, which main.tsx loads first:
+// their kinds of line and their rules for expressions are then the tree's.)
 import {
   INDENT_WIDTH, LATEX_OPENER, COMMENT_START,
   VALUE_BRACES, COMMAND_NAMES, indentOf, isComment,

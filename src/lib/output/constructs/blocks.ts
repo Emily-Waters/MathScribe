@@ -3,10 +3,11 @@
  * (`@constants { }`, species' names), imported data, and a scoped `Title { }` block.
  */
 import {
-  BLOCK_KIND, HEADING_LEVEL, type Block, type CardBlock, type GroupBlock, type ImportBlock, type HeadingLevel,
+  BLOCK_KIND, HEADING_LEVEL, type Block, type CardBlock, type CustomBlock, type GroupBlock, type ImportBlock, type HeadingLevel,
 } from '../../sheet/blocks.ts'
 import { LINE_COMMAND } from '../../syntax.ts'
-import { errorComment, gather, heading as latexHeading, titleToLatex, titled as latexTitled } from '../latexKit.ts'
+import { errorComment, gather, heading as latexHeading, titleToLatex, titled as latexTitled, type Equation } from '../latexKit.ts'
+import { moduleBlockKind } from '../../engine/index.ts'
 import { equation, heading as docxHeading, run, titled as docxTitled, type Ctx, type Item } from '../docxKit.ts'
 import { EM_SPACE } from '../omml.ts'
 import { Construct, type DocxOut, type LatexOut } from './construct.ts'
@@ -81,5 +82,37 @@ export class GroupConstruct extends Construct<GroupBlock> {
 
   notes(b: GroupBlock, notesOf: (blocks: Block[]) => string[]): string[] {
     return notesOf(b.children)
+  }
+}
+
+/** What's said of a block of a module's kind when no module installed has that kind. */
+const unknownKind = (type: string) => `No module installed has the kind of block ${type}.`
+
+/**
+ * A block of a module's own kind: written by the construct its module gives for
+ * its `type` (EngineModule.blockKinds).
+ */
+export class CustomConstruct extends Construct<CustomBlock> {
+  readonly kind = BLOCK_KIND.custom
+
+  latex(b: CustomBlock, out: LatexOut): string {
+    const kind = moduleBlockKind(b.type)
+    return kind ? kind.construct.latex(b, out) : errorComment(b.line, b.type, unknownKind(b.type))
+  }
+
+  docx(b: CustomBlock, ctx: Ctx, out: DocxOut): Item[] {
+    return moduleBlockKind(b.type)?.construct.docx(b, ctx, out) ?? []
+  }
+
+  override equation(b: CustomBlock): Equation | null {
+    return moduleBlockKind(b.type)?.construct.equation(b) ?? null
+  }
+
+  override latexItem(b: CustomBlock, out: LatexOut): string {
+    return moduleBlockKind(b.type)?.construct.latexItem(b, out) ?? this.latex(b, out)
+  }
+
+  override notes(b: CustomBlock, notesOf: (blocks: Block[]) => string[]): string[] {
+    return moduleBlockKind(b.type)?.construct.notes(b, notesOf) ?? []
   }
 }

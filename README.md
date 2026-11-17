@@ -1487,7 +1487,8 @@ renamed, change it there too.
   variables they pick (`Views`). mathjs sees just the values, through `Values`.
 - `src/modules/`: the modules, MathScribe's own and anyone's, each a folder whose
   `index.ts` exports its class as its default; every one there is found and
-  installed (`src/modules/index.ts`, which can leave one out). A module is an
+  registered (`src/modules/index.ts`, which can leave one out, and which
+  `main.tsx` and the tests' setup load first). A module is an
   `EngineModule` subclass (`src/lib/engine/core/module.ts`) overriding the hooks
   it needs, where an exception to the core's rules comes from; it uses
   MathScribe only through the module API, `src/lib/plugin.ts` (the engine's
@@ -1501,7 +1502,10 @@ renamed, change it there too.
   (`latexPreamble`), the settings it adds after a name with what each does
   (`lineSettings`), what its kinds of token are (`ModuleGrammar.tokenRoles`, which
   the editor colours by), the names its blocks define (`CardBlock.defines`), and
-  whether a line form's name is a namespace (`LineForm.assignsNamespace`).
+  whether a line form's name is a namespace (`LineForm.assignsNamespace`). A
+  module can have kinds of block of its own (`blockKinds`: a `CustomBlock`'s
+  construct and view) and add to the editor (`editorExtensions`: series' ⚙
+  menus, `modules/series/tableMenu.ts`).
   `src/lib/engine/boundaries.test.ts` checks all of it: the core needs no module,
   a module imports only the module API, its own folder and what it requires, and
   the rest of the app uses the engine through `index.ts` and a module through its
@@ -1510,7 +1514,7 @@ renamed, change it there too.
   `src/editor/dataBlocks.ts`, `dataBlockLines.ts`: an import's rows in the editor
   (row numbers, folding, the table look, moving and deleting them as one)
 - `src/modules/series/tableSettings.ts`, `plotSettings.ts`: a table's and plot's settings
-  after the semicolon, read and written; `src/editor/tableMenu.ts`: their ⚙ menus
+  after the semicolon, read and written; `tableMenu.ts` beside them: their ⚙ menus
 - `src/lib/output/plot.ts`: the linear fit, axes, and drawing a plot as SVG;
   `src/lib/output/plotImage.ts`: plots as pictures for the Word export
 - `src/lib/maths/brackets.ts`: choosing ( ), [ ] and { } by nesting in the output

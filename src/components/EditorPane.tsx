@@ -11,6 +11,7 @@ import {
 import { highlightSelectionMatches, search, searchKeymap } from '@codemirror/search'
 import type { Diagnostic, SheetSymbol } from '../lib/sheet/sheetIndex.ts'
 import { INDENT } from '../lib/syntax.ts'
+import { moduleEditorExtensions } from '../lib/engine/index.ts'
 import { mathscribeFolding, mathscribeIndent, mathscribeLanguage } from '../editor/language.ts'
 import { SYNTAX_TOKENS, mathscribeHighlight, type Palette, type SyntaxThemeId } from '../editor/themes.ts'
 import { Dropdown } from './Dropdown.tsx'
@@ -20,7 +21,6 @@ import {
 } from '../editor/intellisense.ts'
 import { typeGreek } from '../editor/greek.ts'
 import { dataBlocksExtension, foldingSettings, sheetLineNumber } from '../editor/dataBlocks.ts'
-import { tableMenu } from '../editor/tableMenu.ts'
 import { dataBlockGuard, dataBlockLines, importActions } from '../editor/dataBlockLines.ts'
 
 interface EditorPaneProps {
@@ -172,7 +172,8 @@ function extensions(
     diagnosticsGutter,
     foldGutter(),
     codeFolding(foldingSettings),
-    tableMenu,
+    // (What the modules add: series' ⚙ menu after a table or plot.)
+    ...moduleEditorExtensions(),
     history(),
     drawSelection(),
     highlightActiveLine(),

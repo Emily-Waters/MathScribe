@@ -10,5 +10,7 @@ export default defineConfig(({ command }) => ({
   test: {
     include: ['src/**/*.test.ts'],
     environment: 'node',
+    // (The modules registered first, as the app's entry does.)
+    setupFiles: ['src/test/setup.ts'],
   },
 }))

@@ -161,7 +161,7 @@ body {
 }
 
 .filebar__status--unsaved .filebar__name::after {
-  content: ' â€¢';
+  content: ' •';
   color: var(--warn);
 }
 
@@ -299,7 +299,7 @@ body {
   background: var(--warn);
 }
 
-/* ---------- Syntax themes (Options â†’ Editor colours) ----------
+/* ---------- Syntax themes (Options → Editor colours) ----------
    Each theme sets the colours the highlighter uses (editor/themes.ts), with a
    dark version for dark mode. */
 
@@ -661,7 +661,7 @@ body {
   padding: 0 12px;
 }
 
-/* A plot(â€¦) line's plot: as wide as the output allows, up to its drawn size */
+/* A plot(…) line's plot: as wide as the output allows, up to its drawn size */
 .plot {
   max-width: 640px;
   margin: 6px 0;
@@ -1157,7 +1157,7 @@ body {
   margin-bottom: 0;
 }
 
-/* A table's settings panel (its âš™ in the editor), built on the options panel above */
+/* A table's settings panel (its ⚙ in the editor), built on the options panel above */
 .cm-ms-table-menu .options__row {
   margin-bottom: 8px;
 }
@@ -1320,7 +1320,7 @@ body {
   margin: 0;
 }
 
-/* ---------- Custom syntax colours (Input â†’ Options â†’ Colours â†’ Custom) ---------- */
+/* ---------- Custom syntax colours (Input → Options → Colours → Custom) ---------- */
 
 /* Long panels (the custom colour list) scroll inside the window. */
 .options__panel {

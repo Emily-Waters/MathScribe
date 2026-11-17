@@ -5,12 +5,13 @@
  * t_avg) and imported data are the core's; this builds on them through the
  * ModuleHost.
  */
-import { EngineModule, type LineForm, LineFormMember, type Member, type ModuleGrammar } from '../../lib/plugin.ts'
+import { EngineModule, type Extension, type LineForm, LineFormMember, type Member, type ModuleGrammar } from '../../lib/plugin.ts'
 import { SERIES_GRAMMAR } from './grammar.ts'
 import { SERIES_CALL } from './syntax.ts'
 import { PlotForm } from './plot.ts'
 import { SelectForm } from './select.ts'
 import { TableForm } from './table.ts'
+import { tableMenu } from './tableMenu.ts'
 
 export class SeriesModule extends EngineModule {
   override readonly lineForms: readonly LineForm[] = [new TableForm(), new PlotForm(), new SelectForm()]
@@ -18,6 +19,11 @@ export class SeriesModule extends EngineModule {
   /** Its part of a sheet's tree: a call's settings after its `;`, as one token. */
   override grammar(): ModuleGrammar {
     return SERIES_GRAMMAR
+  }
+
+  /** A ⚙ after a table or plot in the editor, whose panel edits its settings. */
+  override editorExtensions(): readonly Extension[] {
+    return [tableMenu]
   }
 
   override builtinMembers(): Member[] {

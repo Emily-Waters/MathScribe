@@ -1,4 +1,4 @@
-import { type CalcOptions, unexpectedError } from '../engine/index.ts'
+import { type CalcOptions, type EngineModule, unexpectedError } from '../engine/index.ts'
 import { BLOCK_KIND } from './blocks.ts'
 import { SheetReader, type Sheet } from '../reading/sheetReader.ts'
 
@@ -60,6 +60,6 @@ export function evaluateSheetSafely(source: string, options: CalcOptions): Sheet
 }
 
 /** Read and evaluate a whole sheet, line by line, into blocks (see reading/). */
-export function evaluateSheet(source: string, options: CalcOptions): Sheet {
-  return new SheetReader(source, options).read()
+export function evaluateSheet(source: string, options: CalcOptions, modules?: EngineModule[]): Sheet {
+  return new SheetReader(source, options, modules).read()
 }

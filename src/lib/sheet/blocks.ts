@@ -10,6 +10,8 @@
  *   card                              a card of equations, a line each: `@constants { }`, a
  *                                     module's (chemistry's species' names)
  *   import                            imported data
+ *   custom                            a module's own kind of block (its `type`), which
+ *                                     the module writes and draws (EngineModule.blockKinds)
  */
 import type { DataColumn, Definition, TraceLine } from '../engine/index.ts'
 import type { VariableSummary } from './values.ts'
@@ -28,6 +30,7 @@ export const BLOCK_KIND = {
   layout: 'layout',
   card: 'card',
   import: 'import',
+  custom: 'custom',
 } as const
 export type BlockKind = (typeof BLOCK_KIND)[keyof typeof BLOCK_KIND]
 
@@ -249,6 +252,21 @@ export interface ImportBlock extends BlockBase, Spans, Noted, Faulted, Hideable 
   rows: number
 }
 
+/**
+ * A block of a module's own kind: its `type` (which the module's construct and
+ * view are found by, EngineModule.blockKinds), and what the module read into it
+ * (`data`). The core treats it as any block: it can be noted, go wrong, be
+ * hidden, and define names; what's in it is the module's.
+ */
+export interface CustomBlock<D = unknown> extends BlockBase, Spans, Noted, Faulted, Hideable {
+  kind: typeof BLOCK_KIND.custom
+  /** Its kind among the module's, `moduleName.kind` by convention: `astronomy.orbit`. */
+  type: string
+  data: D
+  /** The names it makes usable anywhere in the sheet, if any (as a card's do). */
+  defines?: DefinedName[]
+}
+
 /** Any block of a sheet. */
 export type Block =
   | HeadingBlock
@@ -260,6 +278,7 @@ export type Block =
   | LayoutBlock
   | CardBlock
   | ImportBlock
+  | CustomBlock
 
 /** Whether a block holds others (a `{ }` block or a layout block). */
 export const isContainer = (b: Block): b is GroupBlock | LayoutBlock =>
@@ -269,7 +288,7 @@ export const isContainer = (b: Block): b is GroupBlock | LayoutBlock =>
 export function isOmitted(b: Block): boolean {
   // Spacers, and imported data, which only defines variables.
   if (b.kind === BLOCK_KIND.spacer || b.kind === BLOCK_KIND.import) return true
-  if (b.kind === BLOCK_KIND.calc || b.kind === BLOCK_KIND.card) {
+  if (b.kind === BLOCK_KIND.calc || b.kind === BLOCK_KIND.card || b.kind === BLOCK_KIND.custom) {
     return !!b.hidden && !b.error
   }
   if (isContainer(b)) return b.command === LINE_COMMAND.hide && !b.error
@@ -289,6 +308,6 @@ export function listItems(children: Block[]): { item: Block; subs: Block[] }[] {
 
 /** Whether a block, or anything inside it, has an error (so a hidden block still shows it). */
 export const hasError = (b: Block): boolean =>
-  ((b.kind === BLOCK_KIND.calc || b.kind === BLOCK_KIND.import) && !!b.error)
+  ((b.kind === BLOCK_KIND.calc || b.kind === BLOCK_KIND.import || b.kind === BLOCK_KIND.custom) && !!b.error)
   || (b.kind === BLOCK_KIND.card && (!!b.error || b.entries.some((e) => e.error)))
   || (isContainer(b) && (!!b.error || b.children.some(hasError)))

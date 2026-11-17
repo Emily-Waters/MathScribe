@@ -112,8 +112,9 @@ export function collectSymbols(sheet: Sheet, source: string): SheetSymbol[] {
           break
         }
         case BLOCK_KIND.card:
-          // What a card defines is usable anywhere in the sheet: `@g`, a species' `{dietzeite}`.
-          for (const d of b.defines) out.push({ ...d, from: 1, to: lines.length })
+        case BLOCK_KIND.custom:
+          // What a card (or a module's block) defines is usable anywhere in the sheet: `@g`, a species' `{dietzeite}`.
+          for (const d of b.defines ?? []) out.push({ ...d, from: 1, to: lines.length })
           break
         case BLOCK_KIND.import:
           // Each value is a variable, t_1, t_2, …: listed by the first and last (a
@@ -179,6 +180,7 @@ export function collectDiagnostics(blocks: Block[]): Map<number, Diagnostic> {
         put(b.line, DIAGNOSTIC_KIND.error, b.error)
         break
       case BLOCK_KIND.import:
+      case BLOCK_KIND.custom:
       case BLOCK_KIND.heading:
       case BLOCK_KIND.text:
       case BLOCK_KIND.latex:

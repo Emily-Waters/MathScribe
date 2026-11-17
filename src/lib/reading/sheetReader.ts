@@ -4,7 +4,7 @@
  * it's read: the Calculator, the blocks open around the line, the blank lines
  * before it, and the section numbers so far.
  */
-import { Calculator, markupText, outsideMaths, sheetModules, type CalcOptions } from '../engine/index.ts'
+import { Calculator, markupText, outsideMaths, sheetModules, type CalcOptions, type EngineModule } from '../engine/index.ts'
 import type { VariableSummary } from '../sheet/values.ts'
 import { BLOCK_CLOSE, EXACT_SETTING, LAYOUT_STYLE, LAYOUT_SYNTAX, LINE_COMMAND, SIGIL, VALUE_IN_TEXT, closesBlock, type Notation } from '../syntax.ts'
 import { BLOCK_KIND, type Block, type Command, type GroupBlock, type LayoutBlock } from '../sheet/blocks.ts'
@@ -46,11 +46,12 @@ export class SheetReader {
   /** The reader of each kind of node. */
   private readonly readerOf = new Map<string, NodeReader>()
 
-  constructor(source: string, options: CalcOptions) {
+  /** `modules`: what the sheet is worked out with, every module installed unless given (a test's own, say). */
+  constructor(source: string, options: CalcOptions, modules: EngineModule[] = sheetModules()) {
+    // (The modules first: installing one declares its kinds of line, which reading the tree needs.)
+    this.calc = new Calculator(options, modules)
     this.lines = splitLines(source).map((l) => l.text)
     this.items = itemsOf(encode(source).body, { at: 0 })
-    const modules = sheetModules()
-    this.calc = new Calculator(options, modules)
     this.readers = [...modules.filter(readsLines).flatMap((m) => m.lineReaders()), ...lineReaders()]
     for (const reader of this.readers) {
       for (const kind of reader.kinds) {

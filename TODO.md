@@ -15,14 +15,14 @@ what's here better.
       quadratic's solutions.
 - [ ] **Numerical integrals and derivatives**: `integral(f(x), x, 0, 2)` and
       `derivative(f(x), x, 1.5)`, with units, sig figs and uncertainty carried
-      through, typeset as âˆ« and d/dx.
+      through, typeset as ∫ and d/dx.
 - [ ] **Symbolic calculus and algebra**: differentiate, integrate, expand and
-      simplify an expression symbolically (`derivative(x^2 * sin(x), x)` â†’
-      2x sin x + xÂ² cos x), by way of a computer algebra library.
+      simplify an expression symbolically (`derivative(x^2 * sin(x), x)` →
+      2x sin x + x² cos x), by way of a computer algebra library.
 - [ ] **Ranges and sums**: `x = range(0, 10, 0.5)` as a series, `sum(f(n), n, 1, 10)`
       and products, so a series can be generated as well as typed or imported.
 - [ ] **Matrices typeset**: matrices and vectors shown as matrices, with
-      determinant, inverse, transpose and solving AÂ·x = b shown as working.
+      determinant, inverse, transpose and solving A·x = b shown as working.
 - [ ] **Differential equations**: a numerical ODE solver (`odesolve`) whose result
       is a series to plot.
 - [ ] **Optimisation and root finding over a range**: `minimise`, `maximise`, and
@@ -33,9 +33,9 @@ what's here better.
 
 - [ ] **Lab and data tables**: quantities as rows and trials as columns, row labels,
       a spanning header with the unit, shaded empty cells, and numbered captions
-      ("Table 1: â€¦").
+      ("Table 1: …").
 - [ ] **Conversion-factor working**: show a calculation as a chain of fractions
-      (2.755 Ã— 10â»Â² L Ã— 0.01000 mol EDTA / 1 L), the factor-label method chemistry
+      (2.755 × 10â»Â² L × 0.01000 mol EDTA / 1 L), the factor-label method chemistry
       courses ask for.
 - [ ] **Title page and page breaks**: labelled fields (author, course, instructor,
       date) on a page of their own, and `#pagebreak`.
@@ -83,10 +83,10 @@ working (group 2).
       of the substance: 2). Setting an amount, `H2SO4.n = 2 mol`, fills in what
       follows from it: `H2SO4.m` (its mass), `H2SO4.H.n`, `H2SO4.H.m` (each
       element's amount and mass in that much of it). Decided: any of its values
-      can be set (n, m, an element's n or m, â€¦) and the rest follow. Open:
+      can be set (n, m, an element's n or m, …) and the rest follow. Open:
       whether two can be set at once (only if they agree?). Decided: the
       working shows how a member was worked out, by default
-      (`H2SO4.H.m = 2 Ã— H2SO4.n Ã— M_H = â€¦`), back to what was set. Open: how it
+      (`H2SO4.H.m = 2 × H2SO4.n × M_H = …`), back to what was set. Open: how it
       shows in the working (which member came from which); and how it sits with
       `{X}` species units and reactions' members (`r.H2O`), which this could
       grow from.
@@ -100,41 +100,41 @@ working (group 2).
       and species units are the core's. A later set replaces the amount from
       that line on, as a variable assigned again does (decided: the sheet is
       read top to bottom). A member on its own line shows how it's worked out
-      (`m = n M = â€¦`); in a calculation it's a value. A value already of a
+      (`m = n M = …`); in a calculation it's a value. A value already of a
       species (from a reaction's mole ratio) is used as it is, so reactions
       work with substances. `@chem.mm` was removed from what a sheet types
       (decided): the elements' molar masses stay as the module's own (a
       namespace marked internal: not offered, and explained if typed), which a
       substance's is worked out from. Generic additions: members of members
       (`a.b.c`, read and typed back), drawn as c with b, a below; a module's
-      notation for a name's subscript in a member's path (chemistry: Hâ‚‚SOâ‚„,
+      notation for a name's subscript in a member's path (chemistry: H₂SO₄,
       and an element alone, H); internal `@` members.
 
 ## 5. Editor
 
-- [ ] **Quick fixes on warnings**, like VS Code's lightbulb: trailing zeros â†’
-      `300.`, a unit read as a variable â†’ insert `*`, an unknown constant â†’ the
+- [ ] **Quick fixes on warnings**, like VS Code's lightbulb: trailing zeros →
+      `300.`, a unit read as a variable → insert `*`, an unknown constant → the
       suggested one.
 - [ ] **Hover shows a variable's value at that line**, not at the end of its scope.
 - [ ] **Inline results**: a faint value at the end of each line in the editor
-      (`F = m * a   âŸ¶ 19.6 N`).
+      (`F = m * a   ⟶ 19.6 N`).
 - [ ] **Parameter hints**: typing `E_k(1, ` shows `E_k(n, m [kg], L [m])` with the
       current parameter highlighted.
 - [ ] **Rename (F2)** a variable or function everywhere it's used, respecting scope.
-- [ ] **Go to definition for variables and constants** (`@rho_w` â†’ its
+- [ ] **Go to definition for variables and constants** (`@rho_w` → its
       `@constants` entry).
 - [ ] **Snippets**: `def`, `@layout.numbered { }` blocks, `@constants { }`.
       (`def` functions were removed on 2026-11-16: a function is one line now, so
-      the snippet would be `f(x) = â€¦`.)
+      the snippet would be `f(x) = …`.)
 
 ## 6. Sharing and the app
 
 - [ ] **Share by link**: the sheet compressed into the URL
-      (`â€¦/MathScribe/#sheet=â€¦`), with no server and nothing uploaded.
+      (`…/MathScribe/#sheet=…`), with no server and nothing uploaded.
 - [ ] **Installable and offline**: a progressive web app.
 - [ ] **Templates**: "New from template" (a lab write-up, a problem set, a design
       calculation).
-- [ ] **Remember the output options** (sig figs, substitution, â‰ˆ) in the browser,
+- [ ] **Remember the output options** (sig figs, substitution, ≈) in the browser,
       or keep them in the sheet so it looks the same wherever it's opened.
 - [ ] **Narrow screens**: a stacked layout, or an Input / Output switch.
 - [ ] **Evaluate in a web worker**, if very long sheets still lag once typing pauses.
@@ -159,7 +159,7 @@ working (group 2).
       goes to its `{` line instead. The LaTeX and Word exports already left an
       untitled block's title out.
 - [x] **Blocks titled as sections**: a block's title written with `#` or `##`
-      (`# Kinematics {` â€¦ `}`) makes it a numbered section or subsection, taking
+      (`# Kinematics {` … `}`) makes it a numbered section or subsection, taking
       part in the numbering as headings do.
 
       **Resolved (2026-11-15):** a new reader, `SectionBlockReader`, offered a
@@ -187,19 +187,19 @@ working (group 2).
       document options inline (`DocumentOptions.tsx`, from the old Document
       menu), and Download; for LaTeX, Copy and Show the LaTeX too. The LaTeX tab
       is gone. A format is one entry in `EXPORT_FORMAT`, so another (PDF) is one
-      more. The Create dialog's styles became shared dialog styles (`dialog__â€¦`).
+      more. The Create dialog's styles became shared dialog styles (`dialog__…`).
       Checked in Chrome: both downloads, Esc, and the format remembered.
 - [ ] **An `@format` namespace** for how a value is *shown*, without changing the
       value or the maths. First: `@format.inv(x)`, a value shown flipped, as its
       reciprocal written out (a ratio a/b shown as b/a, 1/(2.0 s) as 0.50 sâ»Â¹),
       rather than ^-1 appended. Others that may belong there:
-      - `@format.frac`: as a fraction (0.75 â†’ 3/4; Ï€/4 kept symbolic);
+      - `@format.frac`: as a fraction (0.75 → 3/4; π/4 kept symbolic);
       - `@format.eng`: engineering notation (exponents in multiples of 3), beside sci and dec;
       - `@format.prefix(k)`: in a chosen SI prefix (kN, mm);
       - `@format.sci`, `@format.dec`, `@format.percent`, `@format.exact`: the `:`
         settings on a name, as functions on an expression, where a `:` can't go
-        (in `{{â€¦}}` text, a table column);
-      - `@format.polar`: a 2D vector as magnitude and angle (5.0 N âˆ  53.1Â°), from
+        (in `{{…}}` text, a table column);
+      - `@format.polar`: a 2D vector as magnitude and angle (5.0 N ∠ 53.1°), from
         the vectors module;
       - `@format.abs`, `@format.sign`: a magnitude, or a forced sign (+2.0);
       - `@format.ratio(a, b)`: a ratio as a : b.
@@ -207,24 +207,24 @@ working (group 2).
       To settle first: whether `@format` holds functions on values
       (`@format.inv(x)`), settings that chain like `@layout`'s
       (`@format.sci.frac`), or both; and whether the `:` settings on names become
-      the same words (`x:sci` â‰¡ `@format.sci`), so how a value is shown has one
+      the same words (`x:sci` ≡ `@format.sci`), so how a value is shown has one
       vocabulary.
 
       **Decided (2026-11-15):** the chained approach. `@format`'s members chain
       like `@layout`'s, in any order (`@format.inv.sci`), so the open questions
       left are where a chain is written (on an expression, `@format.inv.sci(x)`;
-      on a block, `@format.sci { â€¦ }`; or both) and whether the `:` settings on
+      on a block, `@format.sci { … }`; or both) and whether the `:` settings on
       names become the same words.
 
       **Decided (2026-11-16):** `@format.inv(x)` is 1/x (it acts as ^-1), but
       written by inverting the fraction (m/V as V/m), not with ^-1 appended. A
-      chain is written on a value, `@format.sci.frac(x)` (in `{{â€¦}}` text and
+      chain is written on a value, `@format.sci.frac(x)` (in `{{…}}` text and
       table columns too); blocks already have `@layout.sci { }`. The `:`
-      settings on names are the same words (`x:eng` â‰¡ `@format.eng(x)`). First
+      settings on names are the same words (`x:eng` ≡ `@format.eng(x)`). First
       members: inv, sci, dec, eng, frac, percent, exact; the vectors module adds
       polar as its own; not prefix(k) (`to kN` does it) or abs (mathjs's maths).
 
-      **Set aside (2026-11-16):** after weighing it up (formatting in `{{â€¦}}`
+      **Set aside (2026-11-16):** after weighing it up (formatting in `{{…}}`
       text and table columns, eng and frac, against a fourth place to set
       notation beside `#sci`, `:sci` and `@layout.sci`, and frac's clash with
       sig figs), `@format` waits until there's a clearer need: investigate how
@@ -234,8 +234,8 @@ working (group 2).
 - [x] **How expressions are typeset: brackets, multiplication signs and
       fractions.** A lot of the output looks ugly, the chemistry especially:
       brackets where none are needed (or missing where they are), a mix of
-      implicit products, `Â·` and `Ã—`, and fractions that stack badly (units and
-      species inside nested fractions, molar masses as g Hâ‚‚O / mol Hâ‚‚O over a
+      implicit products, `·` and `×`, and fractions that stack badly (units and
+      species inside nested fractions, molar masses as g H₂O / mol H₂O over a
       slash). Look at the rules as a whole: when a factor is bracketed, which
       product sign goes between which kinds of factor (numbers with units,
       names, display names, species), when a division is a stacked fraction or
@@ -245,16 +245,16 @@ working (group 2).
       them. Nested conditions (`c1 ? a : (c2 ? b : c)`) are typeset as a brace
       inside a brace; they'd read better as one brace of three cases.
       Decided (2026-11-16, from a page of each choice drawn now and as its
-      alternatives): (1) `Ã—` before a factor that starts with a number, nothing
+      alternatives): (1) `×` before a factor that starts with a number, nothing
       before a name, brackets only where needed, in place of bracketed
-      quantities side by side and `Â·` between numbers; (2) units keep the slash,
-      `m/sÂ²`; (3) a unit with a species above and below the line is stacked,
+      quantities side by side and `·` between numbers; (2) units keep the slash,
+      `m/s²`; (3) a unit with a species above and below the line is stacked,
       g Na over mol Na; (4) nested brackets go `( [ ( [`, never braces; (5) a
       formula after a name's underscore (`n_H2O`) is drawn as chemistry; (6) a
       condition inside a condition is one brace with every case; (7) a
-      function's result unit is said after its equation, "in Â°", not as an
+      function's result unit is said after its equation, "in °", not as an
       arrow after its name.
-      Resolved: (1) `productSeparator` (core/products.ts) puts `Ã—` before a
+      Resolved: (1) `productSeparator` (core/products.ts) puts `×` before a
       factor that starts as a number (a number, a quantity, a negative, a value
       in brackets, and Euler's e after a number) and after a quantity, nothing
       between names; values are bracketed only where they'd read wrongly
@@ -266,19 +266,19 @@ working (group 2).
       of element symbols and counts (`F_N`, `v_AB` stay as they were). (6) The
       Calculator writes a condition's cases itself, following its last case down
       through nested conditions. (7) `resultUnitTex` after the equation. The
-      option *Show Â· in every product* is unchanged.
+      option *Show · in every product* is unchanged.
       Refined (2026-11-16, from a stoichiometry line that read as one run,
-      `m 1/M n_Cr/n M_Cr`): a fraction in a product has Ã— on both sides, so a
-      chain of conversion factors reads factor by factor (m Ã— 1/M Ã— n_Cr/n Ã—
-      M_Cr); `@inv(â€¦)` counts as the fraction it's drawn as. A fraction of
-      numbers is a coefficient, as before (Â½mvÂ²), and a fraction raised to a
-      power starts with its bracket (Ï€^{âˆ’Â½}(Z/aâ‚€)^{3/2}).
+      `m 1/M n_Cr/n M_Cr`): a fraction in a product has × on both sides, so a
+      chain of conversion factors reads factor by factor (m × 1/M × n_Cr/n ×
+      M_Cr); `@inv(…)` counts as the fraction it's drawn as. A fraction of
+      numbers is a coefficient, as before (½mv²), and a fraction raised to a
+      power starts with its bracket (π^{−½}(Z/a₀)^{3/2}).
 
 ## 8. The sheet's schema: a tree of nodes
 
 One structure for what a sheet says, shared by the engine, the editor and every
 module (as GraphQL's schema is by its services): a sheet as a tree of nodes,
-every character in a token, so text â†’ tree â†’ text gives back the text exactly.
+every character in a token, so text → tree → text gives back the text exactly.
 Plain data, so it goes through JSON (and an HTTP request) unchanged; its kinds
 declared once, the core's and each module's; versioned, with migrations.
 Built for caching: a line's node depends only on its text and context, so an
@@ -304,15 +304,15 @@ edit reads again only what it changed, and nodes are shared between trees.
       sheet (4,000 rows of imported data): 3.6 ms to encode cold, 1.4 ms after an
       edit, 0.4 ms to decode; its JSON is about 5 times the text (it compresses
       well, and imported data will become one node).
-- [x] **Line parsers**: reading splits in two, text â†’ tree, then tree â†’ blocks.
+- [x] **Line parsers**: reading splits in two, text → tree, then tree → blocks.
       Each line reader's matching becomes a parser that gives a node of its kind
-      (assignment, heading, block opener and closer, â€¦), with contexts for what a
+      (assignment, heading, block opener and closer, …), with contexts for what a
       line is inside (prose, raw LaTeX, imported data, a function's body); the
       modules' readers give their own kinds (chemistry's species block and
       reaction line). Blocks become nodes that hold their lines. Imported data is
       one node, not a token per cell.
 
-      **Progress (2026-11-15), the first half: text â†’ tree.** A grammar
+      **Progress (2026-11-15), the first half: text → tree.** A grammar
       (`tree/grammar.ts`) of contexts and kinds of line, declared as data by the
       core (`tree/core.ts`, in the reading layer's order) and by modules
       (`EngineModule.grammar()`: chemistry's species block, species line and
@@ -325,7 +325,7 @@ edit reads again only what it changed, and nodes are shared between trees.
       node). Still to do: the reading layer reads blocks from the tree rather than
       from the text.
 
-      **Resolved (2026-11-15), the second half: tree â†’ blocks.** The
+      **Resolved (2026-11-15), the second half: tree → blocks.** The
       `SheetReader` encodes the sheet, turns its tree into items (each node with
       its line numbers: a block's opener, body and `}`), and reads each with the
       reader of its kind (`NodeReader.kinds`; two readers for one kind is an
@@ -340,7 +340,7 @@ edit reads again only what it changed, and nodes are shared between trees.
       from the tokens, so the editor's own line rules (`language.ts`) go.
 
       **Resolved (2026-11-15):** reading one line at a time is the tree's own
-      now (`tree/stream.ts`, `stepLine`: a line and the bodies open above it â†’
+      now (`tree/stream.ts`, `stepLine`: a line and the bodies open above it →
       what it is, its role, and the bodies after it), and `encode` builds the
       tree from those steps. The editor's highlighting carries the same small
       state from line to line, reads each line with `stepLine`, and colours its
@@ -369,7 +369,7 @@ edit reads again only what it changed, and nodes are shared between trees.
       (`check.ts`) agrees with it: it now also rejects fields a tree doesn't have,
       and a schema newer than this MathScribe reads; a test checks both accept
       every example's tree and reject the same broken ones.
-- [ ] **Expressions as tokens**: names, numbers, units, `{species}`, `<â€¦>`, so
+- [ ] **Expressions as tokens**: names, numbers, units, `{species}`, `<…>`, so
       the modules' text-rewriting hooks (`expandSyntax`, `readAfterUnit`) become
       kinds of token they declare.
       Progress (5a, the tree reads them): `lexer.ts` reads an expression into
@@ -380,9 +380,9 @@ edit reads again only what it changed, and nodes are shared between trees.
       the left of the `=`), names, `@` functions and constants (with their
       precision), keywords, strings, and anything else as `unknown` (nothing is
       lost). Nodes only where something holds parts: a quantity (a value and its
-      unit), a call, and a value in text (`{{â€¦}}` in prose and headings, not in
-      `$â€¦$` maths); operators stay flat. Modules declare rules of their own
-      (`ModuleGrammar.lexRules`), tried before the core's: a vector `<â€¦>`
+      unit), a call, and a value in text (`{{…}}` in prose and headings, not in
+      `$…$` maths); operators stay flat. Modules declare rules of their own
+      (`ModuleGrammar.lexRules`), tried before the core's: a vector `<…>`
       (vectors), a `{species}` (chemistry), and a series call's settings after
       `;` as one token (series). The editor colours lines from these tokens, so
       its own expression tokenizer is gone. Calculation, constant, function and
@@ -394,7 +394,7 @@ edit reads again only what it changed, and nodes are shared between trees.
       kind of part has a writer: the core's write a quantity as its value times
       its unit, a unit after `to` as a unit, a number as typed (`lit("2.0")`);
       a module's (`EngineModule.writers`) write its own kinds and are tried
-      first: vectors write `<â€¦>`, chemistry a species, and a quantity of one.
+      first: vectors write `<…>`, chemistry a species, and a quantity of one.
       What follows a unit as part of it is a lexer rule a module declares
       (`ModuleGrammar.unitRules`: `2.0 mol {EDTA}` reads as one quantity). The
       text-rewriting hooks are gone (`expandSyntax`, `readAfterUnit`,
@@ -420,7 +420,7 @@ edit reads again only what it changed, and nodes are shared between trees.
       body lines, `@constants`, the solve module's systems, the editor's symbols
       and go-to-definition, and the editor's colouring of a one-line function's
       name read it, in place of ten patterns (`ASSIGNMENT`, `FUNCTION_HEAD`,
-      `UNPACK`, `DECLARED`, â€¦, now gone). Checked side by side with the old
+      `UNPACK`, `DECLARED`, …, now gone). Checked side by side with the old
       patterns over every test and edge case: they differed only on malformed
       lines (`x::: = 3`, `x:"open = 3`), which the shape now leaves alone as the
       patterns did. Expressions read are kept by their text (the lexer's cache),
@@ -431,7 +431,7 @@ edit reads again only what it changed, and nodes are shared between trees.
       has no `=` yet).
       Progress (5c, `def` removed, 2026-11-16): rather than read `def` and its
       branches into the tree, `def` functions were taken out entirely (decided
-      with Emily): a function is one line, `f(x) = â€¦`, with `cond ? a : b` (nested
+      with Emily): a function is one line, `f(x) = …`, with `cond ? a : b` (nested
       for more cases) for branches. Gone with it: the `def` line and its body in
       the tree (`defLine`, `functionLine`, `function`, the `functionBody`
       context, bodies that end by indentation or a blank line), its reader and
@@ -462,7 +462,7 @@ edit reads again only what it changed, and nodes are shared between trees.
          (`splitNote` moved here), layout (`LAYOUT_SYNTAX.read/openerOf/name/
          token`). `syntax.ts` re-exports them all. Every pattern's groups are
          named and read as `.groups`; the plural lists (`DISPLAY_MODES`,
-         `NOTATIONS`, â€¦) are each list's `.words`. `reading/lineSyntax.ts` keeps
+         `NOTATIONS`, …) are each list's `.words`. `reading/lineSyntax.ts` keeps
          only the constant declaration and the imported-data cache.
          Resolved, `document.ts` half: it's now only the evaluation entry
          points. `isOmitted` and `listItems` are in `blocks.ts`, by the block
@@ -474,7 +474,7 @@ edit reads again only what it changed, and nodes are shared between trees.
          (`latexKit.ts`, `docxKit.ts`) no longer import the sheet reader.
       3. [x] The tree tokenizes once what's now re-read: #commands and notes
          (`tree/lines.ts` and `splitNote`), block openers (`tree/core.ts`,
-         `reading/lineSyntax.ts`, the editor), text markup (`$â€¦$`, `{formula}`,
+         `reading/lineSyntax.ts`, the editor), text markup (`$…$`, `{formula}`,
          subscripts: `document.ts`, `engine/core/text.ts`, the editor,
          `sheetReader.withValues`), imported rows (the editor, `csv.ts`), and
          `@constant` references and dot access in expressions (`calculator.ts`,
@@ -490,14 +490,14 @@ edit reads again only what it changed, and nodes are shared between trees.
            (`# the force #sym`) was always applied, but its token was part of
            the note; it's a command token now, and the editor colours it as one.
          - [x] Block openers: the tree reads an opener (`CONTENT.opener`: `Title {`,
-           `@layoutâ€¦`, `@constants {`, `@chem.species {`, a section's `# Title {`)
+           `@layout…`, `@constants {`, `@chem.species {`, a section's `# Title {`)
            into its `@` name, title and `{` (new token kinds `blockName`, `title`,
            `blockOpen`; `syntax/blocks.ts` BLOCK_NAME), and `@latex {`
            (`CONTENT.rawOpener`) into its name, `{` and LaTeX. The editor
            colours them from those tokens: its own patterns for them
            (`LAYOUT_SYNTAX.token`, `CONSTANTS_TOKEN`, `LATEX_TOKEN`,
            `SPECIES_TOKEN`, the title and brace regexes) are gone, and a
-           one-line `@latex { â€¦ }` now shows its `{` as a brace. The published
+           one-line `@latex { … }` now shows its `{` as a brace. The published
            schema has the three new token kinds. (What an opener *means* is
            still read from its text, by `LAYOUT_SYNTAX.read` and the like, in
            the grammar and its reader: not cached, as the reader changes what it
@@ -629,8 +629,34 @@ edit reads again only what it changed, and nodes are shared between trees.
         `src/lib/plugin.test.ts` is a module written only against the API
         (`@g_mars`, a setting), installed beside the others. The published
         schema lists the modules' kinds in folder order now.
-      - [ ] C2, a module's own block kinds (construct and view), and editor
+      - [x] C2, a module's own block kinds (construct and view), and editor
         features (suggestions, hovers, a menu: series' ⚙ menu moves into it).
+        Resolved: a core block kind, `custom` (`CustomBlock`: a `type`, the
+        module's `data`, and what any block has: note, error, hidden, the
+        names it defines), which a module's readers make; the module gives
+        each type's construct and view (`EngineModule.blockKinds`), and the
+        core's `CustomConstruct` and `CustomView` hand the block to them. A
+        module adds to the editor with `EngineModule.editorExtensions`
+        (CodeMirror extensions): series' ⚙ menu moved into the series module
+        (`modules/series/tableMenu.ts`) and is added that way. The module API
+        gives what writing them takes: `Construct`, `latexKit`, `docxKit`,
+        `Tex`, `Title`, `BlockMessages`, `useLineLink`, `Extension`.
+        Registering changed too: the engine's entry no longer loads the
+        modules (a module loads the module API, which reaches the engine's
+        entry, so the entry loading every module back made a circle that
+        broke loading); `src/modules/index.ts` registers them
+        (`registerModules`), and `main.tsx` and the tests' setup
+        (`src/test/setup.ts`) load it first. A sheet can be read with given
+        modules (`evaluateSheet(source, options, modules)`), which
+        `plugin.test.ts` uses to read, export and draw a block of its own
+        module's kind (`@mars.orbit Phobos`). Suggestions and hovers for a
+        module's own syntax are still the editor's: what a module needs there
+        is a hook to add when one does (braced names already come from the
+        module, `DefinedName.about`/`detail`).
+        Found on the way: `App.css` and this file had been round-tripped
+        through PowerShell's `Get-Content`/`Set-Content`, which read UTF-8 as
+        ANSI and turned `…`, `•`, `→`, `⚙`, `×` into `â€¦`-style mojibake
+        (the file name's `•` in the top bar showed it); repaired.
       4. [ ] The Calculator's concerns into collaborators, and a line read as a
          pipeline of token stages (modules add stages); EngineModule's hooks
          grouped into interfaces a module opts into.
@@ -644,7 +670,7 @@ edit reads again only what it changed, and nodes are shared between trees.
       asked: n columns, a blank line starting the next. Then, since the breaks
       already say how many there are, `n` became optional; and each block inside
       is a column of its own, so spacing inside it doesn't matter. Settled: `n` is
-      how many a row has (2â€“4, rounded into that with a warning), wrapping to
+      how many a row has (2–4, rounded into that with a warning), wrapping to
       further rows; unsaid, a row has as many as there are, up to 4. With no
       breaks the lines are shared out evenly (2 columns unless `n` says). A
       layout applies within each column (`.column(3).numbered`, the count
@@ -665,22 +691,22 @@ edit reads again only what it changed, and nodes are shared between trees.
       app, `\small\itshape` in its LaTeX `\tag*`, and a point smaller (and grey
       italic) in Word. A block's note, in its title line, stays upright.
       Later the same day: a note (and a `>` text line) shows a name's subscript as a title does
-      (`v_f` â†’ v with f below; `$â€¦$` is maths), and @solve's "solving for"
+      (`v_f` → v with f below; `$…$` is maths), and @solve's "solving for"
       names the unknown as it's drawn. In LaTeX, a note too wide to sit beside
       its line goes just under it, with room after, so it doesn't look like the
       next line's (`\msnoted`, measured like `\msfit`). And a word-like name in
-      a product is set apart with a dot: mass Â· speedÂ², Fn Â· m (Â½ mass after a
+      a product is set apart with a dot: mass · speed², Fn · m (½ mass after a
       number).
 - [x] **`@inv(x)`** (2026-11-16, from the `@format` discussion): 1/x, written as
       the fraction turned over, `@inv(m / V)` as V/m, and a value whose unit is a
-      fraction turned over whole, a molar mass as 1 mol Hâ‚‚O / 18.015 g Hâ‚‚O (a
+      fraction turned over whole, a molar mass as 1 mol H₂O / 18.015 g H₂O (a
       conversion factor flipped, as in factor-label working); anything else as
       1/x. A hidden mathjs function, so units, species, sig figs and uncertainty
       are a division's; zero and a tuple are explained.
-- [x] **The `@` namespace**: `@layout` blocks (`@layout.text Title { â€¦ }`, and
+- [x] **The `@` namespace**: `@layout` blocks (`@layout.text Title { … }`, and
       `list`, `numbered`, `center`, `titlepage`, and display settings such as `.hidden` and `.val.multiline` that combine); `@chem.mm.Na` molar masses,
-      `@chem.mm({formula})` with the sum as working, `@chem.total(â€¦)` to add
-      amounts of different species, and `@latex { â€¦ }` for raw LaTeX (over
+      `@chem.mm({formula})` with the sum as working, `@chem.total(…)` to add
+      amounts of different species, and `@latex { … }` for raw LaTeX (over
       several lines too).
 - [x] **Display names**: subscripts (`m_ball`, and `m_{H2O}` drawn as chemistry),
       and templates, `massName(x) = "m_{{x}}"` used as `m_w:massName(H2O)`.
@@ -694,15 +720,15 @@ edit reads again only what it changed, and nodes are shared between trees.
       (`M`), species as units that cancel in mole ratios, and display names.
 - [x] **Values in text** (`{{name}}`) and `//` comments.
 - [x] **Create with AI**: a prompt for any AI to write a sheet, and its answer opened.
-- [x] **Tables**: `@table(â€¦)`, with computed columns that become series, and settings.
-- [x] **Plots**: `@plot(â€¦)`, with error bars, a linear fit (weighted by the error bars
+- [x] **Tables**: `@table(…)`, with computed columns that become series, and settings.
+- [x] **Plots**: `@plot(…)`, with error bars, a linear fit (weighted by the error bars
       when there are some), settings, and both exports.
 - [x] **Importing from CSV**, with units from the headers and uncertainty columns.
-- [x] **Selections and names with a dot**: `@select(â€¦)`, named imports and named plots.
+- [x] **Selections and names with a dot**: `@select(…)`, named imports and named plots.
 - [x] **Speed on long sheets**: a slow sheet is worked out once typing pauses, and
       the engine keeps each variable as one record, with a series index and
       selections as lookups (a 3800-row import: from ~105 ms to ~34 ms an evaluation).
-- [x] **Vectors**: `<â€¦>` notation, unit vectors with `:ijk`, and components as
+- [x] **Vectors**: `<…>` notation, unit vectors with `:ijk`, and components as
       variables with `:xyz`.
 - [x] **Equation library**: first-year physics and general chemistry, inserted at
       the cursor as one-line functions.

@@ -4,7 +4,7 @@ import { SAMPLE } from '../content/sample.ts'
 import { REFERENCE } from '../content/reference.ts'
 // (The engine installs its modules as it loads: their kinds are then the schema's.)
 import '../engine/index.ts'
-import { CHEM_NODE } from '../engine/modules/chemistry/grammar.ts'
+import { CHEM_NODE } from '../../modules/chemistry/grammar.ts'
 import { GRAMMAR_CORE } from './grammar.ts'
 import { NODE_KIND, SCHEMA, TOKEN_KIND, encode, introspect, jsonSchema, schemaId, treeProblems } from './index.ts'
 

@@ -2,8 +2,8 @@
 import { describe, expect, it } from 'vitest'
 import { preprocess } from '../index.ts'
 import { typedNumbers } from './writer.ts'
-import { VECTOR_FUNCTION } from '../modules/vectors/syntax.ts'
-import { SPECIES_FUNCTION } from '../modules/chemistry/syntax.ts'
+import { VECTOR_FUNCTION } from '../../../modules/vectors/syntax.ts'
+import { SPECIES_FUNCTION } from '../../../modules/chemistry/syntax.ts'
 import { value } from '../../../test/helpers.ts'
 
 /** Variables on the sheet, for the shadowed-unit note. */

@@ -5,7 +5,7 @@ import {
   builtinAt, builtinConstant, builtinConstantKeys, builtinFunction, isReservedConstantName,
 } from './builtins.ts'
 import { BUILTIN_CONSTANTS } from './constants.ts'
-import { ELEMENTS } from './engine/modules/chemistry/elements.ts'
+import { ELEMENTS } from '../modules/chemistry/elements.ts'
 // (The engine installs its modules' members, @chem among them, when it's loaded.)
 import './engine/index.ts'
 

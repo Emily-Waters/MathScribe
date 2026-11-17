@@ -1481,36 +1481,40 @@ renamed, change it there too.
   core's (a quantity, `(9.81 * unit("m/s^2"))`; a unit after `to`; a number
   kept as typed), and a module's (`EngineModule.writers`: a vector, a species),
   tried first.
-  `modules/` extends the core: each module is an `EngineModule` subclass
-  (`core/module.ts`) overriding the hooks it needs, where an exception to the
-  core's rules comes from; a module works through the `ModuleHost` the core
-  offers it (its variables, and how it works out and writes values), and can
-  add kinds of line as `LineForm`s (`@table(…)`, `r = @chem.reaction(…)`).
-  `sheetModules()` in `index.ts` lists the modules a sheet is worked out with.
-  A module that builds on another says so (`requires`): it's installed after
-  it, and may import from it and no other module. The core never imports a
-  module (`boundaries.test.ts` checks both). The rest of MathScribe uses the
-  engine only through `index.ts` and a module's public face, its own `index.ts`
-  (`modules/series/index.ts`: what the ⚙ menus and the plot drawing need), never
-  a module's or the core's own files; the same test checks that too. A module
-  adds to what the rest of the app knows through hooks, not by being imported:
-  the LaTeX packages its notation needs (`latexPreamble`), the settings it adds
-  after a name with what each does (`lineSettings`), what its kinds of token are
-  (`ModuleGrammar.tokenRoles`, which the editor colours by), the names its
-  blocks define (`CardBlock.defines`), and whether a line form's name is a
-  namespace (`LineForm.assignsNamespace`). Each variable is one record (`Variable`: value, sig figs,
+  The modules that extend it are in `src/modules/` (below). Each variable is one record (`Variable`: value, sig figs,
   uncertainty, how it's shown) in a scope per `{ }` block or function call; each
   scope keeps a series index, and selections and named plots are lookups into the
   variables they pick (`Views`). mathjs sees just the values, through `Values`.
+- `src/modules/`: the modules, MathScribe's own and anyone's, each a folder whose
+  `index.ts` exports its class as its default; every one there is found and
+  installed (`src/modules/index.ts`, which can leave one out). A module is an
+  `EngineModule` subclass (`src/lib/engine/core/module.ts`) overriding the hooks
+  it needs, where an exception to the core's rules comes from; it uses
+  MathScribe only through the module API, `src/lib/plugin.ts` (the engine's
+  `ModuleHost`, the tree's rules, the readers, the sheet's syntax, …), and can
+  add kinds of line as `LineForm`s (`@table(…)`, `r = @chem.reaction(…)`). A
+  module that builds on another says so (`requires`): it's installed after it,
+  and may import from it (its `public.ts`) and no other. What the rest of the app
+  may use of a module is its `public.ts` (`modules/series/public.ts`: what the ⚙
+  menus and the plot drawing need); a module adds to what the app knows through
+  hooks, not by being imported: the LaTeX packages its notation needs
+  (`latexPreamble`), the settings it adds after a name with what each does
+  (`lineSettings`), what its kinds of token are (`ModuleGrammar.tokenRoles`, which
+  the editor colours by), the names its blocks define (`CardBlock.defines`), and
+  whether a line form's name is a namespace (`LineForm.assignsNamespace`).
+  `src/lib/engine/boundaries.test.ts` checks all of it: the core needs no module,
+  a module imports only the module API, its own folder and what it requires, and
+  the rest of the app uses the engine through `index.ts` and a module through its
+  `public.ts`. `src/lib/plugin.test.ts` is a module written that way, as an example.
 - `src/lib/data/csv.ts`: reading imported data (columns, units, uncertainty columns);
   `src/editor/dataBlocks.ts`, `dataBlockLines.ts`: an import's rows in the editor
   (row numbers, folding, the table look, moving and deleting them as one)
-- `src/lib/engine/modules/series/tableSettings.ts`, `plotSettings.ts`: a table's and plot's settings
+- `src/modules/series/tableSettings.ts`, `plotSettings.ts`: a table's and plot's settings
   after the semicolon, read and written; `src/editor/tableMenu.ts`: their ⚙ menus
 - `src/lib/output/plot.ts`: the linear fit, axes, and drawing a plot as SVG;
   `src/lib/output/plotImage.ts`: plots as pictures for the Word export
 - `src/lib/maths/brackets.ts`: choosing ( ), [ ] and { } by nesting in the output
-- `src/lib/engine/modules/chemistry/`: the chemistry module. `chemistry.ts`:
+- `src/modules/chemistry/`: the chemistry module. `chemistry.ts`:
   formulas in braces, species as units, reading a formula's atoms for a substance's molar mass,
   reactions and species names; `species.ts`: giving values their species and the
   strict rules; `namespace.ts`: its `@chem` members; `syntax.ts`: its names and
@@ -1521,14 +1525,14 @@ renamed, change it there too.
   unit or a value); `writers.ts`: writing a species for mathjs; `module.ts`:
   `ChemistryModule`, where the engine's hooks meet them.
   `src/lib/output/katex.ts`: KaTeX with mhchem, which everything that draws maths imports
-- `src/lib/engine/modules/series/`: the series module: `@table(…)`, `@plot(…)`
+- `src/modules/series/`: the series module: `@table(…)`, `@plot(…)`
   and `@select(…)` as line forms (`table.ts`, `plot.ts`, `select.ts`), and the
   columns they share (`columns.ts`)
-- `src/lib/engine/modules/solve/`: the solve module: `x = @solve(eq, x)`, by
+- `src/modules/solve/`: the solve module: `x = @solve(eq, x)`, by
   rearranging or numerically from a guess (`solve.ts`), and `@tuple(x, y) =
   @solve(eq_1, eq_2)` by substitution (`system.ts`); `src/lib/maths/solve.ts` has the
   algebra they use (isolating an unknown, polynomials)
-- `src/lib/engine/modules/vectors/`: the vectors module: a vector is a tuple
+- `src/modules/vectors/`: the vectors module: a vector is a tuple
   with a look of its own. `syntax.ts`: `<…>`, `@vector(…)`, `:ijk` and `:xyz`;
   `literals.ts`: where `<…>` is a vector; `grammar.ts`: reading `<3.0, 4.0> N`
   into the tree, and writing it for mathjs; `components.ts`: F_x, F_y from `F:xyz`;

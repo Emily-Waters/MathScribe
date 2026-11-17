@@ -3,7 +3,7 @@ import { type MathNode } from 'mathjs'
 import { PERCENT, KEYWORD, DISPLAY_MODE, SIGIL, type DisplayMode, type Notation, type Precision } from '../../syntax.ts'
 import { FIT, seriesMemberName } from '../../sheet/names.ts'
 import { FunctionMember, builtinAt } from '../../builtins.ts'
-import { type PlotData } from '../../output/plot.ts'
+import type { PlotData } from '../../output/plot.ts'
 import { math } from './math.ts'
 import { moduleReadableMessage, unitMismatchNotes, type LookSetting } from './module.ts'
 

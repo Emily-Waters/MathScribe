@@ -1,14 +1,11 @@
 /**
  * The calculation engine: what the rest of MathScribe uses of it. Inside, it's
  * split by concern under core/ (the Calculator, scopes, units, LaTeX, sig-fig
- * and uncertainty helpers), with modules/ extending it (chemistry); only what's
- * exported here is its public face.
+ * and uncertainty helpers); the modules that extend it are in src/modules/,
+ * found and installed from there. Only what's exported here is its public face.
  */
 import { inDependencyOrder, installModule, type EngineModule } from './core/module.ts'
-import { ChemistryModule } from './modules/chemistry/module.ts'
-import { SeriesModule } from './modules/series/module.ts'
-import { SolveModule } from './modules/solve/module.ts'
-import { VectorModule } from './modules/vectors/module.ts'
+import { MODULE_CLASSES } from '../../modules/index.ts'
 
 export { Calculator } from './core/calculator.ts'
 export {
@@ -23,16 +20,15 @@ export { outsideMaths, wordsTex } from './core/text.ts'
 export { bareTuple } from './core/tuples.ts'
 export { expandNamespaceCalls } from './core/builtinCalls.ts'
 export { EngineModule, LineForm, markupText, modulePreamble, moduleSettingWords, moduleSubscriptTex, type ModuleHost } from './core/module.ts'
-export { ChemistryModule, SeriesModule, SolveModule, VectorModule }
-// (A module's public face, what the rest of MathScribe may use of it besides what's here, is its own index.ts:
-// modules/series/index.ts. It's imported from there, not through here, so it needn't load the engine.)
+// (What the rest of MathScribe may use of a module itself is the module's own `public.ts`:
+// modules/series/public.ts. It's imported from there, not through here, so it needn't load the engine.)
 
 /**
- * The modules MathScribe works a sheet out with, made fresh for each sheet (each
- * keeps the sheet's own state, such as its species' names). Adding a module is
- * adding it here.
+ * The modules MathScribe works a sheet out with (every one in src/modules/),
+ * made fresh for each sheet: each keeps the sheet's own state, such as its
+ * species' names.
  */
-export const sheetModules = (): EngineModule[] => [new VectorModule(), new ChemistryModule(), new SeriesModule(), new SolveModule()]
+export const sheetModules = (): EngineModule[] => [...MODULE_CLASSES.values()].map((Module) => new Module())
 
 // Their shared parts installed now: their units, and their `@` members (`@chem`),
 // so the editor knows them before any sheet is worked out.

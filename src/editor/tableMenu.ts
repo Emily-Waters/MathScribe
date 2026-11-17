@@ -14,7 +14,7 @@ import {
   PLOT_FITS, PLOT_STYLES, SERIES_CALL, SETTINGS_CALL_OPENING as CALL_OPENING, TABLE_LINES, formatPlotSettings, formatTableSettings,
   parsePlotSettings, parseTableSettings, splitCallArgs, withSettingsText,
   type AxisSettings, type CallWithSettings as CallKind, type PlotFit, type PlotSettings, type PlotStyle, type TableLines, type TableSettings,
-} from '../lib/engine/modules/series/index.ts'
+} from '../modules/series/public.ts'
 
 /** How each choice reads in the panels. */
 const LINE_NAMES: Record<TableLines, string> = { header: 'Under the header', grid: 'Grid', none: 'None' }

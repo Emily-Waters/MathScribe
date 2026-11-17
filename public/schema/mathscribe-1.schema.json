@@ -113,9 +113,6 @@
           "$ref": "#/$defs/node.unpack"
         },
         {
-          "$ref": "#/$defs/node.vector"
-        },
-        {
           "$ref": "#/$defs/node.speciesOpener"
         },
         {
@@ -129,6 +126,9 @@
         },
         {
           "$ref": "#/$defs/node.reaction"
+        },
+        {
+          "$ref": "#/$defs/node.vector"
         }
       ]
     },
@@ -997,33 +997,6 @@
         }
       }
     },
-    "node.vector": {
-      "description": "A vector’s values in angle brackets: <3.0, 4.0> (VectorModule)",
-      "type": "object",
-      "required": [
-        "kind",
-        "parts"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "kind": {
-          "const": "vector"
-        },
-        "parts": {
-          "type": "array",
-          "items": {
-            "oneOf": [
-              {
-                "$ref": "#/$defs/token"
-              },
-              {
-                "$ref": "#/$defs/node"
-              }
-            ]
-          }
-        }
-      }
-    },
     "node.speciesOpener": {
       "description": "An @chem.species block’s opener: @chem.species { (ChemistryModule)",
       "type": "object",
@@ -1143,6 +1116,33 @@
       "properties": {
         "kind": {
           "const": "reaction"
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/token"
+              },
+              {
+                "$ref": "#/$defs/node"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "node.vector": {
+      "description": "A vector’s values in angle brackets: <3.0, 4.0> (VectorModule)",
+      "type": "object",
+      "required": [
+        "kind",
+        "parts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "vector"
         },
         "parts": {
           "type": "array",

@@ -200,6 +200,9 @@ export interface ModuleGrammar {
 // (Whatever its constructor takes: a module makes its own state.)
 export type ModuleClass = abstract new (...args: never[]) => EngineModule
 
+/** A module class that can be installed: made with no arguments (each sheet makes its own, keeping its own state). */
+export type InstallableModule = new () => EngineModule
+
 export abstract class EngineModule {
   /**
    * The modules it builds on (a module that adds to vectors needs VectorModule):

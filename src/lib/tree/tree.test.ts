@@ -9,7 +9,7 @@ import {
 } from './index.ts'
 import { clearLineCache, notedOf } from './lines.ts'
 import { splitNote } from '../syntax.ts'
-import { CHEM_NODE } from '../engine/modules/chemistry/grammar.ts'
+import { CHEM_NODE } from '../../modules/chemistry/grammar.ts'
 // (The engine installs its modules as it loads: chemistry's kinds of line are then the tree's.)
 import '../engine/index.ts'
 

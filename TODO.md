@@ -607,6 +607,30 @@ edit reads again only what it changed, and nodes are shared between trees.
          line link, line numbers, removing an import), kept apart so editing
          a view reloads in place. `hasError` moved to `blocks.ts`, by the block
          types; `ImportSummary` folded into `ImportView`.
+      Plugins (2026-11-17, Emily): someone running MathScribe locally should be
+      able to write a module of their own; adding one is extending a class and
+      registering it, nothing else edited. CLAUDE.md states it as the way to
+      work. Decided: (1a) a module is a folder in `src/modules/`, found and
+      installed; (2a) one class to extend, with app-level parts (views, editor
+      features) declared through its hooks too.
+      - [x] C1, modules as folders: chemistry, series, solve and vectors moved
+        from `src/lib/engine/modules/` to `src/modules/`, each with an `index.ts`
+        exporting its class as its default; `src/modules/index.ts` finds every
+        folder there (`import.meta.glob`) and installs it, with a list to leave
+        one out; `sheetModules()` makes them. A module imports MathScribe only
+        through the module API, `src/lib/plugin.ts` (what modules used, gathered
+        and documented), its own folder, and a required module's `public.ts`
+        (series' face renamed from `index.ts` to `public.ts`, since `index.ts` is
+        now a module's entry). The boundary test was rewritten from src/: the
+        core needs no module (now counting only imports that load a file,
+        which caught `results.ts` loading the plot code by `import { type … }`);
+        a module imports only the module API, its folder and what it requires;
+        the rest of the app uses the engine's entry and modules' `public.ts`.
+        `src/lib/plugin.test.ts` is a module written only against the API
+        (`@g_mars`, a setting), installed beside the others. The published
+        schema lists the modules' kinds in folder order now.
+      - [ ] C2, a module's own block kinds (construct and view), and editor
+        features (suggestions, hovers, a menu: series' ⚙ menu moves into it).
       4. [ ] The Calculator's concerns into collaborators, and a line read as a
          pipeline of token stages (modules add stages); EngineModule's hooks
          grouped into interfaces a module opts into.

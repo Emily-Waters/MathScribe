@@ -163,8 +163,8 @@ export function parseMemberName(name: string): { namespace: string; member: stri
  */
 export function expandDots(text: string): string {
   if (!text.includes(MEMBER_DOT)) return text
-  return text.split(/("[^"]*")/).map((part, i) => (i % 2 ? part : part.replace(DOT_ACCESS, (typed: string, ns: string, member: string) =>
-    RESERVED_NAMESPACES.has(ns) ? typed : memberName(ns, member)))).join('')
+  return text.split(/("[^"]*")/).map((part, i) => (i % 2 ? part : part.replace(DOT_ACCESS, (typed: string, ns: string, members: string) =>
+    RESERVED_NAMESPACES.has(ns) ? typed : memberName(ns, members.slice(MEMBER_DOT.length).split(MEMBER_DOT).join(JOIN))))).join('')
 }
 
 /** A built-in function as typed: builtin__tuple → @tuple. */
@@ -175,7 +175,8 @@ export function typedName(name: string): string {
   const builtin = BUILTIN_FUNCTION_NAME.exec(name)
   if (builtin) return `${SIGIL}${builtin[1]}`
   const m = parseMemberName(name)
-  return m ? `${m.namespace}${MEMBER_DOT}${m.member}` : name
+  // (A member's member, H2SO4__H__n, as typed: H2SO4.H.n.)
+  return m ? `${m.namespace}${MEMBER_DOT}${m.member.split(JOIN).join(MEMBER_DOT)}` : name
 }
 
 /** Inside names in a message written back as typed: a__x_1 → a.x_1. */

@@ -93,8 +93,8 @@ export const KEYWORD = {
 
 /**
  * What starts everything built in rather than written in the sheet: constants
- * (`@c`), functions (`@tuple(…)`, `@table(…)`), namespaces (`@chem.mm.Na`,
- * `@chem.mm(…)`, `@layout.text Title {`) and the `@constants { }` block.
+ * (`@c`), functions (`@tuple(…)`, `@table(…)`), namespaces (`@chem.total(…)`,
+ * `@layout.text Title {`) and the `@constants { }` block.
  * MathScribe's own functions are written with it; mathjs's maths isn't (sin, sqrt, norm).
  */
 export const SIGIL = '@'
@@ -136,10 +136,11 @@ export const UNPACK_SO_FAR = new RegExp(String.raw`^\s*${builtinOpening(CALL.tup
 
 /**
  * A name with a dot: a selection's, named import's or named plot's member,
- * `a.x_1` (1: the namespace, 2: the member). Not after a digit, so 2.5 isn't
- * one. (How it's held inside, a__x_1, is in names.ts.)
+ * `a.x_1`, or a member's member, a substance's element's, `H2SO4.H.n` (1: the
+ * namespace, 2: each member with its dot before it). Not after a digit, so 2.5
+ * isn't one. (How it's held inside, a__x_1, is in names.ts.)
  */
-export const DOT_ACCESS = new RegExp(String.raw`(?<![\w.${GREEK_CHARS}])(${NAME})\.(${NAME})`, 'g')
+export const DOT_ACCESS = new RegExp(String.raw`(?<![\w.${GREEK_CHARS}])(${NAME})((?:\.${NAME})+)`, 'g')
 
 /** Between a namespace and its member, as typed: a.x_1. */
 export const MEMBER_DOT = '.'

@@ -3,7 +3,7 @@ import { isConstantNode, isFunctionNode, type FunctionNode, type MathNode } from
 import { AGGREGATE_KIND } from '../../values.ts'
 import { builtinConstant } from '../../builtins.ts'
 import { GREEK_BY_CHAR, GREEK_BY_NAME, GREEK_CHARS, SERIES_SUFFIXES } from '../../syntax.ts'
-import { FIT, parseConstantRefName, parseMemberName, parseSeriesStatName, parseSolvedName, parseUncertaintyName } from '../../names.ts'
+import { FIT, JOIN, parseConstantRefName, parseMemberName, parseSeriesStatName, parseSolvedName, parseUncertaintyName } from '../../names.ts'
 import { FN, UNIT_LOOKS } from '../../mathjsNames.ts'
 import { math } from './math.ts'
 import { isLabelUnit, labelUnitTex, moduleNameSubscriptTex } from './module.ts'
@@ -67,10 +67,18 @@ export function symbolTex(name: string): string {
   // A namespace's member, a.x_1: the namespace goes first in the subscript, x_{a,1}.
   const member = parseMemberName(name)
   if (member) {
-    const ns = namePart(member.namespace)
+    // (A namespace in a module's notation is drawn as it: a substance's, H2SO4.m, as m with H₂SO₄ below.)
+    const ns = moduleNameSubscriptTex(member.namespace, true) ?? namePart(member.namespace)
     // A named plot's fit: p.r2 → R²_p, p.chi2 → χ²_ν,p.
     if (member.member === FIT.r2) return `R^{2}_{${ns}}`
     if (member.member === FIT.chi2) return `\\chi^{2}_{\\nu,${ns}}`
+    // A member's member, H2SO4.H.n: the last part, with the others below it, innermost first (n with H, H₂SO₄).
+    const inner = member.member.split(JOIN)
+    if (inner.length > 1) {
+      const last = inner.pop()!
+      const parts = inner.reverse().map((p) => moduleNameSubscriptTex(p, true) ?? namePart(p))
+      return `${symbolTex(last)}_{${[...parts, ns].join(',')}}`
+    }
     const tex = symbolTex(member.member)
     const sub = /^(.*?)_\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}$/.exec(tex)
     return sub ? `${sub[1]}_{${ns},${sub[2]}}` : `${tex}_{${ns}}`

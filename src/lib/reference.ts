@@ -252,21 +252,26 @@ export const REFERENCE: ReferenceSection[] = [
     id: 'chemistry',
     title: 'Chemistry',
     examples: [
-      { source: 'M = @chem.mm.Na', explain: '@chem.mm.Na is an element’s molar mass, with the digits IUPAC gives (@chem.mm.Na:3 for 3 sig figs).' },
       {
-        source: 'M = @chem.mm({CuSO4*5H2O})',
-        explain: '@chem.mm({formula}) adds up a compound’s molar mass: groups in brackets, a hydrate’s water after *. A charge or state is left out.',
+        source: 'H2SO4 = @chem.substance({H2SO4})\nH2SO4.n = 2.00 mol\nH2SO4.m\nH2SO4.H.m\nH2SO4.H.w',
+        explain: '@chem.substance is a substance: its molar mass (.M), and an amount of it (.n, 1 mol until set) and its mass (.m); '
+          + 'each element’s amount, mass, molar mass and mass fraction in it (.H.n, .H.m, .H.M, .H.w). A member on its own line shows how it’s worked out.',
       },
       {
-        source: 'm = 5.00 g {NaOH}\nn = m / @chem.mm({NaOH})',
+        source: 'CuSO4 = @chem.substance({CuSO4*5H2O})\nCuSO4.m = 5.00 g\nCuSO4.n\nCuSO4.O.m',
+        explain: 'Set any amount or mass, the substance’s or an element’s, and the rest follow from it, from that line on. '
+          + 'A formula can have groups in brackets and a hydrate’s water after *; a charge or state is left out of the molar mass.',
+      },
+      {
+        source: 'NaOH = @chem.substance({NaOH})\nm = 5.00 g {NaOH}\nn = m / NaOH.M',
         explain: '{formula} after a value is its species: on g a mass of it, on mol an amount, on g/mol a molar mass. Once there are species, every mass, amount and molar mass needs one.',
       },
       {
-        source: '@chem.species dietzeite = {7Ca(IO3)2*8CaCrO4}\nm = 5.00 g {dietzeite}\nn = m / @chem.mm({dietzeite})',
+        source: '@chem.species dietzeite = {7Ca(IO3)2*8CaCrO4}\nD = @chem.substance({dietzeite})\nm = 5.00 g {dietzeite}\nn = m / D.M',
         explain: '@chem.species names a species: {dietzeite} is its formula wherever braces take one, shown by its name (declare it :formula, or put :formula on a line, to show the formula).',
       },
       {
-        source: 'r = @chem.reaction({2 H2 + O2 -> 2 H2O})\nn_H2 = 4.00 g {H2} / @chem.mm({H2})\nn_H2O = n_H2 * r.H2O / r.H2\nm_H2O = n_H2O * @chem.mm({H2O})',
+        source: 'r = @chem.reaction({2 H2 + O2 -> 2 H2O})\nH2 = @chem.substance({H2})\nH2O = @chem.substance({H2O})\nH2.m = 4.00 g\nH2O.n = H2.n * r.H2O / r.H2\nH2O.m',
         explain: '@chem.reaction checks a reaction balances; each coefficient is a member, an exact amount, so r.H2O / r.H2 is a mole ratio.',
       },
       {

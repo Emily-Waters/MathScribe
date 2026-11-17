@@ -251,8 +251,12 @@ export abstract class EngineModule {
     return undefined
   }
 
-  /** A subscript of a variable's name as LaTeX, if it's in this module's notation (`n_H2O`, chemistry). */
-  nameSubscriptTex(_subscript: string): string | undefined {
+  /**
+   * A subscript of a variable's name as LaTeX, if it's in this module's notation
+   * (`n_H2O`, chemistry); `inPath`: it's a namespace or member in a member's
+   * path (`H2SO4.H.n`), where a name stands for a thing rather than a label.
+   */
+  nameSubscriptTex(_subscript: string, _inPath: boolean): string | undefined {
     return undefined
   }
 
@@ -445,8 +449,8 @@ export const isUnwrittenFunction = (name: string) => shared().some((m) => m.unwr
 export const moduleSubscriptTex = (subscript: string) =>
   shared().map((m) => m.subscriptTex(subscript)).find((tex) => tex !== undefined)
 
-export const moduleNameSubscriptTex = (subscript: string) =>
-  shared().map((m) => m.nameSubscriptTex(subscript)).find((tex) => tex !== undefined)
+export const moduleNameSubscriptTex = (subscript: string, inPath = false) =>
+  shared().map((m) => m.nameSubscriptTex(subscript, inPath)).find((tex) => tex !== undefined)
 
 export const markupText = (text: string) => shared().reduce((t, m) => m.markupText(t), text)
 

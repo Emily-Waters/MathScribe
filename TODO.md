@@ -69,7 +69,7 @@ what's here better.
 - [ ] **Limiting reagent and yield**: which reactant runs out, theoretical and
       percent yield.
 - [ ] **Equilibrium and pH helpers**: ICE tables, pH/pOH, K from concentrations.
-- [ ] **A species as a value with members**: define one, `H2SO4 = @chem.substance({H2SO4})`
+- [x] **A species as a value with members**: define one, `H2SO4 = @chem.substance({H2SO4})`
       (the name decided: `@chem.substance`), then read data about it, `H2SO4.M`
       (molar mass), and chain into its elements, `H2SO4.H.n` (mol of H per mol
       of the substance: 2). Setting an amount, `H2SO4.n = 2 mol`, fills in what
@@ -82,6 +82,25 @@ what's here better.
       shows in the working (which member came from which); and how it sits with
       `{X}` species units and reactions' members (`r.H2O`), which this could
       grow from.
+      Resolved (2026-11-16): `X = @chem.substance({formula})` (substance.ts, a
+      line form) defines its members as variables under its name: `X.M` (the sum
+      of its elements' molar masses, shown worked out on its line), `X.n` (1 mol,
+      exact, until set: decided), `X.m`, and each element's `X.E.n`, `.m`, `.M`
+      and `.w` (mass fraction, added). Setting an amount or mass, the
+      substance's or an element's, works out its amount, then every member,
+      through lines the module writes for the engine, so sig figs, uncertainty
+      and species units are the core's. A later set replaces the amount from
+      that line on, as a variable assigned again does (decided: the sheet is
+      read top to bottom). A member on its own line shows how it's worked out
+      (`m = n M = …`); in a calculation it's a value. A value already of a
+      species (from a reaction's mole ratio) is used as it is, so reactions
+      work with substances. `@chem.mm` was removed from what a sheet types
+      (decided): the elements' molar masses stay as the module's own (a
+      namespace marked internal: not offered, and explained if typed), which a
+      substance's is worked out from. Generic additions: members of members
+      (`a.b.c`, read and typed back), drawn as c with b, a below; a module's
+      notation for a name's subscript in a member's path (chemistry: H₂SO₄,
+      and an element alone, H); internal `@` members.
 
 ## 5. Editor
 

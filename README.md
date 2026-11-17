@@ -253,15 +253,15 @@ block's first line to hide it. The dialog remembers your last choices.
 | `@layout.hidden {` … `}` | lines worked out but not shown |
 | `@layout.val.multiline {` … `}` | every line inside shown as `#val #multiline` would show it |
 | `@c`, `@a_0:3 to angstrom` | constants, and setting their precision and unit |
-| `@chem.mm.Na`, `@chem.mm({H2O})` | an element's molar mass, and a compound's |
+| `H2O = @chem.substance({H2O})` | a substance: its molar mass, amount and mass, and its elements' (`H2O.M`, `H2O.n`, `H2O.H.m`) |
 
 **`@` is MathScribe's own:** everything built in rather than written in the sheet
 starts with `@`: constants (`@c`), the `@constants { }` block, MathScribe's own
 functions (`@tuple(…)`, `@vector(…)`, `@import(…)`, `@table(…)`, `@plot(…)`,
 `@select(…)`, `@solve(…)`), and namespaces, whose members are written with a dot: `@layout`
 holds the layout blocks (`@layout.text`, `@layout.list`, `@layout.numbered`,
-`@layout.center`, `@layout.titlepage`) and `@chem` the chemistry (`@chem.mm.Na`,
-`@chem.mm(…)`). mathjs's maths isn't (`sin`, `sqrt`, `norm`, `dot`, `cross`), and
+`@layout.center`, `@layout.titlepage`) and `@chem` the chemistry (`@chem.substance(…)`,
+`@chem.reaction(…)`). mathjs's maths isn't (`sin`, `sqrt`, `norm`, `dot`, `cross`), and
 the names of MathScribe's functions are free for your own (`tuple(a, b) = …`
 defines a function of yours). Your own constants are `@name` too, so they can't
 be called `layout`, `chem`, `constants`, or one of MathScribe's functions.
@@ -932,19 +932,20 @@ q = (1 mol {X}) / (1 mol {EDTA})          # a mole ratio, from the reaction
 n_X = n_EDTA * q                          → 2.755 × 10⁻⁴ mol X   (EDTA cancels)
 c = 0.100 M {NaOH}
 n = c * 17.10 mL                          → 0.00171 mol NaOH
+NaOH = @chem.substance({NaOH})
 m = 5.00 g {NaOH}
-n_2 = m / @chem.mm({NaOH})                → 0.125 mol NaOH       (a mass of NaOH over g NaOH/mol NaOH)
-m_2 = n_2 * @chem.mm({NaOH})              → 5.00 g NaOH
+n_2 = m / NaOH.M                          → 0.125 mol NaOH       (a mass of NaOH over g NaOH/mol NaOH)
+m_2 = n_2 * NaOH.M                        → 5.00 g NaOH
 ```
 
 - Each species is part of the unit, so species cancel as units do, and amounts of
   different species can't be added or compared (mol Na⁺ + mol Cl⁻ is an error, like
   metres + seconds). `to` keeps the species: `n to mmol` is 1.71 mmol NaOH.
 - **Species are strict.** Once a calculation has species, every mass, amount and
-  molar mass in it needs one: `5.00 g / @chem.mm({NaOH})` and
+  molar mass in it needs one: `5.00 g / NaOH.M` and
   `5.00 g {NaOH} / (40.00 g/mol)` are errors (give the mass, or the molar mass, its
   species). Going from one species to another without a mole ratio is an error too:
-  `5.00 g {HCl} / @chem.mm({NaOH})` says it mixes species. Calculations without any
+  `5.00 g {HCl} / NaOH.M` says it mixes species. Calculations without any
   species work as before.
 - A whole number of a species, written without a decimal point (`1 mol {X}`,
   `6 mol {X}`), is a coefficient from a balanced equation, so it's exact and never
@@ -961,40 +962,57 @@ m_2 = n_2 * @chem.mm({NaOH})              → 5.00 g NaOH
 
   It still only adds amounts to amounts (or masses to masses): `@chem.total(n_Na, 2.0 g)` is an error.
 
-**Molar masses:** `@chem.mm.Na` is an element's molar mass, and `@chem.mm({formula})`
-a compound's, added up from its elements. Both are under `mm`: after it, a dot gives
-an element and brackets a formula. Each is a molar mass of its species, g Na/mol Na,
-written stacked (g Na over mol Na), as is any unit with a species above and below the line.
+**Substances:** `@chem.substance({formula})`, named on a line of its own, is a
+substance: its molar mass, an amount of it, and what follows from the two, each a
+member. Until an amount is set it's 1 mol, so its elements' members are per mole.
 
 ```
-M_Na = @chem.mm.Na                        → 22.990 g Na/mol Na
-M = @chem.mm({CuSO4*5H2O})                → M = M_Cu + M_S + 9M_O + 10M_H = … = 249.68 g CuSO4*5H2O/mol CuSO4*5H2O
-n = 5.00 g {NaOH} / @chem.mm({NaOH})      → 0.125 mol NaOH
+H2SO4 = @chem.substance({H2SO4})   → M = 2M_H + M_S + 4M_O = … = 98.07 g H₂SO₄/mol H₂SO₄
+H2SO4.H.n                          → 2 mol H         (in 1 mol of H₂SO₄)
+H2SO4.n = 2.00 mol                 → sets its amount
+H2SO4.H.n                          → n = 2.00 mol H₂SO₄ × 2 mol H / 1 mol H₂SO₄ = 4.00 mol H
+H2SO4.m                            → m = n M = 2.00 mol H₂SO₄ × 98.07 g/mol = 196 g H₂SO₄
+H2SO4.H.w                          → w = m_H / m = 4.03 g / 196 g = 0.0206
+H2SO4.m = 5.00 g                   → sets it again: its amount follows from the mass
 ```
 
+| Member | What it is |
+|---|---|
+| `X.M` | its molar mass, the sum of its elements' (g X over mol X, stacked) |
+| `X.n` | its amount: 1 mol until set |
+| `X.m` | its mass, n × M |
+| `X.E.n` | an element's amount in it: its count × n |
+| `X.E.m` | that element's mass, E.n × E.M |
+| `X.E.M` | the element's molar mass |
+| `X.E.w` | the element's mass fraction, E.m / m |
+
+- Any amount or mass can be set, the substance's or an element's (`H2SO4.n = 2.00 mol`,
+  `H2SO4.m = 5.00 g`, `H2SO4.O.m = 1.00 g`): its amount is worked out from it, and every
+  member from that, from that line on, as a variable assigned again is. A value with
+  no unit is read as mol (an amount) or g (a mass); one already of a species, as from
+  a mole ratio (`H2O.n = H2.n * r.H2O / r.H2`), is used as it is. The molar masses and
+  mass fractions follow from the formula, so they can't be set.
+- A member on a line of its own shows how it's worked out, back to what was set. In a
+  calculation (`x = 2 * H2SO4.m`) it's a value like any other.
+- Its members are drawn as chemistry: H2SO4.m is m with H₂SO₄ below it, and
+  H2SO4.H.n is n with H, H₂SO₄ below it.
 - Atomic weights are IUPAC's abridged standard atomic weights (2021), with the digits
-  IUPAC gives as their sig figs (Na 22.990, Cl 35.45); `@chem.mm.Na:3` uses 3, and
-  `@chem.mm.Cl:3` on a line of its own sets it for the whole sheet, as for other
-  constants. An element with no stable isotope (Tc, Pm, Po, …) has the mass number of
-  its longest-lived isotope.
-- A compound's sum is shown as working, each element's term as a plain g/mol, and its
-  sig figs follow the addition rule from the atomic weights. Write it on a line of its
-  own (`M = @chem.mm({NaOH})`) to keep the sum out of the lines that use it.
+  IUPAC gives as their sig figs (Na 22.990, Cl 35.45). An element with no stable
+  isotope (Tc, Pm, Po, …) has the mass number of its longest-lived isotope. The molar
+  mass's sum follows the addition rule from them.
 - The formula is written as in the rest of the sheet: counts as digits, groups in
   brackets (`Ca(OH)2`, `K4[Fe(CN)6]`), a hydrate's water after `*`. A charge or state
-  (`{SO4^2-}`, `{NaCl(aq)}`) doesn't change the sum, but it's part of the species, as
-  written. Symbols are case-sensitive: `{Co}` is cobalt, `{CO}` carbon monoxide.
-- A coefficient, as in a balanced equation, multiplies the molar mass:
-  `@chem.mm({2 H2O})` is 36.030 g/mol, shown as M = 2(2M_H + M_O). It can be a
-  whole number or a fraction (`{1/2 O2}`), with or without a space, and it's exact.
+  (`{SO4^2-}`, `{NaCl(aq)}`) doesn't change the molar mass, but it's part of the species,
+  as written. Symbols are case-sensitive: `{Co}` is cobalt, `{CO}` carbon monoxide.
 - In a formula of parts joined by `*`, a number written right against a part is how
   many of that part, the first as well as the others: dietzeite,
-  `{7Ca(IO3)2*8CaCrO4}`, is 7 Ca(IO3)2 and 8 CaCrO4 (3977.7 g/mol). To multiply the
-  whole formula instead, leave a space: `{2 CuSO4*5H2O}`.
+  `{7Ca(IO3)2*8CaCrO4}`, is 7 Ca(IO3)2 and 8 CaCrO4 (3977.7 g/mol).
+- A substance is one formula, without a count in front: to work with 2 mol of water,
+  set `H2O.n = 2`.
 - A mass worked out from grams stays in grams (mol × g/mol is 5.00 g, not 0.00500 kg).
 
 **Species names:** name a species once, and use the name wherever braces take a
-formula: after a value, in `@chem.mm`, in reactions, in prose and headings.
+formula: after a value, in a substance, in reactions, in prose and headings.
 
 ```
 @chem.species {
@@ -1002,8 +1020,9 @@ formula: after a value, in `@chem.mm`, in reactions, in prose and headings.
     edta:formula = {EDTA^4-}             # shown by its formula
 }
 
-m = 5.00 g {dietzeite}                   → 5.00 g dietzeite
-n = m / @chem.mm({dietzeite})            → 0.00126 mol dietzeite
+D = @chem.substance({dietzeite})
+D.m = 5.00 g                             → 5.00 g dietzeite
+D.n                                      → 0.00126 mol dietzeite
 m_2:formula = 5.00 g {dietzeite}         → 5.00 g 7Ca(IO₃)₂·8CaCrO₄
 > A {dietzeite} sample.                  → A dietzeite sample.
 ```
@@ -1025,10 +1044,12 @@ one member over another:
 
 ```
 r = @chem.reaction({2 H2 + O2 -> 2 H2O})   → checked: balanced; r.H2 = 2 mol H2, r.O2 = 1 mol O2, r.H2O = 2 mol H2O
-m_H2 = 4.00 g {H2}
-n_H2 = m_H2 / @chem.mm({H2})               → 1.98 mol H2
-n_H2O = n_H2 * r.H2O / r.H2                → 1.98 mol H2O   (n_H2O is drawn n with H₂O below it)
-m_H2O = n_H2O * @chem.mm({H2O})            → 35.7 g H2O
+H2 = @chem.substance({H2})
+H2O = @chem.substance({H2O})
+H2.m = 4.00 g                              → its amount, 1.98 mol H2
+H2O.n = H2.n * r.H2O / r.H2                → 1.98 mol H2O
+H2O.m                                      → 35.7 g H2O
+n_H2O = H2O.n                              → n_H2O is drawn n with H₂O below it
 ```
 
 - A name's subscript that's a formula, of two or more characters of element symbols
@@ -1415,12 +1436,12 @@ renamed, change it there too.
   `src/lib/plotImage.ts`: plots as pictures for the Word export
 - `src/lib/brackets.ts`: choosing ( ), [ ] and { } by nesting in the output
 - `src/lib/engine/modules/chemistry/`: the chemistry module. `chemistry.ts`:
-  formulas in braces, species as units, reading a formula's atoms for `@chem.mm`,
+  formulas in braces, species as units, reading a formula's atoms for a substance's molar mass,
   reactions and species names; `species.ts`: giving values their species and the
   strict rules; `namespace.ts`: its `@chem` members; `syntax.ts`: its names and
   line patterns (`@chem.species`, reactions); `elements.ts`: the elements
   and their atomic weights; `reaction.ts`: `r = @chem.reaction(…)` as a line
-  form; `readers.ts`: its lines of a sheet (`@chem.species { }`, a reaction on
+  form; `substance.ts`: `X = @chem.substance({…})` and its members, as a line form; `readers.ts`: its lines of a sheet (`@chem.species { }`, a reaction on
   its own); `grammar.ts`: its kinds of line and token (a species, after a
   unit or a value); `writers.ts`: writing a species for mathjs; `module.ts`:
   `ChemistryModule`, where the engine's hooks meet them.

@@ -25,7 +25,7 @@ export const CHEM_NODE = {
 
 /** The chemistry module's kinds of token. */
 export const CHEM_TOKEN = {
-  /** A formula in braces in an expression: the species a value is of (`5.00 g {H2O}`), or a compound (`@chem.mm({H2O})`). */
+  /** A formula in braces in an expression: the species a value is of (`5.00 g {H2O}`), or a compound (`@chem.substance({H2O})`). */
   species: 'species',
 } as const
 
@@ -52,7 +52,7 @@ export const CHEM_GRAMMAR: ModuleGrammar = {
     [CHEM_NODE.speciesLine]: 'One species named on a line of its own: @chem.species dietzeite = {…}',
     [CHEM_NODE.reaction]: 'A reaction on a line of its own, drawn: {2 H2 + O2 -> 2 H2O}',
   } satisfies Record<(typeof CHEM_NODE)[keyof typeof CHEM_NODE], string>,
-  tokenKinds: { [CHEM_TOKEN.species]: 'A formula in braces in an expression: the species a value is of (5.00 g {H2O}), or a compound (@chem.mm({H2O}))' } satisfies Record<(typeof CHEM_TOKEN)[keyof typeof CHEM_TOKEN], string>,
+  tokenKinds: { [CHEM_TOKEN.species]: 'A formula in braces in an expression: the species a value is of (5.00 g {H2O}), or a compound (@chem.substance({H2O}))' } satisfies Record<(typeof CHEM_TOKEN)[keyof typeof CHEM_TOKEN], string>,
   contexts: [{ name: SPECIES_CONTEXT, lineKind: CHEM_NODE.speciesEntry, content: CONTENT.noted }],
   lexRules: [SPECIES_RULE],
   // (After a unit, a species is part of it: `2.0 mol {EDTA}`, mol of EDTA.)

@@ -58,22 +58,27 @@ describe('the tree', () => {
 })
 
 describe('built-in functions', () => {
-  it('are found by their path, a namespace that can be called too', () => {
-    const mm = builtinFunction(['chem', 'mm'])
-    expect(mm).toBeInstanceOf(FunctionMember)
-    expect((mm as FunctionMember).typed).toBe('@chem.mm')
-    expect((mm as FunctionMember).signature).toBe('@chem.mm({formula})')
-    expect((builtinFunction(['chem', 'total']) as FunctionMember).typed).toBe('@chem.total')
+  it('are found by their path', () => {
+    const total = builtinFunction(['chem', 'total'])
+    expect(total).toBeInstanceOf(FunctionMember)
+    expect((total as FunctionMember).typed).toBe('@chem.total')
+    expect((total as FunctionMember).signature).toBe('@chem.total(n_1, n_2, …)')
   })
 
-  it('say which functions a namespace has, when it hasn’t the one asked for', () => {
-    expect(builtinFunction(['chem', 'foo'])).toEqual({ error: '@chem has no function foo; it has @chem.mm, @chem.total and @chem.reaction.' })
+  it('say which functions a namespace has, when it hasn’t the one asked for (not a module’s own)', () => {
+    expect(builtinFunction(['chem', 'foo'])).toEqual({ error: '@chem has no function foo; it has @chem.substance, @chem.total and @chem.reaction.' })
     expect(builtinFunction(['nope', 'foo'])).toEqual({ error: '@nope.foo isn\'t a built-in function.' })
   })
 
   it('write their call out as what it stands for', () => {
-    const mm = builtinFunction(['chem', 'mm']) as FunctionMember
-    expect(mm.expand('{H2O}')).toEqual({ text: 'chem__ofCompound((chem__plain(2 * @chem.mm.H) + chem__plain(@chem.mm.O)), "H2O")' })
-    expect(mm.expand('H2O')).toEqual({ error: '@chem.mm takes one formula, in braces: @chem.mm({CuSO4*5H2O}).' })
+    const total = builtinFunction(['chem', 'total']) as FunctionMember
+    expect(total.expand('n_Na, n_Cl')).toEqual({ text: '(chem__anySpecies(n_Na) + chem__anySpecies(n_Cl))' })
+    expect(total.expand('')).toEqual({ error: '@chem.total needs the amounts to add: @chem.total(n_Na, n_Cl).' })
+  })
+
+  it('keep a module’s own members out of what a sheet is offered, and say what to write instead', () => {
+    const chem = BUILTINS.resolve(['chem']) as Namespace
+    expect(chem.members.map((m) => m.name)).not.toContain('mm')
+    expect(BUILTINS.resolve(['chem', 'mm', 'Na'])?.internal).toMatch(/a substance’s/)
   })
 })

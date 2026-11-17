@@ -11,12 +11,13 @@ export const CHEM_NAMESPACE = 'chem'
 
 /**
  * The functions in @chem:
- *   `@chem.mm({CuSO4*5H2O})`                  the molar mass of a compound, in g/mol
+ *   `H2SO4 = @chem.substance({H2SO4})`        a substance, whose members are its molar mass, amount and mass
  *   `@chem.total(n_Na, n_Cl)`                 the sum of amounts of different species, as plain amounts
  *   `r = @chem.reaction({2 H2 + O2 -> 2 H2O})` a balanced reaction (a line of its own)
- * `mm` also holds each element's molar mass, as a constant: `@chem.mm.Na`.
+ * `mm` holds each element's molar mass, `@chem.mm.Na`: the module's own (a
+ * substance's molar mass is worked out from them), not typed in a sheet.
  */
-export const CHEM_FUNCTION = { molarMass: 'mm', total: 'total', reaction: 'reaction' } as const
+export const CHEM_FUNCTION = { substance: 'substance', molarMass: 'mm', total: 'total', reaction: 'reaction' } as const
 
 /**
  * A reaction, named, on a line of its own: `r = @chem.reaction({2 H2 + O2 -> 2 H2O})`.

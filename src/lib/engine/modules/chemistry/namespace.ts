@@ -2,42 +2,19 @@
  * `@chem`: the chemistry module's members of the `@` tree.
  *
  *   @chem
- *   ├─ mm          a compound's molar mass, @chem.mm({H2O}); and a namespace:
- *   │  └─ H, He, … each element's molar mass, @chem.mm.Na
+ *   ├─ substance   a substance, H2SO4 = @chem.substance({H2SO4}): H2SO4.M, .n, .m, .H.n, …
+ *   ├─ mm          the module's own (not typed in a sheet):
+ *   │  └─ H, He, … each element's molar mass, which a substance's is worked out from
  *   ├─ total       amounts of different species added, @chem.total(n_Na, n_Cl)
  *   ├─ reaction    a balanced reaction, r = @chem.reaction({2 H2 + O2 -> 2 H2O})
  *   └─ species     the block naming species, @chem.species { … }
  */
-import { BlockMember, ConstantMember, FunctionMember, Namespace, type Expansion } from '../../../builtins.ts'
+import { BlockMember, ConstantMember, FunctionMember, LineFormMember, Namespace, type Expansion } from '../../../builtins.ts'
+import { SIGIL } from '../../../syntax.ts'
 import { splitArgs } from '../../../solve.ts'
-import { ANY_SPECIES_FUNCTION, CHEM_FUNCTION, CHEM_NAMESPACE, SPECIES_BLOCK, SPECIES_FUNCTION } from './syntax.ts'
+import { ANY_SPECIES_FUNCTION, CHEM_FUNCTION, CHEM_NAMESPACE, SPECIES_BLOCK } from './syntax.ts'
 import { ELEMENTS, MOLAR_MASS_UNIT, elementDescription, type ElementSymbol } from './elements.ts'
-import { molarMassSum, parseFormula, speciesKey, splitCoefficient } from './chemistry.ts'
-
-/** A formula in braces, as the whole of an argument: `{CuSO4*5H2O}` (1: the formula). */
-const FORMULA_ARGUMENT = /^\{([^{}]+)\}$/
-
-/** `@chem.mm({CuSO4*5H2O})`: a compound's molar mass, as the sum of its elements' (`@chem.mm.Cu + …`). */
-class MolarMassFunction extends FunctionMember {
-  readonly parameters = '{formula}'
-
-  constructor() {
-    super(CHEM_FUNCTION.molarMass, 'Molar mass of a compound, in g/mol: @chem.mm({CuSO4*5H2O})')
-  }
-
-  expand(args: string): Expansion {
-    const formula = FORMULA_ARGUMENT.exec(args.trim())
-    if (!formula) return { error: `${this.typed} takes one formula, in braces: ${this.typed}({CuSO4*5H2O}).` }
-    // A coefficient, as in a balanced equation (`2 H2O`, `1/2 O2`), multiplies the compound's molar mass.
-    const { coefficient, compound } = splitCoefficient(formula[1])
-    const atoms = parseFormula(compound)
-    if ('error' in atoms) return atoms
-    const sum = molarMassSum(atoms)
-    // It's a molar mass of the compound: a mass of it per amount of it, g H2O / mol H2O.
-    const total = coefficient ? `(${coefficient}) * ${sum}` : sum
-    return { text: `${SPECIES_FUNCTION.quiet}(${total}, "${speciesKey(compound)}")` }
-  }
-}
+import { formulaTex } from './chemistry.ts'
 
 /** `@chem.total(n_Na, n_Cl)`: amounts of different species added, each with its species taken off. */
 class TotalFunction extends FunctionMember {
@@ -76,14 +53,20 @@ const elementMembers = () => (Object.keys(ELEMENTS) as ElementSymbol[]).map((sym
   value: Number(ELEMENTS[symbol].weight),
   written: ELEMENTS[symbol].weight,
   unit: MOLAR_MASS_UNIT,
-  tex: `M_{\\mathrm{${symbol}}}`,
+  tex: `M_{${formulaTex(symbol)}}`,
   description: elementDescription(symbol),
   species: symbol,
 }))
 
+/** What to write instead of `@chem.mm`, which is the module's own. */
+const MOLAR_MASS_INSTEAD = 'a molar mass is a substance’s: H2O = @chem.substance({H2O}), then H2O.M (and an element’s, H2O.H.M).'
+
 /** `@chem`, made fresh (a member belongs to one tree). */
-export const chemNamespace = () => new Namespace(CHEM_NAMESPACE, 'The elements’ molar masses (@chem.mm.Na), mm( ) and total( )', [
-  new Namespace(CHEM_FUNCTION.molarMass, 'An element’s molar mass: @chem.mm.Na', elementMembers(), { call: new MolarMassFunction() }),
+export const chemNamespace = () => new Namespace(CHEM_NAMESPACE, 'Substances (@chem.substance), total( ), reactions and species names', [
+  new LineFormMember(CHEM_FUNCTION.substance, '{formula}',
+    'A substance: H2SO4 = @chem.substance({H2SO4}), then H2SO4.M, .n, .m, and each element’s, H2SO4.H.n, .m, .M, .w',
+    `H2SO4 = ${SIGIL}${CHEM_NAMESPACE}.${CHEM_FUNCTION.substance}({H2SO4})`),
+  new Namespace(CHEM_FUNCTION.molarMass, 'Each element’s molar mass, which a substance’s is worked out from', elementMembers(), { internal: MOLAR_MASS_INSTEAD }),
   new TotalFunction(),
   new ReactionFunction(),
   new BlockMember(SPECIES_BLOCK, 'Names for species, usable wherever braces take a formula: dietzeite = {7Ca(IO3)2*8CaCrO4}, then {dietzeite}'),

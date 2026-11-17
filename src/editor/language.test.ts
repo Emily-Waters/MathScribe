@@ -111,9 +111,9 @@ describe('highlighting', () => {
     expect(tokens('## Energy {  #val')).toEqual(['##:head', 'Energy:title', '{  :brace', '#val:cmd'])
   })
 
-  it('colours @chem’s constants and functions', () => {
-    expect(tokens('M = @chem.mm.Na:3')).toEqual(['M:var', '@chem.mm.Na:3:const'])
-    expect(tokens('M = @chem.mm({H2O})')[1]).toBe('@chem.mm:fn')
+  it('colours @ constants and @chem’s functions', () => {
+    expect(tokens('E = @h:4')).toEqual(['E:var', '@h:4:const'])
+    expect(tokens('X = @chem.substance({H2O})')[1]).toBe('@chem.substance:fn')
   })
 })
 

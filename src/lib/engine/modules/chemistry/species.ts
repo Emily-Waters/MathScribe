@@ -81,7 +81,7 @@ export function speciesPowersOf(u: Unit): Record<SpeciesKind, Map<string, number
 }
 
 /** What every calculation with species should do, to be told when it doesn't. */
-export const GIVE_SPECIES = 'give every mass, amount and molar mass its species, as in 5.00 g {H2O}, 2.0 mol {H2O} or @chem.mm({H2O})'
+export const GIVE_SPECIES = 'give every mass, amount and molar mass its species, as in 5.00 g {H2O}, 2.0 mol {H2O} or a substance’s molar mass, H2O.M'
 
 /**
  * What's wrong with a value's species, if anything: the rules a value with

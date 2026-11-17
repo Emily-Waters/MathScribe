@@ -240,17 +240,36 @@ exports[`the Reference tab’s examples > Basics: m = 2.00 kg 1`] = `
 `;
 
 exports[`the Reference tab’s examples > Chemistry: @chem.species dietzeite = {7Ca(IO3)2*8CaCrO4} 1`] = `
-"2: m = 5.00 g dietzeite
-3: n = \\fracm15 M_Ca+ 14 M_I+ 74 M_O+ 8 M_Cr = \\frac5.00 g dietzeite15\\times 40.078 g/mol+ 14\\times 126.90 g/mol+ 74\\times 15.999 g/mol+ 8\\times 51.996 g/mol = 0.00126 mol dietzeite"
+"2: 7Ca(IO3)2*8CaCrO4:\\quad M_D = 15 M_Ca+ 14 M_I+ 74 M_O+ 8 M_Cr = 15\\times 40.078 g/mol+ 14\\times 126.90 g/mol+ 74\\times 15.999 g/mol+ 8\\times 51.996 g/mol = 3977.7 \\fracg dietzeitemol dietzeite
+     INFO D is 1 mol of 7Ca(IO3)2*8CaCrO4 until its amount is set (D.n = …, or D.m = …). Its members: D.M, .n, .m, and each element's, as D.Ca.n, .m, .M and .w (its mass fraction).
+3: m = 5.00 g dietzeite
+4: n = \\fracmM_D = \\frac5.00 g dietzeite3977.7 \\fracg dietzeitemol dietzeite = 0.00126 mol dietzeite"
 `;
 
-exports[`the Reference tab’s examples > Chemistry: M = @chem.mm({CuSO4*5H2O}) 1`] = `"1: M = M_Cu+ M_S+ 9 M_O+ 10 M_H = 63.546 g/mol+ 32.06 g/mol+ 9\\times 15.999 g/mol+ 10\\times 1.008 g/mol = 249.68 \\fracg CuSO4*5H2Omol CuSO4*5H2O"`;
+exports[`the Reference tab’s examples > Chemistry: CuSO4 = @chem.substance({CuSO4*5H2O}) 1`] = `
+"1: CuSO4*5H2O:\\quad M_CuSO4 = M_Cu+ M_S+ 9 M_O+ 10 M_H = 63.546 g/mol+ 32.06 g/mol+ 9\\times 15.999 g/mol+ 10\\times 1.008 g/mol = 249.68 \\fracg CuSO4*5H2Omol CuSO4*5H2O
+     INFO CuSO4 is 1 mol of CuSO4*5H2O until its amount is set (CuSO4.n = …, or CuSO4.m = …). Its members: CuSO4.M, .n, .m, and each element's, as CuSO4.Cu.n, .m, .M and .w (its mass fraction).
+2: m_CuSO4 = 5.00 g CuSO4*5H2O
+     INFO From here on, CuSO4's amount, and every member, follows from this.
+3: n_CuSO4 = 0.0200 mol CuSO4*5H2O
+4: m_O,CuSO4 = n_O,CuSO4 M_O,CuSO4 = 0.180 mol O\\times 15.999 \\fracg Omol O = 2.88 g O"
+`;
 
-exports[`the Reference tab’s examples > Chemistry: M = @chem.mm.Na 1`] = `"1: M = M_Na = 22.990 \\fracg Namol Na"`;
+exports[`the Reference tab’s examples > Chemistry: H2SO4 = @chem.substance({H2SO4}) 1`] = `
+"1: H2SO4:\\quad M_H2SO4 = 2 M_H+ M_S+ 4 M_O = 2\\times 1.008 g/mol+ 32.06 g/mol+ 4\\times 15.999 g/mol = 98.07 \\fracg H2SO4mol H2SO4
+     INFO H2SO4 is 1 mol of H2SO4 until its amount is set (H2SO4.n = …, or H2SO4.m = …). Its members: H2SO4.M, .n, .m, and each element's, as H2SO4.H.n, .m, .M and .w (its mass fraction).
+2: n_H2SO4 = 2.00 mol H2SO4
+     INFO From here on, H2SO4's amount, and every member, follows from this.
+3: m_H2SO4 = n_H2SO4 M_H2SO4 = 2.00 mol H2SO4\\times 98.07 \\fracg H2SO4mol H2SO4 = 196 g H2SO4
+4: m_H,H2SO4 = n_H,H2SO4 M_H,H2SO4 = 4.00 mol H\\times 1.008 \\fracg Hmol H = 4.03 g H
+5: w_H,H2SO4 = \\fracm_H,H2SO4m_H2SO4 = \\frac4.03 g196 g = 0.0206"
+`;
 
-exports[`the Reference tab’s examples > Chemistry: m = 5.00 g {NaOH} 1`] = `
-"1: m = 5.00 g NaOH
-2: n = \\fracmM_Na+ M_O+ M_H = \\frac5.00 g NaOH22.990 g/mol+ 15.999 g/mol+ 1.008 g/mol = 0.125 mol NaOH"
+exports[`the Reference tab’s examples > Chemistry: NaOH = @chem.substance({NaOH}) 1`] = `
+"1: NaOH:\\quad M_NaOH = M_Na+ M_O+ M_H = 22.990 g/mol+ 15.999 g/mol+ 1.008 g/mol = 39.997 \\fracg NaOHmol NaOH
+     INFO NaOH is 1 mol of NaOH until its amount is set (NaOH.n = …, or NaOH.m = …). Its members: NaOH.M, .n, .m, and each element's, as NaOH.Na.n, .m, .M and .w (its mass fraction).
+2: m = 5.00 g NaOH
+3: n = \\fracmM_NaOH = \\frac5.00 g NaOH39.997 \\fracg NaOHmol NaOH = 0.125 mol NaOH"
 `;
 
 exports[`the Reference tab’s examples > Chemistry: massName(x) = "m_{{x}}" 1`] = `
@@ -268,9 +287,15 @@ exports[`the Reference tab’s examples > Chemistry: n_Na = 0.100 mol {Na^+} 1`]
 exports[`the Reference tab’s examples > Chemistry: r = @chem.reaction({2 H2 + O2 -> 2 H2O}) 1`] = `
 "1: r:\\quad 2 H2 + O2 -> 2 H2O
      INFO Balanced. Each species' coefficient is an amount of it: r.H2 = 2 mol H2, r.O2 = 1 mol O2, r.H2O = 2 mol H2O. A mole ratio is one over another, as in r.H2O / r.H2.
-2: n_H2 = \\frac4.00 g H22 M_H = \\frac4.00 g H22\\times 1.008 g/mol = 1.98 mol H2
-3: n_H2O = \\fracn_H2 r_H2Or_H2 = \\frac1.98 mol H2\\times 2 mol H2O2 mol H2 = 1.98 mol H2O
-4: m_H2O = n_H2O (2 M_H+ M_O) = 1.98 mol H2O\\times (2\\times 1.008 g/mol+ 15.999 g/mol) = 35.7 g H2O"
+2: H2:\\quad M_H2 = 2 M_H = 2\\times 1.008 g/mol = 2.016 \\fracg H2mol H2
+     INFO H2 is 1 mol of H2 until its amount is set (H2.n = …, or H2.m = …). Its members: H2.M, .n, .m, and each element's, as H2.H.n, .m, .M and .w (its mass fraction).
+3: H2O:\\quad M_H2O = 2 M_H+ M_O = 2\\times 1.008 g/mol+ 15.999 g/mol = 18.015 \\fracg H2Omol H2O
+     INFO H2O is 1 mol of H2O until its amount is set (H2O.n = …, or H2O.m = …). Its members: H2O.M, .n, .m, and each element's, as H2O.H.n, .m, .M and .w (its mass fraction).
+4: m_H2 = 4.00 g H2
+     INFO From here on, H2's amount, and every member, follows from this.
+5: n_H2O = \\fracn_H2 r_H2Or_H2 = \\frac1.98 mol H2\\times 2 mol H2O2 mol H2 = 1.98 mol H2O
+     INFO From here on, H2O's amount, and every member, follows from this.
+6: m_H2O = n_H2O M_H2O = 1.98 mol H2O\\times 18.015 \\fracg H2Omol H2O = 35.7 g H2O"
 `;
 
 exports[`the Reference tab’s examples > Constants: @a_0:3 to angstrom 1`] = `

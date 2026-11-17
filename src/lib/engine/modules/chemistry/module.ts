@@ -18,8 +18,10 @@ import { unwrap } from '../../core/nodes.ts'
 import { SpeciesNames, formulaTex, isFormulaSubscript, isNameFormula, isSpeciesUnit, readableSpecies, setSpeciesNames, showSpeciesOnLine, speciesOf, speciesTex, withFormulas } from './chemistry.ts'
 import { SPECIES_RATIO_UNIT, isOneMole, isSpeciesCount, speciesOfConstant, speciesProblem, withSpecies, withoutSpecies, withoutSpeciesUnits } from './species.ts'
 import { chemNamespace } from './namespace.ts'
+import { isElement } from './elements.ts'
 import { CHEM_GRAMMAR } from './grammar.ts'
 import { ReactionForm } from './reaction.ts'
+import { SubstanceForm, Substances } from './substance.ts'
 import { ReactionLineReader, SpeciesReader } from './readers.ts'
 import type { NodeReader, ReadsLines } from '../../../reading/reader.ts'
 import { ANY_SPECIES_FUNCTION, SPECIES_DISPLAYS, SPECIES_FUNCTION, type SpeciesDisplay } from './syntax.ts'
@@ -32,7 +34,9 @@ export class ChemistryModule extends EngineModule implements ReadsLines {
   readonly names = new SpeciesNames()
 
   /** A named reaction, `r = @chem.reaction({2 H2 + O2 -> 2 H2O})`. */
-  override readonly lineForms: readonly LineForm[] = [new ReactionForm(this.names)]
+  /** The sheet's substances, `H2SO4 = @chem.substance({H2SO4})`. */
+  readonly substances = new Substances()
+  override readonly lineForms: readonly LineForm[] = [new ReactionForm(this.names), new SubstanceForm(this.substances)]
 
   /** Its lines of a sheet: species' names, and a reaction on a line of its own (see ReadsLines). */
   lineReaders(): NodeReader[] {
@@ -86,9 +90,13 @@ export class ChemistryModule extends EngineModule implements ReadsLines {
     return isFormulaSubscript(subscript) ? formulaTex(subscript) : undefined
   }
 
-  /** `n_H2O`: a name's subscript that's a formula is drawn as one, H₂O (not `F_N` or `v_AB`: isNameFormula). */
-  override nameSubscriptTex(subscript: string): string | undefined {
-    return isNameFormula(subscript) ? formulaTex(subscript) : undefined
+  /**
+   * `n_H2O`: a name's subscript that's a formula is drawn as one, H₂O (not `F_N`
+   * or `v_AB`: isNameFormula). In a member's path, an element alone is one too:
+   * `H2SO4.H.n`, H in H₂SO₄.
+   */
+  override nameSubscriptTex(subscript: string, inPath: boolean): string | undefined {
+    return isNameFormula(subscript) || (inPath && isElement(subscript)) ? formulaTex(subscript) : undefined
   }
 
   override markupText(text: string): string {

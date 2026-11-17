@@ -1,5 +1,6 @@
 /**
- * The elements, for `@chem.mm.Na` (a molar mass) and `@chem.mm({…})` (a compound's).
+ * The elements, for a substance's molar mass (`X.M`, the sum of its elements',
+ * each `@chem.mm.Na`, the module's own constants) and its elements' members (`X.Na.M`).
  *
  * Weights are IUPAC's abridged standard atomic weights (2021), written with the
  * digits IUPAC gives, which are their sig figs: Na 22.990, Cl 35.45. An element

@@ -72,6 +72,15 @@ export abstract class Member {
   get atLineStart(): boolean {
     return this.parent?.atLineStart ?? false
   }
+
+  /**
+   * If it's a module's own, not typed in a sheet (it, or the namespace it's
+   * in): what to write instead, said when it's typed. A module still uses it
+   * in what it writes for the engine (a substance's molar mass, from @chem.mm.Na).
+   */
+  get internal(): string | undefined {
+    return this.parent?.internal
+  }
 }
 
 /** A value: `@c`, `@chem.mm.Na`. */
@@ -157,6 +166,8 @@ interface NamespaceOptions {
   atLineStart?: boolean
   /** Its members chain, each after another dot, in any order: `@layout.numbered.val`. */
   chained?: boolean
+  /** It's a module's own (see Member.internal): what to write instead, said when it's typed. */
+  internal?: string
 }
 
 /** A namespace: members under a name, each written after its dot. */
@@ -166,11 +177,13 @@ export class Namespace extends Member {
   readonly call: FunctionMember | undefined
   readonly chained: boolean
   private readonly ownAtLineStart: boolean
+  private readonly ownInternal: string | undefined
 
   constructor(name: string, description: string, members: Member[], options: NamespaceOptions = {}) {
     super(name, description)
     this.chained = options.chained ?? false
     this.ownAtLineStart = options.atLineStart ?? false
+    this.ownInternal = options.internal
     for (const m of members) this.add(m)
     // A namespace that's also a function: the function's place is the namespace's.
     this.call = options.call
@@ -188,9 +201,13 @@ export class Namespace extends Member {
     return this.ownAtLineStart || super.atLineStart
   }
 
-  /** Its members, in the order they were given. */
+  override get internal(): string | undefined {
+    return this.ownInternal ?? super.internal
+  }
+
+  /** Its members, in the order they were given, that a sheet can type (not a module's own: Member.internal). */
   get members(): Member[] {
-    return [...this.byName.values()]
+    return [...this.byName.values()].filter((m) => m.internal === undefined)
   }
 
   /** A member by its name. */

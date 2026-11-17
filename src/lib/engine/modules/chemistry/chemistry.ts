@@ -19,8 +19,9 @@
  * is a mole ratio, and adding mol Na⁺ to mol Cl⁻ is an error, as adding metres
  * to seconds is.
  *
- * A compound's molar mass is `@chem.mm({CuSO4*5H2O})` (see parseFormula), and
- * an element's `@chem.mm.Na` (see elements.ts).
+ * A substance's molar mass, `X.M` for `X = @chem.substance({CuSO4*5H2O})`, is
+ * the sum of its elements' (see parseFormula, and elements.ts): `@chem.mm.Na`,
+ * the module's own constants.
  */
 import { isElement, type ElementSymbol } from './elements.ts'
 import { MEMBER_DOT, SIGIL } from '../../../syntax.ts'
@@ -159,7 +160,7 @@ export function speciesPowers(massPower: number, amountPower: number): Record<Sp
 }
 
 // ---------------------------------------------------------------------------
-// Molar mass from a formula: `@chem.mm({CuSO4*5H2O})`
+// Molar mass from a formula: a substance's, `X.M`
 // ---------------------------------------------------------------------------
 
 /** Brackets a group of atoms can be written in, `Ca(OH)2`, `K4[Fe(CN)6]`: each opener's closer. */
@@ -255,7 +256,7 @@ export function parseFormula(formula: string): AtomCounts | { error: string } {
   const parts = compact.split(HYDRATE_DOT)
   // (A formula of one part can't start with a number: that's a coefficient, which splitCoefficient takes off.)
   if (parts.length === 1 && COUNT.test(compact)) {
-    return { error: `{${formula.trim()}} starts with a coefficient. Give the formula of one compound and multiply in the calculation: 2 * @chem.mm({H2O}).` }
+    return { error: `{${formula.trim()}} starts with a coefficient. Give the formula of one compound and multiply in the calculation: H2O = @chem.substance({H2O}), then 2 * H2O.M.` }
   }
   const atoms: AtomCounts = new Map()
   for (const raw of parts) {
@@ -425,7 +426,7 @@ export class SpeciesNames {
     const own = this.byName.get(name)
     if (own) return `${name} is already the name of {${own.formula}}.`
     // (What it names needn't be a formula: a species can be any label in braces, {EDTA}, {X}.
-    // @chem.mm reads its atoms when it's asked for a molar mass.)
+    // A substance reads its atoms when it's defined.)
     const entry = { name, formula: speciesKey(formula), display }
     this.byName.set(name, entry)
     this.byFormula.set(entry.formula, entry)

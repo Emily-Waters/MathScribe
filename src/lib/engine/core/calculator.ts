@@ -7,8 +7,8 @@ import { isAssignmentNode, isConditionalNode, isConstantNode, isFunctionAssignme
 import { EXACT, MAX_DIGITS, countSigFigs, formatExact, formatSigFigs, formatWithUncertainty, uncertaintySigFigs, hasAmbiguousZeros, isMeasuredLiteral, lastPlace, sigFigsFromPlace } from '../../sigfigs.ts'
 import { AGGREGATE_KIND, Variable, type Aggregate, type Contributions, type VariableFields, type VariableSummary } from '../../values.ts'
 import { DEFAULT_CONSTANT_SIG_FIGS, isNamespaceConstant, suggestConstant } from '../../constants.ts'
-import { builtinConstant, builtinConstantKeys, isReservedConstantName } from '../../builtins.ts'
-import { CONSTANT_REF, EXACT_SETTING, IS_NAME, PERCENT, DISPLAY_MODE, VALUE_IN_TEXT, CONSTANTS_BLOCK, LABEL_WORDS, SIGIL, type DisplayMode, type Notation, type Precision, type UncertaintyWord } from '../../syntax.ts'
+import { BUILTINS, builtinConstant, builtinConstantKeys, isReservedConstantName } from '../../builtins.ts'
+import { CONSTANT_REF, EXACT_SETTING, IS_NAME, MEMBER_DOT, PERCENT, DISPLAY_MODE, VALUE_IN_TEXT, CONSTANTS_BLOCK, LABEL_WORDS, SIGIL, type DisplayMode, type Notation, type Precision, type UncertaintyWord } from '../../syntax.ts'
 import { INLINE_VALUE_NAME, JOIN, TUPLE_FUNCTION, RESERVED_NAMESPACES, constantKey, constantRefName, expandDots, typedConstant, isHiddenName, isUncertaintyName, memberName, parseNumberedName, parseUncertaintyName, readableMembers, seriesMemberName, uncertaintyName, unpackedName } from '../../names.ts'
 import { COMPARISONS, FN, OP, OP_SYMBOL, UNIT, isOp } from '../../mathjsNames.ts'
 
@@ -26,8 +26,9 @@ import { NAME_THEN_SETTINGS, DELTA_REF, expandParenPm, splitPm } from './uncerta
 import { parseAggregateName, escapeRegExp } from './series.ts'
 import { symbolTex, numberTex, unitTex, attachUnit, isUnitCall, unitCallText, isLitCall, resultUnitTex, CASE_WORDS, caseTex } from './tex.ts'
 import { unwrap, isLiteral, isTupleLiteral, isPureNumber, isConversion } from './nodes.ts'
-import { NODE_KIND } from '../../tree/nodes.ts'
-import { ASSIGN, lineShape } from '../../tree/shapes.ts'
+import { NODE_KIND, TOKEN_KIND, isToken, type Part } from '../../tree/nodes.ts'
+import { lexExpression } from '../../tree/lexer.ts'
+import { ASSIGN, SETTING_MARK, lineShape } from '../../tree/shapes.ts'
 import { normalise, displayUnit, magnitudeOf } from './normalise.ts'
 import { Scope, Views, type Variables, Values, innerValues } from './scope.ts'
 import { type UserFunction, type CustomConstant, MAX_TRACE_DEPTH } from './functions.ts'
@@ -1091,6 +1092,8 @@ export class Calculator {
   }
 
   defineConstant(input: string): CalcResult {
+    const internal = internalTyped(input)
+    if (internal) return { tex: '', error: internal }
     const { target } = lineShape(input)
     const name = target?.kind === NODE_KIND.assigned ? target.name : undefined
     if (!name) return { tex: '', error: `Inside ${SIGIL}${CONSTANTS_BLOCK}, each line is "name = value".` }
@@ -1369,6 +1372,9 @@ export class Calculator {
     this.lineNotation = notation
     for (const m of this.modules) m.beginLine()
     try {
+      // (A module's own member, typed: what to write instead. What a module writes for the engine can use it.)
+      const internal = internalTyped(input)
+      if (internal) return { tex: '', error: internal }
       const { tex, error, warning, info, trace, plot, defines } = this.evaluateLine(this.rewriteLine(input), mode, explicit)
       // Messages name a namespace's members as typed, a.x_1 (not a__x_1), and a module's inside names as the sheet does.
       // (And one of MathScribe's functions written without its @ is explained.)
@@ -1971,3 +1977,22 @@ export class Calculator {
   }
 }
 
+
+/** The first `@` member in a line that's a module's own (Member.internal), as what to write instead; undefined if none is. */
+function internalTyped(input: string): string | undefined {
+  const visit = (parts: readonly Part[]): string | undefined => {
+    for (const p of parts) {
+      if (!isToken(p)) {
+        const found = visit(p.parts)
+        if (found) return found
+        continue
+      }
+      if (p.t !== TOKEN_KIND.builtin) continue
+      // (`@chem.mm.Na:3`: the member, without its precision.)
+      const member = BUILTINS.resolve(p.text.slice(SIGIL.length).split(SETTING_MARK)[0].split(MEMBER_DOT))
+      if (member?.internal) return `${member.typed} isn't written in a sheet: ${member.internal}`
+    }
+    return undefined
+  }
+  return visit(lexExpression(input))
+}

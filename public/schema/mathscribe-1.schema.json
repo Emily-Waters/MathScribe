@@ -845,7 +845,7 @@
       }
     },
     "node.call": {
-      "description": "A call: what’s called, and its arguments in brackets, f(x), @chem.mm({H2O}) (core)",
+      "description": "A call: what’s called, and its arguments in brackets, f(x), @chem.substance({H2O}) (core)",
       "type": "object",
       "required": [
         "kind",
@@ -1363,7 +1363,7 @@
       }
     },
     "token.builtin": {
-      "description": "An @ name: a built-in constant or function, @c, @chem.mm (core)",
+      "description": "An @ name: a built-in constant or function, @c, @chem.substance (core)",
       "type": "object",
       "required": [
         "t",
@@ -1448,7 +1448,7 @@
       }
     },
     "token.species": {
-      "description": "A formula in braces in an expression: the species a value is of (5.00 g {H2O}), or a compound (@chem.mm({H2O})) (ChemistryModule)",
+      "description": "A formula in braces in an expression: the species a value is of (5.00 g {H2O}), or a compound (@chem.substance({H2O})) (ChemistryModule)",
       "type": "object",
       "required": [
         "t",

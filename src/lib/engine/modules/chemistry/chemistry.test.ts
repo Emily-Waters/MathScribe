@@ -49,14 +49,14 @@ describe('species', () => {
   it('are strict: a mass, amount or molar mass without one doesn’t mix with one with one', () => {
     const strict = /something here has none/
     expect(last('m = 5.00 g {NaOH}\nn = m / (40.00 g/mol)').error).toMatch(strict)
-    expect(last('n = 5.00 g / @chem.mm({NaOH})').error).toMatch(strict)
+    expect(last('NaOH = @chem.substance({NaOH})\nn = 5.00 g / NaOH.M').error).toMatch(strict)
     expect(last('n = 0.125 mol {NaOH}\nm = n * (40.00 g/mol)').error).toMatch(strict)
     // (Without species anywhere, nothing changes.)
     expect(value('n = 5.00 g / (40.00 g/mol)')).toBe('0.125 mol')
   })
 
   it('don’t mix: a mass of one species over the molar mass of another is an error', () => {
-    expect(last('m = 5.00 g {HCl}\nn = m / @chem.mm({NaOH})').error)
+    expect(last('NaOH = @chem.substance({NaOH})\nm = 5.00 g {HCl}\nn = m / NaOH.M').error)
       .toMatch(/This mixes species: it has HCl per NaOH and an amount of NaOH\. .*\(1 mol \{HCl\}\) \/ \(1 mol \{NaOH\}\)/)
   })
 
@@ -171,81 +171,94 @@ describe('display names', () => {
   })
 })
 
-describe('@chem: elements’ molar masses', () => {
-  it('are molar masses of the element, with the digits IUPAC gives unless asked for others', () => {
-    expect(value('M = @chem.mm.Na')).toBe('22.990 \\fracg Namol Na')
-    expect(value('M = @chem.mm.Cl')).toBe('35.45 \\fracg Clmol Cl')
-    expect(value('M = @chem.mm.Na:3')).toBe('23.0 \\fracg Namol Na')
+describe('@chem.substance: a substance and its members', () => {
+  /** A substance of this formula, X, then a line about it. */
+  const of = (formula: string, then: string) => `X = @chem.substance({${formula}})\n${then}`
+
+  it('has a molar mass, its elements’ added up, groups and hydrates included, with sig figs by the addition rule', () => {
+    expect(value(of('H2O', 'X.M'))).toBe('18.015 \\fracg H2Omol H2O')
+    expect(value(of('NaCl', 'X.M'))).toBe('58.44 \\fracg NaClmol NaCl')
+    expect(value(of('Ca(OH)2', 'X.M'))).toBe('74.092 \\fracg Ca(OH)2mol Ca(OH)2')
+    expect(value(of('CuSO4*5H2O', 'X.M'))).toBe('249.68 \\fracg CuSO4*5H2Omol CuSO4*5H2O')
+    expect(value(of('K4[Fe(CN)6]', 'X.M'))).toBe('368.35 \\fracg K4[Fe(CN)6]mol K4[Fe(CN)6]')
+    // Dietzeite: 7 Ca(IO3)2 and 8 CaCrO4 (a number against a part of a formula with a dot is that part's).
+    expect(value(of('7Ca(IO3)2*8CaCrO4', 'X.M'))).toBe('3977.7 \\fracg 7Ca(IO3)2*8CaCrO4mol 7Ca(IO3)2*8CaCrO4')
   })
 
-  it('suggest the element meant, and keep symbols case-sensitive', () => {
-    expect(last('M = @chem.mm.Xx').error).toMatch(/Unknown constant @chem\.mm\.Xx/)
+  it('leaves a charge and a state out of the molar mass, but they’re part of the species, as written', () => {
+    expect(value(of('SO4^2-', 'X.M'))).toBe('96.06 \\fracg SO4^2-mol SO4^2-')
+    expect(value(of('NaCl(aq)', 'X.M'))).toBe('58.44 \\fracg NaCl(aq)mol NaCl(aq)')
   })
 
-  it('can be declared sheet-wide, as other constants can', () => {
-    expect(value('@chem.mm.Na:3\nM = @chem.mm.Na')).toBe('23.0 \\fracg Namol Na')
-  })
-})
-
-describe('@chem.mm: a compound’s molar mass', () => {
-  it('adds up its elements, groups and hydrates included, with sig figs by the addition rule', () => {
-    expect(value('M = @chem.mm({H2O})')).toBe('18.015 \\fracg H2Omol H2O')
-    expect(value('M = @chem.mm({NaCl})')).toBe('58.44 \\fracg NaClmol NaCl')
-    expect(value('M = @chem.mm({Ca(OH)2})')).toBe('74.092 \\fracg Ca(OH)2mol Ca(OH)2')
-    expect(value('M = @chem.mm({CuSO4*5H2O})')).toBe('249.68 \\fracg CuSO4*5H2Omol CuSO4*5H2O')
-    expect(value('M = @chem.mm({K4[Fe(CN)6]})')).toBe('368.35 \\fracg K4[Fe(CN)6]mol K4[Fe(CN)6]')
+  it('shows its molar mass worked out where it’s defined, each element’s term without its species', () => {
+    expect(readable(lines(of('H2O', ''))[0].tex))
+      .toBe('H2O:\\quad M_X = 2 M_H+ M_O = 2\\times 1.008 g/mol+ 15.999 g/mol = 18.015 \\fracg H2Omol H2O')
+    expect(lines(of('H2O', ''))[0].info).toMatch(/1 mol of H2O until its amount is set/)
   })
 
-  it('leaves a charge and a state out of the sum, but they’re part of the species, as written', () => {
-    expect(value('M = @chem.mm({SO4^2-})')).toBe('96.06 \\fracg SO4^2-mol SO4^2-')
-    expect(value('M = @chem.mm({NaCl(aq)})')).toBe('58.44 \\fracg NaCl(aq)mol NaCl(aq)')
+  it('is 1 mol until an amount is set, so its elements’ members are per mole', () => {
+    expect(value(of('H2O', 'X.H.n'))).toBe('2 mol H')
+    expect(value(of('H2O', 'X.m'))).toBe('18.015 g H2O')
   })
 
-  it('shows the sum as working', () => {
-    expect(readable(last('M = @chem.mm({H2O})').tex)).toContain('M_H')
+  it('works out every member from an amount or a mass that’s set, the substance’s or an element’s', () => {
+    expect(value(of('H2SO4', 'X.n = 2.00 mol\nX.m'))).toBe('196 g H2SO4')
+    expect(value(of('H2SO4', 'X.n = 2.00 mol\nX.H.n'))).toBe('4.00 mol H')
+    expect(value(of('H2SO4', 'X.n = 2.00 mol\nX.H.m'))).toBe('4.03 g H')
+    expect(value(of('NaOH', 'X.m = 5.00 g\nX.n'))).toBe('0.125 mol NaOH')
+    expect(value(of('H2SO4', 'X.O.m = 1.00 g\nX.m'))).toBe('1.53 g H2SO4')
+    // A value with no unit is mol (an amount) or g (a mass).
+    expect(value(of('H2O', 'X.n = 2\nX.H.n'))).toBe('4 mol H')
   })
 
-  it('gives an amount of a species from its mass, and its mass from its amount', () => {
-    expect(value('m = 5.00 g {NaOH}\nn = m / @chem.mm({NaOH})')).toBe('0.125 mol NaOH')
-    expect(value('n = 0.125 mol {NaOH}\nm = n * @chem.mm({NaOH})')).toBe('5.00 g NaOH')
+  it('has each element’s mass fraction', () => {
+    // (At 1 mol, exact, its sig figs are the molar masses': 2.016 g over 98.07 g.)
+    expect(value(of('H2SO4', 'X.H.w'))).toBe('0.02056')
+    expect(value(of('H2SO4', 'X.n = 2.00 mol\nX.H.w'))).toBe('0.0206')
   })
 
-  it('shows each element’s term without its species, and the total with the compound’s', () => {
-    expect(readable(last('M = @chem.mm({H2O})').tex))
-      .toBe('M = 2 M_H+ M_O = 2\\times 1.008 g/mol+ 15.999 g/mol = 18.015 \\fracg H2Omol H2O')
+  it('follows the latest amount set, from that line on, as a variable assigned again does', () => {
+    const source = of('H2O', 'X.H.n\nX.n = 2\nX.H.n')
+    expect(lines(source).map((l) => l.tex.split(' = ').at(-1))).toEqual([expect.anything(), '2\\,\\mathrm{mol}\\,\\ce{H}', expect.anything(), '4\\,\\mathrm{mol}\\,\\ce{H}'])
   })
 
-  it('works through a stoichiometric calculation, the mole ratio from the balanced equation', () => {
+  it('shows a member on a line of its own worked out, back to what was set', () => {
+    expect(readable(last(of('H2SO4', 'X.n = 2.00 mol\nX.m')).tex)).toMatch(/^m_X = n_X M_X = 2\.00 mol H2SO4\\times 98\.07 /)
+  })
+
+  it('is drawn as chemistry, its members too', () => {
+    expect(last('H2O = @chem.substance({H2O})\nH2O.H.n').tex).toMatch(/^n_\{\\ce\{H\},\\ce\{H2O\}\} = n_\{\\ce\{H2O\}\} /)
+  })
+
+  it('takes a value already of a species as it is, as from a mole ratio', () => {
     const source = [
-      'm_H2 = 4.00 g {H2}',
-      'n_H2 = m_H2 / @chem.mm({H2})',
-      'n_H2O = n_H2 * (2 mol {H2O}) / (2 mol {H2})',
-      'm_H2O = n_H2O * @chem.mm({H2O})',
+      'r = @chem.reaction({2 H2 + O2 -> 2 H2O})',
+      'H2 = @chem.substance({H2})',
+      'H2O = @chem.substance({H2O})',
+      'H2.m = 4.00 g',
+      'H2O.n = H2.n * r.H2O / r.H2',
+      'H2O.m',
     ].join('\n')
-    expect(lines(source).map((l) => l.error)).toEqual([undefined, undefined, undefined, undefined])
+    expect(lines(source).map((l) => l.error)).toEqual(Array(6).fill(undefined))
     expect(value(source)).toBe('35.7 g H2O')
   })
 
-  it('counts a number against the first part of a formula with a dot as that part’s, like the one after the dot', () => {
-    // Dietzeite: 7 Ca(IO3)2 and 8 CaCrO4.
-    expect(value('M = @chem.mm({7Ca(IO3)2*8CaCrO4})')).toBe('3977.7 \\fracg 7Ca(IO3)2*8CaCrO4mol 7Ca(IO3)2*8CaCrO4')
-    // With a space, it's a coefficient of the whole.
-    expect(value('M = @chem.mm({2 CuSO4*5H2O})')).toBe('499.35 \\fracg CuSO4*5H2Omol CuSO4*5H2O')
+  it('explains a member it doesn’t have, or one that can’t be set', () => {
+    expect(last(of('H2O', 'X.Q.n')).error).toMatch(/X\.Q\.n isn't one of X's members/)
+    expect(last(of('H2O', 'X.M = 3')).error).toMatch(/X\.M can't be set/)
   })
 
-  it('multiplies by a coefficient, as in a balanced equation, which is exact', () => {
-    expect(value('M = @chem.mm({2 H2O})')).toBe('36.030 \\fracg H2Omol H2O')
-    expect(value('M = @chem.mm({2H2O})')).toBe('36.030 \\fracg H2Omol H2O')
-    expect(value('M = @chem.mm({1/2 O2})')).toBe('15.999 \\fracg O2mol O2')
-    expect(value('M = @chem.mm({3 Ca(OH)2})')).toBe('222.28 \\fracg Ca(OH)2mol Ca(OH)2')
-    expect(readable(last('M = @chem.mm({2 H2O})').tex)).toMatch(/^M = 2 \(2 M_H\+ M_O\)/)
-  })
-
-  it('explains an unknown element, and a formula without braces', () => {
-    expect(last('M = @chem.mm({Xy2})').error).toMatch(/Xy, which isn't an element/)
-    expect(last('M = @chem.mm(H2O)').error).toMatch(/in braces/)
-    expect(last('M = @chem.mm({Ca(OH2})').error).toMatch(/missing/)
+  it('explains an unknown element, a formula without braces, and a count in front', () => {
+    expect(last(of('Xy2', '')).error ?? lines(of('Xy2', ''))[0].error).toMatch(/Xy, which isn't an element/)
+    expect(lines('X = @chem.substance(H2O)')[0].error).toMatch(/in braces/)
+    expect(lines(of('Ca(OH2', ''))[0].error).toMatch(/missing/)
+    expect(lines(of('2 H2O', ''))[0].error).toMatch(/one formula, without a count/)
     expect(last('M = @chem.foo(1)').error).toMatch(/@chem has no function foo/)
+  })
+
+  it('works its molar mass out from the elements’ own, which a sheet doesn’t write', () => {
+    expect(last('M = @chem.mm.Na').error).toMatch(/@chem\.mm\.Na isn't written in a sheet: a molar mass is a substance’s/)
+    expect(last('@chem.mm.Na:3').error).toMatch(/isn't written in a sheet/)
   })
 })
 
@@ -253,12 +266,13 @@ describe('@chem.reaction: a balanced reaction', () => {
   it('works a stoichiometric calculation through, with mole ratios from its coefficients', () => {
     const source = [
       'r = @chem.reaction({2 H2 + O2 -> 2 H2O})',
-      'm_H2 = 4.00 g {H2}',
-      'n_H2 = m_H2 / @chem.mm({H2})',
+      'H2 = @chem.substance({H2})',
+      'H2O = @chem.substance({H2O})',
+      'n_H2 = 4.00 g {H2} / H2.M',
       'n_H2O = n_H2 * r.H2O / r.H2',
-      'm_H2O = n_H2O * @chem.mm({H2O})',
+      'm_H2O = n_H2O * H2O.M',
     ].join('\n')
-    expect(lines(source).map((l) => l.error)).toEqual([undefined, undefined, undefined, undefined, undefined])
+    expect(lines(source).map((l) => l.error)).toEqual(Array(6).fill(undefined))
     expect(value(source)).toBe('35.7 g H2O')
     expect(value(`${source}\nratio = r.H2O / r.H2`)).toBe('1 mol H2O/mol H2')
   })
@@ -290,10 +304,11 @@ describe('@chem.species: names for species', () => {
   const named = '@chem.species {\n    dietzeite = {7Ca(IO3)2*8CaCrO4}\n    edta:formula = {EDTA^4-}\n}\n'
 
   it('stand for their formula wherever braces take one, so they’re the same species', () => {
-    expect(value(`${named}M = @chem.mm({dietzeite})`)).toBe('3977.7 \\fracg dietzeitemol dietzeite')
-    expect(value(`${named}m = 5.00 g {dietzeite}\nn = m / @chem.mm({dietzeite})`)).toBe('0.00126 mol dietzeite')
+    const D = 'D = @chem.substance({dietzeite})\n'
+    expect(value(`${named}${D}D.M`)).toBe('3977.7 \\fracg dietzeitemol dietzeite')
+    expect(value(`${named}${D}m = 5.00 g {dietzeite}\nn = m / D.M`)).toBe('0.00126 mol dietzeite')
     // The name and the formula are one species: they cancel.
-    expect(value(`${named}m = 5.00 g {7Ca(IO3)2*8CaCrO4}\nn = m / @chem.mm({dietzeite})`)).toBe('0.00126 mol dietzeite')
+    expect(value(`${named}${D}m = 5.00 g {7Ca(IO3)2*8CaCrO4}\nn = m / D.M`)).toBe('0.00126 mol dietzeite')
   })
 
   it('can be used above where they’re named', () => {

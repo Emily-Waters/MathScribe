@@ -31,7 +31,7 @@ const SOURCE = [
   '> prose ps', // 19
   'n = 1e5', // 20
   'k = 2.0 kg   # mass in kil', // 21
-  'm = @chem.mm.N', // 22
+  'X = @chem.s', // 22
   '@layout.nu', // 23
   'phi:3:de', // 24
   'Steps:', // 25
@@ -78,9 +78,9 @@ describe('suggestions', () => {
     expect(suggestions(32)).toEqual(['@N_A'])
   })
 
-  it('offer @chem’s functions, and mm. for an element, whose molar masses come after it', () => {
-    expect(suggestions(34)).toEqual(['mm', 'mm.'])
-    expect(suggestions(22)).toEqual(['N', 'Ne', 'Na', 'Ni', 'Nb', 'Nd', 'Np', 'No', 'Nh'])
+  it('offer @chem’s functions, but not the elements’ molar masses, which are the module’s own', () => {
+    expect(suggestions(22)).toEqual(['substance'])
+    expect(suggestions(34)).toEqual([])
   })
 
   it('offer display units after a : on the assigned name, but not after a block opener', () => {

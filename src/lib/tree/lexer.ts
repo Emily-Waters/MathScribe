@@ -327,7 +327,7 @@ const CORE_RULES: LexRule[] = [
     },
   },
   {
-    describes: 'an @ name: a built-in constant (@c), or a call to a built-in function (@chem.mm(…))',
+    describes: 'an @ name: a built-in constant (@c), or a call to a built-in function (@chem.total(…))',
     read: (pos, state, span) => {
       const s = sticky(BUILTIN_AT, state.text, pos)
       if (!s) return undefined

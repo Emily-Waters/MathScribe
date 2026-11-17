@@ -83,7 +83,7 @@ export const TOKEN_KIND = {
   symbol: 'symbol',
   /** A unit, after a number, `to`, or a name's `:` (`m/s^2`): mathjs's units. */
   unit: 'unit',
-  /** An `@` name: a built-in constant or function, `@c`, `@chem.mm`. */
+  /** An `@` name: a built-in constant or function, `@c`, `@chem.substance`. */
   builtin: 'builtin',
   /** A word with a meaning of its own: mathjs's named delimiters (`to`, `mod`, …) and MathScribe's keywords (`pm`, `return`, …). */
   keyword: 'keyword',
@@ -148,7 +148,7 @@ export const NODE_KIND = {
   // An expression's nodes (lexer.ts).
   /** A number (or a module's value, a vector) with its unit: `5.00 g`. */
   quantity: 'quantity',
-  /** A call: what's called, and its arguments in brackets, `f(x)`, `@chem.mm({H2O})`. */
+  /** A call: what's called, and its arguments in brackets, `f(x)`, `@chem.substance({H2O})`. */
   call: 'call',
   /** A value in text, `{{V:4 to mL}}`: its braces, and the expression between them. */
   value: 'value',

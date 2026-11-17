@@ -8,7 +8,7 @@ import { EXACT, MAX_DIGITS, countSigFigs, formatExact, formatSigFigs, formatWith
 import { AGGREGATE_KIND, Variable, type Aggregate, type Contributions, type VariableFields, type VariableSummary } from '../../values.ts'
 import { DEFAULT_CONSTANT_SIG_FIGS, isNamespaceConstant, suggestConstant } from '../../constants.ts'
 import { BUILTINS, builtinConstant, builtinConstantKeys, isReservedConstantName } from '../../builtins.ts'
-import { CONSTANT_REF, EXACT_SETTING, IS_NAME, MEMBER_DOT, PERCENT, DISPLAY_MODE, VALUE_IN_TEXT, CONSTANTS_BLOCK, LABEL_WORDS, SIGIL, type DisplayMode, type Notation, type Precision, type UncertaintyWord } from '../../syntax.ts'
+import { splitInlineMath, CONSTANT_REF, EXACT_SETTING, IS_NAME, MEMBER_DOT, PERCENT, DISPLAY_MODE, VALUE_IN_TEXT, CONSTANTS_BLOCK, LABEL_WORDS, SIGIL, type DisplayMode, type Notation, type Precision, type UncertaintyWord } from '../../syntax.ts'
 import { INLINE_VALUE_NAME, INV_FUNCTION, JOIN, TUPLE_FUNCTION, RESERVED_NAMESPACES, constantKey, constantRefName, expandDots, typedConstant, isHiddenName, isUncertaintyName, memberName, parseNumberedName, parseUncertaintyName, readableMembers, seriesMemberName, uncertaintyName, unpackedName } from '../../names.ts'
 import { COMPARISONS, FN, OP, OP_SYMBOL, UNIT, isOp } from '../../mathjsNames.ts'
 
@@ -1059,8 +1059,8 @@ export class Calculator {
       const space = (s: string) => (s ? '\\ ' : '')
       return `${space(before)}${inner ? wordsTex(inner) : ''}${space(after)}`
     }
-    const tex = this.modules.reduce((text, m) => m.markupText(text), withValuesIn).split(/(\$[^$]*\$)/)
-      .map((part, i) => (i % 2 ? part.slice(1, -1) : words(part)))
+    const tex = splitInlineMath(this.modules.reduce((text, m) => m.markupText(text), withValuesIn))
+      .map((part) => (part.math ? part.value : words(part.value)))
       .join('')
     return { tex, error }
   }

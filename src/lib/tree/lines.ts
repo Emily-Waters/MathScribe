@@ -10,7 +10,8 @@
  * its text (codec.ts), and later its evaluation.
  */
 import {
-  BLOCK_NAME, BLOCK_OPEN, INLINE_MATHS, NOTED_PIECE, VALUE_BRACES, VALUE_IN_TEXT, isComment, readNoted, type NotedLine,
+  BLOCK_NAME, BLOCK_OPEN, INLINE_MATHS, MATHS_MARK, NOTED_PIECE, PARAGRAPH_MARK, VALUE_BRACES, VALUE_IN_TEXT, isComment, readNoted, regex,
+  type NotedLine,
 } from '../syntax.ts'
 import { CONTENT, contextInfo, syntaxesIn, type Body, type Content } from './grammar.ts'
 import { HEADING_MARKS } from './core.ts'
@@ -141,6 +142,10 @@ function contentTokens(content: string, style: Content, into: Part[], noted?: No
     textTokens(content, into)
     return
   }
+  if (style === CONTENT.paragraph) {
+    paragraphTokens(content, into)
+    return
+  }
   if (style === CONTENT.rawOpener) {
     rawOpenerTokens(content, into)
     return
@@ -166,25 +171,90 @@ const BODY_READER: Record<typeof CONTENT.noted | typeof CONTENT.expression | typ
   [CONTENT.opener]: openerBody,
 }
 
-/** What's in text that isn't plain text: inline maths (left as text), or a value (1: what's between its braces). */
-const IN_TEXT = new RegExp(`${INLINE_MATHS.source}|${VALUE_IN_TEXT.source}`, 'g')
+/** A module's rule for markup in text (chemistry's formulas, `{Na^+}`): what it reads at a position, if anything. */
+export interface TextRule {
+  /** What it reads, for the schema's listing. */
+  readonly describes: string
+  /** The characters what it reads can start with: it's tried only at one of them. */
+  readonly starts: string
+  read(pos: number, text: string): { parts: Part[]; length: number } | undefined
+}
+
+/** The modules' rules for text, by who declared them, tried after inline maths and values. */
+const textRules: { owner: string; rule: TextRule }[] = []
+
+/** Declare a module's rules for markup in text (lines read before are read again). */
+export function declareTextRules(owner: string, declared: readonly TextRule[]): void {
+  textRules.push(...declared.map((rule) => ({ owner, rule })))
+  clearLineCache()
+}
+
+/** Every text rule declared, with its owner (for the schema's listing). */
+export const declaredTextRules = () => textRules.map(({ owner, rule }) => ({ owner, describes: rule.describes }))
+
+/** Inline maths at a position. */
+const MATHS_AT = regex(INLINE_MATHS, 'y')
+/** A value at a position. */
+const VALUE_AT = regex(VALUE_IN_TEXT, 'y')
+
+/** The markup in text at a position, as tokens: inline maths, a value, or a module's (a formula); undefined if there's none. */
+function markupAt(text: string, pos: number): { parts: Part[]; length: number } | undefined {
+  const c = text[pos]
+  if (c === MATHS_MARK) {
+    MATHS_AT.lastIndex = pos
+    const m = MATHS_AT.exec(text)
+    if (m) return { parts: [token(TOKEN_KIND.maths, m[0])], length: m[0].length }
+  }
+  if (text.startsWith(VALUE_BRACES.open, pos)) {
+    VALUE_AT.lastIndex = pos
+    const m = VALUE_AT.exec(text)
+    if (m) {
+      const value = node(NODE_KIND.value, [
+        token(TOKEN_KIND.delimiter, VALUE_BRACES.open), ...lexExpression(m.groups!.value), token(TOKEN_KIND.delimiter, VALUE_BRACES.close),
+      ])
+      return { parts: [value], length: m[0].length }
+    }
+  }
+  for (const { rule } of textRules) {
+    if (!rule.starts.includes(c)) continue
+    const read = rule.read(pos, text)
+    if (read) return read
+  }
+  return undefined
+}
 
 /**
- * Text as tokens, with each value in it, `{{V:4 to mL}}`, a value node: its
- * braces, and between them the expression's tokens (lexer.ts). A `{{` in
- * inline maths, `$…$`, is the maths's (as the reader fills values in).
+ * Text as tokens: plain text, and its markup: inline maths, `$x^2$` (a `{{` in
+ * it is the maths's, as the reader fills values in); each value, `{{V:4 to mL}}`,
+ * a value node (its braces, and between them the expression's tokens, lexer.ts);
+ * and a module's (chemistry's formulas, `{Na^+}`).
  */
 function textTokens(text: string, into: Part[]): void {
-  let at = 0
-  for (const m of text.matchAll(IN_TEXT)) {
-    if (m.groups?.value === undefined) continue
-    if (m.index > at) into.push(token(TOKEN_KIND.text, text.slice(at, m.index)))
-    into.push(node(NODE_KIND.value, [
-      token(TOKEN_KIND.delimiter, VALUE_BRACES.open), ...lexExpression(m.groups.value), token(TOKEN_KIND.delimiter, VALUE_BRACES.close),
-    ]))
-    at = m.index + m[0].length
+  let plainFrom = 0
+  const plainTo = (end: number) => {
+    if (end > plainFrom) into.push(token(TOKEN_KIND.text, text.slice(plainFrom, end)))
   }
-  if (at < text.length) into.push(token(TOKEN_KIND.text, text.slice(at)))
+  for (let pos = 0; pos < text.length;) {
+    const read = markupAt(text, pos)
+    if (!read) {
+      pos++
+      continue
+    }
+    plainTo(pos)
+    into.push(...read.parts)
+    pos += read.length
+    plainFrom = pos
+  }
+  plainTo(text.length)
+}
+
+/** A paragraph, `> words`: its `>`, then its text. */
+function paragraphTokens(content: string, into: Part[]): void {
+  into.push(token(TOKEN_KIND.marker, PARAGRAPH_MARK))
+  const rest = content.slice(PARAGRAPH_MARK.length)
+  const lead = LEADING_SPACE.exec(rest)?.[0] ?? ''
+  if (lead) into.push(token(TOKEN_KIND.space, lead))
+  textTokens(rest.slice(lead.length), into)
 }
 
 /** A line, read: its node, and what it opens, if anything. */

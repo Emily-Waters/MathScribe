@@ -7,7 +7,8 @@ import { BODY_END, CONTENT } from '../../../tree/grammar.ts'
 import { LINE_CONTEXT } from '../../../tree/nodes.ts'
 import { token, type LexRule } from '../../../tree/lexer.ts'
 import { REACTION_LINE } from './chemistry.ts'
-import { SPECIES_LINE, SPECIES_OPENER } from './syntax.ts'
+import { FORMULA_AT, SPECIES_LINE, SPECIES_OPENER } from './syntax.ts'
+import type { TextRule } from '../../../tree/lines.ts'
 
 /** The chemistry module's kinds of node. */
 export const CHEM_NODE = {
@@ -27,6 +28,8 @@ export const CHEM_NODE = {
 export const CHEM_TOKEN = {
   /** A formula in braces in an expression: the species a value is of (`5.00 g {H2O}`), or a compound (`@chem.substance({H2O})`). */
   species: 'species',
+  /** A formula in braces in text: `{Na^+}` in prose, a heading or a title. */
+  formula: 'formula',
 } as const
 
 /** A formula in single braces at a position (not a value's `{{`): `{Na^+}`. */
@@ -41,6 +44,17 @@ const SPECIES_RULE: LexRule = {
   },
 }
 
+/** A formula in text, `{Na^+}`: drawn as one, in prose and headings. */
+const FORMULA_RULE: TextRule = {
+  describes: 'a formula in braces in text, {Na^+}',
+  starts: '{',
+  read: (pos, text) => {
+    FORMULA_AT.lastIndex = pos
+    const m = FORMULA_AT.exec(text)
+    return m ? { parts: [token(CHEM_TOKEN.formula, m[0])], length: m[0].length } : undefined
+  },
+}
+
 /** The context of an `@chem.species { }` block's lines. */
 export const SPECIES_CONTEXT = 'speciesNames'
 
@@ -52,11 +66,15 @@ export const CHEM_GRAMMAR: ModuleGrammar = {
     [CHEM_NODE.speciesLine]: 'One species named on a line of its own: @chem.species dietzeite = {…}',
     [CHEM_NODE.reaction]: 'A reaction on a line of its own, drawn: {2 H2 + O2 -> 2 H2O}',
   } satisfies Record<(typeof CHEM_NODE)[keyof typeof CHEM_NODE], string>,
-  tokenKinds: { [CHEM_TOKEN.species]: 'A formula in braces in an expression: the species a value is of (5.00 g {H2O}), or a compound (@chem.substance({H2O}))' } satisfies Record<(typeof CHEM_TOKEN)[keyof typeof CHEM_TOKEN], string>,
+  tokenKinds: {
+    [CHEM_TOKEN.species]: 'A formula in braces in an expression: the species a value is of (5.00 g {H2O}), or a compound (@chem.substance({H2O}))',
+    [CHEM_TOKEN.formula]: 'A formula in braces in text: {Na^+} in prose or a heading',
+  } satisfies Record<(typeof CHEM_TOKEN)[keyof typeof CHEM_TOKEN], string>,
   contexts: [{ name: SPECIES_CONTEXT, lineKind: CHEM_NODE.speciesEntry, content: CONTENT.noted }],
   lexRules: [SPECIES_RULE],
   // (After a unit, a species is part of it: `2.0 mol {EDTA}`, mol of EDTA.)
   unitRules: [SPECIES_RULE],
+  textRules: [FORMULA_RULE],
   syntaxes: [
     { kind: CHEM_NODE.speciesLine, contexts: [LINE_CONTEXT.sheet], content: CONTENT.noted, matches: (_, split) => SPECIES_LINE.test(split().body) },
     {

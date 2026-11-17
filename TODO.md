@@ -502,6 +502,24 @@ edit reads again only what it changed, and nodes are shared between trees.
            still read from its text, by `LAYOUT_SYNTAX.read` and the like, in
            the grammar and its reader: not cached, as the reader changes what it
            returns, the column breaks.)
+         - [x] Text markup: the tree reads text (prose, a paragraph after its
+           new `marker` token `>`, headings) into plain text, inline maths (new
+           token `maths`), values (as before), and modules' markup through
+           `ModuleGrammar.textRules` (lines.ts `declareTextRules`; listed by
+           `introspect`): chemistry's formulas, `{Na^+}`, are `CHEM_TOKEN.formula`
+           tokens. The editor colours prose, and a reaction's line, from the
+           tokens; its own patterns (`proseToken`, `FORMULA_TOKEN`, `PROSE_RUN`)
+           are gone, and `x_{max}` in prose is no longer coloured as a formula.
+           One definition each: inline maths is `INLINE_MATHS` (with something
+           in it: `$$` is text, as the outputs already drew it), used by the
+           tree, `splitInlineMath`, `outsideMaths` (moved to syntax/text.ts) and
+           the engine's display names; a formula in text is chemistry's
+           `FORMULA_IN_TEXT` (moved to its syntax.ts), used by its text rule and
+           `withFormulas`. Left as it is: the reader's `withValues` fills values
+           into text by `VALUE_IN_TEXT` (the same definition the tree's value
+           nodes are read by), since block titles, which aren't read into
+           tokens yet, go through it too, and paragraphs of prose are several
+           lines joined.
       Then: a codebase-wide audit of which patterns are working, toward one
       harmonious structure.
 

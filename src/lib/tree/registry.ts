@@ -89,6 +89,8 @@ declareTokenKinds(CORE_OWNER, {
   [TOKEN_KIND.command]: 'A display command: #val, #multiline, #sci, #center',
   [TOKEN_KIND.note]: 'A note, # …, to the end of the line',
   [TOKEN_KIND.marks]: 'A heading’s #s',
+  [TOKEN_KIND.marker]: 'A paragraph’s >',
+  [TOKEN_KIND.maths]: 'Inline maths in text, $x^2$, dollars and all',
   [TOKEN_KIND.blockName]: 'A block’s @ name, at the start of its opener: @layout.list.val, @constants, @latex',
   [TOKEN_KIND.title]: 'A block’s title, in its opener: Steps in @layout.numbered Steps {',
   [TOKEN_KIND.blockOpen]: 'A block’s opening brace, ending its opener',

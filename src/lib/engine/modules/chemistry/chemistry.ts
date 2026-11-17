@@ -25,12 +25,9 @@
  */
 import { isElement, type ElementSymbol } from './elements.ts'
 import { MEMBER_DOT, SIGIL } from '../../../syntax.ts'
-import { CHEM_FUNCTION, CHEM_NAMESPACE, SPECIES_DISPLAY, SPECIES_FUNCTION, type SpeciesDisplay } from './syntax.ts'
+import { CHEM_FUNCTION, CHEM_NAMESPACE, FORMULA_IN_TEXT, SPECIES_DISPLAY, SPECIES_FUNCTION, type SpeciesDisplay } from './syntax.ts'
 import { ExplainedError } from '../../core/results.ts'
 import { outsideMaths } from '../../core/text.ts'
-
-/** A formula in text, `{Na^+}`: single braces, not a value's `{{…}}`, nor a subscript's `_{…}` (1: the formula). */
-export const FORMULA_IN_TEXT = /(?<![{_])\{([^{}]+)\}(?!\})/g
 
 /** A line that's a formula on its own, a reaction: `{OH^- + H3O^+ -> 2 H2O}` (1: the formula). */
 export const REACTION_LINE = /^\{(?!\{)([^{}]+)\}$/

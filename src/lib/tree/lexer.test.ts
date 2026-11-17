@@ -96,7 +96,11 @@ describe('the expression lexer', () => {
     const line = (text: string) => shape(encode(text).body[0].parts)
     expect(line('> V is {{V:4 to mL}}, $x_{{1}}$.')).toBe(
       // (The shape's parts are joined with a space, after the text's own.)
-      `${TOKEN_KIND.text}:> V is  ${NODE_KIND.value}(${TOKEN_KIND.delimiter}:{{ ${TOKEN_KIND.symbol}:V ${TOKEN_KIND.delimiter}:: ${TOKEN_KIND.number}:4 ${TOKEN_KIND.keyword}:to ${TOKEN_KIND.unit}:mL ${TOKEN_KIND.delimiter}:}}) ${TOKEN_KIND.text}:, $x_{{1}}$.`,
+      `${TOKEN_KIND.marker}:> ${TOKEN_KIND.text}:V is  ${NODE_KIND.value}(${TOKEN_KIND.delimiter}:{{ ${TOKEN_KIND.symbol}:V ${TOKEN_KIND.delimiter}:: ${TOKEN_KIND.number}:4 ${TOKEN_KIND.keyword}:to ${TOKEN_KIND.unit}:mL ${TOKEN_KIND.delimiter}:}}) ${TOKEN_KIND.text}:,  ${TOKEN_KIND.maths}:$x_{{1}}$ ${TOKEN_KIND.text}:.`,
+    )
+    // (A formula in text is a module's markup: chemistry's. `$$` is just text, and so is `x_{max}`'s brace.)
+    expect(line('> Add {Na^+} to x_{max} for $$5')).toBe(
+      `${TOKEN_KIND.marker}:> ${TOKEN_KIND.text}:Add  ${CHEM_TOKEN.formula}:{Na^+} ${TOKEN_KIND.text}: to x_{max} for $$5`,
     )
     expect(line('## Run {{n}}')).toBe(
       `${TOKEN_KIND.marks}:## ${TOKEN_KIND.text}:Run  ${NODE_KIND.value}(${TOKEN_KIND.delimiter}:{{ ${TOKEN_KIND.symbol}:n ${TOKEN_KIND.delimiter}:}})`,

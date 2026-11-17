@@ -131,6 +131,7 @@ const EXPRESSION_STYLE: Readonly<Record<string, Token | null>> = {
   [TOKEN_KIND.string]: TOKEN.text,
   [TOKEN_KIND.unknown]: null,
   [CHEM_TOKEN.species]: TOKEN.formula,
+  [CHEM_TOKEN.formula]: TOKEN.formula,
   [SERIES_TOKEN.settings]: TOKEN.text,
 }
 
@@ -154,6 +155,8 @@ const WHOLE_TOKEN_STYLE: Readonly<Record<string, Token>> = {
   [TOKEN_KIND.blockName]: TOKEN.keyword,
   [TOKEN_KIND.title]: TOKEN.title,
   [TOKEN_KIND.blockOpen]: TOKEN.brace,
+  [TOKEN_KIND.marker]: TOKEN.marker,
+  [TOKEN_KIND.maths]: TOKEN.latex,
 }
 
 /** The piece at a position on the line. */
@@ -194,7 +197,9 @@ function token(stream: StringStream, state: State): Token | null {
       stream.skipToEnd()
       return TOKEN.heading
     case SAYS.prose:
-      return proseToken(stream)
+      // (Prose's text: its maths, values and formulas are tokens of their own, coloured above.)
+      stream.pos = at?.end ?? stream.string.length
+      return TOKEN.text
     case SAYS.latex:
       stream.skipToEnd()
       return TOKEN.latex
@@ -203,9 +208,9 @@ function token(stream: StringStream, state: State): Token | null {
       stream.skipToEnd()
       return TOKEN.latex
     case SAYS.formula:
-      if (stream.match(FORMULA_TOKEN)) return TOKEN.formula
-      stream.skipToEnd()
-      return TOKEN.note
+      // (A reaction on a line of its own: what it says is its formula.)
+      stream.pos = at?.end ?? stream.string.length
+      return TOKEN.formula
     case SAYS.rows:
       if (stream.match(NUMBER_TOKEN)) return TOKEN.number
       if (stream.match(WORD)) return TOKEN.variable
@@ -222,23 +227,6 @@ function token(stream: StringStream, state: State): Token | null {
 const WORD = new RegExp(`[A-Za-z_µ${GREEK_CHARS}]${NAME_CHAR}*`)
 /** A number at the current position (in imported data's rows). */
 const NUMBER_TOKEN = new RegExp(NUMBER)
-
-/** A formula, `{Na^+}`, at the current position (not a value's `{{`). */
-const FORMULA_TOKEN = /^\{(?!\{)[^{}]+\}/
-
-/** Prose up to the next maths, value or formula (a value's an expression, from the tree). */
-const PROSE_RUN = /^[^${]+/
-
-/** `> prose with $inline maths$ and {{values}}`: the maths and values are set off from the prose. */
-function proseToken(stream: StringStream): Token {
-  if (stream.sol() || !stream.string.slice(0, stream.pos).trim()) {
-    if (stream.eat('>')) return TOKEN.marker
-  }
-  if (stream.match(/\$[^$]*\$/)) return TOKEN.latex
-  if (stream.match(FORMULA_TOKEN)) return TOKEN.formula
-  if (!stream.match(PROSE_RUN)) stream.next()
-  return TOKEN.text
-}
 
 /** The MathScribe language: its tokens, and which highlighting tag each gets. */
 export const mathscribeLanguage = StreamLanguage.define<State>({

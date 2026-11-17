@@ -73,6 +73,10 @@ export const TOKEN_KIND = {
   note: 'note',
   /** A heading's `#`s. */
   marks: 'marks',
+  /** A paragraph's `>`. */
+  marker: 'marker',
+  /** Inline maths in text, `$x^2$`, dollars and all. */
+  maths: 'maths',
   /** A block's `@` name, at the start of its opener: `@layout.list.val`, `@constants`, `@chem.species`, `@latex`. */
   blockName: 'blockName',
   /** A block's title, in its opener: `Steps` in `@layout.numbered Steps {`. */

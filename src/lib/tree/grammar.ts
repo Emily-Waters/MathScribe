@@ -40,6 +40,8 @@ export const CONTENT = {
   whole: 'whole',
   /** Text, as `whole`, but with each value in it, `{{c_Na}}`, read as an expression (outside `$…$` maths): prose. */
   text: 'text',
+  /** A paragraph's `>`, then its text, as `text` (`> The mass is {{m}}.`). */
+  paragraph: 'paragraph',
   /** A heading's `#`s, then its title (all of it: a `#` in a title is the title's; values in it as in `text`). */
   heading: 'heading',
   /** A block's opener: its `@` name if it has one, its title and its `{`, then #commands and note (`@layout.list Steps {  #val`, `Forces {`). */

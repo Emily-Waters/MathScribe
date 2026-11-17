@@ -3,8 +3,21 @@
  * lines are read with, and the inside names of its functions. (MathScribe's
  * own syntax is in src/lib/syntax.ts, which this builds on.)
  */
-import { NAME } from '../../../syntax.ts'
+import { NAME, named, regex, src } from '../../../syntax.ts'
 import { memberName } from '../../../names.ts'
+
+/**
+ * A formula in text, `{Na^+}`: single braces, not a value's `{{…}}`, nor a
+ * subscript's `_{…}` (its group: formula). The one definition the tree (a
+ * formula token), the outputs and the editor go by.
+ */
+const FORMULA_IN_TEXT_SOURCE = src`(?<![{_])\{${named('formula', '[^{}]+')}\}(?!\})`
+
+/** Every formula in some text. */
+export const FORMULA_IN_TEXT = regex(FORMULA_IN_TEXT_SOURCE, 'g')
+
+/** A formula in text at a position (for the tree's text rule). */
+export const FORMULA_AT = regex(FORMULA_IN_TEXT_SOURCE, 'y')
 
 /** Its namespace under @: `@chem.mm.Na`. */
 export const CHEM_NAMESPACE = 'chem'

@@ -3,7 +3,7 @@
  * is offered them (after any module's), as the reading layer reads them.
  */
 import {
-  BLOCK_CLOSE, BLOCK_OPEN, CONSTANTS_OPENER, IMPORT, LATEX_OPENER, PROSE_LAYOUTS,
+  BLOCK_CLOSE, BLOCK_OPEN, CONSTANTS_OPENER, IMPORT, LATEX_OPENER, PARAGRAPH_MARK, PROSE_LAYOUTS,
 } from '../syntax.ts'
 import { LAYOUT_SYNTAX, splitNote } from '../syntax.ts'
 import { BODY_END, CONTENT, GRAMMAR_CORE, declareContexts, declareLineSyntaxes, type LineSyntax } from './grammar.ts'
@@ -31,7 +31,7 @@ const SYNTAXES: LineSyntax[] = [
     opens: { node: NODE_KIND.block, context: LINE_CONTEXT.sheet, ends: BODY_END.closer },
   },
   { kind: NODE_KIND.heading, contexts: SHEET, content: CONTENT.heading, matches: (trimmed) => HEADING_MARKS.test(trimmed) },
-  { kind: NODE_KIND.paragraph, contexts: SHEET, content: CONTENT.text, matches: (trimmed) => trimmed.startsWith('>') },
+  { kind: NODE_KIND.paragraph, contexts: SHEET, content: CONTENT.paragraph, matches: (trimmed) => trimmed.startsWith(PARAGRAPH_MARK) },
   {
     kind: NODE_KIND.latexOpener, contexts: SHEET, content: CONTENT.rawOpener,
     matches: (trimmed) => LATEX_OPENER.exec(trimmed)?.groups?.rest.trim() === '',

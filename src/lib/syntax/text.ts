@@ -37,18 +37,30 @@ export const VALUE_BRACES = { open: '{{', close: '}}' } as const
 /** A value in text, `{{c_Na}}`, `{{V:4 to mL}}` (its group: value, what's between the braces). */
 export const VALUE_IN_TEXT = regex(src`\{\{${named('value', '[^{}]+')}\}\}`, 'g')
 
-/** Inline maths in text, `$x^2$` (a `{{` in it is the maths's, not a value). */
-export const INLINE_MATHS = /\$[^$]*\$/
+/** What starts a paragraph of prose: `> The block slides down the ramp.` */
+export const PARAGRAPH_MARK = '>'
 
-/** Inline maths with something in it, kept as a piece when text is split at it. */
-const INLINE_MATHS_PIECE = /(\$[^$]+\$)/
+/** What starts and ends inline maths in text. */
+export const MATHS_MARK = '$'
+
+/**
+ * Inline maths in text, `$x^2$`, with something in it (`$$` is just text). A
+ * `{{` in it is the maths's, not a value. The one definition the tree, the
+ * outputs and the engine's labels all go by.
+ */
+export const INLINE_MATHS = /\$[^$]+\$/
+
+/** Text split at its inline maths, each kept as a piece (for split). */
+const AT_INLINE_MATHS = regex(src`(${INLINE_MATHS})`)
+
+/** Text with `fix` made to each part outside its inline maths (the maths left as it is). */
+export const outsideMaths = (text: string, fix: (part: string) => string) =>
+  text.split(AT_INLINE_MATHS).map((part, i) => (i % 2 ? part : fix(part))).join('')
 
 /** Text split into its inline maths, `$…$` (without the dollars), and the plain text between. */
 export function splitInlineMath(text: string): { math: boolean; value: string }[] {
   return text
-    .split(INLINE_MATHS_PIECE)
-    .filter(Boolean)
-    .map((s) => (s.length > 2 && s.startsWith('$') && s.endsWith('$')
-      ? { math: true, value: s.slice(1, -1) }
-      : { math: false, value: s }))
+    .split(AT_INLINE_MATHS)
+    .map((value, i) => (i % 2 ? { math: true, value: value.slice(MATHS_MARK.length, -MATHS_MARK.length) } : { math: false, value }))
+    .filter((s) => s.value || s.math)
 }

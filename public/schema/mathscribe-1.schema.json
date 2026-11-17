@@ -162,6 +162,12 @@
           "$ref": "#/$defs/token.marks"
         },
         {
+          "$ref": "#/$defs/token.marker"
+        },
+        {
+          "$ref": "#/$defs/token.maths"
+        },
+        {
           "$ref": "#/$defs/token.blockName"
         },
         {
@@ -199,6 +205,9 @@
         },
         {
           "$ref": "#/$defs/token.species"
+        },
+        {
+          "$ref": "#/$defs/token.formula"
         },
         {
           "$ref": "#/$defs/token.settings"
@@ -1303,6 +1312,40 @@
         }
       }
     },
+    "token.marker": {
+      "description": "A paragraph’s > (core)",
+      "type": "object",
+      "required": [
+        "t",
+        "text"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "marker"
+        },
+        "text": {
+          "type": "string"
+        }
+      }
+    },
+    "token.maths": {
+      "description": "Inline maths in text, $x^2$, dollars and all (core)",
+      "type": "object",
+      "required": [
+        "t",
+        "text"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "maths"
+        },
+        "text": {
+          "type": "string"
+        }
+      }
+    },
     "token.blockName": {
       "description": "A block’s @ name, at the start of its opener: @layout.list.val, @constants, @latex (core)",
       "type": "object",
@@ -1518,6 +1561,23 @@
       "properties": {
         "t": {
           "const": "species"
+        },
+        "text": {
+          "type": "string"
+        }
+      }
+    },
+    "token.formula": {
+      "description": "A formula in braces in text: {Na^+} in prose or a heading (ChemistryModule)",
+      "type": "object",
+      "required": [
+        "t",
+        "text"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "formula"
         },
         "text": {
           "type": "string"

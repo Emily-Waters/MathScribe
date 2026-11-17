@@ -4,7 +4,7 @@
  */
 import {
   BLOCK_CLOSE, BLOCK_OPEN, CONSTANTS_BLOCK, DISPLAY_MODE, EXACT_SETTING, IMPORT, LATEX_BLOCK, LATEX_OPENER, LAYOUT_STYLE, LAYOUT_SYNTAX, LINE_COMMAND, SIGIL,
-  bracesBalance, splitNote, type SplitLine,
+  PARAGRAPH_MARK, bracesBalance, splitNote, type SplitLine,
 } from '../syntax.ts'
 import { BLOCK_KIND, HEADING_LEVEL, type ConstantsBlock, type GroupBlock, type HeadingLevel, type SectionTitle, type ImportBlock, type LayoutBlock } from '../blocks.ts'
 import { NODE_KIND } from '../tree/index.ts'
@@ -136,7 +136,7 @@ class TextReader extends NodeReader {
   readonly kinds = [NODE_KIND.paragraph]
 
   read({ line }: TreeItem, sheet: SheetReader): void {
-    sheet.add({ kind: BLOCK_KIND.text, line: line.number, ...sheet.withValues(line.trimmed.slice(1).trim()) })
+    sheet.add({ kind: BLOCK_KIND.text, line: line.number, ...sheet.withValues(line.trimmed.slice(PARAGRAPH_MARK.length).trim()) })
   }
 }
 

@@ -19,6 +19,7 @@ import { BUILTINS, type Member } from '../../builtins.ts'
 import { declareNodeKinds, declareTokenKinds } from '../../tree/registry.ts'
 import { declareContexts, declareLineSyntaxes, type ContextInfo, type LineSyntax } from '../../tree/grammar.ts'
 import { declareLexRules, declareUnitRules, type LexRule } from '../../tree/lexer.ts'
+import { declareTextRules, type TextRule } from '../../tree/lines.ts'
 import type { PartWriter } from './writer.ts'
 import type { BuiltinConstant, NamespaceConstant } from '../../constants.ts'
 import type { Contributions, Variable, VariableFields } from '../../values.ts'
@@ -182,6 +183,8 @@ export interface ModuleGrammar {
   readonly lexRules?: readonly LexRule[]
   /** Its rules for what can follow a unit as part of it (lexer.ts): `mol {EDTA}`, a species. */
   readonly unitRules?: readonly LexRule[]
+  /** Its rules for markup in text (lines.ts): `{Na^+}` in prose, a formula. */
+  readonly textRules?: readonly TextRule[]
 }
 
 /** A kind of module: its class, by which another module says it needs it. */
@@ -419,6 +422,7 @@ export function installModule(module: EngineModule): void {
     declareLineSyntaxes(kind.name, grammar.syntaxes ?? [])
     declareLexRules(kind.name, grammar.lexRules ?? [])
     declareUnitRules(kind.name, grammar.unitRules ?? [])
+    declareTextRules(kind.name, grammar.textRules ?? [])
   }
   writersByKind = undefined
 }

@@ -250,7 +250,6 @@ exports[`the Reference tab’s examples > Chemistry: CuSO4 = @chem.substance({Cu
 "1: CuSO4*5H2O:\\quad M_CuSO4 = M_Cu+ M_S+ 9 M_O+ 10 M_H = 63.546 g/mol+ 32.06 g/mol+ 9\\times 15.999 g/mol+ 10\\times 1.008 g/mol = 249.68 \\fracg CuSO4*5H2Omol CuSO4*5H2O
      INFO CuSO4 is 1 mol of CuSO4*5H2O until its amount is set (CuSO4.n = …, or CuSO4.m = …). Its members: CuSO4.M, .n, .m, and each element's, as CuSO4.Cu.n, .m, .M and .w (its mass fraction).
 2: m_CuSO4 = 5.00 g CuSO4*5H2O
-     INFO From here on, CuSO4's amount, and every member, follows from this.
 3: n_CuSO4 = 0.0200 mol CuSO4*5H2O
 4: m_O,CuSO4 = n_O,CuSO4 M_O,CuSO4 = 0.180 mol O\\times 15.999 \\fracg Omol O = 2.88 g O"
 `;
@@ -265,7 +264,6 @@ exports[`the Reference tab’s examples > Chemistry: H2SO4 = @chem.substance({H2
 "1: H2SO4:\\quad M_H2SO4 = 2 M_H+ M_S+ 4 M_O = 2\\times 1.008 g/mol+ 32.06 g/mol+ 4\\times 15.999 g/mol = 98.07 \\fracg H2SO4mol H2SO4
      INFO H2SO4 is 1 mol of H2SO4 until its amount is set (H2SO4.n = …, or H2SO4.m = …). Its members: H2SO4.M, .n, .m, and each element's, as H2SO4.H.n, .m, .M and .w (its mass fraction).
 2: n_H2SO4 = 2.00 mol H2SO4
-     INFO From here on, H2SO4's amount, and every member, follows from this.
 3: m_H2SO4 = n_H2SO4 M_H2SO4 = 2.00 mol H2SO4\\times 98.07 \\fracg H2SO4mol H2SO4 = 196 g H2SO4
 4: m_H,H2SO4 = n_H,H2SO4 M_H,H2SO4 = 4.00 mol H\\times 1.008 \\fracg Hmol H = 4.03 g H
 5: w_H,H2SO4 = \\fracm_H,H2SO4m_H2SO4 = \\frac4.03 g196 g = 0.0206"
@@ -298,9 +296,7 @@ exports[`the Reference tab’s examples > Chemistry: r = @chem.reaction({2 H2 + 
 3: H2O:\\quad M_H2O = 2 M_H+ M_O = 2\\times 1.008 g/mol+ 15.999 g/mol = 18.015 \\fracg H2Omol H2O
      INFO H2O is 1 mol of H2O until its amount is set (H2O.n = …, or H2O.m = …). Its members: H2O.M, .n, .m, and each element's, as H2O.H.n, .m, .M and .w (its mass fraction).
 4: m_H2 = 4.00 g H2
-     INFO From here on, H2's amount, and every member, follows from this.
 5: n_H2O = \\fracn_H2 r_H2Or_H2 = \\frac1.98 mol H2\\times 2 mol H2O2 mol H2 = 1.98 mol H2O
-     INFO From here on, H2O's amount, and every member, follows from this.
 6: m_H2O = n_H2O M_H2O = 1.98 mol H2O\\times 18.015 \\fracg H2Omol H2O = 35.7 g H2O"
 `;
 

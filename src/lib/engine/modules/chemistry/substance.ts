@@ -205,11 +205,7 @@ export class SubstanceForm extends LineForm {
       amount = `(${elementAmount}) / (${ratio(element, s.atoms.get(element)!, s.formula)})`
     }
     const error = (amount ? this.setAmount(name, amount, host) : undefined) ?? this.recompute(name, s, host, [target, n])
-    return {
-      ...shown,
-      error,
-      info: shown.info ?? `From here on, ${name}'s amount, and every member, follows from this.`,
-    }
+    return { ...shown, error }
   }
 
   /** `H2SO4.m` on its own: how it's worked out, `m = n × M = …`. (Its amount, as set, is shown as any variable is.) */

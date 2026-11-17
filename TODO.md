@@ -64,10 +64,18 @@ what's here better.
 
 ## 4. Chemistry
 
+Next for chemistry, to work out later (set aside 2026-11-16 for quality of life
+and document exports): these build on substances, `@chem.reaction` and `@inv`.
+Limiting reagent and yield first, then balancing, then conversion-factor
+working (group 2).
+
 - [ ] **Balancing equations**: `balance({C3H8 + O2 -> CO2 + H2O})`, with the
-      coefficients usable as mole ratios.
+      coefficients usable as mole ratios. `@chem.reaction` already checks a
+      reaction balances; this would find its coefficients (1, 5, 3, 4).
 - [ ] **Limiting reagent and yield**: which reactant runs out, theoretical and
-      percent yield.
+      percent yield. With substances, something like
+      `L = @chem.limiting(r, H2, O2)` (which runs out, and the most product),
+      their amounts set as usual (`H2.m = 4.00 g`).
 - [ ] **Equilibrium and pH helpers**: ICE tables, pH/pOH, K from concentrations.
 - [x] **A species as a value with members**: define one, `H2SO4 = @chem.substance({H2SO4})`
       (the name decided: `@chem.substance`), then read data about it, `H2SO4.M`
@@ -133,6 +141,11 @@ what's here better.
 
 ## 7. Sheets and output
 
+- [ ] **Equations wider than the output pane**: they scroll sideways (with a
+      scrollbar), which is easy to miss. Break a very long line onto rows, one
+      `=` each, as `#multiline` does, when it doesn't fit. (Found in a browser
+      pass, 2026-11-16, along with notes that cut equations off beside them,
+      fixed then: a note goes below an equation that doesn't fit beside it.)
 - [x] **No placeholder title on untitled blocks**: an untitled `{ }` block
       shouldn't show "Block" as its title; with no title, there's no title line.
 

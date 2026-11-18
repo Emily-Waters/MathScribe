@@ -717,6 +717,20 @@ edit reads again only what it changed, and nodes are shared between trees.
            `plugin.test.ts` adds a step (`sol`, a Martian day, written out at
            `expand` from the line's tokens). Moved, not changed: the golden
            tests and all others pass as they were.
+         - [ ] B, the Calculator's concerns into collaborators, each a class with
+           the narrow interface it needs of the Calculator (its `…Host`):
+           - [x] `SheetConstants` (`sheetConstants.ts`): the sheet's own
+             constants, the precision and unit it gives any, and writing `@name`s
+             out (`expand`, which `ModuleHost.expandConstants` is now).
+           - [x] `DisplayNames` (`displayNames.ts`): a display name as LaTeX,
+             with values in it, and display-name templates.
+           - [ ] Significant figures, uncertainty, series aggregates, functions:
+             these are woven through `evaluateParsed` (each line's working uses
+             all four), so each needs its share of the line's state first.
+           (Pulled in on the way, 2026-11-17: `@series(…)` and the fit that
+           counts x uncertainties, from Emily's other machine; written as a
+           series line form through the module API, as the approach has it, so
+           nothing needed adapting. All tests passed as pulled.)
       5. [ ] The editor's suggestions from the tokens of the half-typed line.
       6. [ ] Constants as `words()`, patterns with `src`/`named`, file by file
          as each is touched.

@@ -6,11 +6,12 @@
 import { isAssignmentNode, isConditionalNode, isConstantNode, isFunctionAssignmentNode, isFunctionNode, isOperatorNode, isParenthesisNode, isSymbolNode, type FunctionNode, type MathNode, type MathType, type SymbolNode, type Unit } from 'mathjs'
 import { EXACT, MAX_DIGITS, countSigFigs, formatExact, formatSigFigs, formatWithUncertainty, uncertaintySigFigs, hasAmbiguousZeros, isMeasuredLiteral, lastPlace, sigFigsFromPlace } from '../../maths/sigfigs.ts'
 import { AGGREGATE_KIND, Variable, type Aggregate, type Contributions, type VariableFields, type VariableSummary } from '../../sheet/values.ts'
-import { DEFAULT_CONSTANT_SIG_FIGS, isNamespaceConstant, suggestConstant } from '../../constants.ts'
-import { BUILTINS, builtinConstant, builtinConstantKeys, isReservedConstantName } from '../../builtins.ts'
-import { splitInlineMath, CONSTANT_WRITTEN, EXACT_SETTING, IS_NAME, MEMBER_DOT, PERCENT, DISPLAY_MODE, VALUE_IN_TEXT, CONSTANTS_BLOCK, LABEL_WORDS, SIGIL, type DisplayMode, type Notation, type Precision, type UncertaintyWord } from '../../syntax.ts'
-import { INLINE_VALUE_NAME, INV_FUNCTION, JOIN, TUPLE_FUNCTION, RESERVED_NAMESPACES, constantKey, constantRefName, typedConstant, isHiddenName, isUncertaintyName, memberName, parseNumberedName, parseUncertaintyName, readableMembers, seriesMemberName, uncertaintyName, unpackedName } from '../../sheet/names.ts'
-import { expandDots, lineTokens } from './memberAccess.ts'
+import { BUILTINS, isReservedConstantName } from '../../builtins.ts'
+import { EXACT_SETTING, IS_NAME, MEMBER_DOT, PERCENT, DISPLAY_MODE, CONSTANTS_BLOCK, LABEL_WORDS, SIGIL, type DisplayMode, type Notation, type Precision, type UncertaintyWord } from '../../syntax.ts'
+import { INLINE_VALUE_NAME, INV_FUNCTION, JOIN, TUPLE_FUNCTION, RESERVED_NAMESPACES, isHiddenName, isUncertaintyName, memberName, parseNumberedName, parseUncertaintyName, readableMembers, seriesMemberName, uncertaintyName, unpackedName } from '../../sheet/names.ts'
+import { expandDots } from './memberAccess.ts'
+import { SheetConstants } from './sheetConstants.ts'
+import { DisplayNames } from './displayNames.ts'
 import { COMPARISONS, FN, OP, OP_SYMBOL, UNIT, isOp } from '../../maths/mathjsNames.ts'
 
 import { nestBrackets } from '../../maths/brackets.ts'
@@ -21,8 +22,7 @@ import {
   EngineModule, LINE_STAGE, LINE_STAGES, LineStep, inDependencyOrder, installModule, moduleReadableMessage, moduleSettingProblem, SETTING_PLACE,
   type DerivedVariable, type LineInProgress, type LineStage, type LookSetting, type ModuleHost, type TupleLook,
 } from './module.ts'
-import { outsideMaths, wordsTex } from './text.ts'
-import { expandNamespaceCalls, strayLineFormCall } from './builtinCalls.ts'
+import { strayLineFormCall } from './builtinCalls.ts'
 import { BUILTIN_CONSTANT_NAMES, NAME_IN_LINE } from './literals.ts'
 import { preprocess, typedNumbers } from './writer.ts'
 import { AUTO_PRECISION, ExplainedError, builtinCallHint, FIXED_UNCERTAINTY_SIG_FIGS, type CalcOptions, type EquationParts, layoutEquation, type TraceLine, type CalcResult, unexpectedError, fitHint, type DataColumn, type LineNotation, type LineResult, type ParsedLine, TO_PERCENT, RAW, rawNode, STEP, readableUnitError } from './results.ts'
@@ -35,7 +35,7 @@ import { lexExpression } from '../../tree/lexer.ts'
 import { ASSIGN, SETTING_MARK, lineShape, type LineShape } from '../../tree/shapes.ts'
 import { normalise, displayUnit, magnitudeOf } from './normalise.ts'
 import { Scope, Views, type Variables, Values, innerValues } from './scope.ts'
-import { type UserFunction, type CustomConstant, MAX_TRACE_DEPTH } from './functions.ts'
+import { type UserFunction, MAX_TRACE_DEPTH } from './functions.ts'
 import { isAngleUnit, toDisplayUnit, type Declaration, type TupleName, parseTupleName, declarationOf } from './declarations.ts'
 import { withRows } from './rows.ts'
 import { bracketed } from './tuples.ts'
@@ -100,14 +100,16 @@ export class Calculator {
   /** Nesting depth while replaying function bodies to show their working. */
   private traceDepth = 0
   private nextSource = 0
-  /** Constants from `@constants { }` blocks, available anywhere as `@name`. */
-  private readonly customConstants = new Map<string, CustomConstant>()
-  /** Display-name templates, `massName(x) = "m_{{x}}"`, by name: their parameters, and their words. */
-  private readonly labelTemplates = new Map<string, { params: string[]; words: string }>()
-  /** Sheet-wide precision from a line like `@c:4`, used wherever `@c` has no `:n` of its own. */
-  private readonly constantPrecision = new Map<string, Precision>()
-  /** Sheet-wide unit from a line like `@a_0 to angstrom`. */
-  private readonly constantUnit = new Map<string, string>()
+  /** The sheet's constants: its own, the precision and unit it gives any, and writing `@name`s out (sheetConstants.ts). */
+  private readonly constants = new SheetConstants({
+    store: (name, fields) => this.store(name, fields),
+    constantValue: (value, builtin) => this.modules.reduce((v, m) => m.constantValue(v, builtin), value),
+  })
+  /** Display names: a name's own words in place of its symbol, and the templates that make them (displayNames.ts). */
+  private readonly displayNames = new DisplayNames({
+    inlineValue: (source) => this.inlineValue(source),
+    markupText: (text) => this.modules.reduce((t, m) => m.markupText(t), text),
+  })
   /** Set while evaluating a line whose sum/difference has no significant figures. */
   private precisionLost = false
   private options: CalcOptions
@@ -129,7 +131,7 @@ export class Calculator {
     evaluateParsed: (node, line) => this.evaluateParsed(node, line),
     parse: (text) => math.parse(preprocess(text, this.isVariable).text),
     evaluateNode: (node) => node.compile().evaluate(this.scope) as unknown,
-    expandConstants: (text) => this.expandConstants(text),
+    expandConstants: (text) => this.constants.expand(text),
     isUserFunction: (name) => this.isUserFunction(name),
     propagate: (node) => this.propagate(node),
     sigFigs: (node, literals) => this.sigFigsOf(node, literals, false),
@@ -988,12 +990,12 @@ export class Calculator {
    */
   /** Use `digits` sig figs for every `@name` in the sheet that doesn't give its own. */
   declareConstantPrecision(name: string, digits: Precision): void {
-    this.constantPrecision.set(name, digits)
+    this.constants.declarePrecision(name, digits)
   }
 
   /** Show every `@name` in the sheet in `unit` (from a line like `@a_0:3 to angstrom`). */
   declareConstantUnit(name: string, unit: string): void {
-    this.constantUnit.set(name, unit)
+    this.constants.declareUnit(name, unit)
   }
 
   /**
@@ -1058,63 +1060,6 @@ export class Calculator {
     }
   }
 
-  /**
-   * A display name as LaTeX: its text upright, each `{{x}}` as x's value now
-   * (so the name says what it was worked out from), and a module's notation
-   * (`{Na^+}`, chemistry) as it draws it.
-   */
-  private labelTex(label: string): { tex: string; error?: string } {
-    let error: string | undefined
-    const withValuesIn = outsideMaths(label, (part) => part.replace(VALUE_IN_TEXT, (whole, source: string) => {
-      const v = this.inlineValue(source)
-      if (v.tex !== undefined) return `$${v.tex}$`
-      error ??= `In its display name, ${whole}: ${v.error}`
-      return whole
-    }))
-    // (Spaces at the ends of the words are explicit spaces, outside \text, so they survive.)
-    const words = (part: string) => {
-      const [, before, inner, after] = /^(\s*)([\s\S]*?)(\s*)$/.exec(part)!
-      const space = (s: string) => (s ? '\\ ' : '')
-      return `${space(before)}${inner ? wordsTex(inner) : ''}${space(after)}`
-    }
-    const tex = splitInlineMath(this.modules.reduce((text, m) => m.markupText(text), withValuesIn))
-      .map((part) => (part.math ? part.value : words(part.value)))
-      .join('')
-    return { tex, error }
-  }
-
-  /**
-   * Define a display-name template, `massName(x) = "m_{{x}}"`: words with `{{x}}`
-   * where each argument goes, used as a setting on a name, `m_w:massName(H2O) = …`.
-   * Its line shows the words with each parameter in its place.
-   */
-  private defineTemplate(name: string, params: readonly string[], words: string): LineResult {
-    const bad = params.find((p) => !IS_NAME.test(p))
-    if (bad !== undefined) return { tex: '', error: `"${bad}" isn't a parameter name: write ${name}(x, y) = "…{{x}}…".` }
-    this.labelTemplates.set(name, { params: [...params], words })
-    const shown = this.labelTex(this.fillWords(words, params, params))
-    return { tex: `${symbolTex(name)}\\left(${params.map(symbolTex).join(', ')}\\right) = ${shown.tex}`, error: shown.error }
-  }
-
-  /** A template's words with each `{{parameter}}` as its argument's text (other `{{…}}`, values, are left for the display name). */
-  private fillWords(words: string, params: readonly string[], args: readonly string[]): string {
-    return words.replace(VALUE_IN_TEXT, (whole, inside: string) => {
-      const at = params.indexOf(inside.trim())
-      return at < 0 ? whole : args[at]
-    })
-  }
-
-  /** The display name a template makes from its arguments, `massName(H2O)` → "m_{H2O}", or what's wrong. */
-  private fillTemplate(name: string, args: string[]): { words: string } | { error: string } {
-    const template = this.labelTemplates.get(name)
-    if (!template) return { error: `${name}( ) isn't a display-name template: define one first, as ${name}(x) = "…{{x}}…".` }
-    if (args.length !== template.params.length) {
-      const count = template.params.length
-      return { error: `${name} takes ${count} argument${count === 1 ? '' : 's'} (${template.params.join(', ')}), not ${args.length}.` }
-    }
-    return { words: this.fillWords(template.words, template.params, args) }
-  }
-
   /** How a variable's name is shown: its display name, if it has one. */
   private nameTex(name: string): string {
     const v = this.vars.get(name)
@@ -1134,7 +1079,7 @@ export class Calculator {
     try {
       const result = this.evaluate(input)
       if (!result.error && this.scope.has(name)) {
-        this.customConstants.set(name, {
+        this.constants.define(name, {
           value: this.scope.get(name),
           sf: this.vars.get(name)?.sf ?? EXACT,
           contributions: this.vars.get(name)?.contributions ?? new Map(),
@@ -1146,88 +1091,6 @@ export class Calculator {
     } finally {
       this.popScope()
     }
-  }
-
-  /**
-   * Replace `@name`, `@name:n` and `@name:exact` with hidden variables holding
-   * the constant rounded to that many sig figs. Built-ins default to 3 sig figs;
-   * constants from an `@constants` block default to the precision they were
-   * written with. `:exact` gives full precision and doesn't limit sig figs.
-   */
-  private expandConstants(line: string): { text: string; error?: string } {
-    // `@chem.mm({H2O})` is a sum of `@chem.mm.H`s and `@chem.mm.O`s, worked out below.
-    const calls = expandNamespaceCalls(line)
-    if (calls.error) return calls
-    let error: string | undefined
-    /** A constant as written, `@c:4` (its name as typed, and its precision if it has one), as the hidden variable that holds it. */
-    const use = (match: string, typed: string, spec?: string): string => {
-      // `@chem.mm.Na` is chem__mm__Na inside (with its first dot read already, or not).
-      const name = constantKey(typed)
-      const custom = this.customConstants.get(name)
-      const builtin = builtinConstant(name)
-      if (!custom && !builtin) {
-        const known = [...builtinConstantKeys(), ...this.customConstants.keys()]
-        const guess = suggestConstant(name, known)
-        error ??= `Unknown constant ${SIGIL}${typedConstant(name)}.`
-          + (guess ? ` Did you mean ${SIGIL}${typedConstant(guess)}?` : ` Define it in an ${SIGIL}${CONSTANTS_BLOCK} { } block.`)
-        return match
-      }
-      // Precedence: this use's own :n, then the sheet's declaration, then the default.
-      // A namespace's constant, `@chem.mm.Na`, has the digits it's written with (22.990), unless asked for others.
-      const writtenSf = builtin && isNamespaceConstant(builtin) ? countSigFigs(builtin.written) : undefined
-      const digits: Precision = spec === EXACT_SETTING
-        ? EXACT_SETTING
-        : spec !== undefined
-          ? Number(spec)
-          : this.constantPrecision.get(name) ?? (custom ? custom.sf : writtenSf ?? DEFAULT_CONSTANT_SIG_FIGS)
-      if (digits === 0) {
-        error ??= `${SIGIL}${typedConstant(name)}:0 isn't valid; use at least 1 sig fig, or :exact.`
-        return match
-      }
-      // Built-ins stay in their own unit (1.602e-19 C, not 160.2 zC).
-      let full = custom
-        ? custom.value
-        : builtin!.unit ? math.unit(builtin!.value, builtin!.unit).to(builtin!.unit) : builtin!.value
-      // A sheet-wide `@name to unit` converts before rounding, so `@a_0:3 to angstrom` is 0.529 Å.
-      // (If the unit doesn't fit, the declaration line itself reports the error.)
-      const unit = this.constantUnit.get(name)
-      if (unit && math.isUnit(full)) {
-        try {
-          full = (full as Unit).to(unit)
-        } catch { /* reported on the declaration line */ }
-      }
-      const exact = digits === EXACT_SETTING || !Number.isFinite(digits)
-      const hidden = constantRefName(name, exact ? EXACT_SETTING : digits)
-      // `:exact` shows every digit of the value; that many sig figs is more than any
-      // measurement has, so it never limits a result.
-      const allDigits = custom ? custom.sf : writtenSf ?? countSigFigs(String(builtin!.value))
-      this.store(hidden, {
-        // (A built-in constant of a species, @chem.mm.Na, is given it once rounded.)
-        value: this.modules.reduce((v, m) => m.constantValue(v, builtin), (exact ? full : this.roundTo(full, digits)) as unknown),
-        sf: exact ? allDigits : digits,
-        contributions: custom?.contributions,
-        uncSf: custom?.uncSf,
-        // An explicit precision (`@c:4`, a sheet-wide `@c:4` line, `rho:2 = …`) beats the global setting.
-        declared: spec !== undefined || this.constantPrecision.has(name) || custom?.declared || undefined,
-      })
-      return hidden
-    }
-    // Each constant is a built-in's token that isn't called (`@chem.mm(…)` is a call), as the lexer reads it
-    // (tree/lexer.ts): not one in a label's quotes, and with its precision, `@c:4`.
-    const text = lineTokens(lexExpression(calls.text)).map(({ token, callee }) => {
-      if (token.t !== TOKEN_KIND.builtin || callee) return token.text
-      const written = CONSTANT_WRITTEN.exec(token.text)?.groups
-      return written ? use(token.text, written.name, written.precision) : token.text
-    }).join('')
-    return { text, error }
-  }
-
-  /** A number or quantity rounded to `digits` sig figs, in its own display unit. */
-  private roundTo(value: unknown, digits: number): unknown {
-    if (typeof value === 'number') return Number(value.toPrecision(digits))
-    if (!math.isUnit(value)) return value
-    const m = /^(\S+)\s+(.+)$/.exec(math.format(value as Unit, { precision: MAX_DIGITS }))
-    return m ? math.unit(Number(Number(m[1]).toPrecision(digits)), m[2]).to(m[2]) : value
   }
 
   // -------------------------------------------------------------------------
@@ -1279,7 +1142,7 @@ export class Calculator {
     let tex: string
     try {
       // Constants resolve where the function is defined, so calls can see them.
-      const expanded = this.expandConstants(expression)
+      const expanded = this.constants.expand(expression)
       if (expanded.error) throw new Error(expanded.error)
       const node = math.parse(preprocess(expanded.text, this.isVariable).text)
       code = node.compile()
@@ -1594,7 +1457,7 @@ export class Calculator {
       const params = target.entries!.filter(Boolean)
       // `massName(x) = "m_{{x}}"`: a display-name template, words in quotes.
       const words = target.settings.length ? undefined : LABEL_WORDS.exec(shape.value)?.groups?.words
-      if (words !== undefined) return this.defineTemplate(target.name, params, words)
+      if (words !== undefined) return this.displayNames.defineTemplate(target.name, params, words)
       // `f(x, y) = …`: a function;
       // `f(x):3:deg = …`: settings for what the function gives back.
       return this.defineFunction(target.name, params, shape.value, this.multiline, target.settings)
@@ -1611,10 +1474,10 @@ export class Calculator {
     for (const m of this.modules) m.useLineSettings(declaration?.moduleSettings ?? [])
     // A display name is worked out now, so values in it are the ones it was computed with.
     // (One made with a template, `m_w:massName(H2O)`, is its words with the arguments put in.)
-    const labelWords = declaration?.template ? this.fillTemplate(declaration.template.name, declaration.template.args) : undefined
+    const labelWords = declaration?.template ? this.displayNames.fillTemplate(declaration.template.name, declaration.template.args) : undefined
     if (labelWords && 'error' in labelWords) return { tex: '', error: labelWords.error }
     const labelSource = declaration?.label ?? labelWords?.words
-    const label = labelSource !== undefined ? this.labelTex(labelSource) : undefined
+    const label = labelSource !== undefined ? this.displayNames.tex(labelSource) : undefined
     if (label?.error) return { tex: '', error: label.error }
     line.declaration = declaration ?? undefined
     line.label = label?.tex
@@ -1630,7 +1493,7 @@ export class Calculator {
   private expand(line: CoreLine): LineResult | undefined {
     const { declaration } = line
     // `delta F =` asks for F's uncertainty; a trailing = is just a prompt.
-    const constants = this.expandConstants(line.text.replace(/=\s*$/, '').trim())
+    const constants = this.constants.expand(line.text.replace(/=\s*$/, '').trim())
     if (constants.error) return { tex: '', error: constants.error }
     const cleaned = constants.text
     const cleanedShape = lineShape(cleaned)

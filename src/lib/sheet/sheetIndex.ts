@@ -9,7 +9,7 @@ import { NODE_KIND } from '../tree/nodes.ts'
 import { assignedOf, lineShape } from '../tree/shapes.ts'
 import { BLOCK_KIND, SYMBOL_KIND, isContainer, type Block, type SymbolKind } from './blocks.ts'
 import type { Sheet } from '../reading/sheetReader.ts'
-import { words, type WordOf } from '../syntax.ts'
+import { NAME, words, type WordOf } from '../syntax.ts'
 
 /** Where each function is defined, by name: its `f(…) = …` lines, in order. (For go-to-definition in the editor.) */
 export function collectDefinitions(blocks: Block[]): Map<string, number[]> {
@@ -101,6 +101,11 @@ export function collectSymbols(sheet: Sheet, source: string): SheetSymbol[] {
               name: target.name, kind: SYMBOL_KIND.function, line: b.line, from: b.line, to,
               tex: b.tex.split(' = ')[0], params: (target.entries ?? []).filter(Boolean).join(', '),
             })
+            const parameterName = new RegExp(String.raw`^(${NAME})(?=$|[:\s])`)
+            for (const entry of target.entries ?? []) {
+              const name = parameterName.exec(entry)?.[1]
+              if (name) out.push({ name, kind: SYMBOL_KIND.parameter, line: b.line, from: b.line, to: b.line })
+            }
             break
           }
           // A line that says what it defines (a selection, a named plot, a reaction): those, a.x_1, p.slope (not a variable a).
@@ -108,7 +113,12 @@ export function collectSymbols(sheet: Sheet, source: string): SheetSymbol[] {
             for (const d of b.defines ?? []) out.push(variable(d.name, b.line, b.line + 1, to, scope, d.members))
             break
           }
-          if (target?.kind === NODE_KIND.assigned) out.push(variable(target.name, b.line, b.line + 1, to, scope))
+          if (target?.kind === NODE_KIND.assigned) {
+            out.push(Object.defineProperties(
+              { name: target.name, kind: SYMBOL_KIND.variable, line: b.line, from: b.line + 1, to, members: undefined },
+              { tex: { value: b.tex, enumerable: false } },
+            ) as SheetSymbol)
+          }
           break
         }
         case BLOCK_KIND.card:

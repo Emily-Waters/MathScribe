@@ -368,12 +368,32 @@ describe('editor information', () => {
     expect(collectSymbols(sheet(withSettings), withSettings).find((s) => s.name === 'polar')?.params).toBe('x, y')
   })
 
+  it('collects function parameters as names in the function definition', () => {
+    const source = 'h(a, b to m) = a + b'
+    const symbols = collectSymbols(sheet(source), source)
+    expect(symbols).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: 'a', kind: SYMBOL_KIND.parameter, line: 1 }),
+      expect.objectContaining({ name: 'b', kind: SYMBOL_KIND.parameter, line: 1 }),
+    ]))
+  })
+
   it('collects symbols with their scope', () => {
     const symbols = collectSymbols(sheet(src), src)
     const find = (name: string) => symbols.filter((s) => s.name === name)
     expect(find('local')).toEqual([expect.objectContaining({ kind: SYMBOL_KIND.variable, line: 8, from: 9, to: 9 })])
     expect(find('h')[0]).toMatchObject({ kind: SYMBOL_KIND.function, params: 'a, b to m', to: 9 })
     expect(find('y')[0]).toMatchObject({ kind: SYMBOL_KIND.variable, from: 12, tex: expect.stringContaining('2.0') })
+  })
+
+  it('keeps each reassignment’s own value for hover and its first line for navigation', () => {
+    const source = 'x = 2.0 kg\nq = x\nx = 3.0 kg\nr = x'
+    const symbols = collectSymbols(sheet(source), source)
+    const assigned = symbols.filter((s) => s.name === 'x')
+    expect(assigned).toHaveLength(2)
+    expect(assigned[0]).toMatchObject({ line: 1, from: 2 })
+    expect(assigned[0].tex).toContain('2.0')
+    expect(assigned[1]).toMatchObject({ line: 3, from: 4 })
+    expect(assigned[1].tex).toContain('3.0')
   })
 
   it('collects the names a tuple is unpacked into', () => {

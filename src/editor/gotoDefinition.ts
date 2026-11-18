@@ -1,19 +1,23 @@
 /**
- * Go to definition, as in VS Code: Ctrl+Click (⌘+Click on a Mac) a function's
- * name, or put the cursor on it and press F12, to jump to where it's defined.
- * While Ctrl is held, names you can jump from are underlined under the mouse.
+ * Go to definition and rename names, as in VS Code: Ctrl+Click (⌘+Click on a
+ * Mac) or F12 jumps to a sheet definition; F2 renames every in-scope use.
  *
- * The definitions come from the evaluated sheet (collectDefinitions), so only
- * functions you've defined count, not built-ins like sin.
+ * Names and ranges come from the evaluated sheet and the editor's tree of the
+ * document, so navigation and replacement follow the same syntax as the engine.
  */
 import { StateEffect, StateField, type EditorState, type Extension } from '@codemirror/state'
 import { Decoration, EditorView, ViewPlugin, keymap, type DecorationSet, type ViewUpdate } from '@codemirror/view'
+import { SYMBOL_KIND, type SheetSymbol } from '../lib/sheet/sheetIndex.ts'
+import { sheetLine } from './sheetLines.ts'
+import { isToken, TOKEN_KIND, type Part, type SyntaxNode } from '../lib/tree/index.ts'
 
 /** Function name → the lines it's defined on, in order. */
 type Definitions = Map<string, number[]>
 
 /** Replaces where each function is defined (after each evaluation of the sheet). */
 export const setDefinitions = StateEffect.define<Definitions>()
+/** Replaces the names and scopes the sheet evaluated (for variables and constants). */
+export const setNavigationSymbols = StateEffect.define<SheetSymbol[]>()
 
 /** Where each function is defined, for Ctrl+Click and F12. */
 const definitionsField = StateField.define<Definitions>({
@@ -24,15 +28,65 @@ const definitionsField = StateField.define<Definitions>({
   },
 })
 
-/** The name at `pos`, with its range, if it's a defined function. */
-function definedNameAt(state: EditorState, pos: number): { from: number; to: number; name: string } | null {
-  const word = state.wordAt(pos)
-  if (!word) return null
-  const name = state.sliceDoc(word.from, word.to)
-  // Only as a call or definition, `f(`: a variable can share a function's name.
-  const after = state.sliceDoc(word.to, state.doc.lineAt(word.to).to)
-  if (!/^\s*\(/.test(after)) return null
-  return state.field(definitionsField).has(name) ? { ...word, name } : null
+const symbolsField = StateField.define<SheetSymbol[]>({
+  create: () => [],
+  update: (value, tr) => {
+    for (const e of tr.effects) if (e.is(setNavigationSymbols)) return e.value
+    return value
+  },
+})
+
+/** A name token on a line, with its document range. */
+interface NameAt {
+  from: number
+  to: number
+  name: string
+  symbol?: SheetSymbol
+}
+
+/** Every token and its text range on one line, following the tree recursively. */
+function nameTokens(state: EditorState, lineNumber: number): NameAt[] {
+  const line = state.doc.line(lineNumber)
+  const out: NameAt[] = []
+  const textLength = (part: Part): number =>
+    isToken(part) ? part.text.length : part.parts.reduce((n, p) => n + textLength(p), 0)
+  const walk = (parts: readonly Part[], offset: number) => {
+    let at = offset
+    for (const part of parts) {
+      if (isToken(part)) {
+        if (part.t === TOKEN_KIND.symbol || part.t === TOKEN_KIND.builtin) {
+          out.push({ from: line.from + at, to: line.from + at + part.text.length, name: part.text })
+        }
+        at += part.text.length
+      } else {
+        const node = part as SyntaxNode
+        walk(node.parts, at)
+        at += textLength(node)
+      }
+    }
+  }
+  walk(sheetLine(state.doc, lineNumber).step.node.parts, 0)
+  return out
+}
+
+/** The symbol usable for a name on this line (the latest definition in scope). */
+function symbolAt(state: EditorState, n: number, name: string): SheetSymbol | undefined {
+  const matches = state.field(symbolsField)
+    .filter((s) => s.name === name && s.line <= n && n <= s.to && (n >= s.from || s.line === n))
+    .sort((a, b) => b.line - a.line)
+  return matches[0]
+}
+
+/** The name at `pos`, with its range and evaluated symbol, if it has one. */
+function nameAt(state: EditorState, pos: number): NameAt | null {
+  const lineNumber = state.doc.lineAt(pos).number
+  const token = nameTokens(state, lineNumber).find((t) => t.from <= pos && pos <= t.to)
+  if (!token) return null
+  const symbol = symbolAt(state, lineNumber, token.name)
+  const isFunction = symbol?.kind === SYMBOL_KIND.function
+    || state.field(definitionsField).has(token.name)
+  if (!symbol && !isFunction) return null
+  return { ...token, symbol }
 }
 
 /**
@@ -40,20 +94,76 @@ function definedNameAt(state: EditorState, pos: number): { from: number; to: num
  * (a later redefinition doesn't apply yet), or else the first one.
  */
 function goToDefinition(view: EditorView, pos: number): boolean {
-  const target = definedNameAt(view.state, pos)
+  const target = nameAt(view.state, pos)
   if (!target) return false
-  const lines = view.state.field(definitionsField).get(target.name)!
   const here = view.state.doc.lineAt(pos).number
-  const above = lines.filter((l) => l <= here)
-  let lineNo = above.length ? above[above.length - 1] : lines[0]
-  // On the definition itself: go to the previous one, if any.
-  if (lineNo === here && above.length > 1) lineNo = above[above.length - 2]
+  let lineNo: number | undefined
+  if (target.symbol) {
+    if (target.symbol.kind === SYMBOL_KIND.variable || target.symbol.kind === SYMBOL_KIND.constant) {
+      const sameName = view.state.field(symbolsField).filter((s) =>
+        s.name === target.name
+        && s.kind === target.symbol!.kind
+        && s.to === target.symbol!.to
+        && s.from <= here
+      )
+      lineNo = sameName.length ? Math.min(...sameName.map((s) => s.line)) : target.symbol.line
+    } else {
+      lineNo = target.symbol.line
+    }
+  }
+  const functionLines = view.state.field(definitionsField).get(target.name)
+  if (!lineNo && functionLines?.length) {
+    const above = functionLines.filter((l) => l <= here)
+    lineNo = above.length ? above[above.length - 1] : functionLines[0]
+    if (lineNo === here && above.length > 1) lineNo = above[above.length - 2]
+  }
+  if (!lineNo) return false
   const line = view.state.doc.line(lineNo)
-  const at = new RegExp(`\\b${target.name}\\b`).exec(line.text)
+  const escaped = target.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const at = new RegExp(escaped).exec(line.text)
   const from = line.from + (at?.index ?? 0)
   view.dispatch({
     selection: { anchor: from, head: from + (at ? target.name.length : 0) },
     effects: EditorView.scrollIntoView(from, { y: 'center' }),
+  })
+  view.focus()
+  return true
+}
+
+/** Rename a name at the cursor and all uses that resolve to the same symbol. */
+function renameSymbol(view: EditorView): boolean {
+  const target = nameAt(view.state, view.state.selection.main.head)
+  if (!target) return false
+  const here = view.state.doc.lineAt(view.state.selection.main.head).number
+  const promptName = target.name.startsWith('@') ? target.name.slice(1) : target.name
+  const replacement = window.prompt(`Rename ${promptName} to:`, promptName)
+  if (replacement === null) return true
+  if (!replacement.trim() || !/^[A-Za-z\u0370-\u03ff][\w\u0370-\u03ff]*$/.test(replacement.trim())) return true
+  const nextName = replacement.trim()
+  if (nextName === target.name) return true
+
+  const ranges: { from: number; to: number }[] = []
+  for (let lineNumber = 1; lineNumber <= view.state.doc.lines; lineNumber++) {
+    for (const token of nameTokens(view.state, lineNumber)) {
+      if (token.name !== target.name) continue
+      if (target.symbol) {
+        const resolved = symbolAt(view.state, lineNumber, target.name)
+        if (!resolved || resolved.kind !== target.symbol.kind || resolved.to !== target.symbol.to) continue
+      } else {
+        const lines = view.state.field(definitionsField).get(target.name) ?? []
+        const above = lines.filter((l) => l <= lineNumber)
+        const nearest = above.at(-1) ?? lines[0]
+        if (nearest === undefined) continue
+        const targetLine = lines.filter((l) => l <= here).at(-1) ?? lines[0]
+        if (nearest !== targetLine) continue
+      }
+      ranges.push({ from: token.from, to: token.to })
+    }
+  }
+  if (!ranges.length) return true
+  ranges.sort((a, b) => b.from - a.from)
+  view.dispatch({
+    changes: ranges.map((range) => ({ from: range.from, to: range.to, insert: target.name.startsWith('@') ? `@${nextName.replace(/^@/, '')}` : nextName })),
   })
   view.focus()
   return true
@@ -105,7 +215,7 @@ const hoverPlugin = ViewPlugin.fromClass(class {
 
   refresh(held: boolean) {
     const pos = held && this.mouse ? this.view.posAtCoords(this.mouse) : null
-    const target = pos === null ? null : definedNameAt(this.view.state, pos)
+    const target = pos === null ? null : nameAt(this.view.state, pos)
     const next = target && { from: target.from, to: target.to }
     if (next?.from === this.current?.from && next?.to === this.current?.to) return
     this.current = next
@@ -128,6 +238,7 @@ const hoverPlugin = ViewPlugin.fromClass(class {
 /** Go to definition: Ctrl+Click or F12 on a function call jumps to its definition. */
 export const gotoDefinition: Extension = [
   definitionsField,
+  symbolsField,
   hoverField,
   hoverPlugin,
   EditorView.domEventHandlers({
@@ -139,7 +250,10 @@ export const gotoDefinition: Extension = [
       return true
     },
   }),
-  keymap.of([{ key: 'F12', run: (view) => goToDefinition(view, view.state.selection.main.head) }]),
+  keymap.of([
+    { key: 'F12', run: (view) => goToDefinition(view, view.state.selection.main.head) },
+    { key: 'F2', run: renameSymbol },
+  ]),
   EditorView.baseTheme({
     '.cm-goto-link': { textDecoration: 'underline', cursor: 'pointer' },
   }),

@@ -160,9 +160,15 @@ working (group 2).
       (`F = m * a   ⟶ 19.6 N`).
 - [ ] **Parameter hints**: typing `E_k(1, ` shows `E_k(n, m [kg], L [m])` with the
       current parameter highlighted.
-- [ ] **Rename (F2)** a variable or function everywhere it's used, respecting scope.
-- [ ] **Go to definition for variables and constants** (`@rho_w` → its
+- [x] **Rename (F2)** a variable or function everywhere it's used, respecting scope.
+      Resolved (2026-11-17): F2 offers a name prompt and replaces uses that
+      resolve to the same symbol, in scope. Ctrl+Click and F12 also jump to
+      variables, functions and constants.
+- [x] **Go to definition for variables and constants** (`@rho_w` → its
       `@constants` entry).
+      Resolved (2026-11-17): Ctrl+Click and F12 navigate the name under the
+      cursor to the nearest variable or function definition, or a constant
+      declaration.
 - [ ] **Snippets**: `def`, `@layout.numbered { }` blocks, `@constants { }`.
       (`def` functions were removed on 2026-11-16: a function is one line now, so
       the snippet would be `f(x) = …`.)

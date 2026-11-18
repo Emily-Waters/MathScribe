@@ -15,7 +15,7 @@ import { moduleEditorExtensions } from '../lib/engine/index.ts'
 import { mathscribeFolding, mathscribeIndent, mathscribeLanguage } from '../editor/language.ts'
 import { SYNTAX_TOKENS, mathscribeHighlight, type Palette, type SyntaxThemeId } from '../editor/themes.ts'
 import { Dropdown } from './Dropdown.tsx'
-import { gotoDefinition, setDefinitions } from '../editor/gotoDefinition.ts'
+import { gotoDefinition, setDefinitions, setNavigationSymbols } from '../editor/gotoDefinition.ts'
 import {
   acceptKeysSetting, acceptOnTab, intellisense, reconfigureAcceptKeys, setSymbols, type AcceptKeys,
 } from '../editor/intellisense.ts'
@@ -302,7 +302,8 @@ export function EditorPane({
 
   useEffect(() => {
     view.current?.dispatch({ effects: setDefinitions.of(definitions) })
-  }, [definitions, docId])
+    view.current?.dispatch({ effects: setNavigationSymbols.of(symbols) })
+  }, [definitions, symbols, docId])
 
   useEffect(() => {
     view.current?.dispatch({ effects: setSymbols.of(symbols) })

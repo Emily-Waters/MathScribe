@@ -60,7 +60,9 @@ const symbolsField = StateField.define<SheetSymbol[]>({
 function visibleAt(state: EditorState, n: number): Map<string, SheetSymbol> {
   const out = new Map<string, SheetSymbol>()
   const symbols = [...state.field(symbolsField)].sort((a, b) => a.line - b.line)
-  for (const s of symbols) if (s.from <= n && n <= s.to) out.set(s.name, s)
+  for (const s of symbols) {
+    if ((s.line === n || s.from <= n) && n <= s.to) out.set(s.name, s)
+  }
   return out
 }
 

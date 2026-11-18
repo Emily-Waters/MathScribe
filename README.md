@@ -1651,6 +1651,7 @@ renamed, change it there too.
   theme before the page draws)
 - `src/editor/gotoDefinition.ts`: Ctrl+Click / F12 go to definition
 - `src/editor/intellisense.ts`: suggestions as you type and hover information;
+  `src/editor/typing.ts`: what's being typed, read from the tokens of the line so far;
   `src/editor/greek.ts`: typing Greek letters (`\Delta` then Tab or a space);
   `src/editor/vocabulary.ts`: the commands, keywords and built-in functions they describe
 - `src/components/EditorPane.tsx`: the editor; `PreviewPane.tsx`: rendered output,

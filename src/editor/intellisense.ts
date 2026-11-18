@@ -32,11 +32,12 @@ import { SYMBOL_KIND, type SheetSymbol } from '../lib/sheet/sheetIndex.ts'
 import { describeUnit, isUnitName, numberTex, symbolTex, unitNames, unitTex } from '../lib/engine/index.ts'
 import { STORAGE_KEYS } from '../config.ts'
 import { readStored, writeStored } from '../lib/data/storage.ts'
-import { CALL, GREEK_CHARS, KEYWORD, MEMBER_DOT, NAME, NAME_CHAR, PERCENT, SETTINGS, SIGIL } from '../lib/syntax.ts'
+import { GREEK_CHARS, KEYWORD, MEMBER_DOT, NAME, NAME_CHAR, PERCENT, SIGIL, VALUE_BRACES } from '../lib/syntax.ts'
 import { memberName, parseMemberName, parseNumberedName, seriesMemberName } from '../lib/sheet/names.ts'
 import { BUILTIN_FUNCTIONS, COMMANDS, KEYWORDS, MATH_CONSTANTS, SERIES_SUFFIXES, SETTING_WORDS } from './vocabulary.ts'
 import { inNote, inValue, isProseLine } from './language.ts'
-import { inDataBlock, inNamelessBlock } from './sheetLines.ts'
+import { inDataBlock, inNamelessBlock, readAs } from './sheetLines.ts'
+import { TYPING, typingAt, typingInValue } from './typing.ts'
 import { greekCompletions, greekOnSpace } from './greek.ts'
 
 // ---------------------------------------------------------------------------
@@ -96,9 +97,6 @@ const constantTex = (c: BuiltinConstant | NamespaceConstant) => {
   const digits = isNamespaceConstant(c) ? c.written : String(c.value).replace('e+', 'e')
   return `${c.tex} = ${numberTex(digits)}${c.unit ? `\\,${unitTex(c.unit)}` : ''}`
 }
-
-/** `@` and any namespaces, each with its dot, then what's typed of the next member: `@chem.mm.N` (1: the namespaces and dots, 2: what's typed). */
-const BUILTIN_SO_FAR = /@((?:\w+(?:\([^()\n]*\))?\.)*)(\w*)$/
 
 /** `@` and any namespaces with their dots, just before a word: the `@chem.mm.` of `@chem.mm.Na` (1: the namespaces and dots). */
 const BUILTIN_BEFORE = /@((?:\w+\.)*)$/
@@ -195,18 +193,6 @@ function symbolInfo(s: SheetSymbol): HTMLElement {
 // Completions
 // ---------------------------------------------------------------------------
 
-// A display setting being typed after a `:` (`phi:3:de`), 1: what's typed of it so far:
-/** …on the name being assigned. */
-const SETTING_ON_NAME = new RegExp(String.raw`^\s*${NAME}${SETTINGS}:([A-Za-z]*)$`)
-/** …on a name being unpacked: `@tuple(r:3, theta:de`. */
-const SETTING_ON_UNPACKED = new RegExp(String.raw`^\s*${SIGIL}${CALL.tuple}\s*\((?:[^()=]*,)?\s*${NAME}(?::[^:=\s,()]+)*:([A-Za-z]*)$`)
-/** …on a function's result: `f(x):3:de`. */
-const SETTING_ON_RESULT = new RegExp(String.raw`^\s*${NAME}\s*\([^()]*\)${SETTINGS}:([A-Za-z]*)$`)
-
-/** A unit being typed: after a number or `to` (1: what's typed of it so far). */
-const UNIT_SO_FAR = new RegExp(String.raw`(?:\d\.?|\b${KEYWORD.to})\s+([A-Za-z]*)$`)
-/** …after `to`, where `percent` can go too. */
-const AFTER_TO = new RegExp(String.raw`\b${KEYWORD.to}\s+[A-Za-z]*$`)
 /** Where a unit goes, for hovering one: after a number or `to`, or inside a compound unit (m/s^2). */
 const UNIT_PLACE = new RegExp(String.raw`(?:\d\.?|\b${KEYWORD.to})\s+$|[A-Za-z][/*]$`)
 
@@ -225,9 +211,6 @@ const unitOptions: Completion[] = unitNames().map((name) => ({
   type: 'unit',
   detail: describeUnit(name)?.replace(`1 ${name} = `, '= ') ?? undefined,
 }))
-
-/** A namespace's name and a dot, and what's typed of a member so far: `run1.x` (1: the namespace, 2: the member so far). */
-const MEMBER_SO_FAR = new RegExp(String.raw`(?<![\w.${GREEK_CHARS}])(${NAME})\.(${NAME_CHAR}*)$`)
 
 /** A symbol under another name (its value and information kept). */
 const renamed = (s: SheetSymbol, name: string): SheetSymbol =>
@@ -323,88 +306,92 @@ export function complete(ctx: CompletionContext): CompletionResult | null {
   }
   if (!value && (isProseLine(before) || inNamelessBlock(ctx.state.doc, line.number))) return null
 
+  // What's being typed, from the tokens of the line so far, read in its place
+  // (or of the value being typed in text, `{{c_`).
+  const typing = value
+    ? typingInValue(before.slice(before.lastIndexOf(VALUE_BRACES.open) + VALUE_BRACES.open.length))
+    : typingAt(readAs(ctx.state.doc, line.number, before).node.parts)
+  const from = ctx.pos - (typing?.typed.length ?? 0)
+
   // `#…` after the line's text: display commands.
-  const command = /(?:^|\s)(#\w*)$/.exec(before)
-  if (!value && command && before.trim() !== command[1]) {
+  if (typing?.kind === TYPING.command) {
     return {
-      from: ctx.pos - command[1].length,
+      from,
       options: COMMANDS.map((c) => ({ label: c.name, type: 'keyword', detail: c.description })),
       validFor: /^#\w*$/,
     }
   }
-  if (!value && inNote(before)) return null
+  if (typing?.kind === TYPING.note) return null
 
   // `\…`: a Greek letter, typed as its character.
   const greek = greekCompletions(before, ctx.pos)
   if (greek) return greek
+  if (!typing) return null
 
-  // `@…`, `@chem.…`, `@layout.val.…`: the members of the namespace being typed in. Blocks, and
-  // anything in @layout, only at the start of a line, where blocks open; in a chained
-  // namespace, the members not chosen yet.
-  const typed = BUILTIN_SO_FAR.exec(before)
-  if (typed) {
-    const path = pathOf(typed[1])
-    const ns = namespaceAt(path)
-    const lineStart = before.trim() === typed[0]
-    if (!ns || (ns.atLineStart && !lineStart)) return null
-    const top = ns === BUILTINS
-    const chosen = new Set(path)
-    const members = ns.members.filter((m) => (lineStart || !m.atLineStart) && !(ns.chained && chosen.has(m.name)))
-    const custom = top ? [...visibleAt(ctx.state, line.number).values()].filter((s) => s.kind === SYMBOL_KIND.constant) : []
-    return {
-      from: ctx.pos - (top ? typed[0].length : typed[2].length),
-      options: [
-        ...members.flatMap((m) => memberOptions(m, top ? SIGIL : '')),
-        ...custom.map((s): Completion => ({ label: s.name, type: 'constant', detail: 'your constant', info: () => symbolInfo(s) })),
-      ],
-      validFor: top ? /^@\w*$/ : /^\w*$/,
+  switch (typing.kind) {
+    // `@…`, `@chem.…`, `@layout.val.…`: the members of the namespace being typed in. Blocks, and
+    // anything in @layout, only at the start of a line, where blocks open; in a chained
+    // namespace, the members not chosen yet.
+    case TYPING.builtin: {
+      const { path, lineStart } = typing
+      const ns = namespaceAt(path)
+      if (!ns || (ns.atLineStart && !lineStart)) return null
+      const top = ns === BUILTINS
+      const chosen = new Set(path)
+      const members = ns.members.filter((m) => (lineStart || !m.atLineStart) && !(ns.chained && chosen.has(m.name)))
+      const custom = top ? [...visibleAt(ctx.state, line.number).values()].filter((s) => s.kind === SYMBOL_KIND.constant) : []
+      return {
+        from,
+        options: [
+          ...members.flatMap((m) => memberOptions(m, top ? SIGIL : '')),
+          ...custom.map((s): Completion => ({ label: s.name, type: 'constant', detail: 'your constant', info: () => symbolInfo(s) })),
+        ],
+        validFor: top ? /^@\w*$/ : /^\w*$/,
+      }
     }
-  }
 
-  // After a `:` on the name being assigned (`phi:3:de`): a display unit, `exact`, `sci` or `dec`.
-  // (…on a name being unpacked, or on a function's result.)
-  const spec = SETTING_ON_NAME.exec(before) ?? SETTING_ON_UNPACKED.exec(before) ?? SETTING_ON_RESULT.exec(before)
-  if (spec && (spec[1] || ctx.explicit)) {
-    return {
-      from: ctx.pos - spec[1].length,
-      options: [
-        ...SETTING_WORDS.map((s): Completion => ({ label: s.name, type: s.name === PERCENT ? 'unit' : 'keyword', detail: s.description })),
-        ...unitOptions,
-      ],
-      validFor: /^[A-Za-z]*$/,
+    // After a `:` on the name being assigned (`phi:3:de`): a display unit, `exact`, `sci` or `dec`.
+    // (…on a name being unpacked, or on a function's result.)
+    case TYPING.setting:
+      if (!typing.typed && !ctx.explicit) return null
+      return {
+        from,
+        options: [
+          ...SETTING_WORDS.map((s): Completion => ({ label: s.name, type: s.name === PERCENT ? 'unit' : 'keyword', detail: s.description })),
+          ...unitOptions,
+        ],
+        validFor: /^[A-Za-z]*$/,
+      }
+
+    // After a number or `to`, or in a compound unit (`m/s`): a unit.
+    case TYPING.unit:
+      if (!typing.typed && !ctx.explicit) return null
+      return {
+        from,
+        options: typing.afterTo
+          ? [{ label: PERCENT, type: 'unit', detail: SETTING_WORDS.find((s) => s.name === PERCENT)!.description }, ...unitOptions]
+          : unitOptions,
+        validFor: /^[A-Za-z]*$/,
+      }
+
+    // `a.`: a namespace's members (a slice's series, a named import's columns, a named plot's fit).
+    case TYPING.member: {
+      const members = membersOf(visibleNames(ctx.state, line.number), typing.namespace)
+      if (!members.length) return null
+      return { from, options: nameOptions(members), validFor: WORD_SO_FAR }
     }
+
+    case TYPING.name:
+      return { from, options: allNameOptions(visibleNames(ctx.state, line.number)), validFor: WORD_SO_FAR }
   }
+}
 
-  // After a number or `to`: a unit.
-  const unit = UNIT_SO_FAR.exec(before)
-  if (unit && (unit[1] || ctx.explicit)) {
-    const afterTo = AFTER_TO.test(before)
-    return {
-      from: ctx.pos - unit[1].length,
-      options: afterTo
-        ? [{ label: PERCENT, type: 'unit', detail: SETTING_WORDS.find((s) => s.name === PERCENT)!.description }, ...unitOptions]
-        : unitOptions,
-      validFor: /^[A-Za-z]*$/,
-    }
-  }
+/** The names usable on line `n` that are suggested as names (constants are suggested after @, and braced names in braces). */
+const visibleNames = (state: EditorState, n: number) =>
+  [...visibleAt(state, n).values()].filter((s) => s.kind !== SYMBOL_KIND.constant && s.kind !== SYMBOL_KIND.braced)
 
-  // (Constants are suggested after @, and braced names in braces.)
-  const visible = [...visibleAt(ctx.state, line.number).values()].filter((s) => s.kind !== SYMBOL_KIND.constant && s.kind !== SYMBOL_KIND.braced)
-
-  // `a.`: a namespace's members (a slice's series, a named import's columns, a named plot's fit).
-  const dotted = MEMBER_SO_FAR.exec(before)
-  if (dotted) {
-    const members = membersOf(visible, dotted[1])
-    if (!members.length) return null
-    return { from: ctx.pos - dotted[2].length, options: nameOptions(members), validFor: WORD_SO_FAR }
-  }
-
-  // A name.
-  const word = ctx.matchBefore(WORD)
-  if (!word || (word.from === word.to && !ctx.explicit)) return null
-  // Part of a number like 1e5.
-  if (/[\d.]$/.test(line.text.slice(0, word.from - line.from))) return null
-
+/** Every name that can be typed: the sheet's, its namespaces, mathjs's functions and constants, and keywords. */
+function allNameOptions(visible: SheetSymbol[]): Completion[] {
   // A namespace's members are offered after its name and a dot, not here; it's offered itself.
   const own = visible.filter((s) => !parseMemberName(s.name))
   const names = new Set(own.map((s) => s.name))
@@ -426,11 +413,10 @@ export function complete(ctx: CompletionContext): CompletionResult | null {
   }
   for (const k of KEYWORDS) options.push({ label: k.name, type: 'keyword', detail: k.description, boost: -1 })
 
-  return { from: word.from, options, validFor: WORD_SO_FAR }
+  return options
 }
 
-/** A name being typed (Greek letters included), and what may follow while the list stays open. */
-const WORD = new RegExp(`[A-Za-z_${GREEK_CHARS}]${NAME_CHAR}*`)
+/** What may follow a name being typed while the list stays open (Greek letters included). */
 const WORD_SO_FAR = new RegExp(`^${NAME_CHAR}*$`)
 
 /** Tab accepts a suggestion when the list is open. */

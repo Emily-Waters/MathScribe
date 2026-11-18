@@ -767,7 +767,26 @@ edit reads again only what it changed, and nodes are shared between trees.
            counts x uncertainties, from Emily's other machine; written as a
            series line form through the module API, as the approach has it, so
            nothing needed adapting. All tests passed as pulled.)
-      5. [ ] The editor's suggestions from the tokens of the half-typed line.
+      5. [x] The editor's suggestions from the tokens of the half-typed line.
+         Resolved: `src/editor/typing.ts` reads what's being typed (a command,
+         a note, an `@` name, a setting, a unit, a namespace's member, a name:
+         `TYPING`) from the tokens of the line so far, read in its place
+         (`readAs`), or of the value being typed in text (`{{c_`), by a list of
+         readers asked in turn; `complete` switches on its kind, in place of
+         the patterns it had (`BUILTIN_SO_FAR`, `SETTING_ON_NAME`/`UNPACKED`/
+         `RESULT`, `UNIT_SO_FAR`, `AFTER_TO`, `MEMBER_SO_FAR`, `WORD`). Run side
+         by side with the patterns at every point of every line of the sample,
+         the reference and the library (6900 points) before switching: they
+         agreed but for two kinds, both fixes kept on purpose (and tested):
+         in a compound unit (`9.81 m/s`, `mol/L`) units are offered, not
+         names; and after a name ending in a digit (`T_1 k`, `m/s^2 K`) names
+         are offered, not units (the pattern took any digit for a number).
+         Checked in the app too: each kind's list as typed.
+         - [ ] Still read with patterns: hovers (`BUILTIN_BEFORE`, `UNIT_PLACE`,
+           a namespace before a dot, `IN_BRACES`), which could read the token
+           under the pointer from the whole line; and braced names, `{dietz`
+           (`BRACED_SO_FAR`), which are chemistry's syntax, in prose too, so
+           belong to a hook of the module's for its own suggestions.
       6. [ ] Constants as `words()`, patterns with `src`/`named`, file by file
          as each is touched.
 

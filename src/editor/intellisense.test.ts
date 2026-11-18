@@ -44,6 +44,8 @@ const SOURCE = [
   'h = @n', // 32
   '@layout.val.', // 33
   'M = @chem.m', // 34
+  'u = 3.0 m/mi', // 35
+  'r = t_1 K', // 36
 ].join('\n')
 
 /** The labels suggested at the end of line `n`, filtered by what's typed. */
@@ -66,6 +68,11 @@ describe('suggestions', () => {
   it('offer units after a number, and percent after to', () => {
     expect(suggestions(11)).toEqual(['angstrom'])
     expect(suggestions(12)).toEqual(['percent'])
+  })
+
+  it('offer units in a compound unit, and names (not units) after a name ending in a digit', () => {
+    expect(suggestions(35)).toEqual(expect.arrayContaining(['min', 'mile']))
+    expect(suggestions(36)).toEqual(['KE', 'k'])
   })
 
   it('offer constants after @', () => {

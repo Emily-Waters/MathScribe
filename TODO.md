@@ -717,7 +717,7 @@ edit reads again only what it changed, and nodes are shared between trees.
            `plugin.test.ts` adds a step (`sol`, a Martian day, written out at
            `expand` from the line's tokens). Moved, not changed: the golden
            tests and all others pass as they were.
-         - [ ] B, the Calculator's concerns into collaborators, each a class with
+         - [x] B, the Calculator's concerns into collaborators, each a class with
            the narrow interface it needs of the Calculator (its `…Host`):
            - [x] `SheetConstants` (`sheetConstants.ts`): the sheet's own
              constants, the precision and unit it gives any, and writing `@name`s
@@ -734,10 +734,22 @@ edit reads again only what it changed, and nodes are shared between trees.
              `uncertainty.ts`): combining contributions in quadrature,
              propagating them through an expression, `delta F` as a hidden
              variable, `pm` as LaTeX, and `delta F`'s working.
-           - [ ] Series aggregates, functions: these are woven through
+           - [x] Series aggregates, functions: these are woven through
              `evaluateParsed` more deeply (aggregates keep sources, functions
              trace their working), so each needs its share of the line's state
              first.
+             Resolved: `SeriesAggregates` (`aggregates.ts`): a series' members
+             and rows, the aggregates a line names, defined from them with
+             their sig figs and uncertainty (it keeps each mean's uncertainty
+             source), and their working. `SheetFunctions` (`sheetFunctions.ts`):
+             defining the sheet's functions, what's kept about each (in place of
+             the Calculator's `userFunctions`), and the calls to them in an
+             expression. A call's working (`traceCall`) stays in the Calculator:
+             it runs the line evaluator again inside the function's scope, with
+             the line's state (scope, parameter aliases, #multiline, depth), so
+             it's the evaluator's own, not a collaborator's. Moved, not changed:
+             all tests pass as they were. The Calculator is down from 1891
+             lines to about 1480.
            (Pulled in on the way, 2026-11-17: `@series(…)` and the fit that
            counts x uncertainties, from Emily's other machine; written as a
            series line form through the module API, as the approach has it, so

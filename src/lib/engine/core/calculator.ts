@@ -4,16 +4,18 @@
  * and produces LaTeX for each line (symbolic = substituted = result).
  */
 import { isAssignmentNode, isConditionalNode, isConstantNode, isFunctionAssignmentNode, isFunctionNode, isOperatorNode, isSymbolNode, type FunctionNode, type MathNode, type MathType, type SymbolNode, type Unit } from 'mathjs'
-import { EXACT, MAX_DIGITS, countSigFigs, formatExact, formatSigFigs, formatWithUncertainty, uncertaintySigFigs, lastPlace, sigFigsFromPlace } from '../../maths/sigfigs.ts'
-import { AGGREGATE_KIND, Variable, type Aggregate, type Contributions, type VariableFields, type VariableSummary } from '../../sheet/values.ts'
+import { EXACT, MAX_DIGITS, countSigFigs, formatExact, formatSigFigs, formatWithUncertainty } from '../../maths/sigfigs.ts'
+import { AGGREGATE_KIND, Variable, type Contributions, type VariableFields, type VariableSummary } from '../../sheet/values.ts'
 import { BUILTINS, isReservedConstantName } from '../../builtins.ts'
 import { EXACT_SETTING, IS_NAME, MEMBER_DOT, PERCENT, DISPLAY_MODE, CONSTANTS_BLOCK, LABEL_WORDS, SIGIL, type DisplayMode, type Notation, type Precision } from '../../syntax.ts'
-import { INLINE_VALUE_NAME, INV_FUNCTION, JOIN, TUPLE_FUNCTION, RESERVED_NAMESPACES, isHiddenName, isUncertaintyName, memberName, parseNumberedName, parseUncertaintyName, readableMembers, seriesMemberName, unpackedName } from '../../sheet/names.ts'
+import { INLINE_VALUE_NAME, INV_FUNCTION, JOIN, TUPLE_FUNCTION, RESERVED_NAMESPACES, isHiddenName, memberName, parseUncertaintyName, readableMembers, unpackedName } from '../../sheet/names.ts'
 import { expandDots } from './memberAccess.ts'
 import { SheetConstants } from './sheetConstants.ts'
 import { DisplayNames } from './displayNames.ts'
 import { SigFigs } from './sigFigs.ts'
 import { Propagation } from './propagation.ts'
+import { SeriesAggregates } from './aggregates.ts'
+import { SheetFunctions } from './sheetFunctions.ts'
 import { FN, OP, OP_SYMBOL, UNIT, isOp } from '../../maths/mathjsNames.ts'
 
 import { nestBrackets } from '../../maths/brackets.ts'
@@ -21,27 +23,26 @@ import type { CsvColumn } from '../../data/csv.ts'
 
 import { isTuple, math } from './math.ts'
 import {
-  EngineModule, LINE_STAGE, LINE_STAGES, LineStep, inDependencyOrder, installModule, moduleReadableMessage, moduleSettingProblem, SETTING_PLACE,
+  EngineModule, LINE_STAGE, LINE_STAGES, LineStep, inDependencyOrder, installModule, moduleReadableMessage,
   type DerivedVariable, type LineInProgress, type LineStage, type LookSetting, type ModuleHost, type TupleLook,
 } from './module.ts'
 import { strayLineFormCall } from './builtinCalls.ts'
-import { BUILTIN_CONSTANT_NAMES, NAME_IN_LINE } from './literals.ts'
+import { BUILTIN_CONSTANT_NAMES } from './literals.ts'
 import { preprocess, typedNumbers } from './writer.ts'
 import { AUTO_PRECISION, ExplainedError, builtinCallHint, FIXED_UNCERTAINTY_SIG_FIGS, type CalcOptions, type EquationParts, layoutEquation, type TraceLine, type CalcResult, unexpectedError, fitHint, type DataColumn, type LineNotation, type LineResult, type ParsedLine, TO_PERCENT, RAW, rawNode, readableUnitError } from './results.ts'
 import { NAME_THEN_SETTINGS, expandParenPm, splitPm } from './uncertainty.ts'
-import { parseAggregateName, escapeRegExp } from './series.ts'
-import { symbolTex, numberTex, unitTex, attachUnit, isUnitCall, unitCallText, isLitCall, resultUnitTex, CASE_WORDS, caseTex, splitUnit } from './tex.ts'
+import { symbolTex, numberTex, unitTex, attachUnit, isUnitCall, unitCallText, isLitCall, CASE_WORDS, caseTex, splitUnit } from './tex.ts'
 import { unwrap, isLiteral, isTupleLiteral, isConversion } from './nodes.ts'
 import { NODE_KIND, TOKEN_KIND, isToken, type Part } from '../../tree/nodes.ts'
 import { lexExpression } from '../../tree/lexer.ts'
 import { ASSIGN, SETTING_MARK, lineShape, type LineShape } from '../../tree/shapes.ts'
 import { normalise, displayUnit, magnitudeOf } from './normalise.ts'
 import { Scope, Views, type Variables, Values, innerValues } from './scope.ts'
-import { type UserFunction, MAX_TRACE_DEPTH } from './functions.ts'
+import { MAX_TRACE_DEPTH } from './functions.ts'
 import { isAngleUnit, toDisplayUnit, type Declaration, type TupleName, parseTupleName, declarationOf } from './declarations.ts'
 import { withRows } from './rows.ts'
 import { bracketed } from './tuples.ts'
-import { EXACT_DISPLAY_DIGITS, FIXED_FORMAT, FLOAT_NOISE, TINY, PERCENT_SCALE, parseParam, isValidUnit, castArgument } from './numbers.ts'
+import { EXACT_DISPLAY_DIGITS, FIXED_FORMAT, FLOAT_NOISE, TINY, PERCENT_SCALE, isValidUnit, castArgument } from './numbers.ts'
 import { isNumberWithUnit, SIDE, type Side, inScientificNotation, needsBrackets, productSeparator, PRODUCT_SIGN, EVERY_PRODUCT_SIGN } from './products.ts'
 import { uncertaintyUnitError, columnValues } from './data.ts'
 
@@ -95,10 +96,17 @@ export class Calculator {
   private readonly typedSfs = new WeakMap<object, number[]>()
   /** Sig figs of each call to a sheet's function's result, from its expression. */
   private readonly callSigFigs = new WeakMap<MathNode, number>()
-  /** Uncertainty source for each series mean, so repeated uses stay correlated. */
-  private readonly aggregateSources = new Map<string, number>()
-  /** Multi-line functions, keyed by the callable stored in the scope. */
-  private readonly userFunctions = new WeakMap<object, UserFunction>()
+  /** The sheet's own functions: defining them, and what's kept about each (sheetFunctions.ts). */
+  private readonly functions = new SheetFunctions({
+    variables: () => this.vars,
+    value: (name) => this.scope.get(name),
+    store: (name, fields) => this.store(name, fields),
+    expandConstants: (text) => this.constants.expand(text),
+    parse: (text) => math.parse(preprocess(text, this.isVariable).text),
+    tex: (node, source) => this.toTex(node, typedNumbers(source)),
+    lookSetting: (settings) => this.lookSettingOf(settings)?.look,
+    lookOfWritten: (expression) => this.modules.map((m) => m.lookOfWritten(expression)).find((l) => l !== undefined),
+  })
   /** Nesting depth while replaying function bodies to show their working. */
   private traceDepth = 0
   private nextSource = 0
@@ -111,10 +119,7 @@ export class Calculator {
   private readonly sigFigs = new SigFigs({
     valueOf: (node) => node.compile().evaluate(this.scope),
     variableSigFigs: (name) => this.vars.get(name)?.sf,
-    declaredSigFigs: (name) => {
-      const f = this.scope.get(name)
-      return typeof f === 'function' ? this.userFunctions.get(f)?.returnSf : undefined
-    },
+    declaredSigFigs: (name) => this.functions.named(name)?.returnSf,
     tracedSigFigs: (call) => this.callSigFigs.get(call),
     isExactCount: (number, unit, literals) => this.modules.some((m) => m.isExactCount(number, unit, literals)),
   })
@@ -137,6 +142,22 @@ export class Calculator {
     uncertaintyTex: (unc, like, uncSf) => this.uncertaintyTex(unc, like, uncSf),
     showsSubstitution: () => this.options.showSubstitution,
   })
+  /** Series aggregates: a series' members, and the sum, mean and spread a line names (aggregates.ts). */
+  private readonly aggregates = new SeriesAggregates({
+    variables: () => this.vars,
+    value: (name) => this.scope.get(name),
+    has: (name) => this.scope.has(name),
+    selection: (base) => this.views.get(base),
+    store: (name, fields) => this.store(name, fields),
+    newSource: () => this.nextSource++,
+    totalUncertainty: (contributions, like) => this.uncertainty.total(contributions, like),
+    uncertainSigFigs: (value, unc) => this.uncertainParts(value, unc)?.sf,
+    displayNumber: (value) => this.split(value, EXACT)?.x,
+    tex: (node) => this.toTex(node, new Map()),
+    variableNode: (name) => this.variableNode(name),
+    uncertaintyTex: (unc, like, uncSf) => this.uncertaintyTex(unc, like, uncSf),
+    showsSubstitution: () => this.options.showSubstitution,
+  })
   /** Set while evaluating a line whose sum/difference has no significant figures. */
   private options: CalcOptions
   /** What extends the engine (chemistry), each with its own hooks: see EngineModule. */
@@ -149,7 +170,7 @@ export class Calculator {
     names: () => this.scope.keys(),
     store: (name, v) => this.store(name, v),
     forget: (name) => this.forget(name),
-    seriesRows: (base) => this.seriesRows(base),
+    seriesRows: (base) => this.aggregates.rows(base),
     setView: (base, names) => this.views.set(base, names),
     clearViews: (namespace) => this.views.clear(namespace),
     newSource: () => this.nextSource++,
@@ -158,7 +179,7 @@ export class Calculator {
     parse: (text) => math.parse(preprocess(text, this.isVariable).text),
     evaluateNode: (node) => node.compile().evaluate(this.scope) as unknown,
     expandConstants: (text) => this.constants.expand(text),
-    isUserFunction: (name) => this.isUserFunction(name),
+    isUserFunction: (name) => this.functions.has(name),
     propagate: (node) => this.uncertainty.propagate(node),
     sigFigs: (node, literals) => this.sigFigs.of(node, literals, false),
     inScratchScope: (fn) => {
@@ -261,8 +282,7 @@ export class Calculator {
       const name = (n as FunctionNode).fn.name
       const own = this.modules.map((m) => m.lookOfFunction(name)).find((l) => l !== undefined)
       if (own !== undefined) return own
-      const f = this.scope.get(name)
-      return typeof f === 'function' ? this.userFunctions.get(f)?.returnLook : undefined
+      return this.functions.named(name)?.returnLook
     })
     return this.modules.map((m) => m.chooseLook(looks)).find((l) => l !== undefined)
   }
@@ -582,187 +602,6 @@ export class Calculator {
   }
 
   // -------------------------------------------------------------------------
-  // Series aggregates
-  // -------------------------------------------------------------------------
-
-  /** Variables named base1, base2, … or base_1, base_2, …, visible from here, in index order. */
-  private seriesMembers(base: string): string[] {
-    // A selection's series: its members are its numbers (each a lookup; see Views).
-    const view = this.views.get(base)
-    if (view) return view.flatMap((name, i) => (name ? [seriesMemberName(base, i + 1)] : []))
-    const found = new Map<string, number>()
-    // Each level's members, from its series index (an inner level's hide an outer's of the same name).
-    for (let s: Variables | undefined = this.vars; s; s = s.parent) {
-      for (const name of s.membersHere(base) ?? []) {
-        if (found.has(name) || isUncertaintyName(name) || this.vars.get(name)?.agg) continue
-        if (typeof this.scope.get(name) === 'function') continue
-        found.set(name, parseNumberedName(name)!.n)
-      }
-    }
-    return [...found.entries()].sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0])).map(([n]) => n)
-  }
-
-  /**
-   * Define any series aggregates named on this line (a, a_avg, a_std, a_count)
-   * from the current members, so they are always up to date. A variable
-   * defined explicitly with the same name takes precedence.
-   */
-  private defineAggregates(line: string, skip?: string): string | undefined {
-    for (const m of line.matchAll(NAME_IN_LINE)) {
-      const name = m[1]
-      if (name === skip || (this.scope.has(name) && !this.vars.get(name)?.agg)) continue
-      // e1, e2, … don't turn `e` into a sum: Euler's number (and pi, tau, …) win.
-      if (BUILTIN_CONSTANT_NAMES.has(name)) continue
-      const { base, kind } = parseAggregateName(name)
-      const members = this.seriesMembers(base)
-      if (!members.length) continue
-      try {
-        this.defineAggregate(name, { kind, base, members })
-      } catch (e) {
-        return `${name}: ${(e as Error).message}`
-      }
-    }
-    return undefined
-  }
-
-  private defineAggregate(name: string, agg: Aggregate): void {
-    const values = agg.members.map((n) => this.scope.get(n))
-    if (values.some((v) => typeof v !== 'number' && !math.isUnit(v))) {
-      throw new Error('only numbers and quantities can be combined.')
-    }
-    const n = values.length
-    const first = values[0]
-    if (values.some((v) => math.isUnit(v) !== math.isUnit(first)
-      || (math.isUnit(v) && !(v as Unit).equalBase(first as Unit)))) {
-      throw new Error(`${agg.members.join(', ')} don't all have the same units.`)
-    }
-    const total = values.reduce((acc, v) => math.add(acc as MathType, v as MathType))
-
-    let value: unknown
-    let contributions: Contributions = new Map()
-    let sf = EXACT
-    switch (agg.kind) {
-      case AGGREGATE_KIND.count:
-        value = n
-        break
-      case AGGREGATE_KIND.sum:
-        value = total
-        contributions = this.mergedContributions(agg.members)
-        sf = this.seriesSigFigs(agg.members, total)
-        break
-      case AGGREGATE_KIND.mean:
-        value = math.divide(total as MathType, n)
-        sf = this.seriesSigFigs(agg.members, total)
-        // Standard error σ/√n, as one source shared by every use of this mean.
-        if (n >= 2) contributions = new Map([[this.aggregateSource(agg.base), this.standardError(values)]])
-        else contributions = this.mergedContributions(agg.members)
-        break
-      case AGGREGATE_KIND.std:
-      case AGGREGATE_KIND.sem:
-        if (n < 2) throw new Error('a standard deviation needs at least two values.')
-        value = agg.kind === AGGREGATE_KIND.std ? this.stdDev(values) : this.standardError(values)
-        sf = uncertaintySigFigs(this.split(value, EXACT)?.x ?? 0)
-        break
-    }
-    // Show sums, means and spreads in the members' own unit (s, not ms).
-    value = math.isUnit(value) && math.isUnit(first)
-      ? (value as Unit).to((first as Unit).formatUnits())
-      : normalise(value, true)
-    const unc = this.uncertainty.total(contributions, value)
-    if (unc !== undefined) sf = this.uncertainParts(value, unc)?.sf ?? sf
-
-    this.store(name, { value, sf, contributions, agg })
-  }
-
-  /** Uncertainty of a sum: each member's contributions added source by source. */
-  private mergedContributions(members: string[]): Contributions {
-    const out: Contributions = new Map()
-    for (const m of members) {
-      for (const [source, c] of this.vars.get(m)?.contributions ?? []) {
-        out.set(source, out.has(source) ? math.add(out.get(source) as MathType, c as MathType) : c)
-      }
-    }
-    return out
-  }
-
-  /** Sig figs of a series total by the addition rule (least precise decimal place). */
-  private seriesSigFigs(members: string[], total: unknown): number {
-    const place = Math.max(...members.map((m) =>
-      lastPlace(magnitudeOf(this.scope.get(m)), this.vars.get(m)?.sf ?? EXACT)))
-    const sf = sigFigsFromPlace(magnitudeOf(total), place)
-    return Number.isFinite(sf) ? Math.max(1, sf) : EXACT
-  }
-
-  /** Sample standard deviation (n − 1), in the units of the first value. */
-  private stdDev(values: unknown[]): unknown {
-    const xs = values.map(magnitudeOf)
-    const mean = xs.reduce((a, b) => a + b, 0) / xs.length
-    const s = Math.sqrt(xs.reduce((acc, x) => acc + (x - mean) ** 2, 0) / (xs.length - 1))
-    if (!math.isUnit(values[0])) return s
-    const u = (values[0] as Unit).clone()
-    u.value = s
-    return u
-  }
-
-  /** Standard error of the mean, σ/√n. */
-  private standardError(values: unknown[]): unknown {
-    return math.divide(this.stdDev(values) as MathType, Math.sqrt(values.length))
-  }
-
-  private aggregateSource(base: string): number {
-    let id = this.aggregateSources.get(base)
-    if (id === undefined) {
-      id = this.nextSource++
-      this.aggregateSources.set(base, id)
-    }
-    return id
-  }
-
-  /** Working for a line that is just an aggregate: Σ notation, members, values. */
-  private aggregateWorking(agg: Aggregate): string[] {
-    const n = agg.members.length
-    if (n === 1 && agg.kind !== AGGREGATE_KIND.count) return [symbolTex(agg.members[0])]
-    // A long series shows its first two members, ⋯, and its last (only those are typeset).
-    const list = (f: (m: string) => string) => (n > 6
-      ? [f(agg.members[0]), f(agg.members[1]), '\\cdots', f(agg.members[n - 1])]
-      : agg.members.map(f)).join(' + ')
-    const names = list(symbolTex)
-    const values = list((m) => this.toTex(this.variableNode(m), new Map()))
-    const baseTex = symbolTex(agg.base)
-    const ith = agg.base.includes('_') ? `\\left(${baseTex}\\right)_{i}` : `${baseTex}_{i}`
-    const sum = (body: string) => `\\sum_{i=1}^{${n}} ${body}`
-    const sub = this.options.showSubstitution
-    switch (agg.kind) {
-      case AGGREGATE_KIND.sum:
-        return [sum(ith), names, ...(sub ? [values] : [])]
-      case AGGREGATE_KIND.mean:
-        return [`\\frac{1}{${n}}${sum(ith)}`, `\\frac{${names}}{${n}}`, ...(sub ? [`\\frac{${values}}{${n}}`] : [])]
-      case AGGREGATE_KIND.std:
-        return [`\\sqrt{\\frac{1}{${n}-1}${sum(`\\left(${ith}-\\bar{${baseTex}}\\right)^{2}`)}}`]
-      case AGGREGATE_KIND.sem:
-        return this.standardErrorWorking(agg)
-      case AGGREGATE_KIND.count:
-        return []
-    }
-  }
-
-  /** σ/√n, then with σ and n substituted (for `a_sem` and `delta a_avg`). */
-  private standardErrorWorking(agg: Aggregate): string[] {
-    const n = agg.members.length
-    if (n < 2) return []
-    const sigma = symbolTex(`${agg.base}_std`)
-    const steps = [`\\frac{${sigma}}{\\sqrt{n}}`]
-    if (this.options.showSubstitution) {
-      const values = agg.members.map((m) => this.scope.get(m))
-      const s = this.stdDev(values)
-      // σ to 2 sig figs here, so the division visibly gives the result.
-      const sTex = this.uncertaintyTex(s, math.isUnit(values[0]) ? values[0] : undefined, 2)
-      steps.push(`\\frac{${sTex}}{\\sqrt{${n}}}`)
-    }
-    return steps
-  }
-
-  // -------------------------------------------------------------------------
   // Constants
   // -------------------------------------------------------------------------
 
@@ -877,92 +716,8 @@ export class Calculator {
   }
 
   // -------------------------------------------------------------------------
-  // Functions
+  // A call's working (the sheet's functions themselves: sheetFunctions.ts)
   // -------------------------------------------------------------------------
-
-  /**
-   * Define a one-line function, `f(a, b) = a * b + 1`. Each call works out its
-   * expression in a fresh local scope whose parent is the scope the function was
-   * defined in, so it can read variables from around the definition. Calls go
-   * through mathjs like any other function, so units, sig figs and uncertainty
-   * propagation apply. `returnSettings`: settings for the result, written after
-   * the parameters as on a variable (`f(x):3:deg`), each without its `:`: every
-   * call's result is shown (and kept) that way.
-   */
-  private defineFunction(name: string, paramSpecs: readonly string[], expression: string, multiline: boolean, returnSettings: readonly string[]): LineResult {
-    // `m to kg`: the argument is converted to kg on the way in.
-    const parsed = paramSpecs.map(parseParam)
-    const params = parsed.map((p) => p?.name ?? '')
-    const casts = parsed.map((p) => p?.unit)
-    const ret = returnSettings.length ? declarationOf(name, returnSettings) : null
-    const settings = ret && !('error' in ret) ? ret : null
-    const shownUnit = settings?.unit && settings.unit !== PERCENT ? settings.unit : undefined
-    const signature = `${symbolTex(name)}\\left(${parsed.map((p, i) => (p
-      ? `${symbolTex(p.name)}${p.unit ? `\\,[${unitTex(p.unit)}]` : ''}`
-      : paramSpecs[i])).join(', ')}\\right)`
-    // (The unit its results are shown in is said after the equation: `… = tan⁻¹(y/x)   in °`.)
-    const inUnit = shownUnit ? resultUnitTex(unitTex(shownUnit)) : ''
-    const fail = (error: string): LineResult => ({ tex: signature, error })
-    if (ret && 'error' in ret) return fail(ret.error)
-    if (settings?.unit === PERCENT) return fail(`${name}:percent isn't available on a function; show a result as a percentage where it's used.`)
-    for (const setting of settings?.moduleSettings ?? []) {
-      const problem = moduleSettingProblem(name, setting, SETTING_PLACE.functionResult)
-      if (problem) return fail(problem)
-    }
-    const returnUnit = shownUnit
-    const returnSf = settings?.sf === EXACT_SETTING ? EXACT : settings?.sf
-    const returnNotation = settings?.notation
-    const returnLook = this.lookSettingOf(settings?.moduleSettings)?.look
-      ?? this.modules.map((m) => m.lookOfWritten(expression)).find((l) => l !== undefined)
-    const bad = paramSpecs.find((_, i) => !parsed[i])
-    if (bad !== undefined) return fail(`"${bad}" isn't a valid parameter: write a name, or "name to unit".`)
-    const badUnit = casts.find((u) => u !== undefined && !isValidUnit(u))
-    if (badUnit) return fail(`"${badUnit}" isn't a unit MathScribe knows.`)
-    const duplicate = params.find((p, i) => params.indexOf(p) !== i)
-    if (duplicate) return fail(`The parameter "${duplicate}" is listed twice.`)
-
-    let code: math.EvalFunction
-    let tex: string
-    try {
-      // Constants resolve where the function is defined, so calls can see them.
-      const expanded = this.constants.expand(expression)
-      if (expanded.error) throw new Error(expanded.error)
-      const node = math.parse(preprocess(expanded.text, this.isVariable).text)
-      code = node.compile()
-      tex = `${signature} = ${this.toTex(node, typedNumbers(expression))}${inUnit}`
-    } catch (e) {
-      return fail((e as Error).message)
-    }
-
-    const definedIn = this.vars
-    const fn = (...args: unknown[]) => {
-      if (args.length !== params.length) {
-        throw new Error(`${name} takes ${params.length} argument${params.length === 1 ? '' : 's'}, `
-          + `but was given ${args.length}.`)
-      }
-      const local = innerValues(definedIn)
-      params.forEach((p, i) => local.set(p, castArgument(p, casts[i], args[i])))
-      const v = code.evaluate(local)
-      return returnUnit ? toDisplayUnit(v, returnUnit) : v
-    }
-    this.userFunctions.set(fn, { params, casts, expression, definedIn, multiline, returnSf, returnNotation, returnLook, returnUnit })
-    this.store(name, { value: fn, sf: EXACT })
-    return { tex: nestBrackets(tex) }
-  }
-
-  /** Calls to the sheet's own functions in `node`, innermost first (arguments before the call). */
-  private userCalls(node: MathNode): FunctionNode[] {
-    const out: FunctionNode[] = []
-    const visit = (n: MathNode) => {
-      n.forEach((child) => visit(child))
-      if (isFunctionNode(n)) {
-        const f = this.scope.get(n.fn.name)
-        if (typeof f === 'function' && this.userFunctions.has(f)) out.push(n)
-      }
-    }
-    visit(node)
-    return out
-  }
 
   /**
    * Show what happens inside a call: work out the function's expression through
@@ -971,8 +726,7 @@ export class Calculator {
    * the working of the calls inside it, and the pieces of its expression.
    */
   private traceCall(call: FunctionNode, literals: Map<number, string>, mode: DisplayMode, explicit: boolean) {
-    const fn = this.scope.get(call.fn.name)
-    const def = typeof fn === 'function' ? this.userFunctions.get(fn) : undefined
+    const def = this.functions.named(call.fn.name)
     if (!def || def.params.length !== call.args.length || this.traceDepth >= MAX_TRACE_DEPTH) return null
 
     // Arguments are worked out in the calling scope.
@@ -1031,16 +785,6 @@ export class Calculator {
       this.enter(caller)
     }
   }
-
-  private isUserFunction(name: string): boolean {
-    const f = this.scope.get(name)
-    return typeof f === 'function' && this.userFunctions.has(f)
-  }
-
-  // -------------------------------------------------------------------------
-  // @solve(lhs = rhs, x [, guess])
-  // -------------------------------------------------------------------------
-
   // -------------------------------------------------------------------------
   // Evaluation
   // -------------------------------------------------------------------------
@@ -1156,12 +900,6 @@ export class Calculator {
     return { ...result, parts, tex: layoutEquation(mode, parts, this.multiline) }
   }
 
-  /** A series' values by number: t_1, t_2, … (or t1, t2, …) as 1 → "t_1", 2 → "t_2", …. */
-  private seriesRows(base: string): Map<number, string> {
-    const number = new RegExp(`^${escapeRegExp(base)}_?(\\d+)$`)
-    return new Map(this.seriesMembers(base).map((m) => [Number(number.exec(m)![1]), m]))
-  }
-
   /** An expression as typed, as TeX (an unnamed table column's header). */
   private expressionTex(expr: string): string {
     const literals = typedNumbers(expr)
@@ -1243,7 +981,7 @@ export class Calculator {
       if (words !== undefined) return this.displayNames.defineTemplate(target.name, params, words)
       // `f(x, y) = …`: a function;
       // `f(x):3:deg = …`: settings for what the function gives back.
-      return this.defineFunction(target.name, params, shape.value, this.multiline, target.settings)
+      return this.functions.define(target.name, params, shape.value, this.multiline, target.settings)
     }
     return undefined
   }
@@ -1281,7 +1019,7 @@ export class Calculator {
     const cleaned = constants.text
     const cleanedShape = lineShape(cleaned)
     const assignedName = cleanedShape.target?.kind === NODE_KIND.assigned ? cleanedShape.target.name : undefined
-    const aggregateError = this.defineAggregates(cleaned, assignedName)
+    const aggregateError = this.aggregates.defineNamedIn(cleaned, assignedName)
     if (aggregateError) return { tex: '', error: aggregateError }
     // `… to percent` isn't a mathjs unit: take it off and show the result as a percentage.
     line.asPercent = TO_PERCENT.test(cleaned) || declaration?.unit === PERCENT
@@ -1376,10 +1114,7 @@ export class Calculator {
     const assigned = isAssignmentNode(node) ? node.object.name : undefined
     const expr = isAssignmentNode(node) ? node.value : node
     // #multiline on the line, or a call to a function defined with #multiline.
-    const multiline = this.multiline || this.userCalls(expr).some((c) => {
-      const f = this.scope.get(c.fn.name)
-      return typeof f === 'function' && this.userFunctions.get(f)?.multiline === true
-    })
+    const multiline = this.multiline || this.functions.callsIn(expr).some((c) => this.functions.named(c.fn.name)?.multiline === true)
     // For `x to kN`, show `x`; the conversion shows up in the result.
     const shown = isOperatorNode(expr) && isConversion(expr) ? expr.args[0] : expr
 
@@ -1407,7 +1142,7 @@ export class Calculator {
     let returnSf: number | undefined
     // (Worked out with #val too: each call's result has the sig figs of its return
     // line, which sigFigsOf needs when the call is part of a bigger expression.)
-    for (const call of this.userCalls(shown)) {
+    for (const call of this.functions.callsIn(shown)) {
       const t = this.traceCall(call, literals, mode, explicit)
       if (!t) continue
       if (t.retSf !== undefined) this.callSigFigs.set(call, t.retSf)
@@ -1429,12 +1164,12 @@ export class Calculator {
       // The uncertainty of a series mean is its standard error.
       const meanOf = this.vars.get(uncRef.of)?.agg
       steps.push(...(meanOf?.kind === AGGREGATE_KIND.mean
-        ? this.standardErrorWorking(meanOf)
+        ? this.aggregates.standardErrorWorking(meanOf)
         : this.uncertainty.deltaWorking(uncRef.of, uncRef.letter)))
     }
     // `a`, `a_avg`, …: show how the series is combined.
     const agg = isSymbolNode(bare) ? this.vars.get(bare.name)?.agg : undefined
-    if (agg) steps.push(...this.aggregateWorking(agg))
+    if (agg) steps.push(...this.aggregates.working(agg))
 
     // Substitution and sig figs use the values from before this line runs.
     const usesVariables = shown.filter((n, path) => this.isValueSymbol(n, path)).length > 0
@@ -1478,7 +1213,7 @@ export class Calculator {
       // Evaluate the right-hand side and assign ourselves, so the stored value is normalised.
       // A call to a function that declares its result's unit (`conc(n, V):mol/L`) keeps that unit, as a conversion does.
       const called = isFunctionNode(bare) ? this.scope.get(bare.fn.name) : undefined
-      const declaresUnit = typeof called === 'function' && !!this.userFunctions.get(called)?.returnUnit
+      const declaresUnit = !!this.functions.of(called)?.returnUnit
       // A name on its own (`c`, `y = c`) is shown as the variable is: in its unit.
       const justAName = isSymbolNode(bare)
       value = normalise(expr.compile().evaluate(this.scope), isConversion(expr) || isLiteral(expr) || declaresUnit || justAName)
@@ -1561,7 +1296,7 @@ export class Calculator {
     const kept = ctx.notation
       ?? (deltaOf ? this.vars.get(deltaOf)?.notation : undefined)
       ?? (isSymbolNode(bare) ? this.vars.get(bare.name)?.notation : undefined)
-      ?? (typeof callee === 'function' ? this.userFunctions.get(callee)?.returnNotation : undefined)
+      ?? this.functions.of(callee)?.returnNotation
     // `#sci` / `#dec` only change how this line is shown: the line's own command
     // beats a variable's notation, and a block's doesn't (see LineNotation).
     const notation = ctx.notation ?? this.lineNotation.own ?? kept ?? this.lineNotation.block

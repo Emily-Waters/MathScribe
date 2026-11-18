@@ -10,6 +10,7 @@ import { Decoration, EditorView, ViewPlugin, keymap, type DecorationSet, type Vi
 import { SYMBOL_KIND, type SheetSymbol } from '../lib/sheet/sheetIndex.ts'
 import { sheetLine } from './sheetLines.ts'
 import { isToken, TOKEN_KIND, type Part, type SyntaxNode } from '../lib/tree/index.ts'
+import { placeFixedPanel } from './popover.ts'
 
 /** Function name → the lines it's defined on, in order. */
 type Definitions = Map<string, number[]>
@@ -134,13 +135,77 @@ function goToDefinition(view: EditorView, pos: number): boolean {
 function renameSymbol(view: EditorView): boolean {
   const target = nameAt(view.state, view.state.selection.main.head)
   if (!target) return false
-  const here = view.state.doc.lineAt(view.state.selection.main.head).number
   const promptName = target.name.startsWith('@') ? target.name.slice(1) : target.name
-  const replacement = window.prompt(`Rename ${promptName} to:`, promptName)
-  if (replacement === null) return true
-  if (!replacement.trim() || !/^[A-Za-z\u0370-\u03ff][\w\u0370-\u03ff]*$/.test(replacement.trim())) return true
-  const nextName = replacement.trim()
-  if (nextName === target.name) return true
+  const promptRect = view.coordsAtPos(target.from)
+  if (!promptRect) return true
+
+  const old = document.querySelector('.cm-rename-popover')
+  old?.remove()
+  const panel = document.createElement('div')
+  panel.className = 'cm-rename-popover'
+  panel.setAttribute('role', 'dialog')
+  panel.setAttribute('aria-label', `Rename ${promptName}`)
+
+  const label = document.createElement('label')
+  label.textContent = 'Rename'
+  const input = document.createElement('input')
+  input.type = 'text'
+  input.value = promptName
+  input.setAttribute('aria-label', `New name for ${promptName}`)
+  panel.append(label, input)
+  document.body.append(panel)
+
+  const keepPlaced = placeFixedPanel(panel, {
+    top: promptRect.top,
+    bottom: promptRect.bottom,
+    left: promptRect.left,
+    right: promptRect.right,
+  })
+  input.select()
+  input.focus()
+
+  const close = (restoreFocus = true) => {
+    keepPlaced()
+    panel.remove()
+    document.removeEventListener('mousedown', outside, true)
+    document.removeEventListener('keydown', escape, true)
+    if (restoreFocus) view.focus()
+  }
+  const outside = (event: MouseEvent) => {
+    if (!panel.contains(event.target as Node)) close()
+  }
+  const escape = (event: KeyboardEvent) => {
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      close()
+    }
+  }
+  document.addEventListener('mousedown', outside, true)
+  document.addEventListener('keydown', escape, true)
+
+  const commit = () => {
+    const replacement = input.value.trim()
+    if (!replacement || !/^[A-Za-z\u0370-\u03ff][\w\u0370-\u03ff]*$/.test(replacement)) {
+      input.select()
+      return
+    }
+    if (replacement !== promptName) applyRename(view, target, promptName, replacement)
+    close()
+  }
+  input.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      commit()
+    }
+  })
+  return true
+}
+
+/** Apply a rename after the small in-editor panel validates its text. */
+function applyRename(view: EditorView, target: NameAt, promptName: string, replacement: string): void {
+  const here = view.state.doc.lineAt(view.state.selection.main.head).number
+  const nextName = replacement
+  if (nextName === promptName) return
 
   const ranges: { from: number; to: number }[] = []
   for (let lineNumber = 1; lineNumber <= view.state.doc.lines; lineNumber++) {
@@ -160,13 +225,12 @@ function renameSymbol(view: EditorView): boolean {
       ranges.push({ from: token.from, to: token.to })
     }
   }
-  if (!ranges.length) return true
+  if (!ranges.length) return
   ranges.sort((a, b) => b.from - a.from)
   view.dispatch({
     changes: ranges.map((range) => ({ from: range.from, to: range.to, insert: target.name.startsWith('@') ? `@${nextName.replace(/^@/, '')}` : nextName })),
   })
   view.focus()
-  return true
 }
 
 /** Underlines a name (or nothing), as the link Ctrl+Click would follow. */

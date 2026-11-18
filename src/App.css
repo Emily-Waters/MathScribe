@@ -1119,6 +1119,45 @@ body {
   box-shadow: 0 8px 24px rgb(0 0 0 / 0.16);
 }
 
+/* F2 rename: a small fixed panel beside the name, edge-safe like the editor settings. */
+.cm-rename-popover {
+  position: fixed;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: min(260px, calc(100vw - 16px));
+  box-sizing: border-box;
+  padding: 8px 10px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.16);
+  font-size: 13px;
+}
+
+.cm-rename-popover label {
+  color: var(--muted);
+}
+
+.cm-rename-popover input {
+  flex: 1;
+  min-width: 0;
+  box-sizing: border-box;
+  font: inherit;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 5px 7px;
+  outline: none;
+}
+
+.cm-rename-popover input:focus {
+  border-color: var(--accent);
+}
+
 .options__row {
   display: flex;
   align-items: center;

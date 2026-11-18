@@ -110,7 +110,7 @@ amber one; hover the bar to read the message.
 | Alt+↑ / Alt+↓ | Move the line (or selected lines) up / down |
 | Shift+Alt+↑ / ↓ | Duplicate the line |
 | Ctrl+Click a name, or F12 | Go to where a variable, function or constant is defined (names you can jump from are underlined while Ctrl is held) |
-| F2 | Rename a variable or function everywhere it's used, respecting scope |
+| F2 | Open a small rename panel beside the variable or function and rename every use in scope |
 | Ctrl+F | Find and replace |
 | Ctrl+/ | Comment or uncomment the line (or selected lines) with `//` |
 | Ctrl+Z / Ctrl+Y | Undo / redo |

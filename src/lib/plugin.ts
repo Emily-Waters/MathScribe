@@ -82,3 +82,4 @@ export { useLineLink } from '../components/blocks/context.ts'
 
 // The editor.
 export type { Extension } from '@codemirror/state'
+export { fixedPanelPosition, placeFixedPanel, type PanelAnchor, type PanelAlignment } from '../editor/popover.ts'

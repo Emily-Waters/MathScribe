@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
+import { placeFixedPanel } from '../editor/popover.ts'
 
 interface DropdownProps {
   label: string
@@ -13,11 +15,13 @@ interface DropdownProps {
 export function Dropdown({ label, panelLabel, children, hidden }: DropdownProps) {
   const [open, setOpen] = useState(false)
   const root = useRef<HTMLDivElement>(null)
+  const toggle = useRef<HTMLButtonElement>(null)
+  const panel = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!open) return
     const onPointer = (e: PointerEvent) => {
-      if (!root.current?.contains(e.target as Node)) setOpen(false)
+      if (!root.current?.contains(e.target as Node) && !panel.current?.contains(e.target as Node)) setOpen(false)
     }
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setOpen(false)
@@ -30,9 +34,16 @@ export function Dropdown({ label, panelLabel, children, hidden }: DropdownProps)
     }
   }, [open])
 
+  useEffect(() => {
+    if (!open || !panel.current || !toggle.current) return
+    const rect = toggle.current.getBoundingClientRect()
+    return placeFixedPanel(panel.current, rect, 'right')
+  }, [open])
+
   return (
     <div className="options" ref={root} style={hidden ? { visibility: 'hidden' } : undefined}>
       <button
+        ref={toggle}
         className="options__toggle"
         aria-haspopup="true"
         aria-expanded={open && !hidden}
@@ -40,10 +51,11 @@ export function Dropdown({ label, panelLabel, children, hidden }: DropdownProps)
       >
         {label} <span aria-hidden="true">▾</span>
       </button>
-      {open && !hidden && (
-        <div className="options__panel" role="group" aria-label={panelLabel}>
+      {open && !hidden && createPortal(
+        <div ref={panel} className="options__panel" role="group" aria-label={panelLabel}>
           {children}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   )

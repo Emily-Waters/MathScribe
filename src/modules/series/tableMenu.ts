@@ -16,6 +16,7 @@ import {
   parsePlotSettings, parseTableSettings, splitCallArgs, withSettingsText,
   type AxisSettings, type CallWithSettings as CallKind, type PlotFit, type PlotSettings, type PlotStyle, type TableLines, type TableSettings,
 } from './public.ts'
+import { placeFixedPanel } from '../../lib/plugin.ts'
 
 /** How each choice reads in the panels. */
 const LINE_NAMES: Record<TableLines, string> = { header: 'Under the header', grid: 'Grid', none: 'None' }
@@ -185,13 +186,10 @@ function openSettings(view: EditorView, button: HTMLElement, n: number): void {
   panel.setAttribute('aria-label', call.kind === SERIES_CALL.table ? 'Table settings' : 'Plot settings')
   panel.append(...(call.kind === SERIES_CALL.table ? tablePanel : plotPanel)(settingsText, save))
 
-  // Under the button, kept on screen.
+  // Beside the button, kept fully on screen.
   const at = button.getBoundingClientRect()
-  panel.style.position = 'fixed'
-  panel.style.top = `${at.bottom + 6}px`
-  panel.style.left = `${Math.max(8, Math.min(at.left, window.innerWidth - 340))}px`
-  panel.style.right = 'auto'
   document.body.append(panel)
+  const keepPlaced = placeFixedPanel(panel, at)
 
   const onDown = (e: MouseEvent) => {
     if (!panel.contains(e.target as Node) && e.target !== button) close()
@@ -203,6 +201,7 @@ function openSettings(view: EditorView, button: HTMLElement, n: number): void {
     }
   }
   const close = () => {
+    keepPlaced()
     panel.remove()
     document.removeEventListener('mousedown', onDown, true)
     document.removeEventListener('keydown', onKey, true)

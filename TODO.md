@@ -161,9 +161,9 @@ working (group 2).
 - [ ] **Parameter hints**: typing `E_k(1, ` shows `E_k(n, m [kg], L [m])` with the
       current parameter highlighted.
 - [x] **Rename (F2)** a variable or function everywhere it's used, respecting scope.
-      Resolved (2026-11-17): F2 offers a name prompt and replaces uses that
-      resolve to the same symbol, in scope. Ctrl+Click and F12 also jump to
-      variables, functions and constants.
+      Resolved (2026-11-17): F2 opens a small in-editor panel beside the name
+      and replaces uses that resolve to the same symbol, in scope. Ctrl+Click
+      and F12 also jump to variables, functions and constants.
 - [x] **Go to definition for variables and constants** (`@rho_w` → its
       `@constants` entry).
       Resolved (2026-11-17): Ctrl+Click and F12 navigate the name under the

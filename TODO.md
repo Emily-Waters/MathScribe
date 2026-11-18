@@ -697,7 +697,7 @@ edit reads again only what it changed, and nodes are shared between trees.
         through PowerShell's `Get-Content`/`Set-Content`, which read UTF-8 as
         ANSI and turned `…`, `•`, `→`, `⚙`, `×` into `â€¦`-style mojibake
         (the file name's `•` in the top bar showed it); repaired.
-      4. [ ] The Calculator's concerns into collaborators, and a line read as a
+      4. [x] The Calculator's concerns into collaborators, and a line read as a
          pipeline of token stages (modules add stages); EngineModule's hooks
          grouped into interfaces a module opts into.
          - [x] A, the line pipeline: a line goes through stages in order
@@ -750,6 +750,19 @@ edit reads again only what it changed, and nodes are shared between trees.
              it's the evaluator's own, not a collaborator's. Moved, not changed:
              all tests pass as they were. The Calculator is down from 1891
              lines to about 1480.
+         - [x] D, EngineModule's hooks grouped, so a module's author finds
+           what to override by what it's for.
+           Resolved: the hooks are in documented sections, in two kinds, as
+           the class's own comment says: shared (called on one module of each
+           class: what it adds when installed; the sheet's language; units;
+           how its notation is written; blocks and the editor) and per sheet
+           (called on the sheet's own module, which keeps its state: a line's
+           pipeline; values; tuples). `settingProblem` moved to the shared
+           ones, where it's called. Grouped as sections of the one class
+           rather than separate interfaces a module implements: a module
+           still only extends `EngineModule` and overrides what it needs, as
+           CLAUDE.md has it, and every hook keeps its no-op default. Moved,
+           not changed: all tests pass as they were.
            (Pulled in on the way, 2026-11-17: `@series(…)` and the fit that
            counts x uncertainties, from Emily's other machine; written as a
            series line form through the module API, as the approach has it, so

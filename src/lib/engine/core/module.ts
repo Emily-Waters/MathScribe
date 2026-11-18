@@ -268,6 +268,16 @@ export interface ModuleBlockKind {
 /** A module class that can be installed: made with no arguments (each sheet makes its own, keeping its own state). */
 export type InstallableModule = new () => EngineModule
 
+/**
+ * A module: what extends MathScribe's core (chemistry, series, vectors, or one
+ * of your own), as a subclass overriding the hooks it needs; each has a default
+ * that does nothing. Its hooks come in two kinds:
+ *   - shared, called on one module of each class, whichever sheet: what it adds
+ *     to the language, units, notation and the editor, which hold for every sheet;
+ *   - per sheet, called on the sheet's own module (each sheet makes its own,
+ *     with no arguments), which keeps that sheet's state: a line's pipeline,
+ *     values, and tuples.
+ */
 export abstract class EngineModule {
   /**
    * The modules it builds on (a module that adds to vectors needs VectorModule):
@@ -276,8 +286,12 @@ export abstract class EngineModule {
    */
   readonly requires: readonly ModuleClass[] = []
 
+  // =========================================================================
+  // Shared: called on one module of each class, for every sheet
+  // =========================================================================
+
   // -------------------------------------------------------------------------
-  // Shared
+  // What it adds when it's installed
   // -------------------------------------------------------------------------
 
   /** Add its functions to mathjs: called once, when the first module of its class is installed. */
@@ -293,35 +307,18 @@ export abstract class EngineModule {
     return []
   }
 
-  /**
-   * Its own kinds of block, by their `type` (`CustomBlock`, which its readers
-   * make): how each is written to LaTeX and Word (its construct) and drawn in
-   * the Rendered tab (its view). Return the same object each time (a constant).
-   */
-  blockKinds(): Readonly<Record<string, ModuleBlockKind>> {
-    return {}
-  }
+  // -------------------------------------------------------------------------
+  // The sheet's language: settings after a name, and expressions as mathjs reads them
+  // -------------------------------------------------------------------------
+
+  /** Settings after an assigned name that are this module's (`m:formula = …`), each with what it does (for the editor's suggestions). */
+  readonly lineSettings: Readonly<Record<string, string>> = {}
 
   /**
-   * What it adds to the editor, for its own syntax: CodeMirror extensions
-   * (series' ⚙ menu after a table or plot, which edits its settings).
+   * What's wrong with one of this module's settings where it's written (on a function's result, an unpacked name).
+   * (Shared, like lineSettings: settings are read before a Calculator is.)
    */
-  editorExtensions(): readonly Extension[] {
-    return []
-  }
-
-  /**
-   * Whether a unit labels a quantity rather than measuring it, as a species
-   * does (mol EDTA). A label unit is worth exactly 1 and has no prefix: it's kept
-   * through a conversion (mol EDTA to mmol is mmol EDTA), and set aside while a
-   * unit is tidied.
-   */
-  isLabelUnit(_unitName: string): boolean {
-    return false
-  }
-
-  /** A label unit as LaTeX (undefined if it isn't this module's); `alone`: the unit has nothing else, so it's a ratio of them. */
-  labelUnitTex(_unitName: string, _alone: boolean): string | undefined {
+  settingProblem(_name: string, _setting: string, _place: SettingPlace): string | undefined {
     return undefined
   }
 
@@ -339,6 +336,32 @@ export abstract class EngineModule {
   bareTupleHint(_bare: string): string | undefined {
     return undefined
   }
+
+  // -------------------------------------------------------------------------
+  // Units
+  // -------------------------------------------------------------------------
+
+  /**
+   * Whether a unit labels a quantity rather than measuring it, as a species
+   * does (mol EDTA). A label unit is worth exactly 1 and has no prefix: it's kept
+   * through a conversion (mol EDTA to mmol is mmol EDTA), and set aside while a
+   * unit is tidied.
+   */
+  isLabelUnit(_unitName: string): boolean {
+    return false
+  }
+
+  /** A label unit as LaTeX (undefined if it isn't this module's); `alone`: the unit has nothing else, so it's a ratio of them. */
+  labelUnitTex(_unitName: string, _alone: boolean): string | undefined {
+    return undefined
+  }
+
+  /** A sentence added to the explanation of units that don't match. */
+  readonly unitMismatchNote: string | undefined = undefined
+
+  // -------------------------------------------------------------------------
+  // How its notation is written: LaTeX, and messages
+  // -------------------------------------------------------------------------
 
   /** Functions that aren't written in the working, only what's inside them. */
   readonly unwrittenFunctions: readonly string[] = []
@@ -376,14 +399,33 @@ export abstract class EngineModule {
     return message
   }
 
-  /** A sentence added to the explanation of units that don't match. */
-  readonly unitMismatchNote: string | undefined = undefined
+  // -------------------------------------------------------------------------
+  // Blocks of its own, and the editor
+  // -------------------------------------------------------------------------
 
-  /** Settings after an assigned name that are this module's (`m:formula = …`), each with what it does (for the editor's suggestions). */
-  readonly lineSettings: Readonly<Record<string, string>> = {}
+  /**
+   * Its own kinds of block, by their `type` (`CustomBlock`, which its readers
+   * make): how each is written to LaTeX and Word (its construct) and drawn in
+   * the Rendered tab (its view). Return the same object each time (a constant).
+   */
+  blockKinds(): Readonly<Record<string, ModuleBlockKind>> {
+    return {}
+  }
+
+  /**
+   * What it adds to the editor, for its own syntax: CodeMirror extensions
+   * (series' ⚙ menu after a table or plot, which edits its settings).
+   */
+  editorExtensions(): readonly Extension[] {
+    return []
+  }
+
+  // =========================================================================
+  // Per sheet: called on the sheet's own module, which keeps the sheet's state
+  // =========================================================================
 
   // -------------------------------------------------------------------------
-  // Per calculator
+  // A line's pipeline
   // -------------------------------------------------------------------------
 
   /** A line's text before anything reads it (a species' name as its formula). */
@@ -409,6 +451,25 @@ export abstract class EngineModule {
    */
   readonly lineSteps: readonly LineStep[] = []
 
+  // -------------------------------------------------------------------------
+  // Values: counted, given, checked and written
+  // -------------------------------------------------------------------------
+
+  /** Whether a number times a unit, as typed, is an exact count (no sig-fig limit). */
+  isExactCount(_number: MathNode, _unit: MathNode, _literals: Map<number, string>): boolean {
+    return false
+  }
+
+  /** A built-in constant's value as this module gives it (a molar mass given its species). */
+  constantValue(value: unknown, _constant: BuiltinConstant | NamespaceConstant | undefined): unknown {
+    return value
+  }
+
+  /** What's wrong with a line's value, by this module's rules, if anything. */
+  valueProblem(_value: unknown): string | undefined {
+    return undefined
+  }
+
   /**
    * A call as LaTeX, if it's one of this module's functions (and not the sheet's own of that name); `tex` writes a node.
    * (Used as written, as mathjs's own would be: a leading space keeps it apart from what's before it, as in a sum.)
@@ -417,7 +478,9 @@ export abstract class EngineModule {
     return undefined
   }
 
-  // Tuples: a module can give a tuple a look of its own (a vector, ⟨3.0, 4.0⟩ N).
+  // -------------------------------------------------------------------------
+  // Tuples: a module can give a tuple a look of its own (a vector, ⟨3.0, 4.0⟩ N)
+  // -------------------------------------------------------------------------
 
   /** Functions that make a tuple of what they're given, which typed as numbers keeps each one's sig figs: `@vector(0.50, -9.81)`. */
   readonly typedTupleFunctions: readonly string[] = []
@@ -453,29 +516,6 @@ export abstract class EngineModule {
    */
   derivedVariables(_name: string, _value: unknown, _settings: readonly string[]): DerivedVariable[] {
     return []
-  }
-
-  /**
-   * What's wrong with one of this module's settings where it's written (on a function's result, an unpacked name).
-   * (Shared, like lineSettings: settings are read before a Calculator is.)
-   */
-  settingProblem(_name: string, _setting: string, _place: SettingPlace): string | undefined {
-    return undefined
-  }
-
-  /** Whether a number times a unit, as typed, is an exact count (no sig-fig limit). */
-  isExactCount(_number: MathNode, _unit: MathNode, _literals: Map<number, string>): boolean {
-    return false
-  }
-
-  /** A built-in constant's value as this module gives it (a molar mass given its species). */
-  constantValue(value: unknown, _constant: BuiltinConstant | NamespaceConstant | undefined): unknown {
-    return value
-  }
-
-  /** What's wrong with a line's value, by this module's rules, if anything. */
-  valueProblem(_value: unknown): string | undefined {
-    return undefined
   }
 }
 
@@ -514,7 +554,6 @@ export function inDependencyOrder(modules: readonly EngineModule[]): EngineModul
   return ordered
 }
 
-/** Install a module's shared hooks, if one of its class isn't installed already (the modules it requires must be). */
 /** The module classes MathScribe works sheets out with: those registered (src/modules/index.ts registers every one there). */
 const registered: InstallableModule[] = []
 
@@ -534,6 +573,7 @@ export function registerModules(classes: readonly InstallableModule[]): void {
  */
 export const sheetModules = (): EngineModule[] => registered.map((Module) => new Module())
 
+/** Install a module's shared hooks, if one of its class isn't installed already (the modules it requires must be). */
 export function installModule(module: EngineModule): void {
   const kind = classOf(module)
   if (installed.has(kind)) return

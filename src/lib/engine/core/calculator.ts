@@ -3,16 +3,18 @@
  * shared scope so variables defined on one line are usable on later lines,
  * and produces LaTeX for each line (symbolic = substituted = result).
  */
-import { isAssignmentNode, isConditionalNode, isConstantNode, isFunctionAssignmentNode, isFunctionNode, isOperatorNode, isParenthesisNode, isSymbolNode, type FunctionNode, type MathNode, type MathType, type SymbolNode, type Unit } from 'mathjs'
-import { EXACT, MAX_DIGITS, countSigFigs, formatExact, formatSigFigs, formatWithUncertainty, uncertaintySigFigs, hasAmbiguousZeros, isMeasuredLiteral, lastPlace, sigFigsFromPlace } from '../../maths/sigfigs.ts'
+import { isAssignmentNode, isConditionalNode, isConstantNode, isFunctionAssignmentNode, isFunctionNode, isOperatorNode, isSymbolNode, type FunctionNode, type MathNode, type MathType, type SymbolNode, type Unit } from 'mathjs'
+import { EXACT, MAX_DIGITS, countSigFigs, formatExact, formatSigFigs, formatWithUncertainty, uncertaintySigFigs, lastPlace, sigFigsFromPlace } from '../../maths/sigfigs.ts'
 import { AGGREGATE_KIND, Variable, type Aggregate, type Contributions, type VariableFields, type VariableSummary } from '../../sheet/values.ts'
 import { BUILTINS, isReservedConstantName } from '../../builtins.ts'
-import { EXACT_SETTING, IS_NAME, MEMBER_DOT, PERCENT, DISPLAY_MODE, CONSTANTS_BLOCK, LABEL_WORDS, SIGIL, type DisplayMode, type Notation, type Precision, type UncertaintyWord } from '../../syntax.ts'
-import { INLINE_VALUE_NAME, INV_FUNCTION, JOIN, TUPLE_FUNCTION, RESERVED_NAMESPACES, isHiddenName, isUncertaintyName, memberName, parseNumberedName, parseUncertaintyName, readableMembers, seriesMemberName, uncertaintyName, unpackedName } from '../../sheet/names.ts'
+import { EXACT_SETTING, IS_NAME, MEMBER_DOT, PERCENT, DISPLAY_MODE, CONSTANTS_BLOCK, LABEL_WORDS, SIGIL, type DisplayMode, type Notation, type Precision } from '../../syntax.ts'
+import { INLINE_VALUE_NAME, INV_FUNCTION, JOIN, TUPLE_FUNCTION, RESERVED_NAMESPACES, isHiddenName, isUncertaintyName, memberName, parseNumberedName, parseUncertaintyName, readableMembers, seriesMemberName, unpackedName } from '../../sheet/names.ts'
 import { expandDots } from './memberAccess.ts'
 import { SheetConstants } from './sheetConstants.ts'
 import { DisplayNames } from './displayNames.ts'
-import { COMPARISONS, FN, OP, OP_SYMBOL, UNIT, isOp } from '../../maths/mathjsNames.ts'
+import { SigFigs } from './sigFigs.ts'
+import { Propagation } from './propagation.ts'
+import { FN, OP, OP_SYMBOL, UNIT, isOp } from '../../maths/mathjsNames.ts'
 
 import { nestBrackets } from '../../maths/brackets.ts'
 import type { CsvColumn } from '../../data/csv.ts'
@@ -25,11 +27,11 @@ import {
 import { strayLineFormCall } from './builtinCalls.ts'
 import { BUILTIN_CONSTANT_NAMES, NAME_IN_LINE } from './literals.ts'
 import { preprocess, typedNumbers } from './writer.ts'
-import { AUTO_PRECISION, ExplainedError, builtinCallHint, FIXED_UNCERTAINTY_SIG_FIGS, type CalcOptions, type EquationParts, layoutEquation, type TraceLine, type CalcResult, unexpectedError, fitHint, type DataColumn, type LineNotation, type LineResult, type ParsedLine, TO_PERCENT, RAW, rawNode, STEP, readableUnitError } from './results.ts'
-import { NAME_THEN_SETTINGS, DELTA_REF, expandParenPm, splitPm } from './uncertainty.ts'
+import { AUTO_PRECISION, ExplainedError, builtinCallHint, FIXED_UNCERTAINTY_SIG_FIGS, type CalcOptions, type EquationParts, layoutEquation, type TraceLine, type CalcResult, unexpectedError, fitHint, type DataColumn, type LineNotation, type LineResult, type ParsedLine, TO_PERCENT, RAW, rawNode, readableUnitError } from './results.ts'
+import { NAME_THEN_SETTINGS, expandParenPm, splitPm } from './uncertainty.ts'
 import { parseAggregateName, escapeRegExp } from './series.ts'
 import { symbolTex, numberTex, unitTex, attachUnit, isUnitCall, unitCallText, isLitCall, resultUnitTex, CASE_WORDS, caseTex, splitUnit } from './tex.ts'
-import { unwrap, isLiteral, isTupleLiteral, isPureNumber, isConversion } from './nodes.ts'
+import { unwrap, isLiteral, isTupleLiteral, isConversion } from './nodes.ts'
 import { NODE_KIND, TOKEN_KIND, isToken, type Part } from '../../tree/nodes.ts'
 import { lexExpression } from '../../tree/lexer.ts'
 import { ASSIGN, SETTING_MARK, lineShape, type LineShape } from '../../tree/shapes.ts'
@@ -40,7 +42,7 @@ import { isAngleUnit, toDisplayUnit, type Declaration, type TupleName, parseTupl
 import { withRows } from './rows.ts'
 import { bracketed } from './tuples.ts'
 import { EXACT_DISPLAY_DIGITS, FIXED_FORMAT, FLOAT_NOISE, TINY, PERCENT_SCALE, parseParam, isValidUnit, castArgument } from './numbers.ts'
-import { isNumberWithUnit, SIDE, type Side, inScientificNotation, needsBrackets, productSeparator, PRODUCT_SIGN, EVERY_PRODUCT_SIGN, signBeforeTex } from './products.ts'
+import { isNumberWithUnit, SIDE, type Side, inScientificNotation, needsBrackets, productSeparator, PRODUCT_SIGN, EVERY_PRODUCT_SIGN } from './products.ts'
 import { uncertaintyUnitError, columnValues } from './data.ts'
 
 /** Evaluates a sheet line by line, keeping its variables, their sig figs and uncertainties, and the functions it defines. */
@@ -105,13 +107,37 @@ export class Calculator {
     store: (name, fields) => this.store(name, fields),
     constantValue: (value, builtin) => this.modules.reduce((v, m) => m.constantValue(v, builtin), value),
   })
+  /** Counting a result's significant figures (sigFigs.ts). */
+  private readonly sigFigs = new SigFigs({
+    valueOf: (node) => node.compile().evaluate(this.scope),
+    variableSigFigs: (name) => this.vars.get(name)?.sf,
+    declaredSigFigs: (name) => {
+      const f = this.scope.get(name)
+      return typeof f === 'function' ? this.userFunctions.get(f)?.returnSf : undefined
+    },
+    tracedSigFigs: (call) => this.callSigFigs.get(call),
+    isExactCount: (number, unit, literals) => this.modules.some((m) => m.isExactCount(number, unit, literals)),
+  })
   /** Display names: a name's own words in place of its symbol, and the templates that make them (displayNames.ts). */
   private readonly displayNames = new DisplayNames({
     inlineValue: (source) => this.inlineValue(source),
     markupText: (text) => this.modules.reduce((t, m) => m.markupText(t), text),
   })
+  /** Uncertainties: combining, propagating, `delta F`, and its working (propagation.ts). */
+  private readonly uncertainty = new Propagation({
+    variable: (name) => this.vars.get(name),
+    value: (name) => this.scope.get(name),
+    has: (name) => this.scope.has(name),
+    isValueSymbol: (node, path): node is SymbolNode => this.isValueSymbol(node, path),
+    scratchValues: () => innerValues(this.vars),
+    store: (name, fields) => this.store(name, fields),
+    displayNumber: (value) => this.split(value, EXACT)?.x,
+    tex: (node, literals) => this.toTex(node, literals),
+    variableNode: (name) => this.variableNode(name),
+    uncertaintyTex: (unc, like, uncSf) => this.uncertaintyTex(unc, like, uncSf),
+    showsSubstitution: () => this.options.showSubstitution,
+  })
   /** Set while evaluating a line whose sum/difference has no significant figures. */
-  private precisionLost = false
   private options: CalcOptions
   /** What extends the engine (chemistry), each with its own hooks: see EngineModule. */
   private readonly modules: readonly EngineModule[]
@@ -133,8 +159,8 @@ export class Calculator {
     evaluateNode: (node) => node.compile().evaluate(this.scope) as unknown,
     expandConstants: (text) => this.constants.expand(text),
     isUserFunction: (name) => this.isUserFunction(name),
-    propagate: (node) => this.propagate(node),
-    sigFigs: (node, literals) => this.sigFigsOf(node, literals, false),
+    propagate: (node) => this.uncertainty.propagate(node),
+    sigFigs: (node, literals) => this.sigFigs.of(node, literals, false),
     inScratchScope: (fn) => {
       const caller = this.vars
       this.enter(new Scope(caller))
@@ -147,7 +173,7 @@ export class Calculator {
     scratchValues: () => innerValues(this.vars),
     tex: (node, literals) => this.toTex(node, literals),
     evaluateExpression: (text) => math.evaluate(preprocess(text, this.isVariable).text, this.scope) as unknown,
-    total: (contributions, like) => this.total(contributions, like),
+    total: (contributions, like) => this.uncertainty.total(contributions, like),
     valueTex: (value, sf, unc, uncSf, forced) => this.valueTex(value, sf, unc, uncSf, forced),
     split: (value, sf, forced) => this.split(value, sf, forced),
     uncertainParts: (value, unc, uncSf) => this.uncertainParts(value, unc, uncSf),
@@ -556,249 +582,6 @@ export class Calculator {
   }
 
   // -------------------------------------------------------------------------
-  // Significant figures
-  // -------------------------------------------------------------------------
-
-  /** Numeric size of a subexpression in SI base units, for the addition rule. */
-  private magnitude(node: MathNode): number {
-    try {
-      const v = node.compile().evaluate(this.scope)
-      if (typeof v === 'number') return v
-      if (math.isUnit(v)) return (v as Unit).value ?? NaN
-    } catch {
-      /* not evaluable on its own */
-    }
-    return NaN
-  }
-
-  /**
-   * Significant figures of an expression's result.
-   *   - measured numbers (with a unit, or written with a decimal point or exponent)
-   *     count as typed; integers without a unit are exact, e.g. the 2 in 2 * a * d
-   *   - × ÷, powers and functions: the fewest sig figs among the inputs
-   *   - + −: rounded to the least precise decimal place among the terms
-   */
-  private sigFigsOf(node: MathNode, literals: Map<number, string>, measured: boolean): number {
-    if (isParenthesisNode(node)) return this.sigFigsOf(node.content, literals, measured)
-    if (isConstantNode(node)) {
-      if (typeof node.value !== 'number') return EXACT
-      const text = literals.get(node.value) ?? String(node.value)
-      return measured || isMeasuredLiteral(text) ? countSigFigs(text) : EXACT
-    }
-    if (isUnitCall(node)) return EXACT
-    // Written with extra precision (2.00, 1.2e3): always a measured value.
-    if (isLitCall(node)) return countSigFigs(unitCallText(node))
-    if (isSymbolNode(node)) return this.vars.get(node.name)?.sf ?? EXACT
-    // `cond ? a : b`: the sig figs of whichever it comes to.
-    if (math.isConditionalNode(node)) {
-      let chosen = node.trueExpr
-      try {
-        if (node.condition.compile().evaluate(this.scope) !== true) chosen = node.falseExpr
-      } catch { /* reported when the line is worked out */ }
-      return this.sigFigsOf(chosen, literals, measured)
-    }
-    // A call to a function that declares its result's sig figs (`f(x):3 = …`).
-    if (isFunctionNode(node)) {
-      const f = this.scope.get(node.fn.name)
-      const declared = typeof f === 'function' ? this.userFunctions.get(f)?.returnSf : undefined
-      if (declared !== undefined) return declared
-      // Otherwise its expression's, as worked out when its working was traced.
-      const traced = this.callSigFigs.get(node)
-      if (traced !== undefined) return traced
-    }
-    if (isOperatorNode(node)) {
-      // A number with a unit is measured; unless a module says it's an exact count
-      // (a whole number of a species, `2 mol {X}`, from a balanced equation).
-      if (node.fn === OP.multiply && isUnitCall(node.args[1])) {
-        const [number, unit] = node.args
-        return this.sigFigsOf(number, literals, !this.modules.some((m) => m.isExactCount(number, unit, literals)))
-      }
-      if (node.fn === OP.unaryMinus || node.fn === OP.unaryPlus) return this.sigFigsOf(node.args[0], literals, measured)
-      if (node.fn === OP.add || node.fn === OP.subtract) {
-        const terms = node.args.map((a) => ({ sf: this.sigFigsOf(a, literals, false), x: this.magnitude(a) }))
-        const total = this.magnitude(node)
-        if (Number.isNaN(total) || terms.some((t) => Number.isNaN(t.x))) return Math.min(...terms.map((t) => t.sf))
-        const sf = sigFigsFromPlace(total, Math.max(...terms.map((t) => lastPlace(t.x, t.sf))))
-        if (sf < 1) this.precisionLost = true
-        return Math.max(1, sf)
-      }
-      // An exponent written as plain numbers (^0.5, ^(3/2), ^(-0.5)) is part of the
-      // formula, not a measurement, so only the base limits the sig figs.
-      if (node.fn === OP.pow && isPureNumber(node.args[1])) return this.sigFigsOf(node.args[0], literals, false)
-    }
-    let sf = EXACT
-    node.forEach((child, path) => {
-      if (path === 'fn') return
-      // A measured zero passed to a function (cos 0.00°, exp(0.00)) has decimal places,
-      // not relative precision, and the result (1) is known far better than that
-      // count suggests, so it doesn't limit the sig figs.
-      if (isFunctionNode(node) && this.magnitude(child) === 0) return
-      sf = Math.min(sf, this.sigFigsOf(child, literals, false))
-    })
-    return sf
-  }
-
-  /** Whole numbers like `300 m` whose trailing zeros won't count. */
-  private ambiguousLiterals(node: MathNode, literals: Map<number, string>): string[] {
-    const found = new Set<string>()
-    const visit = (n: MathNode, measured: boolean) => {
-      n = unwrap(n)
-      if (isConstantNode(n)) {
-        const text = literals.get(n.value as number) ?? String(n.value)
-        if (measured && hasAmbiguousZeros(text)) found.add(text)
-      } else if (isOp(n, OP.multiply) && isUnitCall(n.args[1])) {
-        visit(n.args[0], true)
-      } else if (isOp(n, OP.unaryMinus)) {
-        visit(n.args[0], measured)
-      } else if (math.isConditionalNode(n)) {
-        // A condition's numbers are limits to compare with (x > 10 N), not measurements.
-        visit(n.trueExpr, false)
-        visit(n.falseExpr, false)
-      } else if (math.isRelationalNode(n) || (isOperatorNode(n) && COMPARISONS.has(n.fn))) {
-        // (Nor on a comparison of its own: ok = x < 300 m.)
-      } else {
-        n.forEach((c) => visit(c, false))
-      }
-    }
-    visit(node, false)
-    return [...found]
-  }
-
-  // -------------------------------------------------------------------------
-  // Uncertainty
-  // -------------------------------------------------------------------------
-
-  /** Combined (quadrature) uncertainty from contributions, in the same quantity as `like`. */
-  private total(contributions: Contributions | undefined, like: unknown): unknown {
-    if (!contributions?.size) return undefined
-    let sumSq = 0
-    for (const c of contributions.values()) sumSq += magnitudeOf(c) ** 2
-    const t = Math.sqrt(sumSq)
-    if (!(t > 0)) return undefined
-    if (math.isUnit(like)) {
-      const u = (like as Unit).clone()
-      u.value = t
-      return u
-    }
-    return t
-  }
-
-  private totalUncertainty(name: string): unknown {
-    return this.total(this.vars.get(name)?.contributions, this.scope.get(name))
-  }
-
-  private uncertainInputs(expr: MathNode): string[] {
-    const names = expr.filter((n, path) => this.isValueSymbol(n, path)).map((n) => (n as SymbolNode).name)
-    return [...new Set(names)].filter((n) => this.vars.get(n)?.contributions?.size)
-  }
-
-  /**
-   * Propagate uncertainty through `expr` (first order). For each source, nudge
-   * every input along that source's contribution and take the central
-   * difference; the result is that source's contribution to `expr`, which is
-   * Σ (∂f/∂xᵢ)·δxᵢ. Combining sources in quadrature then gives
-   * Δf = √(Σ (∂f/∂x · Δx)²) for independent inputs, while shared sources stay correlated.
-   */
-  private propagate(expr: MathNode): Contributions {
-    const out: Contributions = new Map()
-    const inputs = this.uncertainInputs(expr)
-    // Quantities built from an uncertainty (like ΔF / F) don't carry one themselves.
-    const usesUncertainty = expr.filter((n) => isSymbolNode(n) && isUncertaintyName(n.name)).length > 0
-    if (!inputs.length || usesUncertainty) return out
-    const code = expr.compile()
-    // (Each input has contributions: uncertainInputs keeps only those.)
-    const contributionsOf = (n: string) => this.vars.get(n)!.contributions!
-    const sources = new Set(inputs.flatMap((n) => [...contributionsOf(n).keys()]))
-    for (const source of sources) {
-      const plus = innerValues(this.vars)
-      const minus = innerValues(this.vars)
-      for (const n of inputs) {
-        const d = contributionsOf(n).get(source)
-        if (d === undefined) continue
-        const v = this.scope.get(n) as MathType
-        const step = math.multiply(d as MathType, STEP) as MathType
-        plus.set(n, math.add(v, step))
-        minus.set(n, math.subtract(v, step))
-      }
-      const diff = math.subtract(code.evaluate(plus) as MathType, code.evaluate(minus) as MathType) as MathType
-      out.set(source, math.divide(diff, 2 * STEP))
-    }
-    return out
-  }
-
-  /**
-   * Replace `delta F` / `Delta F` with a hidden variable holding F's
-   * uncertainty. Not followed by a defined variable, they stay Greek letters.
-   */
-  private expandDeltaRefs(line: string): string {
-    return line.replace(DELTA_REF, (match, letter: UncertaintyWord, name: string) => {
-      if (!this.scope.has(name) || typeof this.scope.get(name) === 'function') return match
-      const value = this.scope.get(name)
-      const unc = this.totalUncertainty(name) ?? math.multiply(value as MathType, 0)
-      const hidden = uncertaintyName(letter, name)
-      this.store(hidden, { value: unc, sf: uncertaintySigFigs(this.split(unc, EXACT)?.x ?? 0) })
-      return hidden
-    })
-  }
-
-  /** `2.0 kg pm 0.1 kg` → (2.0 ± 0.1) kg, keeping the numbers as typed. */
-  private pmTex(value: MathNode, unc: MathNode, percent: boolean, literals: Map<number, string>): string {
-    const a = unwrap(value)
-    const b = unwrap(unc)
-    if (!percent && isNumberWithUnit(a) && (isConstantNode(b) || (isNumberWithUnit(b)
-      && unitCallText(b.args[1] as FunctionNode) === unitCallText(a.args[1] as FunctionNode)))) {
-      const unit = unitTex(unitCallText(a.args[1] as FunctionNode))
-      const bNum = isNumberWithUnit(b) ? b.args[0] : b
-      return attachUnit(`\\left(${this.toTex(a.args[0], literals)} \\pm ${this.toTex(bNum, literals)}\\right)`, unit)
-    }
-    return `${this.toTex(value, literals)} \\pm ${this.toTex(unc, literals)}${percent ? '\\%' : ''}`
-  }
-
-  /**
-   * Working for `delta F`: the quadrature formula over F's direct inputs, its
-   * partial derivatives, and the values substituted in. Skipped when inputs
-   * share an uncertainty source, since the simple formula assumes independence.
-   */
-  private deltaWorking(name: string, letter: UncertaintyWord): string[] {
-    const def = this.vars.get(name)?.def
-    if (!def) return []
-    const inputs = this.uncertainInputs(def).filter((n) => !isUncertaintyName(n))
-    if (!inputs.length) return []
-    const sources = inputs.map((n) => new Set(this.vars.get(n)?.contributions!.keys()))
-    if (sources.some((a, i) => sources.slice(i + 1).some((b) => [...a].some((s) => b.has(s))))) return []
-
-    const target = symbolTex(name)
-    // Same letter the user asked with: δx for `delta F`, Δx for `Delta F`.
-    const uncOf = (n: string) => symbolTex(uncertaintyName(letter, n))
-    const sqrt = (terms: string[]) => `\\sqrt{${terms.join(' + ')}}`
-    // (∂v/∂d δd, and its values (1/1.21 s) × 0.02 m: × before a number, as in any product.)
-    const term = (factor: string, delta: string) => `\\left(${factor}${signBeforeTex(delta)}${delta}\\right)^{2}`
-    const steps = [sqrt(inputs.map((n) =>
-      term(`\\frac{\\partial ${target}}{\\partial ${symbolTex(n)}}`, uncOf(n))))]
-    try {
-      const derivs = inputs.map((n) => math.derivative(def, n))
-      const wrap = (d: MathNode, tex: string) =>
-        (isOp(d, OP.add, OP.subtract, OP.unaryMinus) ? `\\left(${tex}\\right)` : tex)
-      steps.push(sqrt(inputs.map((n, i) =>
-        term(wrap(derivs[i], this.toTex(derivs[i], new Map())), uncOf(n)))))
-      if (this.options.showSubstitution) {
-        steps.push(sqrt(inputs.map((n, i) => {
-          const sub = derivs[i].transform((m, path) => (this.isValueSymbol(m, path)
-            ? this.variableNode(m.name)
-            : m))
-          return term(
-            wrap(derivs[i], this.toTex(sub, new Map())),
-            this.uncertaintyTex(this.totalUncertainty(n), this.scope.get(n), this.vars.get(n)?.uncSf),
-          )
-        })))
-      }
-    } catch {
-      /* no symbolic derivative (units or user functions in the formula): show the general form only */
-    }
-    return steps
-  }
-
-  // -------------------------------------------------------------------------
   // Series aggregates
   // -------------------------------------------------------------------------
 
@@ -885,7 +668,7 @@ export class Calculator {
     value = math.isUnit(value) && math.isUnit(first)
       ? (value as Unit).to((first as Unit).formatUnits())
       : normalise(value, true)
-    const unc = this.total(contributions, value)
+    const unc = this.uncertainty.total(contributions, value)
     if (unc !== undefined) sf = this.uncertainParts(value, unc)?.sf ?? sf
 
     this.store(name, { value, sf, contributions, agg })
@@ -1198,8 +981,8 @@ export class Calculator {
       args = call.args.map((a, i) => ({
         // A cast parameter shows its argument converted (0.100 nm → 1.00e-10 m).
         value: castArgument(def.params[i], def.casts[i], this.typedValue(a)),
-        sf: this.sigFigsOf(a, literals, false),
-        contributions: this.propagate(a),
+        sf: this.sigFigs.of(a, literals, false),
+        contributions: this.uncertainty.propagate(a),
         // f(pi) shows π inside the function's working, not 3.14159, and a variable
         // that stays symbolic (defined with #sym) stays symbolic as an argument.
         shown: isSymbolNode(unwrap(a))
@@ -1502,7 +1285,7 @@ export class Calculator {
     if (aggregateError) return { tex: '', error: aggregateError }
     // `… to percent` isn't a mathjs unit: take it off and show the result as a percentage.
     line.asPercent = TO_PERCENT.test(cleaned) || declaration?.unit === PERCENT
-    line.text = expandParenPm(this.expandDeltaRefs(cleaned.replace(TO_PERCENT, '')))
+    line.text = expandParenPm(this.uncertainty.expandDeltaRefs(cleaned.replace(TO_PERCENT, '')))
     line.prepared = {
       literals: typedNumbers(line.text),
       declaredSf: declaration?.sf,
@@ -1607,7 +1390,7 @@ export class Calculator {
     const unpackDeclaredSf = this.unpackDeclaredSf
     this.unpackDeclaredSf = undefined
     const lhsTex = override ?? (assigned ? (ctx.label ?? symbolTex(assigned)) : ctx.lhs)
-    let exprTex = uncNode ? this.pmTex(shown, uncNode, percent, literals) : this.toTex(shown, literals)
+    let exprTex = uncNode ? this.uncertainty.pmTex(shown, uncNode, percent, literals) : this.toTex(shown, literals)
     const bare = unwrap(shown)
     /** Intermediate steps between the expression and the result. */
     const steps: string[] = []
@@ -1647,7 +1430,7 @@ export class Calculator {
       const meanOf = this.vars.get(uncRef.of)?.agg
       steps.push(...(meanOf?.kind === AGGREGATE_KIND.mean
         ? this.standardErrorWorking(meanOf)
-        : this.deltaWorking(uncRef.of, uncRef.letter)))
+        : this.uncertainty.deltaWorking(uncRef.of, uncRef.letter)))
     }
     // `a`, `a_avg`, …: show how the series is combined.
     const agg = isSymbolNode(bare) ? this.vars.get(bare.name)?.agg : undefined
@@ -1663,11 +1446,11 @@ export class Calculator {
       // Typed numbers keep their trailing zeros here too (0.250 m, not 0.25 m).
       steps.push(this.toTex(substituted, literals))
     }
-    this.precisionLost = false
+    this.sigFigs.lost = false
     // A function call's precision comes from its expression (the measured numbers in it),
     // or its declared settings.
-    const sf = returnSf ?? this.sigFigsOf(expr, literals, false)
-    if (this.autoSigFigs && this.precisionLost) {
+    const sf = returnSf ?? this.sigFigs.of(expr, literals, false)
+    if (this.autoSigFigs && this.sigFigs.lost) {
       warnings.push('This sum or difference is smaller than the precision of the values in it, '
         + 'so it has no significant figures; one is shown.')
     }
@@ -1681,7 +1464,7 @@ export class Calculator {
         : isFunctionNode(rhs) && rhs.fn.name === TUPLE_FUNCTION
           ? rhs.args.filter((_, i) => !unpackDeclaredSf[i])
           : unpackDeclaredSf.every(Boolean) ? [] : [expr]
-      const ambiguous = checked.flatMap((n) => this.ambiguousLiterals(n, literals))
+      const ambiguous = checked.flatMap((n) => this.sigFigs.ambiguousLiterals(n, literals))
       if (ambiguous.length) {
         warnings.push(`Trailing zeros in ${ambiguous.join(', ')} aren't significant. `
           + `Add a decimal point (${ambiguous[0]}.) or use scientific notation if they are.`)
@@ -1716,7 +1499,7 @@ export class Calculator {
           return u
         })
       }
-      contributions = this.propagate(expr)
+      contributions = this.uncertainty.propagate(expr)
       if (uncNode) contributions.set(this.nextSource++, this.declaredUncertainty(uncNode, value, percent))
     } catch (e) {
       const message = e instanceof RangeError
@@ -1747,7 +1530,7 @@ export class Calculator {
         return { tex: layoutEquation(DISPLAY_MODE.full, parts(), multiline), warning, trace, info: ctx.info, error: (e as Error).message }
       }
     }
-    const unc = this.total(contributions, value)
+    const unc = this.uncertainty.total(contributions, value)
     // A declared `2.0 kg pm 0.1 kg` keeps the uncertainty's sig figs as typed.
     const declaredUncSf = uncNode && !percent && isLiteral(expr) ? this.literalSigFigs(uncNode, literals) : undefined
     let shownSf = unc !== undefined ? (this.uncertainParts(value, unc, declaredUncSf)?.sf ?? sf) : sf
@@ -1915,7 +1698,7 @@ export class Calculator {
     // sheet with thousands of imported values would otherwise typeset them all
     // on every edit.
     const typeset = (name: string, v: Variable) =>
-      `${v.label ?? symbolTex(name)} = ${this.valueTex(v.value, v.sf, this.total(v.contributions, v.value), v.uncSf, v.declared === true)}`
+      `${v.label ?? symbolTex(name)} = ${this.valueTex(v.value, v.sf, this.uncertainty.total(v.contributions, v.value), v.uncSf, v.declared === true)}`
     const listed = (name: string, v: Variable): VariableSummary => {
       let tex: string | undefined
       // (Not enumerable, so code that walks the list's properties doesn't typeset them all.)

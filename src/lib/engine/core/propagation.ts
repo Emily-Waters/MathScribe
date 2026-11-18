@@ -1,0 +1,190 @@
+/**
+ * Uncertainties, as the Calculator works them out: combining a value's
+ * contributions in quadrature, propagating them through an expression, `delta F`
+ * as a hidden variable holding F's uncertainty, and the working shown for it.
+ * (The syntax of uncertainties, `pm` and `delta F`, is uncertainty.ts.)
+ */
+import { isConstantNode, isSymbolNode, type FunctionNode, type MathNode, type MathType, type SymbolNode, type Unit } from 'mathjs'
+import { uncertaintySigFigs } from '../../maths/sigfigs.ts'
+import type { Contributions, Variable, VariableFields } from '../../sheet/values.ts'
+import { isUncertaintyName, uncertaintyName } from '../../sheet/names.ts'
+import type { UncertaintyWord } from '../../syntax.ts'
+import { OP, isOp } from '../../maths/mathjsNames.ts'
+import { math } from './math.ts'
+import { STEP } from './results.ts'
+import { DELTA_REF } from './uncertainty.ts'
+import { symbolTex, unitTex, attachUnit, unitCallText } from './tex.ts'
+import { unwrap } from './nodes.ts'
+import { magnitudeOf } from './normalise.ts'
+import { isNumberWithUnit, signBeforeTex } from './products.ts'
+
+/** Values by name, as mathjs evaluates with them, that an input can be nudged in. */
+interface NudgeableValues {
+  set(name: string, value: unknown): unknown
+}
+
+/** What uncertainties need of the Calculator they're worked out in. */
+export interface PropagationHost {
+  /** A variable in scope, with everything kept about it. */
+  variable(name: string): Variable | undefined
+  /** A name's value in scope (a variable's, or a function). */
+  value(name: string): unknown
+  /** Whether a name is in scope. */
+  has(name: string): boolean
+  /** Whether a node is a variable holding a value (not a function's name, nor a function). */
+  isValueSymbol(node: MathNode, path: string): node is SymbolNode
+  /** A copy of the values in scope, to work an expression out with some of them nudged. */
+  scratchValues(): NudgeableValues
+  /** Keep a value as a (hidden) variable. */
+  store(name: string, fields: VariableFields): void
+  /** A value's number in its display unit, if it has one. */
+  displayNumber(value: unknown): number | undefined
+  /** An expression as LaTeX, its numbers as typed. */
+  tex(node: MathNode, literals: Map<number, string>): string
+  /** A variable's value for the substitution step, at its own sig figs. */
+  variableNode(name: string): MathNode
+  /** An uncertainty on its own as LaTeX, in the unit of the value it belongs to. */
+  uncertaintyTex(unc: unknown, like?: unknown, uncSf?: number): string
+  /** Whether working shows the values substituted in. */
+  showsSubstitution(): boolean
+}
+
+export class Propagation {
+  private readonly host: PropagationHost
+
+  constructor(host: PropagationHost) {
+    this.host = host
+  }
+
+  /** Combined (quadrature) uncertainty from contributions, in the same quantity as `like`. */
+  total(contributions: Contributions | undefined, like: unknown): unknown {
+    if (!contributions?.size) return undefined
+    let sumSq = 0
+    for (const c of contributions.values()) sumSq += magnitudeOf(c) ** 2
+    const t = Math.sqrt(sumSq)
+    if (!(t > 0)) return undefined
+    if (math.isUnit(like)) {
+      const u = (like as Unit).clone()
+      u.value = t
+      return u
+    }
+    return t
+  }
+
+  /** A variable's combined uncertainty, if it has one. */
+  private totalOf(name: string): unknown {
+    return this.total(this.host.variable(name)?.contributions, this.host.value(name))
+  }
+
+  /** The variables an expression uses that have an uncertainty. */
+  private uncertainInputs(expr: MathNode): string[] {
+    const names = expr.filter((n, path) => this.host.isValueSymbol(n, path)).map((n) => (n as SymbolNode).name)
+    return [...new Set(names)].filter((n) => this.host.variable(n)?.contributions?.size)
+  }
+
+  /**
+   * Propagate uncertainty through `expr` (first order). For each source, nudge
+   * every input along that source's contribution and take the central
+   * difference; the result is that source's contribution to `expr`, which is
+   * Σ (∂f/∂xᵢ)·δxᵢ. Combining sources in quadrature then gives
+   * Δf = √(Σ (∂f/∂x · Δx)²) for independent inputs, while shared sources stay correlated.
+   */
+  propagate(expr: MathNode): Contributions {
+    const out: Contributions = new Map()
+    const inputs = this.uncertainInputs(expr)
+    // Quantities built from an uncertainty (like ΔF / F) don't carry one themselves.
+    const usesUncertainty = expr.filter((n) => isSymbolNode(n) && isUncertaintyName(n.name)).length > 0
+    if (!inputs.length || usesUncertainty) return out
+    const code = expr.compile()
+    // (Each input has contributions: uncertainInputs keeps only those.)
+    const contributionsOf = (n: string) => this.host.variable(n)!.contributions!
+    const sources = new Set(inputs.flatMap((n) => [...contributionsOf(n).keys()]))
+    for (const source of sources) {
+      const plus = this.host.scratchValues()
+      const minus = this.host.scratchValues()
+      for (const n of inputs) {
+        const d = contributionsOf(n).get(source)
+        if (d === undefined) continue
+        const v = this.host.value(n) as MathType
+        const step = math.multiply(d as MathType, STEP) as MathType
+        plus.set(n, math.add(v, step))
+        minus.set(n, math.subtract(v, step))
+      }
+      const diff = math.subtract(code.evaluate(plus) as MathType, code.evaluate(minus) as MathType) as MathType
+      out.set(source, math.divide(diff, 2 * STEP))
+    }
+    return out
+  }
+
+  /**
+   * Replace `delta F` / `Delta F` with a hidden variable holding F's
+   * uncertainty. Not followed by a defined variable, they stay Greek letters.
+   */
+  expandDeltaRefs(line: string): string {
+    return line.replace(DELTA_REF, (match, letter: UncertaintyWord, name: string) => {
+      if (!this.host.has(name) || typeof this.host.value(name) === 'function') return match
+      const value = this.host.value(name)
+      const unc = this.totalOf(name) ?? math.multiply(value as MathType, 0)
+      const hidden = uncertaintyName(letter, name)
+      this.host.store(hidden, { value: unc, sf: uncertaintySigFigs(this.host.displayNumber(unc) ?? 0) })
+      return hidden
+    })
+  }
+
+  /** `2.0 kg pm 0.1 kg` → (2.0 ± 0.1) kg, keeping the numbers as typed. */
+  pmTex(value: MathNode, unc: MathNode, percent: boolean, literals: Map<number, string>): string {
+    const a = unwrap(value)
+    const b = unwrap(unc)
+    if (!percent && isNumberWithUnit(a) && (isConstantNode(b) || (isNumberWithUnit(b)
+      && unitCallText(b.args[1] as FunctionNode) === unitCallText(a.args[1] as FunctionNode)))) {
+      const unit = unitTex(unitCallText(a.args[1] as FunctionNode))
+      const bNum = isNumberWithUnit(b) ? b.args[0] : b
+      return attachUnit(`\\left(${this.host.tex(a.args[0], literals)} \\pm ${this.host.tex(bNum, literals)}\\right)`, unit)
+    }
+    return `${this.host.tex(value, literals)} \\pm ${this.host.tex(unc, literals)}${percent ? '\\%' : ''}`
+  }
+
+  /**
+   * Working for `delta F`: the quadrature formula over F's direct inputs, its
+   * partial derivatives, and the values substituted in. Skipped when inputs
+   * share an uncertainty source, since the simple formula assumes independence.
+   */
+  deltaWorking(name: string, letter: UncertaintyWord): string[] {
+    const def = this.host.variable(name)?.def
+    if (!def) return []
+    const inputs = this.uncertainInputs(def).filter((n) => !isUncertaintyName(n))
+    if (!inputs.length) return []
+    const sources = inputs.map((n) => new Set(this.host.variable(n)?.contributions!.keys()))
+    if (sources.some((a, i) => sources.slice(i + 1).some((b) => [...a].some((s) => b.has(s))))) return []
+
+    const target = symbolTex(name)
+    // Same letter the user asked with: δx for `delta F`, Δx for `Delta F`.
+    const uncOf = (n: string) => symbolTex(uncertaintyName(letter, n))
+    const sqrt = (terms: string[]) => `\\sqrt{${terms.join(' + ')}}`
+    // (∂v/∂d δd, and its values (1/1.21 s) × 0.02 m: × before a number, as in any product.)
+    const term = (factor: string, delta: string) => `\\left(${factor}${signBeforeTex(delta)}${delta}\\right)^{2}`
+    const steps = [sqrt(inputs.map((n) =>
+      term(`\\frac{\\partial ${target}}{\\partial ${symbolTex(n)}}`, uncOf(n))))]
+    try {
+      const derivs = inputs.map((n) => math.derivative(def, n))
+      const wrap = (d: MathNode, tex: string) =>
+        (isOp(d, OP.add, OP.subtract, OP.unaryMinus) ? `\\left(${tex}\\right)` : tex)
+      steps.push(sqrt(inputs.map((n, i) =>
+        term(wrap(derivs[i], this.host.tex(derivs[i], new Map())), uncOf(n)))))
+      if (this.host.showsSubstitution()) {
+        steps.push(sqrt(inputs.map((n, i) => {
+          const sub = derivs[i].transform((m, path) => (this.host.isValueSymbol(m, path)
+            ? this.host.variableNode(m.name)
+            : m))
+          return term(
+            wrap(derivs[i], this.host.tex(sub, new Map())),
+            this.host.uncertaintyTex(this.totalOf(n), this.host.value(n), this.host.variable(n)?.uncSf),
+          )
+        })))
+      }
+    } catch {
+      /* no symbolic derivative (units or user functions in the formula): show the general form only */
+    }
+    return steps
+  }
+}

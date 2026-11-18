@@ -724,9 +724,20 @@ edit reads again only what it changed, and nodes are shared between trees.
              out (`expand`, which `ModuleHost.expandConstants` is now).
            - [x] `DisplayNames` (`displayNames.ts`): a display name as LaTeX,
              with values in it, and display-name templates.
-           - [ ] Significant figures, uncertainty, series aggregates, functions:
-             these are woven through `evaluateParsed` (each line's working uses
-             all four), so each needs its share of the line's state first.
+           - [x] `SigFigs` (`sigFigs.ts`): a result's sig figs from the numbers
+             as typed, the variables and the functions it uses, and the whole
+             numbers whose trailing zeros won't count; `lost` is what
+             `precisionLost` was. What it needs of the Calculator (a part's
+             value, a variable's and a function's sig figs, a module's exact
+             counts) is its host, so it holds no state of the line's.
+           - [x] `Propagation` (`propagation.ts`, beside the syntax in
+             `uncertainty.ts`): combining contributions in quadrature,
+             propagating them through an expression, `delta F` as a hidden
+             variable, `pm` as LaTeX, and `delta F`'s working.
+           - [ ] Series aggregates, functions: these are woven through
+             `evaluateParsed` more deeply (aggregates keep sources, functions
+             trace their working), so each needs its share of the line's state
+             first.
            (Pulled in on the way, 2026-11-17: `@series(…)` and the fit that
            counts x uncertainties, from Emily's other machine; written as a
            series line form through the module API, as the approach has it, so

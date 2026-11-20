@@ -1000,6 +1000,37 @@ edit reads again only what it changed, and nodes are shared between trees.
            belong to a hook of the module's for its own suggestions.
       6. [ ] Constants as `words()`, patterns with `src`/`named`, file by file
          as each is touched.
+- [ ] **MathScribe as a language** (looked over 2026-11-20): the front end (a
+      lossless tree, a grammar declared as data, modules adding to it) and the
+      tooling on it (highlighting, folding, formatting, rename) are a
+      language's; the middle still reads text with patterns (24 files in the
+      engine and modules: each `@function` found by a regex, its options a
+      mini-language of their own, arguments split from text, a series a naming
+      convention, a line's text rewritten in stages and parsed again by mathjs).
+      The bugs of 2026-11-19 (quoted commas splitting `@series`, a settings
+      token taking a `]`, multiline calls joined in three places) were that.
+
+      **Decided (2026-11-20), the middle path:** now, (1) statements in the
+      tree and (3) call signatures with one options syntax, from which the ⚙,
+      parameter hints, argument errors and the Reference come; (4) names and
+      scopes in one pass, with places, when the editor next needs it; new syntax
+      (literal tables) built as declared syntax from the start. Not now, unless
+      the cost of not doing them grows: (2) an expression tree that writes
+      mathjs's nodes, (5) series and namespaces as values of their own, a
+      display IR for the outputs, re-working out only what an edit touches.
+      1. [ ] **Statements in the tree:** each thing a sheet says, as one line,
+         over however many it's written, read once and kept with its node.
+         (Each line keeps its own tokens, which the editor reads a line at a
+         time: `lexTail` stays, its cost negligible at a call's sizes.)
+         **Progress (2026-11-20), step 1a:** `Statement` (tree/statements.ts):
+         its kind, lines, every token with its place (line, offset), its text
+         as one line, its notes and commands as one line's; `statementOf(node)`,
+         kept in a WeakMap. The sheet reader takes a line from its statement
+         (its own joining, trailing commas and note merging gone). Checked side
+         by side with the reader's old joining over every sample, Reference and
+         Library sheet and 5,000 random texts: the same. Next, 1b: the
+         formatter and the ⚙ (series' tableMenu) lay out tokens from it, not
+         each their own.
 
 ## 9. Packaging: MathScribe in someone else's app
 

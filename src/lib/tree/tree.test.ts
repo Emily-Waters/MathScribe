@@ -5,7 +5,7 @@ import { REFERENCE } from '../content/reference.ts'
 import { LIBRARY } from '../content/library.ts'
 import {
   NODE_KIND, SCHEMA, TOKEN_KIND, declareNodeKinds, isBlockKind, declaredNodeKinds, decode, encode, isCallKind, isSheetTree, isToken, schemaId, splitLines,
-  textOf, treeProblems, type Part, type SheetTree, type SyntaxNode,
+  statementOf, textOf, treeProblems, type Part, type SheetTree, type SyntaxNode,
 } from './index.ts'
 import { SERIES_TOKEN } from '../../modules/series/grammar.ts'
 import { clearLineCache, notedOf } from './lines.ts'
@@ -95,6 +95,32 @@ describe('a sheet as a tree', () => {
 
   it('splits text into lines that join back into it', () => {
     expect(splitLines('a\r\nb\n')).toEqual([{ text: 'a', eol: '\r\n' }, { text: 'b', eol: '\n' }, { text: '', eol: '' }])
+  })
+})
+
+describe('statements', () => {
+  it('reads a call over several lines as one statement: its text as one line, its notes and commands as one line’s', () => {
+    const [node] = encode('val = @series(  # readings\n    1234,\n    // the second\n    5678,\n)  #val\nw = 1').body
+    const s = statementOf(node)
+    expect(s.kind).toBe(NODE_KIND.calc)
+    expect(s.lines).toHaveLength(5)
+    // (Comments left out, and the trailing comma before the closing bracket; a note stays where it's written.)
+    expect(s.text).toBe('val = @series(  # readings 1234, 5678 )  #val')
+    expect(s.noted).toMatchObject({ body: 'val = @series( 1234, 5678 )', command: 'val', note: 'readings' })
+  })
+
+  it('has every token of its lines, each where it is', () => {
+    const [node] = encode('y = max(\n    1,\n    2\n)').body
+    const { tokens, lines } = statementOf(node)
+    const two = tokens.find((t) => t.token.text === '2')!
+    expect([two.line, two.at]).toEqual([2, 4])
+    expect(lines.map((_, i) => tokens.filter((t) => t.line === i).map((t) => t.token.text).join(''))).toEqual(lines.map((l) => textOf(l)))
+  })
+
+  it('reads a line as itself, and each statement once', () => {
+    const [node] = encode('  m = 2.0 kg  # mass\n').body
+    expect(statementOf(node)).toMatchObject({ text: '  m = 2.0 kg  # mass', noted: { body: 'm = 2.0 kg', note: 'mass' } })
+    expect(statementOf(node)).toBe(statementOf(node))
   })
 })
 

@@ -305,9 +305,11 @@ let plotCount = 0
  */
 export function plotSvg(plot: PlotData, palette: PlotPalette): string {
   const { settings } = plot
+  // (Error bars, and the room the axes make for them, only if the plot's settings show uncertainties.)
+  const bars = settings.uncertainty !== false
   const all = plot.series.flatMap((s) => s.points)
-  const xs = all.flatMap((p) => (p.dx ? [p.x - p.dx, p.x + p.dx] : [p.x]))
-  const ys = all.flatMap((p) => (p.dy ? [p.y - p.dy, p.y + p.dy] : [p.y]))
+  const xs = all.flatMap((p) => (bars && p.dx ? [p.x - p.dx, p.x + p.dx] : [p.x]))
+  const ys = all.flatMap((p) => (bars && p.dy ? [p.y - p.dy, p.y + p.dy] : [p.y]))
   // A fit's line counts towards the y range where it crosses the x range.
   for (const s of plot.series) {
     if (!s.fit) continue
@@ -372,12 +374,12 @@ export function plotSvg(plot: PlotData, palette: PlotPalette): string {
     for (const p of points) {
       const x = X(p.x)
       const y = Y(p.y)
-      if (p.dy && onY(p.y - p.dy)) {
+      if (bars && p.dy && onY(p.y - p.dy)) {
         const top = f(Y(p.y + p.dy))
         const bottom = f(Y(p.y - p.dy))
         out.push(`<path d="M${f(x)},${top}V${bottom}M${f(x - MARK.cap)},${top}H${f(x + MARK.cap)}M${f(x - MARK.cap)},${bottom}H${f(x + MARK.cap)}" stroke="${colour}" stroke-width="1" fill="none"/>`)
       }
-      if (p.dx && onX(p.x - p.dx)) {
+      if (bars && p.dx && onX(p.x - p.dx)) {
         const left = f(X(p.x - p.dx))
         const right = f(X(p.x + p.dx))
         out.push(`<path d="M${left},${f(y)}H${right}M${left},${f(y - MARK.cap)}V${f(y + MARK.cap)}M${right},${f(y - MARK.cap)}V${f(y + MARK.cap)}" stroke="${colour}" stroke-width="1" fill="none"/>`)

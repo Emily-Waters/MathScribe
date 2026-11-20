@@ -17,5 +17,7 @@ describe('the ⚙ of a table or a plot', () => {
 
   it('finds none in the middle of a line, or one never closed', () => {
     expect(found('y = 2 * @table(t)\n@plot(t, x')).toEqual([])
+    // (Nor one whose bracket a later statement closes: the call ends at the blank line.)
+    expect(found('@table(t,\n\nx = f(1)')).toEqual([])
   })
 })

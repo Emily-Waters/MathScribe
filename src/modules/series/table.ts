@@ -19,8 +19,12 @@ import { SERIES_BLOCK, TABLE_CELL, type TableData } from './tableData.ts'
 /** How many rows a table shows: all of them up to `max`; past that, the `first` and the `last`, with ⋮ between. */
 export const TABLE_ROWS = { max: 60, first: 50, last: 5 } as const
 
-/** A table cell (or a value in an @series line): a variable's value as a number (± its uncertainty), and its unit, in its own notation. */
-export function cellParts(host: ModuleHost, name: string): { num: string; unit?: string } {
+/**
+ * A table cell (or a value in an @series line): a variable's value as a number
+ * (± its uncertainty, unless `uncertainty` is false: then the number alone, to
+ * the digits its uncertainty gives it), and its unit, in its own notation.
+ */
+export function cellParts(host: ModuleHost, name: string, uncertainty = true): { num: string; unit?: string } {
   const value = host.value(name)
   const v = host.variable(name)
   const sf = v?.sf ?? EXACT
@@ -28,8 +32,9 @@ export function cellParts(host: ModuleHost, name: string): { num: string; unit?:
   return host.inNotation(v?.notation, () => {
     const u = unc !== undefined ? host.uncertainParts(value, unc, v?.uncSf) : null
     if (u) {
-      const core = `${numberTex(u.num)} \\pm ${numberTex(u.unc)}`
-      return { num: u.exp !== undefined ? `\\left(${core}\\right) \\times 10^{${u.exp}}` : core, unit: u.unit }
+      const core = uncertainty ? `${numberTex(u.num)} \\pm ${numberTex(u.unc)}` : numberTex(u.num)
+      const scaled = uncertainty ? `\\left(${core}\\right)` : core
+      return { num: u.exp !== undefined ? `${scaled} \\times 10^{${u.exp}}` : core, unit: u.unit }
     }
     const p = host.split(value, sf, v?.declared === true)
     return p ? { num: numberTex(p.num), unit: p.unit } : { num: host.valueTex(value, sf) }
@@ -75,7 +80,7 @@ export class TableForm extends LineForm {
 
     // Each cell, with the column's unit taken out to its header when every value shares it.
     const body = columns.map((c) => {
-      const cells = shown.map((n) => (c.rows.has(n) ? cellParts(host, c.rows.get(n)!) : undefined))
+      const cells = shown.map((n) => (c.rows.has(n) ? cellParts(host, c.rows.get(n)!, settings.uncertainty) : undefined))
       const units = new Set(cells.filter((p) => p).map((p) => p!.unit))
       const shared = units.size === 1 ? [...units][0] : undefined
       return {

@@ -16,7 +16,7 @@ import {
   parsePlotSettings, parseTableSettings, splitCallArgs, withSettingsText,
   type AxisSettings, type CallWithSettings as CallKind, type PlotFit, type PlotSettings, type PlotStyle, type TableLines, type TableSettings,
 } from './public.ts'
-import { ASSIGN, ROUND_BRACKETS, SIGIL, TOKEN_KIND, encode, isToken, placeFixedPanel, type Part } from '../../lib/plugin.ts'
+import { ASSIGN, ROUND_BRACKETS, SIGIL, TOKEN_KIND, encode, placeFixedPanel, sheetStatements, type SheetStatement } from '../../lib/plugin.ts'
 
 /** How each choice reads in the panels. */
 const LINE_NAMES: Record<TableLines, string> = { header: 'Under the header', grid: 'Grid', none: 'None' }
@@ -33,24 +33,16 @@ interface SettingsCall {
   readonly to: number
 }
 
-/** A token of the sheet's tree, and where it starts in the sheet's text. */
+/** A token of a statement, and where it starts in the sheet's text. */
 interface Placed {
   readonly t: string
   readonly text: string
   readonly at: number
 }
 
-/** Every token of the sheet's tree, in order, each where it is. */
-function placedTokens(parts: readonly Part[], out: Placed[] = [], at = { pos: 0 }): Placed[] {
-  for (const p of parts) {
-    if (!isToken(p)) placedTokens(p.parts, out, at)
-    else {
-      out.push({ t: p.t, text: p.text, at: at.pos })
-      at.pos += p.text.length
-    }
-  }
-  return out
-}
+/** A statement's tokens (the tree's: sheetStatements), each where it is in the sheet's text. */
+const placedTokens = ({ statement, starts }: SheetStatement): Placed[] =>
+  statement.tokens.map(({ token, line, at }) => ({ t: token.t, text: token.text, at: starts[line] + at }))
 
 /** The calls with a ⚙, as written (`@table`), and which each is. */
 const CALLED: ReadonlyMap<string, CallKind> = new Map(CALLS_WITH_SETTINGS.map((kind) => [`${SIGIL}${kind}`, kind]))
@@ -83,21 +75,23 @@ function closingAt(tokens: readonly Placed[], open: number): number {
 
 /**
  * Every table and plot written as a line of its own (or a line carried on over
- * several), from the sheet's tree: a call to one, at the start of its line or
- * after the name it's given, and the bracket closing it.
+ * several), from the sheet's statements: a call to one, at the start of its line
+ * or after the name it's given, and the bracket closing it, in the same statement.
  */
 export function settingsCalls(text: string): SettingsCall[] {
-  const tokens = placedTokens(encode(text).body)
   const calls: SettingsCall[] = []
-  tokens.forEach((token, i) => {
-    const kind = token.t === TOKEN_KIND.builtin ? CALLED.get(token.text) : undefined
-    if (!kind || !startsLine(tokens, i)) return
-    let open = i + 1
-    while (isSpace(tokens[open])) open++
-    if (!isDelimiter(tokens[open], ROUND_BRACKETS.open)) return
-    const close = closingAt(tokens, open)
-    if (close >= 0) calls.push({ kind, from: tokens[open].at + ROUND_BRACKETS.open.length, to: tokens[close].at })
-  })
+  for (const statement of sheetStatements(encode(text).body)) {
+    const tokens = placedTokens(statement)
+    tokens.forEach((token, i) => {
+      const kind = token.t === TOKEN_KIND.builtin ? CALLED.get(token.text) : undefined
+      if (!kind || !startsLine(tokens, i)) return
+      let open = i + 1
+      while (isSpace(tokens[open])) open++
+      if (!isDelimiter(tokens[open], ROUND_BRACKETS.open)) return
+      const close = closingAt(tokens, open)
+      if (close >= 0) calls.push({ kind, from: tokens[open].at + ROUND_BRACKETS.open.length, to: tokens[close].at })
+    })
+  }
   return calls
 }
 
@@ -183,6 +177,7 @@ function tablePanel(text: string | undefined, save: (settingsText: string) => vo
     row('Row labels', textBox(s.labels, 'a series, e.g. salts', (labels) => set({ ...s, labels }))),
     help('A series whose values go down the side in place of the row numbers: salts = @series("KCl", "KBr").'),
     row('Show every row', checkBox(s.allRows, (allRows) => set({ ...s, allRows }))),
+    row('Show uncertainty', checkBox(s.uncertainty, (uncertainty) => set({ ...s, uncertainty }))),
     titleRow(s.title, (title) => set({ ...s, title })),
   ]
 }
@@ -224,6 +219,8 @@ function plotPanel(text: string | undefined, save: (settingsText: string) => voi
     axis('x'),
     axis('y'),
     help('Leave an axis box empty to fit it to the data. Points outside an axis’s range are left out: of the fit, and of a named plot’s series (p.x).'),
+    row('Show uncertainty', checkBox(s.uncertainty, (uncertainty) => set({ ...s, uncertainty }))),
+    help('Error bars for the points’ uncertainties. A fit still weighs each point by its uncertainty when they’re hidden.'),
     titleRow(s.title, (title) => set({ ...s, title })),
   ]
 }

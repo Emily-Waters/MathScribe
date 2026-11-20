@@ -145,6 +145,17 @@ describe('a table in the Rendered tab', () => {
   })
 })
 
+describe('a table’s uncertainties', () => {
+  const MEASURED = 'x1 = 0.012 m pm 0.001 m\nx2 = 0.047 m pm 0.001 m\n'
+
+  it('are shown with each value, ±, unless its settings say not: then each value alone, to the digits they give it', () => {
+    expect(tableOf(`${MEASURED}@table(x)`)).toContain('$0.012 \\pm 0.001$')
+    const hidden = tableOf(`${MEASURED}@table(x; uncertainty off)`)
+    expect(hidden).toContain('\t\t\\textbf{\\boldmath 1} & $0.012$ \\\\')
+    expect(hidden).not.toContain('\\pm')
+  })
+})
+
 describe('a table’s row labels', () => {
   const SALTS = `${DATA}salts = @series("KCl", "KBr")\n`
 

@@ -21,6 +21,7 @@ import { NODE_KIND, TOKEN_KIND, isToken, type Part, type SyntaxNode, type Token 
 import { notedOf, trailingSeparatorAt } from './lines.ts'
 import { startsByClosing } from './lexer.ts'
 import { textOf } from './codec.ts'
+import { isBlockKind } from './grammar.ts'
 
 /** A token of a statement, and where it is: which of its lines (from 0), and where in that line's text. */
 export interface PlacedToken {
@@ -73,8 +74,13 @@ function line(node: SyntaxNode): Statement {
 }
 
 /** A continued line's statement: its lines as one (see Statement.text). */
-function continued(node: SyntaxNode): Statement {
-  const lines = node.parts.filter((p): p is SyntaxNode => !isToken(p))
+const continued = (node: SyntaxNode): Statement => statementOfLines(node.parts.filter((p): p is SyntaxNode => !isToken(p)))
+
+/**
+ * The statement some lines are, as one (a continued line's, see Statement.text),
+ * for lines read one at a time (stream.ts: the formatter's), not yet a node.
+ */
+export function statementOfLines(lines: readonly SyntaxNode[]): Statement {
   const said = lines.filter((l) => l.kind !== NODE_KIND.comment)
   const texts = said.map((l, i) => {
     const comma = trailingSeparatorAt(l)
@@ -87,6 +93,43 @@ function continued(node: SyntaxNode): Statement {
   const [first] = lines[0].parts
   const indent = isToken(first) && first.t === TOKEN_KIND.indent ? first.text : ''
   return { kind: lines[0].kind, lines, tokens: placed(lines), text: indent + texts.join(CARRIED_JOIN), noted: joinSplit(splits) }
+}
+
+/** A statement where it is in a sheet: where each of its lines starts in the sheet's text. */
+export interface SheetStatement {
+  readonly statement: Statement
+  readonly starts: readonly number[]
+}
+
+/**
+ * Every statement of a sheet's tree, in order, a block's (its opener, its lines'
+ * and its closing line's) too, each where it is. (Imported data's rows aren't
+ * statements: they're data.)
+ */
+export function sheetStatements(body: readonly SyntaxNode[]): SheetStatement[] {
+  const out: SheetStatement[] = []
+  let at = 0
+  const visit = (nodes: readonly SyntaxNode[]) => {
+    for (const node of nodes) {
+      if (node.kind !== NODE_KIND.continued && isBlockKind(node.kind)) {
+        visit(node.parts.filter((p): p is SyntaxNode => !isToken(p)))
+        continue
+      }
+      if (node.parts.some((p) => isToken(p) && p.t === TOKEN_KIND.rows)) {
+        at += textOf(node).length
+        continue
+      }
+      const statement = statementOf(node)
+      const starts = statement.lines.map((l) => {
+        const start = at
+        at += textOf(l).length
+        return start
+      })
+      out.push({ statement, starts })
+    }
+  }
+  visit(body)
+  return out
 }
 
 /** Lines' tokens, at any depth, in order, each where it is in its line. */

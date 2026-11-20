@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { last, value } from '../../test/helpers.ts'
 import { formatPlotSettings, parsePlotSettings } from '../../modules/series/public.ts'
 import { PRINT_PALETTE, linearFit, plotSvg } from './plot.ts'
+import { plotToLatex } from './latexKit.ts'
 
 const data = 't1 = 0.10 s\nt2 = 0.20 s\nt3 = 0.30 s\nt4 = 0.40 s\n'
   + 'x1 = 0.051 m pm 0.004 m\nx2 = 0.098 m pm 0.004 m\nx3 = 0.152 m pm 0.004 m\nx4 = 0.199 m pm 0.004 m\n'
@@ -128,5 +129,20 @@ describe('@plot()', () => {
     expect(svg).toMatch(/^<svg/)
     expect(svg).toContain('Run 1')
     expect(svg).toContain('stroke-dasharray') // the fit line
+  })
+
+  it('shows its points’ uncertainties as error bars, unless its settings say not; a fit still weighs by them', () => {
+    /** An error bar: a line with caps at each end, `M…V…M…H…`. */
+    const bars = (svg: string) => svg.match(/<path d="M[^"]*V[^"]*M[^"]*H/g)?.length ?? 0
+    const shown = last(`${data}@plot(t, x; fit linear)`).plot!
+    const hidden = last(`${data}@plot(t, x; fit linear, uncertainty off)`).plot!
+    expect(bars(plotSvg(shown, PRINT_PALETTE))).toBe(4)
+    expect(bars(plotSvg(hidden, PRINT_PALETTE))).toBe(0)
+    expect(plotToLatex(shown)).toContain('error bars/.cd')
+    expect(plotToLatex(hidden)).not.toContain('error bars')
+    expect(hidden.series[0].fit).toEqual(shown.series[0].fit)
+    const { settings } = parsePlotSettings('fit linear, uncertainty off')
+    expect(settings.uncertainty).toBe(false)
+    expect(formatPlotSettings(settings)).toBe('fit linear, uncertainty off')
   })
 })

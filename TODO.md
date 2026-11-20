@@ -101,6 +101,16 @@ what's here better.
       shortened (first three, last two); `#sym` the rule, `#val` the values.
       In the Reference tab, the AI prompt and the editor's `@` suggestions.
       Not yet: a range (see Ranges and sums), and a ⚙ menu for its rows.
+- [x] **Show uncertainty**: a checkbox in a table's and a plot's ⚙: a table's
+      ± values, a plot's error bars.
+
+      **Resolved (2026-11-20):** a setting both share, `uncertainty off` (on by
+      default), and a "Show uncertainty" box in each ⚙. A table's cell shows
+      its value alone, to the digits its uncertainty gives it (`cellParts`'s
+      `uncertainty`). A plot draws no error bars, nor makes room for them on
+      its axes, in the SVG (the Rendered tab, Word's picture) or in LaTeX; its
+      fit still weighs each point by its uncertainty, so its slope and
+      intercept are the same.
 - [x] **Tables as tables**: `@table(…)` written as a real table, as Emily
       writes them by hand: a `table` float with a caption, full width
       (`tabularx`, `|l|*{n}{>{\centering\arraybackslash}X|}`), a rule after
@@ -1018,7 +1028,7 @@ edit reads again only what it changed, and nodes are shared between trees.
       the cost of not doing them grows: (2) an expression tree that writes
       mathjs's nodes, (5) series and namespaces as values of their own, a
       display IR for the outputs, re-working out only what an edit touches.
-      1. [ ] **Statements in the tree:** each thing a sheet says, as one line,
+      1. [x] **Statements in the tree:** each thing a sheet says, as one line,
          over however many it's written, read once and kept with its node.
          (Each line keeps its own tokens, which the editor reads a line at a
          time: `lexTail` stays, its cost negligible at a call's sizes.)
@@ -1031,6 +1041,14 @@ edit reads again only what it changed, and nodes are shared between trees.
          Library sheet and 5,000 random texts: the same. Next, 1b: the
          formatter and the ⚙ (series' tableMenu) lay out tokens from it, not
          each their own.
+         **Resolved (2026-11-20), step 1b:** the formatter takes a continued
+         line's tokens from its statement (`statementOfLines`, for lines read
+         one at a time), and the ⚙ finds tables and plots in the sheet's
+         statements (`sheetStatements`, in the module API: each statement with
+         where its lines start). Checked side by side over every sheet and
+         3,000 random texts: the formatter's changes the same; the ⚙ the same
+         but in 10 texts, where the old found a `@table(` closed by a `)` in a
+         later statement, which it no longer does (a test says so).
 
 ## 9. Packaging: MathScribe in someone else's app
 

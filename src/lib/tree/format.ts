@@ -26,11 +26,12 @@
  */
 import { INDENT_WIDTH, indentOf, isComment } from '../syntax.ts'
 import { CONTENT, contextInfo, type Content } from './grammar.ts'
-import { LINE_CONTEXT, NODE_KIND, TOKEN_KIND, isToken, type Part, type Token } from './nodes.ts'
+import { LINE_CONTEXT, NODE_KIND, TOKEN_KIND } from './nodes.ts'
 import { splitLines, startsClosing, type SourceLine } from './lines.ts'
 import { ROUND_BRACKETS, SQUARE_BRACKETS, closesBracket, opensBracket } from './lexer.ts'
 import { ROW_SEPARATOR, SEPARATOR, STRAY_QUOTES } from './shapes.ts'
 import { LINE_ROLE, TOP, stepLine, type Step } from './stream.ts'
+import { statementOfLines, type PlacedToken } from './statements.ts'
 
 /** A change to a text: what's from `from` up to `to` replaced with `insert`. */
 export interface TextChange {
@@ -148,23 +149,8 @@ function continuedIndent(opener: number, open: number, startsClosing: boolean): 
   return opener + INDENT_WIDTH * (startsClosing && levels === 0 ? 0 : Math.max(1, levels))
 }
 
-/** A token of a continued line: which line it's on, and where it starts in the sheet's text. */
-interface Placed {
-  readonly token: Token
-  readonly line: number
-  readonly at: number
-}
-
-/** A line's tokens, at any depth, each where it is (`at`: where the line starts in the sheet's text). */
-function place(parts: readonly Part[], line: number, at: { pos: number }, into: Placed[]): void {
-  for (const p of parts) {
-    if (!isToken(p)) place(p.parts, line, at, into)
-    else {
-      into.push({ token: p, line, at: at.pos })
-      at.pos += p.text.length
-    }
-  }
-}
+/** A token of a continued line (its statement's, statements.ts): which line of the sheet it's on, and where it starts in the sheet's text. */
+type Placed = PlacedToken
 
 /** The bracket closing one that opens: `)` for `(`, `]` for `[`. */
 const pairOf = (open: string) => (open === SQUARE_BRACKETS.open ? SQUARE_BRACKETS.close : ROUND_BRACKETS.close)
@@ -182,8 +168,9 @@ const endOf = (p: Placed) => p.at + p.token.text.length
 function continuedChanges(
   lines: readonly SourceLine[], steps: readonly Step[], starts: readonly number[], first: number, last: number, opener: number,
 ): TextChange[] {
-  const tokens: Placed[] = []
-  for (let n = first; n <= last; n++) place(steps[n].node.parts, n, { pos: starts[n] }, tokens)
+  // (Its statement's tokens, each where it is in the sheet.)
+  const statement = statementOfLines(steps.slice(first, last + 1).map((s) => s.node))
+  const tokens: Placed[] = statement.tokens.map((t) => ({ token: t.token, line: first + t.line, at: starts[first + t.line] + t.at }))
   // Each bracket's closing one, the bracket each token is directly in, and how many are open after each
   // (counted as the tree counts them, stream.ts, so the lines it makes are indented as it will read them).
   const closing = new Map<number, number>()

@@ -11,12 +11,13 @@
  *   x from 0 to 2        the x axis's range (either end may be left out)
  *   y from … to …        the y axis's
  *   log x, log y         a logarithmic axis
+ *   uncertainty off      no error bars (a fit still weighs the points by their uncertainties)
  *   title "Run 1"        a title over the plot
  *
  * The plot's ⚙ button in the editor writes them, so they don't need typing.
  */
 import {
-  SETTING, formatRowRange, joinSettings, parseRowRange, parseTitle, settingParts, titleSetting,
+  SETTING, UNCERTAINTY_OFF, UNCERTAINTY_ON, formatRowRange, joinSettings, parseRowRange, parseTitle, settingParts, titleSetting,
 } from './tableSettings.ts'
 
 /** How a plot's points are drawn: as points, joined by lines, or both. */
@@ -45,10 +46,12 @@ export interface PlotSettings {
   x: AxisSettings
   y: AxisSettings
   title?: string
+  /** Draw each point's uncertainty as error bars (`uncertainty off`: the points alone; a fit still weighs them by it). */
+  uncertainty: boolean
 }
 
 export const defaultPlotSettings = (): PlotSettings => ({
-  style: PLOT_STYLE.points, fit: PLOT_FIT.none, x: { log: false }, y: { log: false },
+  style: PLOT_STYLE.points, fit: PLOT_FIT.none, x: { log: false }, y: { log: false }, uncertainty: true,
 })
 
 /** The axes, as written in settings: `x from 0 to 2`, `log y`. */
@@ -84,11 +87,13 @@ export function parsePlotSettings(text: string | undefined): { settings: PlotSet
     else if (fit) s.fit = fit[1] as PlotFit
     else if (log) s[log[1] as PlotAxisName].log = true
     else if (title !== undefined) s.title = title
+    else if (part === UNCERTAINTY_OFF) s.uncertainty = false
+    else if (part === UNCERTAINTY_ON) s.uncertainty = true
     else {
       return {
         settings: s,
         error: `"${part}" isn't a plot setting: use rows 5-20, style lines (or both), fit linear, `
-          + 'x from 0 to 10, log y, or title "…". The plot\'s ⚙ button sets them.',
+          + 'x from 0 to 10, log y, uncertainty off, or title "…". The plot\'s ⚙ button sets them.',
       }
     }
   }
@@ -112,6 +117,7 @@ export function formatPlotSettings(s: PlotSettings): string {
     if (range) parts.push(range)
     if (s[axis].log) parts.push(`${SETTING.log} ${axis}`)
   }
+  if (!s.uncertainty) parts.push(UNCERTAINTY_OFF)
   if (s.title) parts.push(titleSetting(s.title))
   return joinSettings(parts)
 }

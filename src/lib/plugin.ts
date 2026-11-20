@@ -44,8 +44,10 @@ export { TOKEN_ROLE } from './tree/registry.ts'
 export { BODY_END, CONTENT } from './tree/grammar.ts'
 export { ROUND_BRACKETS, lexExpression, node, token, withUnit, type LexRule } from './tree/lexer.ts'
 export type { TextRule } from './tree/lines.ts'
-// (encode: a sheet's text as its tree, for a module's part of the editor that finds its lines in it, as the series' ⚙ does.)
+// (encode: a sheet's text as its tree, for a module's part of the editor that finds its lines in it, as the series' ⚙ does;
+// sheetStatements: each thing it says, as one line over however many it's written, every token where it is.)
 export { encode, textOf } from './tree/codec.ts'
+export { sheetStatements, type PlacedToken, type SheetStatement, type Statement } from './tree/statements.ts'
 // (SETTING_MARK: the `:` before each of a name's settings, for writing a name with its settings back out; ASSIGN: the `=` that assigns.)
 export { ASSIGN, SETTING_MARK, lineShape, soleCall } from './tree/shapes.ts'
 

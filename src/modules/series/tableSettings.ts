@@ -9,6 +9,7 @@
  *   numbers off   no row numbers down the side
  *   labels salts  a series' values down the side in their place: `salts =
  *                 @series("KCl", "KBr")` labels row 1 KCl, row 2 KBr
+ *   uncertainty off  each value alone, without ± its uncertainty
  *   all rows      every row, even in a long table (normally it's shortened)
  *   title "Runs"  its caption (quoted, so it can hold commas)
  *
@@ -29,13 +30,15 @@ export interface TableSettings {
   numbers: boolean
   /** The series whose values go down the side instead, as the rows' labels: `labels salts`. */
   labels?: string
+  /** Show each value's uncertainty, ± (`uncertainty off`: the values alone). */
+  uncertainty: boolean
   /** Show every row, however many. */
   allRows: boolean
   /** Its caption: `title "Reactivity of the halogens"`. */
   title?: string
 }
 
-export const DEFAULT_TABLE_SETTINGS: TableSettings = { lines: TABLE_LINE.grid, numbers: true, allRows: false }
+export const DEFAULT_TABLE_SETTINGS: TableSettings = { lines: TABLE_LINE.grid, numbers: true, uncertainty: true, allRows: false }
 
 // ---------------------------------------------------------------------------
 // The words settings are written with (shared by table, plot and select)
@@ -47,6 +50,7 @@ export const SETTING = {
   lines: 'lines',
   numbers: 'numbers',
   labels: 'labels',
+  uncertainty: 'uncertainty',
   allRows: 'all rows',
   on: 'on',
   off: 'off',
@@ -118,6 +122,9 @@ export const joinSettings = (parts: string[]) => parts.join(`${SETTINGS_SEPARATO
 const LINES = new RegExp(`^${SETTING.lines}\\s+(${TABLE_LINES.join('|')})$`)
 const NUMBERS_ON = `${SETTING.numbers} ${SETTING.on}`
 const NUMBERS_OFF = `${SETTING.numbers} ${SETTING.off}`
+/** Whether uncertainties are shown: a table's ± values, a plot's error bars (shared by both). */
+export const UNCERTAINTY_ON = `${SETTING.uncertainty} ${SETTING.on}`
+export const UNCERTAINTY_OFF = `${SETTING.uncertainty} ${SETTING.off}`
 /** `labels salts` (1: the series; whether it is one, the table says when it's worked out). */
 const LABELS = new RegExp(`^${SETTING.labels}\\s+(\\S+)$`)
 
@@ -168,12 +175,14 @@ export function parseTableSettings(text: string | undefined): { settings: TableS
     else if (part === NUMBERS_OFF) settings.numbers = false
     else if (part === NUMBERS_ON) settings.numbers = true
     else if (labels) settings.labels = labels[1]
+    else if (part === UNCERTAINTY_OFF) settings.uncertainty = false
+    else if (part === UNCERTAINTY_ON) settings.uncertainty = true
     else if (part === SETTING.allRows) settings.allRows = true
     else if (title !== undefined) settings.title = title
     else {
       return {
         settings,
-        error: `"${part}" isn't a table setting: use rows 5-20, lines header (or none), numbers off, labels salts, all rows, `
+        error: `"${part}" isn't a table setting: use rows 5-20, lines header (or none), numbers off, labels salts, uncertainty off, all rows, `
           + 'or title "…". The table\'s ⚙ button sets them.',
       }
     }
@@ -189,6 +198,7 @@ export function formatTableSettings(s: TableSettings): string {
   if (s.lines !== DEFAULT_TABLE_SETTINGS.lines) parts.push(`${SETTING.lines} ${s.lines}`)
   if (!s.numbers) parts.push(NUMBERS_OFF)
   if (s.labels) parts.push(`${SETTING.labels} ${s.labels}`)
+  if (!s.uncertainty) parts.push(UNCERTAINTY_OFF)
   if (s.allRows) parts.push(SETTING.allRows)
   if (s.title) parts.push(titleSetting(s.title))
   return joinSettings(parts)

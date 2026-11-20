@@ -1329,11 +1329,12 @@ salts = @series("{KCl}", "{KBr}", "{KI}")
   values. A row the series doesn't have is left blank.
 - **Settings:** the ⚙ after a table in the editor opens its settings: which rows to
   show (from and to), the lines (a grid, the default; under the header; or none), the
-  row numbers, row labels, showing every row of a long table, and a title. They're
-  kept in the sheet after a semicolon in the brackets, `@table(t, x; rows 5-20,
-  lines header, numbers off, labels salts, all rows, title "Runs")`, so they can be
-  typed too. Rows only limit what's shown: a computed column is still worked out
-  for every row.
+  row numbers, row labels, showing uncertainties (± with each value, unless
+  turned off), showing every row of a long table, and a title. They're kept in
+  the sheet after a semicolon in the brackets, `@table(t, x; rows 5-20, lines
+  header, numbers off, labels salts, uncertainty off, all rows, title "Runs")`,
+  so they can be typed too. Rows only limit what's shown: a computed column is
+  still worked out for every row.
 - In the LaTeX and Word exports a table is a table, as one is written by hand:
   its title a numbered caption over it, the full width of the page, the row
   numbers or labels bold and to the left, the other columns centred, the header bold. In LaTeX it's
@@ -1374,9 +1375,10 @@ v = x_slope                # the fit's slope, with its uncertainty
   otherwise give a slope uncertainty far too small and χ²_ν in the thousands.
   The line under the graph says which were used: (weighted by δT² and δm).
 - **Settings:** the ⚙ after a plot opens its settings: rows, style (points, lines,
-  or both), fit, each axis's range and log scale, and a title. As with tables,
-  they're kept after a semicolon: `@plot(t, x; rows 2-, style both, fit linear,
-  x from 0 to 1, log y, title "Run 1")`.
+  or both), fit, each axis's range and log scale, showing uncertainties (error
+  bars, unless turned off: a fit still weighs the points by them), and a title.
+  As with tables, they're kept after a semicolon: `@plot(t, x; rows 2-, style
+  both, fit linear, x from 0 to 1, log y, uncertainty off, title "Run 1")`.
 - **What's on the axes is what's plotted:** a point outside an axis's range isn't
   drawn, isn't fitted, and isn't in a named plot's series. So `x from 0.15 to 0.45`
   fits just that stretch of the data, and `p.slope` is that stretch's slope.

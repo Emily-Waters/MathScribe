@@ -242,7 +242,7 @@ function plotLabel(p: PlotName & { unit?: string }): string {
 }
 
 /**
- * A plot as a pgfplots graph: its points (with error bars for uncertainties),
+ * A plot as a pgfplots graph: its points (with error bars for uncertainties, unless its settings say not),
  * lines between them if its style says so, and its fits as dashed lines.
  */
 export function plotToLatex(plot: PlotData): string {
@@ -263,7 +263,8 @@ export function plotToLatex(plot: PlotData): string {
   const lines = ['\\begin{center}', '\\begin{tikzpicture}', `\\begin{axis}[${options.join(', ')}]`]
   plot.series.forEach((s, i) => {
     const colour = PLOT_COLOURS[i % PLOT_COLOURS.length]
-    const errors = s.points.some((p) => p.dx || p.dy)
+    // (Error bars only if the plot's settings show uncertainties.)
+    const errors = settings.uncertainty !== false && s.points.some((p) => p.dx || p.dy)
     const style = [
       `color=${colour}`,
       settings.style === 'lines' ? 'no markers' : 'mark=*',

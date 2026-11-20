@@ -117,7 +117,9 @@ amber one; hover the bar to read the message.
 | Ctrl+Z / Ctrl+Y | Undo / redo |
 
 On a Mac, use ⌘ for Ctrl. `{ }` blocks (`@layout.list { }` too) and an import's rows fold
-from the arrows in the gutter.
+from the arrows in the gutter, and so do sections: a `#` heading folds up to the next
+`#`, a `##` up to the next `##` or `#` (or the end of the block it's in). Section lines
+are lightly highlighted, subsections more lightly, so the sheet's outline stands out.
 
 The output follows as you type. A sheet that takes a while to work out (thousands
 of rows of imported data) is worked out once typing pauses instead, so typing never

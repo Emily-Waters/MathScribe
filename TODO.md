@@ -348,6 +348,18 @@ working (group 2).
       (100,000 texts each, two alphabets, once by hand) found no change of
       meaning; one oddity left: a #command in the middle of a call's line
       (`@table(  #val ,()`) can take a second format to settle.
+- [x] **Sections in the editor**: a slight highlight on `#` (section) and `##`
+      (subsection) lines, a section's brighter; and sections and subsections
+      collapsible up to the next heading of their kind, or of a higher one.
+
+      **Resolved (2026-11-19):** read from the tree, as the editor's other
+      folds are (sheetLines.ts, `headingLevel` from a heading's marks token):
+      a heading folds to the last non-blank line before the next heading of
+      its level or above in the same body (a block titled as a section,
+      `# Kinematics {`, counts, and folds as the block it is), or its body's
+      end, or the sheet's. The highlight (editor/headings.ts) is a line
+      decoration in each theme's own tint (`--section-line`,
+      `--subsection-line` in App.css); a `#` in prose or a note isn't one.
 - [ ] **Hover shows a variable's value at that line**, not at the end of its scope.
 - [ ] **Inline results**: a faint value at the end of each line in the editor
       (`F = m * a   ⟶ 19.6 N`).

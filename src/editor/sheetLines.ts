@@ -7,7 +7,7 @@
  * Worked out once per version of the document (and the tree's lines are cached
  * by text, so an edit reads again only what it changed).
  */
-import { LINE_CONTEXT, LINE_ROLE, NODE_KIND, TOP, stepLine, type LineState, type Step } from '../lib/tree/index.ts'
+import { LINE_CONTEXT, LINE_ROLE, NODE_KIND, TOKEN_KIND, TOP, isToken, stepLine, type LineState, type Step } from '../lib/tree/index.ts'
 import { BODY_END } from '../lib/tree/grammar.ts'
 
 /** A document as the editor has it: its lines, by number from 1. */
@@ -22,7 +22,11 @@ export interface SheetLine {
   readonly step: Step
   /** The bodies it's inside, before it's read (what it's read in). */
   readonly before: LineState
-  /** For a line that opens a body: the last line of its body (before its `}`, if it has one), or undefined if the body is empty or never closed. */
+  /**
+   * For a line that opens a body: the last line of its body (before its `}`, if
+   * it has one), or undefined if the body is empty or never closed. For a
+   * heading: the last line of its section (see sheetLines).
+   */
   foldTo?: number
   /** For a line that opens a body: its closing line, if it has one. */
   closer?: number
@@ -31,7 +35,25 @@ export interface SheetLine {
 /** Each document's lines, read (a document version is never changed: a new one is made). */
 const read = new WeakMap<DocLines, SheetLine[]>()
 
-/** Every line of a document, read in its place (index n - 1 for line n). */
+/**
+ * A heading's level, from its `#`s (the tree's marks token): 1 a section, 2 a
+ * subsection, 3 a sub-subsection. A block titled as a section (`# Kinematics {`)
+ * has one too. Undefined for any other line.
+ */
+export function headingLevel(step: Step): number | undefined {
+  const { kind, parts } = step.node
+  if (kind !== NODE_KIND.heading && kind !== NODE_KIND.blockOpener) return undefined
+  const marks = parts.find((p) => isToken(p) && p.t === TOKEN_KIND.marks)
+  return marks && isToken(marks) ? marks.text.length : undefined
+}
+
+/**
+ * Every line of a document, read in its place (index n - 1 for line n); each
+ * block's fold, and each heading's: its section, up to the next heading of its
+ * level or above (`#` ends a `##`'s, and another `##`'s; a block titled as a
+ * section, `# Kinematics {`, too) in the same body, or the end of that body or
+ * the sheet; to its last line that isn't blank.
+ */
 export function sheetLines(doc: DocLines): SheetLine[] {
   let lines = read.get(doc)
   if (lines) return lines
@@ -39,6 +61,8 @@ export function sheetLines(doc: DocLines): SheetLine[] {
   let state = TOP
   /** The lines that opened the bodies open now, innermost last, and their last non-blank line so far. */
   const open: { line: number; lastFilled: number }[] = []
+  /** The headings whose sections are open now: each one's line, level, how many bodies it's in, and its last non-blank line so far. */
+  const sections: { line: number; level: number; depth: number; lastFilled: number }[] = []
   for (let n = 1; n <= doc.lines; n++) {
     const text = doc.line(n).text
     const step = stepLine(state, { text, eol: '' })
@@ -49,6 +73,19 @@ export function sheetLines(doc: DocLines): SheetLine[] {
     }
     const sheetLine: SheetLine = { step, before: state }
     lines.push(sheetLine)
+    // Sections that end before this line: those in a body it's outside of (a `}` ends its block's), and,
+    // at a heading, those of its level or below in its body. (An opener is in the body around what it opens.)
+    const depth = step.role === LINE_ROLE.opener ? step.state.length - 1 : step.state.length
+    const level = headingLevel(step)
+    for (let i = sections.length - 1; i >= 0; i--) {
+      const s = sections[i]
+      if (s.depth <= depth && (level === undefined || s.depth < depth || s.level < level)) continue
+      lines[s.line - 1].foldTo = s.lastFilled > s.line ? s.lastFilled : undefined
+      sections.splice(i, 1)
+    }
+    if (text.trim()) for (const s of sections) s.lastFilled = n
+    // (A block titled as a section folds as the block it is.)
+    if (level !== undefined && step.node.kind === NODE_KIND.heading) sections.push({ line: n, level, depth, lastFilled: n })
     if (step.role === LINE_ROLE.closer) {
       const o = open.pop()
       if (o) {
@@ -67,6 +104,8 @@ export function sheetLines(doc: DocLines): SheetLine[] {
     const indented = ends === BODY_END.indent
     lines[o.line - 1].foldTo = indented && o.lastFilled > o.line ? o.lastFilled : undefined
   }
+  // Sections open at the end run to the sheet's last line that isn't blank.
+  for (const s of sections) lines[s.line - 1].foldTo = s.lastFilled > s.line ? s.lastFilled : undefined
   read.set(doc, lines)
   return lines
 }
@@ -82,11 +121,11 @@ export const readAs = (doc: DocLines, n: number, text: string) => stepLine(sheet
 
 /**
  * The lines a line folds, from its end to the end of the last: a block's up to
- * (not including) its `}`, an import's indented lines.
+ * (not including) its `}`, an import's indented lines, a heading's section.
  */
 export function foldRange(doc: DocLines, n: number): { from: number; to: number } | null {
   const line = sheetLine(doc, n)
-  if (line.step.role !== LINE_ROLE.opener) return null
+  if (line.step.role !== LINE_ROLE.opener && headingLevel(line.step) === undefined) return null
   return line.foldTo ? { from: n, to: line.foldTo } : null
 }
 

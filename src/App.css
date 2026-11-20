@@ -25,6 +25,9 @@
   /* Highlights: the editor's current line, its selection, other matches of the
      selected word (and matching brackets), and the output linked to the cursor. */
   --active-line: rgba(58, 91, 217, 0.05);
+  /* A section's line in the editor (`#`), and a subsection's (`##`), fainter. */
+  --section-line: rgba(58, 91, 217, 0.11);
+  --subsection-line: rgba(58, 91, 217, 0.055);
   --selection: #d3dcf7;
   --selection-match: rgba(58, 91, 217, 0.1);
   --linked-line: #e9eefb;
@@ -45,6 +48,8 @@
   --warn: #e9b14f;
   --fn: #4fd1a5;
   --active-line: rgba(124, 150, 255, 0.045);
+  --section-line: rgba(124, 150, 255, 0.12);
+  --subsection-line: rgba(124, 150, 255, 0.06);
   --selection: #2c3650;
   --selection-match: rgba(124, 150, 255, 0.1);
   --linked-line: #222939;
@@ -65,6 +70,8 @@
   --warn: #cca700;
   --fn: #4ec9b0;
   --active-line: rgba(255, 255, 255, 0.035);
+  --section-line: rgba(255, 255, 255, 0.085);
+  --subsection-line: rgba(255, 255, 255, 0.045);
   --selection: #264f78;
   --selection-match: rgba(173, 214, 255, 0.09);
   --linked-line: #1f242b;
@@ -85,6 +92,8 @@
   --warn: #f0b429;
   --fn: #4fd1a5;
   --active-line: rgba(255, 255, 255, 0.045);
+  --section-line: rgba(255, 255, 255, 0.1);
+  --subsection-line: rgba(255, 255, 255, 0.05);
   --selection: #1d3156;
   --selection-match: rgba(120, 160, 255, 0.11);
   --linked-line: #10151e;

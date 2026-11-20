@@ -23,6 +23,7 @@ import { typeGreek } from '../editor/greek.ts'
 import { dataBlocksExtension, foldingSettings, sheetLineNumber } from '../editor/dataBlocks.ts'
 import { dataBlockGuard, dataBlockLines, importActions } from '../editor/dataBlockLines.ts'
 import { FORMAT_KEY, formatDocument } from '../editor/format.ts'
+import { headingHighlight } from '../editor/headings.ts'
 import { splitLines } from '../lib/tree/index.ts'
 
 interface EditorPaneProps {
@@ -222,6 +223,7 @@ function extensions(
     mathscribeLanguage,
     mathscribeIndent,
     mathscribeFolding,
+    headingHighlight,
     dataBlocksExtension,
     syntaxHighlighting(mathscribeHighlight),
     diagnosticsField,

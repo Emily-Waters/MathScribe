@@ -8,6 +8,7 @@
  * lib/syntax.ts.)
  */
 import { AUTO_PRECISION, type CalcOptions } from './lib/engine/index.ts'
+import { readStoredJson, writeStoredJson } from './lib/data/storage.ts'
 
 // ---------------------------------------------------------------------------
 // What the browser keeps (localStorage)
@@ -34,6 +35,10 @@ export const STORAGE_KEYS = {
   acceptKeys: 'mathscribe:accept-keys',
   /** The Create dialog's last choices: what to make, the request, the tickboxes. */
   create: 'mathscribe:create',
+  /** The output options: sig figs, substitution, ≈, product dots. */
+  calcOptions: 'mathscribe:calc-options',
+  /** Whether each line's result is shown at its end in the editor. */
+  inlineResults: 'mathscribe:inline-results',
 } as const
 
 // ---------------------------------------------------------------------------
@@ -43,6 +48,15 @@ export const STORAGE_KEYS = {
 /** The Output options a session starts with. */
 export const DEFAULT_CALC_OPTIONS: CalcOptions = {
   precision: AUTO_PRECISION, showSubstitution: true, approxRounded: false, productDots: false,
+}
+
+/** The output options set last time in this browser (any missing ones at their defaults). */
+export const loadCalcOptions = (): CalcOptions =>
+  ({ ...DEFAULT_CALC_OPTIONS, ...readStoredJson<Partial<CalcOptions>>(STORAGE_KEYS.calcOptions) })
+
+/** Remember the output options (if storage is blocked, they last until reload). */
+export const saveCalcOptions = (options: CalcOptions): void => {
+  writeStoredJson(STORAGE_KEYS.calcOptions, options)
 }
 
 /**

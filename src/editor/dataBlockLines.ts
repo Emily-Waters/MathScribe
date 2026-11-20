@@ -21,6 +21,7 @@ import { Decoration, EditorView, WidgetType, keymap, type Command, type KeyBindi
 import { foldEffect, foldState, foldable, foldedRanges, unfoldEffect } from '@codemirror/language'
 import { dataBlocks, isImport } from './sheetLines.ts'
 import { IMPORT_CALL } from '../lib/syntax.ts'
+import { EDITOR_KEY } from './shortcuts.ts'
 
 /** A data block's lines: its import line, then its rows (1-based, inclusive). */
 interface Unit {
@@ -372,9 +373,9 @@ const selectBlockForClipboard: Command = (view) => {
 
 /** The keys. */
 export const dataBlockKeys: KeyBinding[] = [
-  { key: 'Alt-ArrowUp', run: moveLines(-1) },
-  { key: 'Alt-ArrowDown', run: moveLines(1) },
-  { key: 'Shift-Mod-k', run: deleteLines },
+  { key: EDITOR_KEY.moveUp, run: moveLines(-1) },
+  { key: EDITOR_KEY.moveDown, run: moveLines(1) },
+  { key: EDITOR_KEY.deleteLine, run: deleteLines },
   { key: 'Mod-x', run: selectBlockForClipboard },
   { key: 'Mod-c', run: selectBlockForClipboard },
 ]

@@ -29,7 +29,7 @@ import type { LineResult, ParsedLine } from './results.ts'
 import type { ReactNode } from 'react'
 import type { Extension } from '@codemirror/state'
 import type { Construct } from '../../output/constructs/construct.ts'
-import type { CustomBlock } from '../../sheet/blocks.ts'
+import type { CaptionKind, CustomBlock } from '../../sheet/blocks.ts'
 
 /** A value as shown: its number (in its display unit), formatted, and its unit. */
 export interface ValueParts {
@@ -263,6 +263,12 @@ export type ModuleClass = abstract new (...args: never[]) => EngineModule
 export interface ModuleBlockKind {
   readonly construct: Construct<CustomBlock>
   readonly view: (props: { block: CustomBlock }) => ReactNode
+  /**
+   * The kind of numbered caption a block of it has, if it has one (a table with
+   * a title: `Table 2: Runs`), so the Rendered tab numbers it among the sheet's
+   * as the exports do (its view reads its number: useCaptionNumber).
+   */
+  readonly caption?: (block: CustomBlock) => CaptionKind | undefined
 }
 
 /** A module class that can be installed: made with no arguments (each sheet makes its own, keeping its own state). */

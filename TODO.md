@@ -370,11 +370,42 @@ working (group 2).
       end, or the sheet's. The highlight (editor/headings.ts) is a line
       decoration in each theme's own tint (`--section-line`,
       `--subsection-line` in App.css); a `#` in prose or a note isn't one.
-- [ ] **Hover shows a variable's value at that line**, not at the end of its scope.
-- [ ] **Inline results**: a faint value at the end of each line in the editor
+- [x] **Hover shows a variable's value at that line**, not at the end of its scope.
+      Resolved (2026-11-20): each line says what it assigned, as it stood after
+      the line (`CalcResult.assigned`, worked out when a hover asks), and each
+      definition's symbol keeps that (sheetIndex.ts), so a hover shows the
+      value from the definition visible there: `F = 19.6 N`, not its working,
+      and a tuple's unpacked names (which had shown their scope's last value)
+      too. The hover says "its value from there".
+- [x] **Inline results**: a faint value at the end of each line in the editor
       (`F = m * a   ⟶ 19.6 N`).
-- [ ] **Parameter hints**: typing `E_k(1, ` shows `E_k(n, m [kg], L [m])` with the
+      Resolved (2026-11-20): each calculation that works one out carries its
+      result alone (`CalcResult.result`, from the equation's parts; ≈ when
+      rounded), collected by line (`collectResults`) and shown faint, typeset,
+      at the line's end (editor/inlineResults.ts); a value typed as it is shows
+      none. "Show results in the editor" in the editor's Options turns them off,
+      remembered in the browser.
+- [x] **Parameter hints**: typing `E_k(1, ` shows `E_k(n, m [kg], L [m])` with the
       current parameter highlighted.
+      Resolved (2026-11-20): the innermost call still open before the cursor,
+      read from the statement's tokens (an open call; on a continuation line,
+      what the lines above said, as the tree keeps it), and the commas directly
+      in it, say which parameter (editor/paramHints.ts). What a function takes
+      comes from the sheet's own functions, MathScribe's `@` functions
+      (builtins.ts) and mathjs's (vocabulary.ts); a module's settings after `;`
+      are shown as one, bold once the `;` is typed. Item 3 of "MathScribe as a
+      language" (call signatures) will give these more to say.
+- [x] **A keyboard shortcuts list**, somewhere in the app.
+      Resolved (2026-11-20): in the editor's Options (ShortcutOptions), from one
+      list of the keys as they're bound (editor/shortcuts.ts, `EDITOR_KEY`,
+      which the keymaps use too), shown as ⌘ on a Mac and Ctrl elsewhere.
+- [ ] **Quick fixes on warnings** (above), **literal tables** (Lab and data
+      tables, section 2), **images** (section 2) and **PDF in the app**
+      (section 2): recommended 2026-11-20, after the quality-of-life round
+      (templates, inline results, hover, shortcuts, parameter hints, output
+      options, caption numbers), in roughly that order of value; literal
+      tables first, as the last everyday thing a lab report needs LaTeX by hand
+      for.
 - [x] **Rename (F2)** a variable or function everywhere it's used, respecting scope.
       Resolved (2026-11-17): F2 opens a small in-editor panel beside the name
       and replaces uses that resolve to the same symbol, in scope. Ctrl+Click
@@ -393,10 +424,25 @@ working (group 2).
 - [ ] **Share by link**: the sheet compressed into the URL
       (`…/MathScribe/#sheet=…`), with no server and nothing uploaded.
 - [ ] **Installable and offline**: a progressive web app.
-- [ ] **Templates**: "New from template" (a lab write-up, a problem set, a design
+- [x] **Templates**: "New from template" (a lab write-up, a problem set, a design
       calculation).
-- [ ] **Remember the output options** (sig figs, substitution, ≈) in the browser,
+      Resolved (2026-11-20), the first two: a Template menu beside New
+      (TemplateMenu.tsx), from `TEMPLATES` (content/templates.ts): a lab report
+      (title page, purpose, method, data, calculations, results, discussion,
+      conclusion) and a problem set, each with a little of every section filled
+      in as an example; a test checks each works out without errors or
+      warnings. A design calculation is left for when there's one to model it on.
+- [x] **Remember the output options** (sig figs, substitution, ≈) in the browser,
       or keep them in the sheet so it looks the same wherever it's opened.
+      Resolved (2026-11-20), in the browser: `loadCalcOptions` /
+      `saveCalcOptions` (config.ts), as the Document options are. (Kept in the
+      sheet is still an idea, for a sheet shared with someone else.)
+- [x] **Captions numbered in the Rendered tab**, as the exports number them.
+      Resolved (2026-11-20): a module's kind of block says which caption its
+      blocks have (ModuleBlockKind's `caption`; a titled table, `Table`), and
+      the Rendered tab numbers them in the sheet's order, hidden and wrong ones
+      left out as the exports leave them (blocks/captions.ts); a view reads its
+      number with `useCaptionNumber` (in the module API).
 - [ ] **Narrow screens**: a stacked layout, or an Input / Output switch.
 - [ ] **Evaluate in a web worker**, if very long sheets still lag once typing pauses.
 

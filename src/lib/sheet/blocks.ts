@@ -13,7 +13,7 @@
  *   custom                            a module's own kind of block (its `type`), which
  *                                     the module writes and draws (EngineModule.blockKinds)
  */
-import type { DataColumn, Definition, TraceLine } from '../engine/index.ts'
+import type { DataColumn, Definition, LineValue, TraceLine } from '../engine/index.ts'
 import type { VariableSummary } from './values.ts'
 import { LINE_COMMAND, type LayoutStyle, type LineCommand, type Notation } from '../syntax.ts'
 import { words, type WordOf } from '../syntax.ts'
@@ -129,6 +129,10 @@ export interface CalcBlock extends BlockBase, Noted, Faulted, Hideable {
   kind: typeof BLOCK_KIND.calc
   source: string
   tex: string
+  /** What the line assigned, each as it stood after it (its value at this line, for the editor's hover). */
+  assigned?: VariableSummary[]
+  /** Its result alone (≈ if rounded), for the editor's inline results; none for a value typed as it is. */
+  result?: LineValue
   warning?: string
   /** Extra information, e.g. other solutions of an equation (may contain $inline math$). */
   info?: string
@@ -273,6 +277,14 @@ export interface CustomBlock<D = unknown> extends BlockBase, Spans, Noted, Fault
   warning?: string
   info?: string
 }
+
+/**
+ * The kinds of numbered caption a document has, as each is named: `Table 2:
+ * Runs`. A module's kind of block says which its blocks have (ModuleBlockKind's
+ * `caption`), and each output numbers them in the order they're written.
+ */
+export const CAPTION_KIND = { table: 'Table' } as const
+export type CaptionKind = (typeof CAPTION_KIND)[keyof typeof CAPTION_KIND]
 
 /** Any block of a sheet. */
 export type Block =

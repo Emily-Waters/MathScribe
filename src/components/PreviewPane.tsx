@@ -7,7 +7,8 @@ import type { Sheet } from '../lib/sheet/document.ts'
 import { lineNumbering } from '../lib/sheet/sheetIndex.ts'
 import type { CalcOptions } from '../lib/engine/index.ts'
 import { RenderedBlock } from './blocks/index.tsx'
-import { ImportFile, LineLink, LineNumbers } from './blocks/context.ts'
+import { CaptionNumbers, ImportFile, LineLink, LineNumbers } from './blocks/context.ts'
+import { captionNumbers } from './blocks/captions.ts'
 import { ReferencePane } from './ReferencePane.tsx'
 import { OptionsMenu } from './OptionsMenu.tsx'
 import { LibraryPane } from './LibraryPane.tsx'
@@ -39,6 +40,8 @@ export function PreviewPane({
   const docRef = useRef<HTMLDivElement>(null)
   const link = useMemo(() => ({ activeLine, onJump }), [activeLine, onJump])
   const numbering = useMemo(() => lineNumbering(sheet.blocks), [sheet.blocks])
+  // (Each captioned block's number, `Table 2`, as the exports number it.)
+  const captions = useMemo(() => captionNumbers(sheet.blocks), [sheet.blocks])
 
   // Keep the output for the cursor's line in view: centred after a click in the
   // editor; while typing or moving with the keys, scrolled only as far as needed.
@@ -78,9 +81,11 @@ export function PreviewPane({
           <LineLink.Provider value={link}>
           <LineNumbers.Provider value={numbering}>
           <ImportFile.Provider value={onRemoveImport}>
+          <CaptionNumbers.Provider value={captions}>
             {sheet.blocks.length === 0
               ? <p className="doc__empty">Start typing on the left.</p>
               : sheet.blocks.map((b) => <RenderedBlock key={`${b.line}-${b.kind}`} block={b} />)}
+          </CaptionNumbers.Provider>
           </ImportFile.Provider>
           </LineNumbers.Provider>
           </LineLink.Provider>

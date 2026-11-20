@@ -35,7 +35,7 @@ import { symbolTex, numberTex, unitTex, attachUnit, isUnitCall, unitCallText, is
 import { unwrap, isLiteral, isTupleLiteral, isConversion } from './nodes.ts'
 import { NODE_KIND, TOKEN_KIND, isToken, type Part } from '../../tree/nodes.ts'
 import { lexExpression } from '../../tree/lexer.ts'
-import { ASSIGN, SETTING_MARK, lineShape, type LineShape } from '../../tree/shapes.ts'
+import { ASSIGN, SETTING_MARK, assignedOf, lineShape, type LineShape } from '../../tree/shapes.ts'
 import { normalise, displayUnit, magnitudeOf } from './normalise.ts'
 import { Scope, Views, type Variables, Values, innerValues } from './scope.ts'
 import { MAX_TRACE_DEPTH } from './functions.ts'
@@ -803,13 +803,16 @@ export class Calculator {
       // (A module's own member, typed: what to write instead. What a module writes for the engine can use it.)
       const internal = internalTyped(input)
       if (internal) return { tex: '', error: internal }
-      const { tex, error, warning, info, trace, plot, block, defines } = this.evaluateLine(this.rewriteLine(input), mode, explicit)
+      const { tex, error, warning, info, trace, plot, block, defines, parts } = this.evaluateLine(this.rewriteLine(input), mode, explicit)
       // Messages name a namespace's members as typed, a.x_1 (not a__x_1), and a module's inside names as the sheet does.
       // (And one of MathScribe's functions written without its @ is explained.)
       const readable = (s: string | undefined) => (s === undefined ? s : builtinCallHint(moduleReadableMessage(s.includes(JOIN) ? fitHint(readableMembers(s)) : s)))
       // Brackets by nesting, ( ) inside [ ] inside { }, once each equation is finished.
       return {
         tex: nestBrackets(tex), error: readable(error), warning: readable(warning), info: readable(info), plot, block, defines,
+        assigned: error ? undefined : this.assignedBy(input),
+        // (Its result alone, if it works one out: a value typed as it is has none.)
+        result: !error && parts?.result ? { tex: nestBrackets(parts.result), approx: parts.approx === true } : undefined,
         trace: trace?.length ? trace.map((t) => ({ ...t, tex: nestBrackets(t.tex) })) : undefined,
       }
     } catch (e) {
@@ -1422,6 +1425,37 @@ export class Calculator {
   }
 
   /**
+   * A variable as it stands, summed up: its name, sig figs, and its TeX (`m =
+   * 2.00 kg`), worked out when it's first asked for (a hover, say): a sheet with
+   * thousands of imported values would otherwise typeset them all on every edit.
+   * (A variable assigned again is a new one, so this one keeps its value.)
+   */
+  private summary(name: string, v: Variable): VariableSummary {
+    let tex: string | undefined
+    const typeset = () =>
+      `${v.label ?? symbolTex(name)} = ${this.valueTex(v.value, v.sf, this.uncertainty.total(v.contributions, v.value), v.uncSf, v.declared === true)}`
+    // (Not enumerable, so code that walks a list's properties doesn't typeset them all.)
+    return Object.defineProperty({ name, sf: v.sf }, 'tex', { get: () => (tex ??= typeset()), enumerable: false }) as VariableSummary
+  }
+
+  /**
+   * What a line assigned, each as it stands after the line: its value at that
+   * line, for the editor's hover (a variable assigned again later has its later
+   * value there). [] for a line that assigns no variable (a function's, a value's).
+   */
+  private assignedBy(input: string): VariableSummary[] {
+    const { target } = lineShape(input)
+    if (!target || target.kind === NODE_KIND.functionHead) return []
+    const names = target.kind === NODE_KIND.unpack
+      ? (target.entries ?? []).flatMap((e) => assignedOf(e)?.name ?? [])
+      : [target.name]
+    return names.flatMap((name) => {
+      const v = this.vars.get(name)
+      return v && typeof v.value !== 'function' ? [this.summary(name, v)] : []
+    })
+  }
+
+  /**
    * Variables defined directly in `vars`, not inherited ones, and the members
    * of the selections and named plots made there (a.x_1: each the variable it
    * looks up, under its own name).
@@ -1429,16 +1463,7 @@ export class Calculator {
   private describe(vars: Variables): VariableSummary[] {
     // Map.prototype.entries only sees this scope's own entries. Uncertainty
     // references and series aggregates are derived on demand, so not listed.
-    // Each one's TeX is worked out when it's first asked for (a hover, say): a
-    // sheet with thousands of imported values would otherwise typeset them all
-    // on every edit.
-    const typeset = (name: string, v: Variable) =>
-      `${v.label ?? symbolTex(name)} = ${this.valueTex(v.value, v.sf, this.uncertainty.total(v.contributions, v.value), v.uncSf, v.declared === true)}`
-    const listed = (name: string, v: Variable): VariableSummary => {
-      let tex: string | undefined
-      // (Not enumerable, so code that walks the list's properties doesn't typeset them all.)
-      return Object.defineProperty({ name, sf: v.sf }, 'tex', { get: () => (tex ??= typeset(name, v)), enumerable: false }) as VariableSummary
-    }
+    const listed = (name: string, v: Variable) => this.summary(name, v)
     const own = [...vars.entries()]
       .filter(([name, v]) => typeof v.value !== 'function' && !isHiddenName(name) && !v.agg)
       .map(([name, v]) => listed(name, v))

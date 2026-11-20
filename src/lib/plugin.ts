@@ -54,7 +54,7 @@ export { ASSIGN, SETTING_MARK, lineShape, soleCall } from './tree/shapes.ts'
 // Reading a sheet into blocks.
 export { NodeReader, SheetWideReader, bodyLines, type ReadsLines, type TreeItem } from './reading/reader.ts'
 export type { SheetReader } from './reading/sheetReader.ts'
-export { BLOCK_KIND, SYMBOL_KIND, type CardBlock, type CardEntry, type CustomBlock, type DefinedName } from './sheet/blocks.ts'
+export { BLOCK_KIND, CAPTION_KIND, SYMBOL_KIND, type CaptionKind, type CardBlock, type CardEntry, type CustomBlock, type DefinedName } from './sheet/blocks.ts'
 export type { Contributions } from './sheet/values.ts'
 
 // Working lines out: mathjs, values, results, and writing them.
@@ -85,7 +85,7 @@ export { Construct, type DocxOut, type LatexOut } from './output/constructs/cons
 export * as latexKit from './output/latexKit.ts'
 export * as docxKit from './output/docxKit.ts'
 export { BlockMessages, Tex, Title } from '../components/blocks/shared.tsx'
-export { useLineLink } from '../components/blocks/context.ts'
+export { useCaptionNumber, useLineLink } from '../components/blocks/context.ts'
 
 // The editor.
 export type { Extension } from '@codemirror/state'

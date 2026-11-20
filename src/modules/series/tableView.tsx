@@ -1,10 +1,10 @@
 /**
  * A table block in the Rendered tab, as it is in the exports (tableBlock.ts): its
- * title a caption over it, the full width, the n column bold and to the left, the
+ * title a numbered caption over it, the full width, the row headers bold and to the left, the
  * others centred, the header bold, its lines as its settings say, its note under
  * it, and the line's messages.
  */
-import { BlockMessages, Tex, Title, useLineLink, type CustomBlock } from '../../lib/plugin.ts'
+import { BlockMessages, CAPTION_KIND, Tex, Title, useCaptionNumber, useLineLink, type CustomBlock } from '../../lib/plugin.ts'
 import { TABLE_TEX, type TableData } from './tableData.ts'
 import './tableView.css'
 
@@ -16,6 +16,7 @@ const boldTex = (tex: string) => `\\boldsymbol{${tex}}`
 
 export function TableView({ block }: { block: CustomBlock }) {
   const link = useLineLink()
+  const number = useCaptionNumber(block)
   // `#hide` tables stay hidden unless something went wrong.
   if (block.hidden && !block.error) return null
   const { lines, rowHeaders, header, rows, gapBefore, title } = block.data as TableData
@@ -38,7 +39,13 @@ export function TableView({ block }: { block: CustomBlock }) {
   )
   return (
     <div className={`calc ms-table${block.error ? ' calc--error' : ''}`} {...link(block.line)}>
-      {title !== undefined && <p className="ms-table__caption"><Title text={title} /></p>}
+      {title !== undefined && (
+        <p className="ms-table__caption">
+          {/* (Numbered as the exports number it: `Table 2: Runs`.) */}
+          {number !== undefined && <span>{`${CAPTION_KIND.table} ${number}: `}</span>}
+          <Title text={title} />
+        </p>
+      )}
       <div className="ms-table__scroll">
         <table className={`ms-table__table ms-table--${lines}`}>
           {/* (The columns but the row headers share the width equally, as in the exports; the row headers as narrow as they can be.) */}

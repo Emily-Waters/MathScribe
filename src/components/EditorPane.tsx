@@ -24,6 +24,9 @@ import { dataBlocksExtension, foldingSettings, sheetLineNumber } from '../editor
 import { dataBlockGuard, dataBlockLines, importActions } from '../editor/dataBlockLines.ts'
 import { FORMAT_KEY, formatDocument } from '../editor/format.ts'
 import { headingHighlight } from '../editor/headings.ts'
+import { inlineResults, setInlineResults } from '../editor/inlineResults.ts'
+import { paramHints } from '../editor/paramHints.ts'
+import type { LineValue } from '../lib/engine/index.ts'
 import { splitLines } from '../lib/tree/index.ts'
 
 interface EditorPaneProps {
@@ -41,6 +44,8 @@ interface EditorPaneProps {
   onCursorLine: (line: number, clicked: boolean) => void
   /** Errors and warnings by line, marked in the gutter. */
   diagnostics: Map<number, Diagnostic>
+  /** Each line's result, by line, shown faintly at its end (none if they're turned off). */
+  results: ReadonlyMap<number, LineValue>
   /** Where each function is defined (for Ctrl+Click / F12). */
   definitions: Map<string, number[]>
   /** What the sheet defines, for completions and hover information. */
@@ -224,6 +229,8 @@ function extensions(
     mathscribeIndent,
     mathscribeFolding,
     headingHighlight,
+    inlineResults,
+    paramHints,
     dataBlocksExtension,
     syntaxHighlighting(mathscribeHighlight),
     diagnosticsField,
@@ -265,7 +272,7 @@ function extensions(
  * definition, and blocks fold from the gutter.
  */
 export function EditorPane({
-  value, onChange, docId, openIds, jump, insert, onCursorLine, diagnostics, definitions, symbols, theme, dark, customPalette,
+  value, onChange, docId, openIds, jump, insert, onCursorLine, diagnostics, results, definitions, symbols, theme, dark, customPalette,
   acceptKeys, onChooseImport, options,
 }: EditorPaneProps) {
   const host = useRef<HTMLDivElement>(null)
@@ -335,6 +342,10 @@ export function EditorPane({
   useEffect(() => {
     view.current?.dispatch({ effects: setDiagnostics.of(diagnostics) })
   }, [diagnostics, docId])
+
+  useEffect(() => {
+    view.current?.dispatch({ effects: setInlineResults.of(results) })
+  }, [results, docId])
 
   useEffect(() => {
     view.current?.dispatch({ effects: setDefinitions.of(definitions) })

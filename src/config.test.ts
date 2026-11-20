@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { APP_THEMES } from './appTheme.ts'
-import { STORAGE_KEYS } from './config.ts'
+import { DEFAULT_CALC_OPTIONS, STORAGE_KEYS, loadCalcOptions, saveCalcOptions } from './config.ts'
 // The page as written (Vite's ?raw import gives a file's text).
 import html from '../index.html?raw'
 
@@ -21,5 +21,19 @@ describe('storage keys', () => {
   it('are all different', () => {
     const keys = Object.values(STORAGE_KEYS)
     expect(new Set(keys).size).toBe(keys.length)
+  })
+})
+
+describe('the output options', () => {
+  it('are remembered in the browser, and at their defaults where there are none (or storage is blocked)', () => {
+    expect(loadCalcOptions()).toEqual(DEFAULT_CALC_OPTIONS)
+    const kept = new Map<string, string>()
+    vi.stubGlobal('localStorage', { getItem: (k: string) => kept.get(k) ?? null, setItem: (k: string, v: string) => kept.set(k, v) })
+    try {
+      saveCalcOptions({ ...DEFAULT_CALC_OPTIONS, showSubstitution: false })
+      expect(loadCalcOptions()).toEqual({ ...DEFAULT_CALC_OPTIONS, showSubstitution: false })
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 })

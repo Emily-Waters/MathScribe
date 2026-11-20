@@ -7,7 +7,12 @@ import { EditorPane } from './components/EditorPane.tsx'
 import { PreviewPane } from './components/PreviewPane.tsx'
 import { SplitPane } from './components/SplitPane.tsx'
 import { evaluateSheetTimed } from './lib/sheet/document.ts'
-import { collectDefinitions, collectDiagnostics, collectSymbols } from './lib/sheet/sheetIndex.ts'
+import { collectDefinitions, collectDiagnostics, collectResults, collectSymbols } from './lib/sheet/sheetIndex.ts'
+import { loadInlineResultsShown, saveInlineResultsShown } from './editor/inlineResults.ts'
+import type { LineValue } from './lib/engine/index.ts'
+
+/** No inline results (turned off): one empty map, so the editor isn't told again on each evaluation. */
+const NO_RESULTS: ReadonlyMap<number, LineValue> = new Map()
 import type { CalcOptions } from './lib/engine/index.ts'
 import {
   DEFAULT_SYNTAX_THEME, customPalette, loadCustomSyntax, loadSyntaxTheme, saveCustomSyntax, saveSyntaxTheme,
@@ -15,13 +20,15 @@ import {
 } from './editor/themes.ts'
 import { SyntaxOptions } from './components/SyntaxOptions.tsx'
 import { SuggestionOptions } from './components/SuggestionOptions.tsx'
+import { ShortcutOptions } from './components/ShortcutOptions.tsx'
+import { TemplateMenu } from './components/TemplateMenu.tsx'
 import { loadAcceptKeys, saveAcceptKeys, type AcceptKeys } from './editor/intellisense.ts'
 import { applyAppTheme, loadAppTheme, saveAppTheme, useAppearance, watchSystemTheme, type AppThemeId } from './appTheme.ts'
 import { ThemeMenu } from './components/ThemeMenu.tsx'
 import { CreateDialog } from './components/CreateDialog.tsx'
 import { ExportDialog } from './components/ExportDialog.tsx'
 import { ErrorBoundary } from './components/ErrorBoundary.tsx'
-import { DEFAULT_CALC_OPTIONS, EVALUATION } from './config.ts'
+import { EVALUATION, loadCalcOptions, saveCalcOptions } from './config.ts'
 import { useSettled } from './useSettled.ts'
 import './App.css'
 
@@ -34,7 +41,12 @@ const SAVE_LABELS: Record<SaveState, string> = {
 }
 
 export default function App() {
-  const [options, setOptions] = useState<CalcOptions>(DEFAULT_CALC_OPTIONS)
+  // The output options, as set last time in this browser, and remembered as they change.
+  const [options, setOptionsState] = useState<CalcOptions>(loadCalcOptions)
+  const setOptions = useCallback((next: CalcOptions) => {
+    setOptionsState(next)
+    saveCalcOptions(next)
+  }, [])
   // The open sheets (tabs); everything below works on the active one.
   const file = useSheets()
   const source = file.active.text
@@ -62,6 +74,12 @@ export default function App() {
   const changeAcceptKeys = (keys: AcceptKeys) => {
     setAcceptKeys(keys)
     saveAcceptKeys(keys)
+  }
+  // Each line's result at its end in the editor, unless turned off (and remembered).
+  const [inlineShown, setInlineShown] = useState(loadInlineResultsShown)
+  const changeInlineShown = (shown: boolean) => {
+    setInlineShown(shown)
+    saveInlineResultsShown(shown)
   }
   // Worked out on every render (it's cheap): a preset's colours depend on the app
   // theme as well as light/dark (Minimal uses the text colour, for instance).
@@ -111,6 +129,7 @@ export default function App() {
   if (nowSlow !== slow) setSlow(nowSlow)
   const { sheet } = evaluation
   const diagnostics = useMemo(() => collectDiagnostics(sheet.blocks), [sheet.blocks])
+  const results = useMemo(() => (inlineShown ? collectResults(sheet.blocks) : NO_RESULTS), [sheet.blocks, inlineShown])
   const definitions = useMemo(() => collectDefinitions(sheet.blocks), [sheet.blocks])
   const symbols = useMemo(() => collectSymbols(sheet, evaluated), [sheet, evaluated])
 
@@ -164,6 +183,7 @@ export default function App() {
             {linked && file.state !== 'error' && <span className="filebar__auto"> (auto-save on)</span>}
           </span>
           <button onClick={() => file.newSheet()} title="A new, empty sheet in its own tab">New</button>
+          <TemplateMenu onNew={file.newSheet} />
           <button onClick={() => setCreating(true)} title="Have an AI write a test, assignment, worked examples or a lab write-up">
             Create
           </button>
@@ -203,6 +223,7 @@ export default function App() {
               insert={insert}
               onCursorLine={followCursor}
               diagnostics={diagnostics}
+              results={results}
               definitions={definitions}
               symbols={symbols}
               theme={syntaxTheme}
@@ -221,6 +242,12 @@ export default function App() {
                     onCustomChange={changeCustomSyntax}
                   />
                   <SuggestionOptions acceptKeys={acceptKeys} onAcceptKeysChange={changeAcceptKeys} />
+                  <label className="options__row">
+                    <input type="checkbox" checked={inlineShown} onChange={(e) => changeInlineShown(e.target.checked)} />
+                    <span>Show results in the editor</span>
+                  </label>
+                  <p className="options__help">Each line's result, faintly, at the end of the line.</p>
+                  <ShortcutOptions />
                 </>
               }
             />

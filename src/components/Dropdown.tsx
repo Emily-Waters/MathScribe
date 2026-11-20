@@ -9,10 +9,12 @@ interface DropdownProps {
   children: ReactNode
   /** Hidden (but keeping its space, so things beside it don't shift). */
   hidden?: boolean
+  /** A menu of choices rather than settings: closes once a button in it is clicked. */
+  closeOnChoose?: boolean
 }
 
-/** A button that opens a panel of settings. Closes on Escape or a click outside. */
-export function Dropdown({ label, panelLabel, children, hidden }: DropdownProps) {
+/** A button that opens a panel of settings (or a menu: closeOnChoose). Closes on Escape or a click outside. */
+export function Dropdown({ label, panelLabel, children, hidden, closeOnChoose = false }: DropdownProps) {
   const [open, setOpen] = useState(false)
   const root = useRef<HTMLDivElement>(null)
   const toggle = useRef<HTMLButtonElement>(null)
@@ -52,7 +54,13 @@ export function Dropdown({ label, panelLabel, children, hidden }: DropdownProps)
         {label} <span aria-hidden="true">▾</span>
       </button>
       {open && !hidden && createPortal(
-        <div ref={panel} className="options__panel" role="group" aria-label={panelLabel}>
+        <div
+          ref={panel}
+          className="options__panel"
+          role="group"
+          aria-label={panelLabel}
+          onClick={closeOnChoose ? (e) => { if ((e.target as HTMLElement).closest('button')) setOpen(false) } : undefined}
+        >
           {children}
         </div>,
         document.body,

@@ -4,6 +4,7 @@ import { PERCENT, KEYWORD, DISPLAY_MODE, SIGIL, type DisplayMode, type Notation,
 import { FIT, seriesMemberName } from '../../sheet/names.ts'
 import { FunctionMember, builtinAt } from '../../builtins.ts'
 import type { PlotData } from '../../output/plot.ts'
+import type { VariableSummary } from '../../sheet/values.ts'
 import { math } from './math.ts'
 import { moduleReadableMessage, unitMismatchNotes, type LookSetting } from './module.ts'
 
@@ -103,12 +104,22 @@ export interface CalcResult {
    * with it. Its `tex` is then unused.
    */
   block?: ResultBlock
+  /** What the line assigned, each as it stands after it: its value at this line, for the editor's hover. */
+  assigned?: VariableSummary[]
+  /** Its result alone, `19.6\,\mathrm{N}` (≈ if `approx`), for the editor's inline results; none for a value typed as it is. */
+  result?: LineValue
   /**
    * What a select or a named plot made, for suggestions: each variable's inside
    * name (a__x_1); a series by its first and last members, the first standing
    * for `members` of them, as an import's columns are.
    */
   defines?: Definition[]
+}
+
+/** A line's result alone, and whether it's rounded (shown after ≈ rather than =). */
+export interface LineValue {
+  readonly tex: string
+  readonly approx: boolean
 }
 
 /** A block of a module's own kind a line is shown as (CalcResult.block): its kind (EngineModule.blockKinds) and what it shows. */

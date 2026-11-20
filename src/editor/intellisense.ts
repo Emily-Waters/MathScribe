@@ -57,7 +57,7 @@ const symbolsField = StateField.define<SheetSymbol[]>({
 })
 
 /** The names usable on line `n`: for each, the latest definition above it that's in scope. */
-function visibleAt(state: EditorState, n: number): Map<string, SheetSymbol> {
+export function visibleAt(state: EditorState, n: number): Map<string, SheetSymbol> {
   const out = new Map<string, SheetSymbol>()
   const symbols = [...state.field(symbolsField)].sort((a, b) => a.line - b.line)
   for (const s of symbols) {
@@ -179,7 +179,8 @@ const where = (s: SheetSymbol) => `Defined on line ${s.line}`
 function symbolInfo(s: SheetSymbol): HTMLElement {
   switch (s.kind) {
     case SYMBOL_KIND.variable:
-      return infoNode(s.tex, s.tex ? `${where(s)}; value at the end of its scope` : where(s))
+      // (Its value as its line left it: the definition visible where it's hovered, so its value there.)
+      return infoNode(s.tex, s.tex ? `${where(s)}; its value from there` : where(s))
     case SYMBOL_KIND.parameter:
       return infoNode(undefined, `Parameter of the function on line ${s.line}`)
     case SYMBOL_KIND.function:

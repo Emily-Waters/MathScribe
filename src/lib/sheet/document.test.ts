@@ -402,6 +402,16 @@ describe('editor information', () => {
     expect(names).toEqual(['r@2', 'a@3', 'b@3'])
   })
 
+  it('shows each variable’s value as its line left it, not its working, and not its scope’s last', () => {
+    const source = 'm = 2.00 kg\nF = m * 9.81 m/s^2\nr = @tuple(1.0, 2.0)\n@tuple(a, b) = r\nr = @tuple(5.0, 6.0)\n@tuple(a, b) = r'
+    const symbols = collectSymbols(sheet(source), source)
+    // (F's value, not the working that gives it: F = m·g = … .)
+    expect(symbols.find((s) => s.name === 'F')?.tex).toMatch(/^F = 19.6/)
+    expect(symbols.find((s) => s.name === 'F')?.tex).not.toContain('kg')
+    // (Each unpacking's a as that line left it: 1.0, then 5.0.)
+    expect(symbols.filter((s) => s.name === 'a').map((s) => s.tex)).toEqual([expect.stringContaining('1.0'), expect.stringContaining('5.0')])
+  })
+
   it('marks errors by line', () => {
     const d = collectDiagnostics(sheet(src).blocks)
     expect(d.get(12)).toMatchObject({ kind: DIAGNOSTIC_KIND.error })

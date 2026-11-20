@@ -7,11 +7,11 @@
  * ModuleHost.
  */
 import {
-  EngineModule, type Extension, type LineForm, LineFormMember, type Member, type ModuleBlockKind, type ModuleGrammar,
+  CAPTION_KIND, EngineModule, type Extension, type LineForm, LineFormMember, type Member, type ModuleBlockKind, type ModuleGrammar,
 } from '../../lib/plugin.ts'
 import { SERIES_GRAMMAR } from './grammar.ts'
 import { TABLE_PREAMBLE, TableConstruct, usesTables } from './tableBlock.ts'
-import { SERIES_BLOCK } from './tableData.ts'
+import { SERIES_BLOCK, type TableData } from './tableData.ts'
 import { TableView } from './tableView.tsx'
 import { SERIES_CALL } from './syntax.ts'
 import { PlotForm } from './plot.ts'
@@ -22,7 +22,12 @@ import { tableMenu } from './tableMenu.ts'
 
 /** The series module's kinds of block (one object, as blockKinds asks). */
 const SERIES_BLOCK_KINDS: Readonly<Record<string, ModuleBlockKind>> = {
-  [SERIES_BLOCK.table]: { construct: new TableConstruct(), view: TableView },
+  [SERIES_BLOCK.table]: {
+    construct: new TableConstruct(),
+    view: TableView,
+    // (A table with a title has a numbered caption: `Table 2: Runs`.)
+    caption: (block) => ((block.data as TableData).title === undefined ? undefined : CAPTION_KIND.table),
+  },
 }
 
 export class SeriesModule extends EngineModule {

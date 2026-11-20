@@ -92,6 +92,8 @@ remembered in the browser.
   | Use ≈ for every rounded result | Off: ≈ only when every input is exact (`1/3 ≈ 0.333`); on: before any rounded result |
   | Show · in every product | Off: products as in a textbook, ½mv²; on: ½·m·v² |
 
+  They're remembered in the browser.
+
 **Linked input and output:** click any line of output (a calculation, a heading, a
 step inside a function or constants card) to put the editor's cursor on its source
 line. Moving the cursor in the editor highlights the matching output and scrolls it
@@ -142,9 +144,21 @@ Accept suggestions with.
 
 Nothing is suggested in headings, `>` text, `@layout.text` blocks, `@latex` blocks or notes.
 
-**Hover over a name** to see what it is: a variable's value (typeset) and where
-it's defined, a function's signature, a constant's full value, a unit in SI, or
-what a command or keyword does.
+**Hover over a name** to see what it is: a variable's value (typeset) as it is
+at that line (after a line that sets it again, the new value) and where it's
+defined, a function's signature, a constant's full value, a unit in SI, or what
+a command or keyword does.
+
+**Results in the editor:** each line that works something out shows its result,
+faintly, at its end (`F = m * a      = 19.6 N`), so you can check a value without
+looking across at the output. Turn them off under Input → Options.
+
+**Parameter hints:** inside a call's brackets, what the function takes appears
+above the cursor, the parameter being typed in bold: `E_k(1, ` shows `E_k(n, m
+to kg)` with `m to kg` bold. It works for your own functions, MathScribe's `@`
+functions and mathjs's.
+
+**Keyboard shortcuts** are listed under Input → Options.
 
 **Syntax colours** (Input → Options → Colours): **Default**, **Vivid**,
 **Classic** (familiar code-editor colours, a good match for the Charcoal theme),
@@ -174,6 +188,7 @@ The buttons in the top bar act on the active tab:
 | Button | Shortcut | Does |
 | --- | --- | --- |
 | New | | Opens an empty sheet in a new tab |
+| Template | | Opens a new sheet started from a template: a lab report (title page, purpose, method, data, calculations, results, discussion, conclusion) or a problem set, each with a little of every section filled in to write over |
 | Open | Ctrl/⌘ + O | Opens one or more sheets (select several in the dialog), each in its own tab; a file that's already open is switched to instead |
 | Save | Ctrl/⌘ + S | Formats the sheet and saves it to the current file, or asks where the first time |
 | Save as | Ctrl/⌘ + Shift + S | Formats the sheet and saves it to a new file |

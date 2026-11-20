@@ -11,6 +11,7 @@ import { SYMBOL_KIND, type SheetSymbol } from '../lib/sheet/sheetIndex.ts'
 import { sheetLine } from './sheetLines.ts'
 import { isToken, TOKEN_KIND, type Part, type SyntaxNode } from '../lib/tree/index.ts'
 import { placeFixedPanel } from './popover.ts'
+import { EDITOR_KEY } from './shortcuts.ts'
 
 /** Function name → the lines it's defined on, in order. */
 type Definitions = Map<string, number[]>
@@ -315,8 +316,8 @@ export const gotoDefinition: Extension = [
     },
   }),
   keymap.of([
-    { key: 'F12', run: (view) => goToDefinition(view, view.state.selection.main.head) },
-    { key: 'F2', run: renameSymbol },
+    { key: EDITOR_KEY.definition, run: (view) => goToDefinition(view, view.state.selection.main.head) },
+    { key: EDITOR_KEY.rename, run: renameSymbol },
   ]),
   EditorView.baseTheme({
     '.cm-goto-link': { textDecoration: 'underline', cursor: 'pointer' },

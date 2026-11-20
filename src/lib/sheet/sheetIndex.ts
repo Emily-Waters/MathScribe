@@ -1,15 +1,31 @@
 /**
  * What the editor is told about a sheet once it's evaluated: the names defined
  * in it and where they're visible (completions, hovers), where each function is
- * defined (go-to-definition), each line's error or warning (the gutter), and
- * line numbers as the sheet shows them.
+ * defined (go-to-definition), each line's error or warning (the gutter), each
+ * line's result (inline results), and line numbers as the sheet shows them.
  */
 import type { VariableSummary } from './values.ts'
+import type { LineValue } from '../engine/index.ts'
 import { NODE_KIND } from '../tree/nodes.ts'
 import { assignedOf, lineShape } from '../tree/shapes.ts'
-import { BLOCK_KIND, SYMBOL_KIND, isContainer, type Block, type SymbolKind } from './blocks.ts'
+import { BLOCK_KIND, SYMBOL_KIND, isContainer, type Block, type CalcBlock, type SymbolKind } from './blocks.ts'
 import type { Sheet } from '../reading/sheetReader.ts'
 import { NAME, words, type WordOf } from '../syntax.ts'
+
+/**
+ * Each line's result, by line, for the editor's inline results: the result of
+ * each calculation that works one out (not a value typed as it is, nor one that
+ * went wrong), from inside blocks too.
+ */
+export function collectResults(blocks: readonly Block[]): Map<number, LineValue> {
+  const out = new Map<number, LineValue>()
+  const visit = (b: Block) => {
+    if (b.kind === BLOCK_KIND.calc && b.result && !b.error) out.set(b.line, b.result)
+    else if (isContainer(b)) b.children.forEach(visit)
+  }
+  blocks.forEach(visit)
+  return out
+}
 
 /** Where each function is defined, by name: its `f(…) = …` lines, in order. (For go-to-definition in the editor.) */
 export function collectDefinitions(blocks: Block[]): Map<string, number[]> {
@@ -72,12 +88,18 @@ export function collectSymbols(sheet: Sheet, source: string): SheetSymbol[] {
     if (!map) byName.set(scope, map = new Map(scope().map((v) => [v.name, v])))
     return map
   }
-  /** A variable's symbol, with its value's TeX worked out only when it's shown. */
-  const variable = (name: string, line: number, from: number, to: number, scope: () => VariableSummary[], members?: number): SheetSymbol =>
+  /**
+   * A variable's symbol, with its value's TeX worked out only when it's shown:
+   * as its line left it (`at`, CalcResult.assigned), so a hover after it shows
+   * its value there; or, for one its line doesn't say, its scope's.
+   */
+  const variable = (name: string, line: number, from: number, to: number, scope: () => VariableSummary[], members?: number, at?: VariableSummary): SheetSymbol =>
     Object.defineProperties({ name, kind: SYMBOL_KIND.variable, line, from, to, members }, {
-      tex: { get: () => lookup(scope).get(name)?.tex, enumerable: false },
+      tex: { get: () => at?.tex ?? lookup(scope).get(name)?.tex, enumerable: false },
       texOf: { value: (other: string) => lookup(scope).get(other)?.tex, enumerable: false },
     }) as SheetSymbol
+  /** A variable as a line left it, if the line says (CalcResult.assigned). */
+  const assignedAt = (b: CalcBlock, name: string) => b.assigned?.find((v) => v.name === name)
 
   /** `to`: the last line of the innermost `{ }` block (or the sheet), where its names stop being visible;
    * `scope`: that block's variables (worked out when first needed), for their values. */
@@ -92,7 +114,7 @@ export function collectSymbols(sheet: Sheet, source: string): SheetSymbol[] {
             for (const entry of target.entries ?? []) {
               // The name without its display settings (`theta:deg` → theta).
               const name = assignedOf(entry)?.name
-              if (name) out.push(variable(name, b.line, b.line + 1, to, scope))
+              if (name) out.push(variable(name, b.line, b.line + 1, to, scope, undefined, assignedAt(b, name)))
             }
             break
           }
@@ -114,9 +136,11 @@ export function collectSymbols(sheet: Sheet, source: string): SheetSymbol[] {
             break
           }
           if (target?.kind === NODE_KIND.assigned) {
+            // (Its value as the line left it, `F = 19.6 N`; or, if the line doesn't say, the line's equation.)
+            const at = assignedAt(b, target.name)
             out.push(Object.defineProperties(
               { name: target.name, kind: SYMBOL_KIND.variable, line: b.line, from: b.line + 1, to, members: undefined },
-              { tex: { value: b.tex, enumerable: false } },
+              { tex: { get: () => at?.tex ?? b.tex, enumerable: false } },
             ) as SheetSymbol)
           }
           break

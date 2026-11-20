@@ -7,6 +7,9 @@ import { parseXml } from '../../lib/output/omml.ts'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { RenderedBlock } from '../../components/blocks/index.tsx'
+import { CaptionNumbers } from '../../components/blocks/context.ts'
+import { captionNumbers } from '../../components/blocks/captions.ts'
+import { BLOCK_KIND } from '../../lib/sheet/blocks.ts'
 import { formatTableSettings, parseTableSettings } from './tableSettings.ts'
 
 const DATA = 't1 = 0.10 s\nt2 = 0.20 s\nx1 = 0.012 m\nx2 = 0.047 m\n'
@@ -132,6 +135,17 @@ describe('a table in the Rendered tab', () => {
     expect(html.match(/<tr>/g)).toHaveLength(3)
     expect(html).toContain('<p class="ms-table__note"><span>timed</span></p>')
     expect(rendered(`${DATA}@table(t; lines header)`)).toContain('ms-table--header')
+  })
+
+  it('numbers its caption as the exports do: titled tables, not hidden or wrong ones', () => {
+    // (The last a table with a row that's wrong: drawn with its error, and left out of the exports.)
+    const wrong = 'a1 = 1.0 m\na2 = 2.0 s\n@table(r = a + 1.0 m; title "Wrong")'
+    const { blocks } = sheet(`${DATA}@table(t; title "A")\n@table(t)\n@table(t; title "Hidden")  #hide\n@table(t; title "B")\n${wrong}`)
+    const numbers = captionNumbers(blocks)
+    const tables = blocks.filter((b) => b.kind === BLOCK_KIND.custom)
+    expect(tables.map((b) => numbers.get(b))).toEqual([1, undefined, undefined, 2, undefined])
+    const html = renderToStaticMarkup(createElement(CaptionNumbers.Provider, { value: numbers }, createElement(RenderedBlock, { block: tables[3] })))
+    expect(html).toContain('<p class="ms-table__caption"><span>Table 2: </span><span>B</span></p>')
   })
 
   it('shows a long table’s gap in every column, and nothing when it’s hidden', () => {

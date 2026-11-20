@@ -105,6 +105,30 @@ describe('formatting a sheet', () => {
     expect(worksOutTheSame('@table(t, x)\ny = max(1, 2, 3)')).toBe('@table(t, x)\ny = max(1, 2, 3)')
   })
 
+  it('spaces a line as maths is written: around =, after a comma, between a number and its unit', () => {
+    expect(worksOutTheSame('x= 5kg')).toBe('x = 5 kg')
+    expect(worksOutTheSame('m =2.00kg\nF  =  m * 9.81 m/s^2')).toBe('m = 2.00 kg\nF = m * 9.81 m/s^2')
+    expect(worksOutTheSame('x1 = 1\nx2 = 2\nx3 = 3\ny = max(x1,x2 ,  x3)')).toBe('x1 = 1\nx2 = 2\nx3 = 3\ny = max(x1, x2, x3)')
+    expect(worksOutTheSame('M = [1,2;3,4]')).toBe('M = [1, 2; 3, 4]')
+  })
+
+  it('spaces a condition’s ? and : , but not a setting’s :', () => {
+    expect(worksOutTheSame('a = 2\nr = a > 1 ? "AGREE":"NO"')).toBe('a = 2\nr = a > 1 ? "AGREE" : "NO"')
+    expect(worksOutTheSame('a = 2\nr = a>1?1:a>0?2:3')).toBe('a = 2\nr = a>1 ? 1 : a>0 ? 2 : 3')
+    expect(worksOutTheSame('x:3 = 2.0')).toBe('x:3 = 2.0')
+  })
+
+  it('leaves spacing in strings, notes, comments, prose’s values, a == and a comma before a bracket as they are', () => {
+    const source = 'label = "a,b=c"  # x=1,y=2\n// a=b\n> The mass is {{m=2}}.\ny = 1==1\nz = f(1,)'
+    expect(keepsMeaning(source)).toBe(source)
+  })
+
+  it('never puts two spaces in one gap, nor takes anything but a space out of it', () => {
+    // (A comma's space after and an `=`'s before are one gap: `[,=(` once lost its `=` this way.)
+    expect(keepsMeaning('y = [,=(]')).toBe('y = [, = (]')
+    expect(keepsMeaning('y = [, = (]')).toBe('y = [, = (]')
+  })
+
   it('keeps a comma whose line would be blank without it, and a command after one', () => {
     expect(keepsMeaning('f(a {,\n)')).toBe('f(\n    a {\n)')
     expect(keepsMeaning('f(a\n  ,\n)')).toBe('f(\n    a\n    ,\n)')

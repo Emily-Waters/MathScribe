@@ -7,8 +7,8 @@ import { isAssignmentNode, isConditionalNode, isConstantNode, isFunctionAssignme
 import { EXACT, MAX_DIGITS, countSigFigs, formatExact, formatSigFigs, formatWithUncertainty } from '../../maths/sigfigs.ts'
 import { AGGREGATE_KIND, Variable, type Contributions, type VariableFields, type VariableSummary } from '../../sheet/values.ts'
 import { BUILTINS, isReservedConstantName } from '../../builtins.ts'
-import { EXACT_SETTING, IS_NAME, MEMBER_DOT, PERCENT, DISPLAY_MODE, CONSTANTS_BLOCK, LABEL_WORDS, SIGIL, type DisplayMode, type Notation, type Precision } from '../../syntax.ts'
-import { INLINE_VALUE_NAME, INV_FUNCTION, JOIN, TUPLE_FUNCTION, RESERVED_NAMESPACES, isHiddenName, memberName, parseUncertaintyName, readableMembers, unpackedName } from '../../sheet/names.ts'
+import { EXACT_SETTING, IS_NAME, MEMBER_DOT, PERCENT, DISPLAY_MODE, CONSTANTS_BLOCK, LABEL_WORDS, SIGIL, UNCERTAINTY_WORDS, type DisplayMode, type Notation, type Precision } from '../../syntax.ts'
+import { INLINE_VALUE_NAME, INV_FUNCTION, JOIN, TUPLE_FUNCTION, RESERVED_NAMESPACES, isHiddenName, memberName, parseUncertaintyName, readableMembers, unpackedName, uncertaintyName } from '../../sheet/names.ts'
 import { expandDots } from './memberAccess.ts'
 import { SheetConstants } from './sheetConstants.ts'
 import { DisplayNames } from './displayNames.ts'
@@ -106,6 +106,8 @@ export class Calculator {
     tex: (node, source) => this.toTex(node, typedNumbers(source)),
     lookSetting: (settings) => this.lookSettingOf(settings)?.look,
     lookOfWritten: (expression) => this.modules.map((m) => m.lookOfWritten(expression)).find((l) => l !== undefined),
+    valueOf: (node) => node.compile().evaluate(this.scope),
+    uncertaintyOf: (node, value) => this.uncertainty.uncertaintyOf(node, value),
   })
   /** Nesting depth while replaying function bodies to show their working. */
   private traceDepth = 0
@@ -754,6 +756,12 @@ export class Calculator {
     // what those were given, so nested calls chain.
     const aliases = new Map<string, MathNode>()
     call.args.forEach((a, i) => aliases.set(def.params[i], this.withAliases(unwrap(a))))
+    // So is a parameter's uncertainty, given a variable: δA, given k1, shows as δk1.
+    def.params.forEach((p) => {
+      const given = aliases.get(p)
+      if (!given || !isSymbolNode(given)) return
+      for (const letter of UNCERTAINTY_WORDS) aliases.set(uncertaintyName(letter, p), new math.SymbolNode(uncertaintyName(letter, given.name)))
+    })
 
     // A tuple passed in (a vector) is shown inside the function as it is outside.
     const argLooks = call.args.map((a) => this.lookOf(a))
@@ -1219,7 +1227,9 @@ export class Calculator {
       const declaresUnit = !!this.functions.of(called)?.returnUnit
       // A name on its own (`c`, `y = c`) is shown as the variable is: in its unit.
       const justAName = isSymbolNode(bare)
-      value = normalise(expr.compile().evaluate(this.scope), isConversion(expr) || isLiteral(expr) || declaresUnit || justAName)
+      // (Calls to functions using their parameters' uncertainties, `delta A`, are given them: withArgumentUncertainties.)
+      const worked = this.functions.withArgumentUncertainties(expr)
+      value = normalise(worked.compile().evaluate(this.scope), isConversion(expr) || isLiteral(expr) || declaresUnit || justAName)
       // A value follows the modules' rules (a value with species, theirs), whatever it was worked out from.
       for (const m of this.modules) {
         const problem = m.valueProblem(value)
@@ -1237,7 +1247,7 @@ export class Calculator {
           return u
         })
       }
-      contributions = this.uncertainty.propagate(expr)
+      contributions = this.uncertainty.propagate(worked)
       if (uncNode) contributions.set(this.nextSource++, this.declaredUncertainty(uncNode, value, percent))
     } catch (e) {
       const message = e instanceof RangeError

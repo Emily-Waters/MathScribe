@@ -7,7 +7,7 @@
 import { isConstantNode, isSymbolNode, type FunctionNode, type MathNode, type MathType, type SymbolNode, type Unit } from 'mathjs'
 import { uncertaintySigFigs } from '../../maths/sigfigs.ts'
 import type { Contributions, Variable, VariableFields } from '../../sheet/values.ts'
-import { isUncertaintyName, uncertaintyName } from '../../sheet/names.ts'
+import { isArgumentUncertaintyName, isUncertaintyName, uncertaintyName } from '../../sheet/names.ts'
 import type { UncertaintyWord } from '../../syntax.ts'
 import { OP, isOp } from '../../maths/mathjsNames.ts'
 import { math } from './math.ts'
@@ -17,6 +17,32 @@ import { symbolTex, unitTex, attachUnit, unitCallText } from './tex.ts'
 import { unwrap } from './nodes.ts'
 import { magnitudeOf } from './normalise.ts'
 import { isNumberWithUnit, signBeforeTex } from './products.ts'
+
+/** A parameter's uncertainty in a function's body (`delta A`), as the hidden name each call sets. */
+export interface ParameterDelta {
+  readonly hidden: string
+  /** Which parameter's (from 0). */
+  readonly param: number
+}
+
+/**
+ * A function's body with `delta A`, for each of its parameters A, as a hidden
+ * name, which each call sets to the uncertainty of the argument A was given
+ * (SheetFunctions.define): `abs(A - B) <= delta A + delta B` compares with the
+ * arguments' uncertainties. (A variable's, `delta k1`, is expandDeltaRefs's, as
+ * the body is worked out.)
+ */
+export function parameterDeltas(body: string, params: readonly string[]): { text: string; deltas: ParameterDelta[] } {
+  const deltas: ParameterDelta[] = []
+  const text = body.replace(DELTA_REF, (match, letter: UncertaintyWord, name: string) => {
+    const param = params.indexOf(name)
+    if (param < 0) return match
+    const hidden = uncertaintyName(letter, name)
+    if (!deltas.some((d) => d.hidden === hidden)) deltas.push({ hidden, param })
+    return hidden
+  })
+  return { text, deltas }
+}
 
 /** Values by name, as mathjs evaluates with them, that an input can be nudged in. */
 interface NudgeableValues {
@@ -71,6 +97,11 @@ export class Propagation {
     return t
   }
 
+  /** The uncertainty of an expression worked out as `value` (a call's argument), or a zero like it if it has none. */
+  uncertaintyOf(expr: MathNode, value: unknown): unknown {
+    return this.total(this.propagate(expr), value) ?? math.multiply(value as MathType, 0)
+  }
+
   /** A variable's combined uncertainty, if it has one. */
   private totalOf(name: string): unknown {
     return this.total(this.host.variable(name)?.contributions, this.host.value(name))
@@ -92,8 +123,8 @@ export class Propagation {
   propagate(expr: MathNode): Contributions {
     const out: Contributions = new Map()
     const inputs = this.uncertainInputs(expr)
-    // Quantities built from an uncertainty (like ΔF / F) don't carry one themselves.
-    const usesUncertainty = expr.filter((n) => isSymbolNode(n) && isUncertaintyName(n.name)).length > 0
+    // Quantities built from an uncertainty (like ΔF / F, or a call given its arguments') don't carry one themselves.
+    const usesUncertainty = expr.filter((n) => isSymbolNode(n) && (isUncertaintyName(n.name) || isArgumentUncertaintyName(n.name))).length > 0
     if (!inputs.length || usesUncertainty) return out
     const code = expr.compile()
     // (Each input has contributions: uncertainInputs keeps only those.)
@@ -110,7 +141,10 @@ export class Propagation {
         plus.set(n, math.add(v, step))
         minus.set(n, math.subtract(v, step))
       }
-      const diff = math.subtract(code.evaluate(plus) as MathType, code.evaluate(minus) as MathType) as MathType
+      const [up, down] = [code.evaluate(plus), code.evaluate(minus)]
+      // (A word, `"AGREE"`, has no uncertainty, whatever it was chosen by.)
+      if (typeof up === 'string' || typeof down === 'string') return new Map()
+      const diff = math.subtract(up as MathType, down as MathType) as MathType
       out.set(source, math.divide(diff, 2 * STEP))
     }
     return out

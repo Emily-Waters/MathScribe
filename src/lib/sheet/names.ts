@@ -8,6 +8,7 @@
  *   solved__x         an unknown worked out by @solve(…)
  *   unpacked__3       a tuple while `@tuple(a, b) = …` unpacks it
  *   unpacked__column2_5   row 5 of a table's unnamed column 2
+ *   argument__3       the uncertainty of an argument a function's body asks for (`delta A`)
  *   a__x_1            a namespace's member, `a.x_1` (a selection, named import or plot)
  *
  * A series' members are its name, `_`, and a number (t_1), and its statistics
@@ -31,6 +32,8 @@ export const HIDDEN_PREFIX = {
   inline: 'inline',
   /** A function built in under @, as mathjs holds it: @tuple → builtin__tuple. */
   builtin: 'builtin',
+  /** The uncertainty of an argument to a sheet's function whose body asks for it (`delta A`): argument__3. */
+  argument: 'argument',
 } as const
 
 /** A constant held at full precision: `@c:exact` → at__c__x. */
@@ -74,6 +77,9 @@ export const unpackedName = (id: number) => `${HIDDEN_PREFIX.unpacked}${JOIN}${i
 /** Row `row` of a table's unnamed column `column`. */
 export const unpackedColumnName = (column: number, row: number) =>
   seriesMemberName(`${HIDDEN_PREFIX.unpacked}${JOIN}${COLUMN}${column}`, row)
+
+/** The uncertainty of an argument to a call (the `id`th), as the call is given it: argument__3. */
+export const argumentUncertaintyName = (id: number) => `${HIDDEN_PREFIX.argument}${JOIN}${id}`
 
 /** A value in text while it's worked out (there's only ever one at a time). */
 export const INLINE_VALUE_NAME = `${HIDDEN_PREFIX.inline}${JOIN}value`
@@ -143,7 +149,12 @@ export function parseSeriesStatName(name: string): { base: string; suffix: Serie
 /** Hidden variables: made for the sheet's own use, not listed as its variables. */
 export const isHiddenName = (name: string) =>
   isUncertaintyName(name) || parseConstantRefName(name) !== null || parseSolvedName(name) !== null || isUnpackedName(name)
-  || name === INLINE_VALUE_NAME
+  || name === INLINE_VALUE_NAME || isArgumentUncertaintyName(name)
+
+/** Whether a name is an argument's uncertainty, as a call is given it (argument__3). */
+export function isArgumentUncertaintyName(name: string): boolean {
+  return name.startsWith(`${HIDDEN_PREFIX.argument}${JOIN}`)
+}
 
 /** A namespace's member's namespace and member: a__x_1 → a, x_1 (null if it isn't one). */
 export function parseMemberName(name: string): { namespace: string; member: string } | null {

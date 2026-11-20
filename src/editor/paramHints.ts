@@ -1,7 +1,8 @@
 /**
- * Parameter hints: inside a call's brackets, what the function takes, the
+ * Parameter hints: while a call is typed, what the function takes, the
  * parameter being typed in bold. `E_k(1, ` shows `E_k(n, m [kg], L [m])` with
- * `m [kg]` bold; `@table(t, x; ` shows its settings bold.
+ * `m [kg]` bold; `@table(t, x; ` shows its settings bold. (Typing a call's `(`,
+ * `,` or `;` opens one; moving away, or Escape, closes it: see hintField.)
  *
  * The call is the innermost one still open before the cursor, read from the
  * tokens of what the statement has said so far (an open call, tree/lexer.ts;
@@ -12,8 +13,8 @@
  * function of the sheet's (its parameters, as written), one of MathScribe's own
  * (`@table`: builtins.ts), or one of mathjs's (vocabulary.ts).
  */
-import { StateField, type EditorState } from '@codemirror/state'
-import { EditorView, showTooltip, type Tooltip } from '@codemirror/view'
+import { StateEffect, StateField, type EditorState, type Transaction } from '@codemirror/state'
+import { EditorView, keymap, showTooltip, type Tooltip } from '@codemirror/view'
 import { SIGIL, MEMBER_DOT } from '../lib/syntax.ts'
 import { NODE_KIND, TOKEN_KIND, isCallKind, isToken, type Part, type SyntaxNode } from '../lib/tree/index.ts'
 import { ROUND_BRACKETS, closesBracket, lexExpression, opensBracket } from '../lib/tree/lexer.ts'
@@ -101,6 +102,21 @@ export function signatureOf(state: EditorState, n: number, callee: string): Sign
   return undefined
 }
 
+/** A parameter that takes any number of values: `…` (`max(a, b, …)`). */
+const MORE = '…'
+
+/**
+ * Which parameter is being typed: the argument's own, or, past the last, the
+ * last if it takes any number of values (`max(a, b, …)`); none otherwise
+ * (a list of values past what a function's hint names: `@series(1, 2, 3`).
+ */
+export function currentParameter(signature: Signature, place: CallPlace): number | undefined {
+  if (place.inSettings) return undefined
+  const last = signature.params.length - 1
+  if (place.argument <= last) return place.argument
+  return signature.params[last]?.includes(MORE) ? last : undefined
+}
+
 /** The hint's panel: `name(a, b, c)`, the parameter (or the settings) being typed in bold. */
 function hintNode(signature: Signature, place: CallPlace): HTMLElement {
   const el = document.createElement('div')
@@ -111,10 +127,11 @@ function hintNode(signature: Signature, place: CallPlace): HTMLElement {
     if (current) span.className = 'cm-ms-param-hint__current'
     return span
   }
+  const current = currentParameter(signature, place)
   el.append(piece(`${signature.name}(`, false))
   signature.params.forEach((p, i) => {
     if (i > 0) el.append(piece(`${SEPARATOR.argument} `, false))
-    el.append(piece(p, !place.inSettings && i === Math.min(place.argument, signature.params.length - 1)))
+    el.append(piece(p, i === current))
   })
   if (signature.settings) el.append(piece(`${SEPARATOR.settings} `, false), piece(signature.settings, place.inSettings))
   el.append(piece(')', false))
@@ -137,16 +154,54 @@ function hintAt(state: EditorState): Tooltip | null {
   return { pos: head, above: true, strictSide: true, arrow: false, create: () => ({ dom: hintNode(signature, place) }) }
 }
 
-/** The hint, worked out again as the cursor moves or the text changes. */
+/** What opens a hint, typed: a call's `(`, or a `,` or `;` in one. */
+const OPENS_HINT = new Set(['(', SEPARATOR.argument, SEPARATOR.settings])
+
+/** Whether a transaction is typing (not a paste, an undo, or a change from elsewhere) that puts in a character that opens a hint. */
+function typesOpener(tr: Transaction): boolean {
+  if (!tr.isUserEvent('input.type')) return false
+  let opens = false
+  tr.changes.iterChanges((_fromA, _toA, _fromB, _toB, inserted) => {
+    if ([...inserted.toString()].some((c) => OPENS_HINT.has(c))) opens = true
+  })
+  return opens
+}
+
+/** Closes the hint (Escape). */
+const closeHint = StateEffect.define<null>()
+
+/**
+ * The hint, as typing in a call opens it and keeps it (VS Code's way): typing
+ * `(`, `,` or `;` in a call opens it; typing on in the call keeps it, worked out
+ * again; moving the cursor without typing (a click, an arrow key), or Escape,
+ * closes it. So it's there while a call is written, not whenever the cursor is
+ * on a line inside one (a long `@series(…)`'s values, edited).
+ */
 const hintField = StateField.define<Tooltip | null>({
-  create: hintAt,
-  update: (hint, tr) => (tr.docChanged || tr.selection ? hintAt(tr.state) : hint),
+  create: () => null,
+  update: (hint, tr) => {
+    if (tr.effects.some((e) => e.is(closeHint))) return null
+    if (typesOpener(tr)) return hintAt(tr.state)
+    if (hint && tr.docChanged && (tr.isUserEvent('input') || tr.isUserEvent('delete'))) return hintAt(tr.state)
+    return tr.docChanged || tr.selection ? null : hint
+  },
   provide: (f) => showTooltip.from(f),
 })
+
+/** Escape closes an open hint (and only then is it the hint's). */
+const closeOnEscape = keymap.of([{
+  key: 'Escape',
+  run: (view) => {
+    if (!view.state.field(hintField)) return false
+    view.dispatch({ effects: closeHint.of(null) })
+    return true
+  },
+}])
 
 /** Parameter hints in the editor. */
 export const paramHints = [
   hintField,
+  closeOnEscape,
   EditorView.baseTheme({
     '.cm-ms-param-hint': { padding: '2px 8px', fontFamily: 'var(--mono)', fontSize: '12px', color: 'var(--muted)' },
     '.cm-ms-param-hint__current': { color: 'var(--text)', fontWeight: '700' },

@@ -365,6 +365,18 @@ describe('functions', () => {
     expect(c.error).toMatch(/isn't a unit MathScribe knows/)
   })
 
+  it('give a body’s delta of a parameter the uncertainty of the argument it was given', () => {
+    const head = 'k1 = 6.65 N/m pm 0.08 N/m\nk2 = 6.72 N/m pm 0.09 N/m\n'
+      + 'agreement(A, B) = abs(A - B) <= delta A + delta B ? "AGREE" : "DOES NOT AGREE"\n'
+    const r = last(`${head}r = agreement(k1, k2)`)
+    expect(r.error).toBeUndefined()
+    expect(readable(r.tex)).toContain('\\delta k_1+ \\delta k_2')
+    expect(readable(r.tex)).toMatch(/= \\text"AGREE"$/)
+    expect(value(`${head}far = agreement(k1, 2 * k2)`)).toContain('DOES NOT AGREE')
+    // (An argument worked out from variables has theirs; what's built from an uncertainty carries none.)
+    expect(value(`${head}rel(A) = delta A / A\nv = rel(2 * k1)`)).toBe('0.012')
+  })
+
   it('lays out every call of a #multiline function one = per row', () => {
     expect(last('area(r) = pi * r^2   #multiline\nr_1 = 2.0 cm\nA = area(r_1)').tex).toContain('\\begin{aligned}')
     expect(last('area(r) = pi * r^2\nr_1 = 2.0 cm\nA = area(r_1)').tex).not.toContain('\\begin{aligned}')

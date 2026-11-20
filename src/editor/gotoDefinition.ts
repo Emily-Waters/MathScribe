@@ -12,6 +12,11 @@ import { sheetLine } from './sheetLines.ts'
 import { isToken, TOKEN_KIND, type Part, type SyntaxNode } from '../lib/tree/index.ts'
 import { placeFixedPanel } from './popover.ts'
 import { EDITOR_KEY } from './shortcuts.ts'
+import { typeGreekInBox, withGreekLetters } from './greek.ts'
+import { NAME, regex, src } from '../lib/syntax.ts'
+
+/** A new name for F2's rename: one whole name, as the sheet's (Greek letters too). */
+const WHOLE_NAME = regex(src`^${NAME}$`)
 
 /** Function name → the lines it's defined on, in order. */
 type Definitions = Map<string, number[]>
@@ -185,8 +190,9 @@ function renameSymbol(view: EditorView): boolean {
   document.addEventListener('keydown', escape, true)
 
   const commit = () => {
-    const replacement = input.value.trim()
-    if (!replacement || !/^[A-Za-z\u0370-\u03ff][\w\u0370-\u03ff]*$/.test(replacement)) {
+    // (A Greek letter's name, `\delta`, as its letter, however it was typed.)
+    const replacement = withGreekLetters(input.value.trim())
+    if (!replacement || !WHOLE_NAME.test(replacement)) {
       input.select()
       return
     }
@@ -197,6 +203,9 @@ function renameSymbol(view: EditorView): boolean {
     if (event.key === 'Enter') {
       event.preventDefault()
       commit()
+    } else if ((event.key === ' ' || event.key === 'Tab') && typeGreekInBox(input)) {
+      // `\delta` then Space or Tab: \u03b4, as in the editor.
+      event.preventDefault()
     }
   })
   return true

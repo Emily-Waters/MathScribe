@@ -5,7 +5,7 @@
 import { describe, expect, it } from 'vitest'
 import { EditorState, type TransactionSpec } from '@codemirror/state'
 import type { EditorView } from '@codemirror/view'
-import { greekCompletions, typeGreek } from './greek.ts'
+import { greekCompletions, typeGreek, withGreekLetters } from './greek.ts'
 
 /** Press Tab (with no suggestion list open) at the end of `doc`'s last line; the text after. */
 function tabAtEnd(doc: string): string {
@@ -40,5 +40,13 @@ describe('typing Greek letters', () => {
     const delta = result.options.find((o) => o.label === '\\Delta')
     expect(delta?.apply).toBe('Δ')
     expect(greekCompletions('x = De', 6)).toBeNull()
+  })
+})
+
+describe('Greek letters in the rename box', () => {
+  it('turns each letter’s name in a new name into the letter, leaving other words', () => {
+    expect(withGreekLetters('\\delta')).toBe('δ')
+    expect(withGreekLetters('\\Delta E_k')).toBe('Δ E_k')
+    expect(withGreekLetters('\\DeltaE')).toBe('\\DeltaE')
   })
 })

@@ -101,6 +101,20 @@ what's here better.
       shortened (first three, last two); `#sym` the rule, `#val` the values.
       In the Reference tab, the AI prompt and the editor's `@` suggestions.
       Not yet: a range (see Ranges and sums), and a ⚙ menu for its rows.
+- [x] **Spacing in the formatter**: `x= 5kg` → `x = 5 kg`, `x1,x2,x3` →
+      `x1, x2, x3`.
+
+      **Resolved (2026-11-20):** from each line's tokens (`spacingChanges`,
+      tree/format.ts): one space either side of `=`; one after each `,` or `;`
+      and none before, unless what's after it ends the line, closes a bracket
+      or is a note; one between a number and its unit. Only the spaces between
+      tokens change, so strings, a module's settings, notes, comments, `==` and
+      prose's `{{…}}` values are left as they are. Where a line break, an
+      indentation or a trailing comma's removal already changes a gap, that
+      change wins; and two spacing changes in one gap (`,=`: the comma's space
+      after, the `=`'s before) become one, which a random check found had
+      once lost the `=`. Checked over 40,000 random texts: nothing lost but
+      spaces and trailing commas, and formatting twice changes nothing more.
 - [x] **Show uncertainty**: a checkbox in a table's and a plot's ⚙: a table's
       ± values, a plot's error bars.
 
@@ -395,6 +409,38 @@ working (group 2).
       (builtins.ts) and mathjs's (vocabulary.ts); a module's settings after `;`
       are shown as one, bold once the `;` is typed. Item 3 of "MathScribe as a
       language" (call signatures) will give these more to say.
+      **Fixed (2026-11-20), found by Emily:** the hint showed whenever the
+      cursor was in an open call, so it sat over a long `@series(…)`'s values
+      as they were edited, bolding a parameter (`F / g`, an example's) that
+      wasn't the one typed. Now typing a call's `(`, `,` or `;` opens it,
+      typing in the call keeps it, and moving away or Escape closes it; past a
+      function's last parameter nothing is bold, unless it takes any number
+      (`max(a, b, …)`).
+- [x] **F2's rename takes Greek letters**, found by Emily: `\delta` couldn't be
+      typed in the rename box. Resolved (2026-11-20): in the box, as in the
+      editor, Space or Tab after a letter's name types the letter
+      (`typeGreekInBox`, greek.ts), and on Enter any name still written out
+      becomes its letter (`withGreekLetters`) before it's checked against the
+      sheet's own pattern for a name (`NAME`, not a copy of it).
+- [x] **A condition's `?` and `:` spaced by the formatter**, found by Emily:
+      `A ? "AGREE":"NO"` kept its `:` unspaced. Resolved (2026-11-20): one space
+      either side of `?`, and of a `:` while a `?` waits for it (spacingChanges);
+      a `:` with no `?` before it (a setting's, `x:3`) is left.
+- [x] **`delta A` of a function's parameter**, found by Emily:
+      `agreement(A, B) = abs(A - B) <= delta A + delta B ? …` failed on a call
+      with "Undefined symbol delta", as a call is given only its arguments'
+      values. Resolved (2026-11-20): a body's `delta A` of a parameter is a
+      hidden name (`parameterDeltas`, propagation.ts) and a call to such a
+      function is given, after its arguments, each one's uncertainty, worked out
+      from the argument as written (`withArgumentUncertainties`,
+      sheetFunctions.ts; held in `argument__N`). What's built from one carries no
+      uncertainty of its own, as `ΔF / F` doesn't; a word (`"AGREE"`) never
+      does, which also fixed any word-valued function of an uncertain value
+      failing with "Cannot convert … to a number". The working shows `δA` given
+      `k1` as `δk1`.
+- [ ] **`delta A` in a call inside another function's body** (`f(X) =
+      agreement(X, k2)`) gets no uncertainty for `X` yet (the body is worked out
+      once, given values only); pass the outer call's argument uncertainties on.
 - [x] **A keyboard shortcuts list**, somewhere in the app.
       Resolved (2026-11-20): in the editor's Options (ShortcutOptions), from one
       list of the keys as they're bound (editor/shortcuts.ts, `EDITOR_KEY`,

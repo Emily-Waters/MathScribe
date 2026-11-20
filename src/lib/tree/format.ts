@@ -26,7 +26,7 @@
  */
 import { INDENT_WIDTH, indentOf, isComment } from '../syntax.ts'
 import { CONTENT, contextInfo, type Content } from './grammar.ts'
-import { LINE_CONTEXT, NODE_KIND, TOKEN_KIND } from './nodes.ts'
+import { LINE_CONTEXT, NODE_KIND, TOKEN_KIND, isToken, type Part, type SyntaxNode, type Token } from './nodes.ts'
 import { splitLines, startsClosing, type SourceLine } from './lines.ts'
 import { ROUND_BRACKETS, SQUARE_BRACKETS, closesBracket, opensBracket } from './lexer.ts'
 import { ROW_SEPARATOR, SEPARATOR, STRAY_QUOTES } from './shapes.ts'
@@ -81,6 +81,8 @@ export function formatChanges(source: string): TextChange[] {
   }
   const levels: Level[] = [{ opener: 0, indent: 0, moved: 0, relative: false }]
   const changes: TextChange[] = []
+  /** The spaces between a line's tokens (spacingChanges): made where nothing else changes. */
+  const spacing: TextChange[] = []
   lines.forEach((line, n) => {
     const step = steps[n]
     step.ended.forEach(() => levels.pop())
@@ -89,6 +91,7 @@ export function formatChanges(source: string): TextChange[] {
     const width = formattedIndent(line, step, levels, open)
     const lead = line.text.length - line.text.trimStart().length
     if (width !== undefined && line.text.slice(0, lead) !== ' '.repeat(width)) changes.push({ from: starts[n], to: starts[n] + lead, insert: ' '.repeat(width) })
+    if (width !== undefined && step.role !== LINE_ROLE.row) spacing.push(...spacingChanges(step.node, starts[n]))
     if (step.role === LINE_ROLE.opener) {
       const opener = width ?? indentOf(line.text)
       const relative = RELATIVE_BODIES.has(step.body!.node)
@@ -101,7 +104,107 @@ export function formatChanges(source: string): TextChange[] {
       }
     }
   })
-  return changes.sort((a, b) => a.from - b.from || a.to - b.to)
+  // (Spacing where a line break, an indentation or a trailing comma's removal already changes it, or touches it,
+  // is theirs; and of two spacing changes in one gap, `,=` (the comma's space after, the `=`'s before), the first.)
+  const touches = (a: TextChange, b: TextChange) => a.from <= b.to && b.from <= a.to
+  const free: TextChange[] = []
+  for (const s of [...spacing].sort((a, b) => a.from - b.from || a.to - b.to)) {
+    if (!changes.some((c) => touches(s, c)) && !free.some((f) => touches(s, f))) free.push(s)
+  }
+  return [...changes, ...free].sort((a, b) => a.from - b.from || a.to - b.to)
+}
+
+/** A token of a line, where it is in the sheet's text, and whether it's in a value in text (`{{…}}`, prose's: left as it is). */
+interface LineToken {
+  readonly token: Token
+  readonly at: number
+  readonly inValue: boolean
+  /** The node it's directly in (a quantity: `5 kg`), if any. */
+  readonly parent?: SyntaxNode
+}
+
+/** The kinds of token nothing is said in: spaces, indentation, line endings, notes, #commands, comments. */
+const QUIET: ReadonlySet<string> = new Set([
+  TOKEN_KIND.space, TOKEN_KIND.indent, TOKEN_KIND.eol, TOKEN_KIND.note, TOKEN_KIND.command, TOKEN_KIND.comment,
+])
+
+/**
+ * What spacing changes: the `=` that assigns or compares, the separators
+ * between a call's or a list's values, and a condition's `?` and `:`
+ * (`a > b ? "yes" : "no"`).
+ */
+const SPACED = { equals: '=', comma: SEPARATOR, semicolon: ROW_SEPARATOR, condition: '?', otherwise: ':' } as const
+
+/** One space, as spacing puts between tokens. */
+const SPACE = ' '
+
+/**
+ * The changes that space a line's tokens as maths is written: one space either
+ * side of `=` (`x= 5` → `x = 5`), and of a condition's `?` and its `:`
+ * (`a ? "x":"y"` → `a ? "x" : "y"`; a `:` with no `?` before it, a setting's,
+ * is left); one after each `,` or `;` and none before (`x1,x2` → `x1, x2`),
+ * unless what's after it ends the line, closes a bracket or is a note; one
+ * between a number and its unit (`5kg` → `5 kg`). Only the
+ * spaces between tokens change, so what the line says doesn't: strings, a
+ * module's settings (one token), notes and comments are left as they are, and
+ * so are values in text (`{{…}}`, prose's).
+ */
+function spacingChanges(line: SyntaxNode, start: number): TextChange[] {
+  const tokens: LineToken[] = []
+  let at = start
+  const visit = (parts: readonly Part[], parent: SyntaxNode | undefined, inValue: boolean) => {
+    for (const p of parts) {
+      if (!isToken(p)) visit(p.parts, p, inValue || p.kind === NODE_KIND.value)
+      else {
+        tokens.push({ token: p, at, inValue, parent })
+        at += p.text.length
+      }
+    }
+  }
+  visit(line.parts, undefined, false)
+  const changes: TextChange[] = []
+  const isSpace = (t: LineToken | undefined) => t?.token.t === TOKEN_KIND.space
+  const isSaid = (t: LineToken | undefined) => t !== undefined && !QUIET.has(t.token.t)
+  const isDelimiter = (t: LineToken | undefined, text: string) => t?.token.t === TOKEN_KIND.delimiter && t.token.text === text
+  const endOf = (t: LineToken) => t.at + t.token.text.length
+  /** Exactly one space between the tokens at `i` and `i + 1` (or the space between them and the token after it), both said. */
+  const oneSpaceAfter = (i: number) => {
+    const next = tokens[i + 1]
+    if (isSaid(next)) changes.push({ from: endOf(tokens[i]), to: endOf(tokens[i]), insert: SPACE })
+    else if (isSpace(next) && isSaid(tokens[i + 2]) && next.token.text !== SPACE) changes.push({ from: next.at, to: endOf(next), insert: SPACE })
+  }
+  /** Exactly one space before the token at `i`, after a token said before it (not at the line's start). */
+  const oneSpaceBefore = (i: number) => {
+    const prev = tokens[i - 1]
+    if (isSaid(prev)) changes.push({ from: tokens[i].at, to: tokens[i].at, insert: SPACE })
+    else if (isSpace(prev) && isSaid(tokens[i - 2]) && prev.token.text !== SPACE) changes.push({ from: prev.at, to: endOf(prev), insert: SPACE })
+  }
+  /** How many conditions' `?` are waiting for their `:`. */
+  let conditions = 0
+  tokens.forEach((t, i) => {
+    if (t.inValue) return
+    const otherwise = isDelimiter(t, SPACED.otherwise) && conditions > 0
+    if (isDelimiter(t, SPACED.condition)) conditions++
+    if (otherwise) conditions--
+    if (isDelimiter(t, SPACED.equals) || isDelimiter(t, SPACED.condition) || otherwise) {
+      oneSpaceBefore(i)
+      oneSpaceAfter(i)
+    } else if (isDelimiter(t, SPACED.comma) || isDelimiter(t, SPACED.semicolon)) {
+      // (None before it, after something said, but not after another of these, whose own space it is: `x = ,`;
+      // one after it, unless a bracket closes or another separator follows.)
+      const prev = tokens[i - 1]
+      const spacedBefore = Object.values(SPACED).some((s) => isDelimiter(tokens[i - 2], s))
+      if (isSpace(prev) && isSaid(tokens[i - 2]) && !spacedBefore) changes.push({ from: prev.at, to: endOf(prev), insert: '' })
+      const after = isSpace(tokens[i + 1]) ? tokens[i + 2] : tokens[i + 1]
+      const closing = after?.token.t === TOKEN_KIND.delimiter && (closesBracket(after.token.text) || after.token.text === SPACED.comma || after.token.text === SPACED.semicolon)
+      if (!closing) oneSpaceAfter(i)
+    } else if (t.token.t === TOKEN_KIND.number && t.parent?.kind === NODE_KIND.quantity) {
+      // A number and its unit: one space between them.
+      const unit = isSpace(tokens[i + 1]) ? tokens[i + 2] : tokens[i + 1]
+      if (unit?.token.t === TOKEN_KIND.unit && unit.parent === t.parent) oneSpaceAfter(i)
+    }
+  })
+  return changes
 }
 
 /** A sheet formatted (see formatChanges). */

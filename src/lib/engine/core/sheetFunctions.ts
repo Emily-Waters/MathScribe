@@ -5,7 +5,10 @@
  * expression. (Showing a call's working runs the Calculator's line evaluator
  * again, inside the function, so that stays in the Calculator: traceCall.)
  */
-import { isFunctionNode, type EvalFunction, type FunctionNode, type MathNode } from 'mathjs'
+import { isFunctionNode, type EvalFunction, type FunctionNode, type MathNode, type MathType } from 'mathjs'
+import { math } from './math.ts'
+import { parameterDeltas } from './propagation.ts'
+import { argumentUncertaintyName } from '../../sheet/names.ts'
 import { EXACT } from '../../maths/sigfigs.ts'
 import type { VariableFields } from '../../sheet/values.ts'
 import { EXACT_SETTING, PERCENT } from '../../syntax.ts'
@@ -36,6 +39,10 @@ export interface SheetFunctionsHost {
   lookSetting(settings: readonly string[] | undefined): TupleLook | undefined
   /** The look a module reads from how a function's body is written (a vector typed in it), if any. */
   lookOfWritten(expression: string): TupleLook | undefined
+  /** An expression's value, worked out in scope. */
+  valueOf(node: MathNode): unknown
+  /** The uncertainty of an expression worked out as `value` (a zero like it if none). */
+  uncertaintyOf(node: MathNode, value: unknown): unknown
 }
 
 export class SheetFunctions {
@@ -72,6 +79,32 @@ export class SheetFunctions {
     visit(node)
     return out
   }
+
+  /**
+   * `node` as it's worked out: each call in it to a function whose body uses its
+   * parameters' uncertainties (`delta A`) given them after its arguments, each
+   * worked out from the argument as written here (`agreement(k1, k2)` →
+   * `agreement(k1, k2, δk1, δk2)`, held in hidden variables). Shown as typed:
+   * this is only what's evaluated. (`node` itself, if there are no such calls.)
+   */
+  withArgumentUncertainties(node: MathNode): MathNode {
+    if (!this.callsIn(node).some((c) => this.named(c.fn.name)?.deltas.length)) return node
+    return node.transform((n) => {
+      const def = isFunctionNode(n) ? this.named(n.fn.name) : undefined
+      if (!isFunctionNode(n) || !def?.deltas.length || n.args.length !== def.params.length) return n
+      const args = n.args.map((a) => this.withArgumentUncertainties(a))
+      const extras = def.deltas.map((d) => {
+        const argument = args[d.param]
+        const hidden = argumentUncertaintyName(this.nextArgument++)
+        this.host.store(hidden, { value: this.host.uncertaintyOf(argument, this.host.valueOf(argument)), sf: EXACT })
+        return new math.SymbolNode(hidden)
+      })
+      return new math.FunctionNode(n.fn, [...args, ...extras])
+    })
+  }
+
+  /** The next argument uncertainty's number (argumentUncertaintyName). */
+  private nextArgument = 0
 
   /**
    * Define a one-line function, `f(a, b) = a * b + 1`. Each call works out its
@@ -115,9 +148,11 @@ export class SheetFunctions {
 
     let code: EvalFunction
     let tex: string
+    // (`delta A` of a parameter: the uncertainty of the argument A is given, set on each call.)
+    const { text: body, deltas } = parameterDeltas(expression, params)
     try {
       // Constants resolve where the function is defined, so calls can see them.
-      const expanded = this.host.expandConstants(expression)
+      const expanded = this.host.expandConstants(body)
       if (expanded.error) throw new Error(expanded.error)
       const node = this.host.parse(expanded.text)
       code = node.compile()
@@ -127,17 +162,24 @@ export class SheetFunctions {
     }
 
     const definedIn = this.host.variables()
-    const fn = (...args: unknown[]) => {
+    // A body using its parameters' uncertainties (`delta A`) is given them after its arguments, one for each
+    // (withArgumentUncertainties); called without them (from inside another function), they're none.
+    const fn = (...given: unknown[]) => {
+      const withUncertainties = deltas.length > 0 && given.length === params.length + deltas.length
+      const args = withUncertainties ? given.slice(0, params.length) : given
       if (args.length !== params.length) {
         throw new Error(`${name} takes ${params.length} argument${params.length === 1 ? '' : 's'}, `
           + `but was given ${args.length}.`)
       }
       const local = innerValues(definedIn)
       params.forEach((p, i) => local.set(p, castArgument(p, casts[i], args[i])))
+      deltas.forEach((d, k) => local.set(d.hidden, withUncertainties
+        ? given[params.length + k]
+        : math.multiply(args[d.param] as MathType, 0)))
       const v = code.evaluate(local)
       return returnUnit ? toDisplayUnit(v, returnUnit) : v
     }
-    this.defs.set(fn, { params, casts, expression, definedIn, multiline, returnSf, returnNotation, returnLook, returnUnit })
+    this.defs.set(fn, { params, casts, expression, definedIn, multiline, returnSf, returnNotation, returnLook, returnUnit, deltas })
     this.host.store(name, { value: fn, sf: EXACT })
     return { tex: nestBrackets(tex) }
   }

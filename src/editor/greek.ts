@@ -19,6 +19,28 @@ const BEING_TYPED = /\\[A-Za-z]*$/
 /** A whole Greek letter's name just typed (1: the name). */
 const TYPED = /\\([A-Za-z]+)$/
 
+/** Every Greek letter's name after a backslash, in some text (1: the name). */
+const EVERY_TYPED = /\\([A-Za-z]+)/g
+
+/** Text with each Greek letter's name after a backslash as the letter: `\Delta E` → `ΔE` (any other `\word` stays). */
+export const withGreekLetters = (text: string): string =>
+  text.replace(EVERY_TYPED, (typed, name: string) => GREEK_BY_NAME.get(name) ?? typed)
+
+/**
+ * In a text box (the rename panel's), Space or Tab right after a Greek letter's
+ * name types the letter, as in the editor: `\delta` then Space gives δ. Whether
+ * it did (and so the key's own typing is to be left out).
+ */
+export function typeGreekInBox(input: HTMLInputElement): boolean {
+  const at = input.selectionStart ?? input.value.length
+  if (at !== input.selectionEnd) return false
+  const m = TYPED.exec(input.value.slice(0, at))
+  const char = m && GREEK_BY_NAME.get(m[1])
+  if (!m || !char) return false
+  input.setRangeText(char, at - m[0].length, at, 'end')
+  return true
+}
+
 /** Whether the text before the cursor is inside `$…$` maths. */
 const inInlineMaths = (before: string) => (before.match(/\$/g)?.length ?? 0) % 2 === 1
 

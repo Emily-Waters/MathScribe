@@ -2,6 +2,7 @@
 import { type Contributions } from '../../sheet/values.ts'
 import { type Notation } from '../../syntax.ts'
 import type { TupleLook } from './module.ts'
+import type { ParameterDelta } from './propagation.ts'
 import { type Variables } from './scope.ts'
 
 /** What's kept about a function the sheet defines, `f(x) = …`, to show its working. */
@@ -22,6 +23,8 @@ export interface UserFunction {
   returnLook?: TupleLook
   /** Unit declared for the result (`f(x):mol/L = …`), which every call's result is shown in. */
   returnUnit?: string
+  /** Its parameters' uncertainties its body uses (`delta A`), which a call is given after its arguments. */
+  deltas: readonly ParameterDelta[]
 }
 
 /** A constant defined in an `@constants { }` block. */

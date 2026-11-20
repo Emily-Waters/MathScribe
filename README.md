@@ -114,7 +114,7 @@ amber one; hover the bar to read the message.
 | Ctrl+Click a name, or F12 | Go to where a variable, function or constant is defined (names you can jump from are underlined while Ctrl is held) |
 | F2 | Open a small rename panel beside the variable or function and rename every use in scope |
 | Ctrl+F | Find and replace |
-| Ctrl+Shift+F | Format the sheet: each line indented by the blocks it's in, a call over several lines laid out (Save and Save as format it too) |
+| Ctrl+Shift+F | Format the sheet: each line indented by the blocks it's in, a call over several lines laid out, and maths spaced as it's written: `x= 5kg` → `x = 5 kg`, `max(x1,x2)` → `max(x1, x2)` (Save and Save as format it too; strings, notes and prose are left as they are) |
 | Ctrl+/ | Comment or uncomment the line (or selected lines) with `//` |
 | Ctrl+Z / Ctrl+Y | Undo / redo |
 

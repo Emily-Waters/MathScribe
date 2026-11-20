@@ -16,7 +16,7 @@
  * The plot's ⚙ button in the editor writes them, so they don't need typing.
  */
 import {
-  SETTING, SETTINGS_SEPARATOR, formatRowRange, joinSettings, parseRowRange, tidySetting,
+  SETTING, formatRowRange, joinSettings, parseRowRange, parseTitle, settingParts, titleSetting,
 } from './tableSettings.ts'
 
 /** How a plot's points are drawn: as points, joined by lines, or both. */
@@ -62,36 +62,17 @@ const RANGE = new RegExp(String.raw`^(${PLOT_AXES.join('|')})(?:\s+${SETTING.fro
 const STYLE = new RegExp(`^${SETTING.style} (${PLOT_STYLES.join('|')})$`)
 const FIT_SETTING = new RegExp(`^${SETTING.fit} (${PLOT_FITS.join('|')})$`)
 const LOG = new RegExp(`^${SETTING.log} (${PLOT_AXES.join('|')})$`)
-/** A title is quoted, so it can hold commas. */
-const QUOTE = '"'
-const TITLE = new RegExp(`^${SETTING.title}\\s+${QUOTE}([^${QUOTE}]*)${QUOTE}$`)
-
-/** Settings text split into its settings, but not at a comma inside the quoted title. */
-function plotSettingParts(text: string): string[] {
-  const parts: string[] = []
-  let current = ''
-  let quoted = false
-  for (const c of text) {
-    if (c === QUOTE) quoted = !quoted
-    if (c === SETTINGS_SEPARATOR && !quoted) {
-      parts.push(current)
-      current = ''
-    } else current += c
-  }
-  parts.push(current)
-  return parts.map(tidySetting).filter(Boolean)
-}
 
 /** A plot's settings from their text, or what's wrong with them. */
 export function parsePlotSettings(text: string | undefined): { settings: PlotSettings; error?: string } {
   const s = defaultPlotSettings()
-  for (const part of plotSettingParts(text ?? '')) {
+  for (const part of settingParts(text)) {
     const rows = parseRowRange(part)
     const range = RANGE.exec(part)
     const style = STYLE.exec(part)
     const fit = FIT_SETTING.exec(part)
     const log = LOG.exec(part)
-    const title = TITLE.exec(part)
+    const title = parseTitle(part)
     if (rows) {
       s.from = rows.from
       s.to = rows.to
@@ -102,7 +83,7 @@ export function parsePlotSettings(text: string | undefined): { settings: PlotSet
     } else if (style) s.style = style[1] as PlotStyle
     else if (fit) s.fit = fit[1] as PlotFit
     else if (log) s[log[1] as PlotAxisName].log = true
-    else if (title) s.title = title[1]
+    else if (title !== undefined) s.title = title
     else {
       return {
         settings: s,
@@ -131,7 +112,6 @@ export function formatPlotSettings(s: PlotSettings): string {
     if (range) parts.push(range)
     if (s[axis].log) parts.push(`${SETTING.log} ${axis}`)
   }
-  // (A title can't hold a quote mark: it ends the title.)
-  if (s.title) parts.push(`${SETTING.title} ${QUOTE}${s.title.replaceAll(QUOTE, '')}${QUOTE}`)
+  if (s.title) parts.push(titleSetting(s.title))
   return joinSettings(parts)
 }

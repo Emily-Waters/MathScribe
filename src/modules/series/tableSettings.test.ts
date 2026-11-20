@@ -16,19 +16,20 @@ describe('table settings', () => {
   })
 
   it('reads and writes them, leaving out the defaults', () => {
-    const { settings } = parseTableSettings('rows 5-, lines grid, numbers off, all rows')
-    expect(settings).toEqual({ from: 5, to: undefined, lines: 'grid', numbers: false, allRows: true })
-    expect(formatTableSettings(settings)).toBe('rows 5-, lines grid, numbers off, all rows')
-    expect(formatTableSettings(parseTableSettings('lines header, numbers on').settings)).toBe('')
+    const { settings } = parseTableSettings('rows 5-, lines none, numbers off, all rows')
+    expect(settings).toEqual({ from: 5, to: undefined, lines: 'none', numbers: false, allRows: true })
+    expect(formatTableSettings(settings)).toBe('rows 5-, lines none, numbers off, all rows')
+    expect(formatTableSettings(parseTableSettings('lines grid, numbers on').settings)).toBe('')
+    expect(formatTableSettings(parseTableSettings('lines header').settings)).toBe('lines header')
     expect(formatTableSettings(parseTableSettings('rows 7').settings)).toBe('rows 7')
   })
 
   it('rewrites a table line with new settings, or takes them out', () => {
-    const line = '    @table(t, x; lines grid)   # run 1'
+    const line = '    @table(t, x; lines header)   # run 1'
     const inner = { from: line.indexOf('(') + 1, to: line.lastIndexOf(')') }
-    expect(withTableSettings(line, inner, { lines: 'header', numbers: true, allRows: false, from: 2, to: 9 }))
+    expect(withTableSettings(line, inner, { lines: 'grid', numbers: true, allRows: false, from: 2, to: 9 }))
       .toBe('    @table(t, x; rows 2-9)   # run 1')
-    expect(withTableSettings(line, inner, { lines: 'header', numbers: true, allRows: false }))
+    expect(withTableSettings(line, inner, { lines: 'grid', numbers: true, allRows: false }))
       .toBe('    @table(t, x)   # run 1')
   })
 })

@@ -20,12 +20,15 @@ export function Tex({ latex, display = false }: { latex: string; display?: boole
     : <span dangerouslySetInnerHTML={{ __html: html }} />
 }
 
-/** A heading, block title, note or line of text, with `p_z` subscripts and `$…$` maths. */
-export function Title({ text }: { text: string }) {
+/** Maths set bold, as in bold text (KaTeX's maths doesn't take the text's weight). */
+const boldMaths = (tex: string) => `\\boldsymbol{${tex}}`
+
+/** A heading, block title, note or line of text, with `p_z` subscripts and `$…$` maths; `bold`, its maths bold too (in bold text). */
+export function Title({ text, bold = false }: { text: string; bold?: boolean }) {
   return (
     <>
       {titleSegments(text).map((s, i) => (s.kind === TITLE_SEGMENT.math
-        ? <Tex key={i} latex={s.value} />
+        ? <Tex key={i} latex={bold ? boldMaths(s.value) : s.value} />
         : s.kind === TITLE_SEGMENT.sub ? <sub key={i}>{s.value}</sub> : <span key={i}>{s.value}</span>))}
     </>
   )

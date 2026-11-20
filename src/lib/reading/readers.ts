@@ -373,7 +373,7 @@ function openGroup(sheet: SheetReader, line: Line, parts: SplitLine, section?: S
 class CalcReader extends NodeReader {
   readonly kinds = [NODE_KIND.calc]
 
-  read({ line }: TreeItem, sheet: SheetReader): void {
+  read({ line, last }: TreeItem, sheet: SheetReader): void {
     const { body, note, command, multiline, notation, layout } = line.parts
     // A line's own command wins; otherwise the nearest enclosing block's.
     const inherited = sheet.inheritedCommand
@@ -387,11 +387,22 @@ class CalcReader extends NodeReader {
       ? { kind: BLOCK_KIND.layout, line: line.number, endLine: line.number, title: '', style: layout, children: [], indent: line.indent }
       : undefined
     if (own) sheet.add(own)
-    ;(own?.children ?? sheet.open.at(-1)?.children ?? sheet.root).push({
-      kind: BLOCK_KIND.calc, line: line.number, source: body, hidden: effective === LINE_COMMAND.hide, ...result,
+    const into = own?.children ?? sheet.open.at(-1)?.children ?? sheet.root
+    const hidden = effective === LINE_COMMAND.hide
+    const warning = sheet.duplicateDeclarations.get(line.number) ?? result.warning
+    // A line a module shows as a block of its own kind (a table), with the line's note and messages.
+    if (result.block) {
+      const { type, data } = result.block
+      into.push({
+        kind: BLOCK_KIND.custom, line: line.number, endLine: last + 1, type, data, source: body, note, hidden, error: result.error, warning, info: result.info,
+      })
+      return
+    }
+    into.push({
+      kind: BLOCK_KIND.calc, line: line.number, source: body, hidden, ...result,
       note,
       info: result.info ?? (result.error ? undefined : sheet.declarationInfo(body, line.number)),
-      warning: sheet.duplicateDeclarations.get(line.number) ?? result.warning,
+      warning,
     })
   }
 }

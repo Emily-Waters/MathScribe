@@ -79,6 +79,8 @@ type Piece = { run: string; style: RunStyle } | { xml: string }
 interface Ctx {
   /** Font size for every run, in half-points (the working is set smaller). */
   size?: number
+  /** Every run bold (a table's header): a variable bold and italic, the rest bold and upright. */
+  bold?: boolean
 }
 
 /** Characters that can't be seen in the source, by name. */
@@ -118,12 +120,11 @@ const elements = (n: XmlNode) => n.children.filter((c) => c.tag !== '#text')
 
 /** A run of maths as OMML. */
 function runXml(text: string, style: RunStyle, ctx: Ctx): string {
-  const mrPr = style === 'text' ? '<m:rPr><m:nor/></m:rPr>'
-    : style === 'p' ? '<m:rPr><m:sty m:val="p"/></m:rPr>'
-      : style === 'b' ? '<m:rPr><m:sty m:val="b"/></m:rPr>'
-        : ''
-  const wrPr = ctx.size ? `<w:rPr><w:sz w:val="${ctx.size}"/><w:szCs w:val="${ctx.size}"/></w:rPr>` : ''
-  return `<m:r>${mrPr}${wrPr}<m:t xml:space="preserve">${xmlEscape(text)}</m:t></m:r>`
+  // (Bold: italic as bold italic, upright as bold; ordinary text bold as text is, in its own w:rPr.)
+  const sty = ctx.bold ? (style === 'i' ? 'bi' : style === 'text' ? undefined : 'b') : style === 'i' || style === 'text' ? undefined : style
+  const mrPr = style === 'text' ? '<m:rPr><m:nor/></m:rPr>' : sty ? `<m:rPr><m:sty m:val="${sty}"/></m:rPr>` : ''
+  const wrPr = [ctx.bold && style === 'text' && '<w:b/>', ctx.size && `<w:sz w:val="${ctx.size}"/><w:szCs w:val="${ctx.size}"/>`].filter(Boolean).join('')
+  return `<m:r>${mrPr}${wrPr ? `<w:rPr>${wrPr}</w:rPr>` : ''}<m:t xml:space="preserve">${xmlEscape(text)}</m:t></m:r>`
 }
 
 /** Join pieces into XML, merging neighbouring runs of the same style (k, g → kg). */
@@ -390,15 +391,15 @@ function mathOf(tex: string): XmlNode | null {
 
 /**
  * An equation as `<m:oMath>` (editable maths in Word), with roughly how wide
- * it is in ems. `size` (half-points) sets its font size. If KaTeX can't read
- * the LaTeX, the LaTeX is kept as text.
+ * it is in ems. `size` (half-points) sets its font size; `bold`, all of it bold.
+ * If KaTeX can't read the LaTeX, the LaTeX is kept as text.
  */
-export function texToMath(tex: string, size?: number): { xml: string; ems: number } {
-  const ctx: Ctx = { size }
+export function texToMath(tex: string, size?: number, bold = false): { xml: string; ems: number } {
+  const ctx: Ctx = { size, bold }
   const math = mathOf(tex)
   if (!math) return { xml: `<m:oMath>${runXml(tex, 'text', ctx)}</m:oMath>`, ems: tex.length * WIDTH_EMS.textCharacter }
   return { xml: `<m:oMath>${render(convert(math, ctx), ctx)}</m:oMath>`, ems: width(math) }
 }
 
 /** An equation as `<m:oMath>`: editable maths in Word. */
-export const texToOmml = (tex: string, size?: number) => texToMath(tex, size).xml
+export const texToOmml = (tex: string, size?: number, bold = false) => texToMath(tex, size, bold).xml

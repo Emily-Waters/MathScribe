@@ -218,13 +218,22 @@ export function splitEquation(text: string): [string, string] | null {
   return at < 0 ? null : [text.slice(0, at).trim(), text.slice(at + width).trim()]
 }
 
-/** Split function arguments at top-level commas. */
+/** A label's quote marks, as mathjs reads a string, and what keeps a quote mark in one from ending it: `"a \"b\""`. */
+const QUOTE = '"'
+const ESCAPE = '\\'
+
+/** Split function arguments at top-level commas (not ones in brackets, or in a label in quotes). */
 export function splitArgs(text: string): string[] {
   const out: string[] = []
   let depth = 0
   let start = 0
   for (let i = 0; i < text.length; i++) {
     const ch = text[i]
+    // (A label in quotes is one argument, its commas and brackets its own: `"KBr, solid"`. A `\"` in it doesn't end it.)
+    if (ch === QUOTE) {
+      for (i++; i < text.length && text[i] !== QUOTE; i++) if (text[i] === ESCAPE) i++
+      continue
+    }
     if (ch === '(' || ch === '[') depth++
     else if (ch === ')' || ch === ']') depth--
     else if (ch === ',' && depth === 0) {

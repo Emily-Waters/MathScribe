@@ -98,11 +98,23 @@ export interface CalcResult {
   /** A `@plot(…)` line's plot (its `tex` is then the fits' equations, if any). */
   plot?: PlotData
   /**
+   * A line a module shows as a block of its own kind rather than as an
+   * equation (`@table(…)`'s table): the line's note, messages and `#hide` go
+   * with it. Its `tex` is then unused.
+   */
+  block?: ResultBlock
+  /**
    * What a select or a named plot made, for suggestions: each variable's inside
    * name (a__x_1); a series by its first and last members, the first standing
    * for `members` of them, as an import's columns are.
    */
   defines?: Definition[]
+}
+
+/** A block of a module's own kind a line is shown as (CalcResult.block): its kind (EngineModule.blockKinds) and what it shows. */
+export interface ResultBlock {
+  readonly type: string
+  readonly data: unknown
 }
 
 /** A variable a line made, for suggestions (see CalcResult.defines). */

@@ -11,6 +11,11 @@ const shown = (source: string) => readable(made(source).tex)
 const FORCES = 'F_1 = 2.00 N\nF_2 = 3.00 N\nF_3 = 10.0 N\n'
 
 describe('@series', () => {
+  it('keeps a comma in a label in quotes in its value', () => {
+    expect(value('s = @series("KBr, solid", "KCl")\nw = s_1')).toContain('"KBr, solid"')
+    expect(value('s = @series("KBr, solid", "KCl")\nw = s_2')).toContain('"KCl"')
+  })
+
   it('makes a series of the values listed, as typed', () => {
     const source = 't = @series(1.52 s, 1.48 s, 1.55 s)\n'
     expect(value(`${source}w = t_2`)).toBe('1.48 s')

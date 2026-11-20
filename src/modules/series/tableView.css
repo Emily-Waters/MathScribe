@@ -1,0 +1,76 @@
+/* A table, `@table(…)`, in the Rendered tab (tableView.tsx): as it is in the exports, in the app's colours. */
+
+.ms-table {
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+/* Its title, over it, as a caption is. */
+.ms-table__caption {
+  margin: 0 0 4px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text);
+}
+
+/* A wide table scrolls, rather than squeezing its numbers. */
+.ms-table__scroll {
+  overflow-x: auto;
+}
+
+.ms-table__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.ms-table__table th,
+.ms-table__table td {
+  padding: 3px 10px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.ms-table__table th {
+  font-weight: 700;
+}
+
+/* The row headers (numbers or labels): as narrow as they can be, bold, to the left. */
+.ms-table__table col.ms-table__n {
+  width: 1%;
+}
+
+.ms-table__table .ms-table__n {
+  width: 1%;
+  text-align: left;
+  font-weight: 700;
+}
+
+/* A row header's maths bold too, a formula's (\ce) included, which \boldsymbol doesn't reach: KaTeX's fonts have bold faces. */
+.ms-table__table .ms-table__n .katex * {
+  font-weight: 700;
+}
+
+/* lines grid (the default): a rule around every cell. */
+.ms-table--grid th,
+.ms-table--grid td {
+  border: 1px solid var(--text);
+}
+
+/* lines header: a rule under the header, and after n. */
+.ms-table--header th {
+  border-bottom: 1px solid var(--text);
+}
+
+.ms-table--header .ms-table__n {
+  border-right: 1px solid var(--text);
+}
+
+/* Its note, under it, as a line's is beside it: small, grey, italic. */
+.ms-table__note {
+  margin: 4px 0 0;
+  text-align: center;
+  font-size: 12.5px;
+  font-style: italic;
+  color: var(--muted);
+}

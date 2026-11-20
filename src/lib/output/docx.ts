@@ -15,7 +15,7 @@ import { ALIGN } from './alignment.ts'
 import { MARGIN_CM, type LatexOptions } from './latex.ts'
 import { xmlEscape } from './omml.ts'
 import {
-  FONTS, HEADING_SIZE_STEP, LANGUAGE, LIST_INDENT, MATH_WRAP_INDENT, NOTE_CHAR_EMS, NOTE_COLUMN, NOTE_PADDING, PAPER, SPACING,
+  CAPTION_STYLE, FONTS, HEADING_SIZE_STEP, LANGUAGE, LIST_INDENT, MATH_WRAP_INDENT, NOTE_CHAR_EMS, NOTE_COLUMN, NOTE_PADDING, PAPER, SPACING,
   TITLE_SIZE_STEP, TITLE_STYLE, TWIPS_PER_CM, TWIPS_PER_EM_PER_HALF_POINT, WORKING_SIZE_STEP, fontSizeOf, imageRel, itemXml, run,
   type Ctx, type Item, type PlotImages,
 } from './docxKit.ts'
@@ -66,6 +66,9 @@ function stylesXml(o: LatexOptions): string {
     + `<w:style w:type="paragraph" w:styleId="${TITLE_STYLE}"><w:name w:val="${TITLE_STYLE}"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:qFormat/>`
     + `<w:pPr><w:jc w:val="center"/><w:spacing w:after="${SPACING.title.before}"/></w:pPr><w:rPr><w:sz w:val="${size + TITLE_SIZE_STEP}"/><w:szCs w:val="${size + TITLE_SIZE_STEP}"/></w:rPr></w:style>`
     + '<w:style w:type="paragraph" w:styleId="ListParagraph"><w:name w:val="List Paragraph"/><w:basedOn w:val="Normal"/></w:style>'
+    // (Word's own name for it, `caption`, so Word knows these as captions.)
+    + `<w:style w:type="paragraph" w:styleId="${CAPTION_STYLE}"><w:name w:val="caption"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:qFormat/>`
+    + `<w:pPr><w:keepNext/><w:spacing w:before="${SPACING.caption.before}" w:after="${SPACING.caption.after}"/></w:pPr></w:style>`
     + '</w:styles>'
 }
 
@@ -149,7 +152,7 @@ function docxPackage(sheetBlocks: Block[], o: LatexOptions, today: Date, images:
     longest * NOTE_CHAR_EMS * fontSizeOf(o) * TWIPS_PER_EM_PER_HALF_POINT + NOTE_PADDING)))
   const ctx: Ctx = {
     o, width, indent: 0, center: false, nums: [], small: fontSizeOf(o) - WORKING_SIZE_STEP, noteWidth,
-    images, media: [],
+    images, media: [], captions: new Map(),
   }
   const title: Item[] = o.title.trim() ? [
     { props: { style: TITLE_STYLE }, content: run(o.title.trim()) },

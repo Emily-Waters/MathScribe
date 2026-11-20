@@ -1304,9 +1304,12 @@ t = @series(
 `@table(…)` on a line of its own shows series side by side, one row per number:
 
 ```
-@table(t, x)              # n | t [s] | x [m]
+@table(t, x)              # 1, 2, … down the side | t [s] | x [m]
 @table(t, x, v = x / t)   # adds a column v, worked out row by row
 v_avg                    # v is a series now: v_1, v_2, …
+
+salts = @series("{KCl}", "{KBr}", "{KI}")
+@table(t, x; labels salts)   # KCl, KBr, KI down the side instead of 1, 2, 3
 ```
 
 - A name is a series' values. A unit every value shares goes in the header; a
@@ -1317,13 +1320,25 @@ v_avg                    # v is a series now: v_1, v_2, …
   and uncertainties worked out as on any line, so `v_avg`, `v_std` and `v_3` work
   afterwards. An expression without a name (`@table(x / t)`) is just shown.
 - A table with more than 60 rows shows its first 50 and last 5, with ⋮ between.
+- **Row labels:** down the side go the row numbers, under a blank header, or with
+  `labels salts` a series' values in their place: each row's label is that row's
+  value of the series. A label is text as a sheet's text is (`$…$` maths, `{KCl}`
+  formulas; a comma in the quotes is fine); a series of numbers labels with its
+  values. A row the series doesn't have is left blank.
 - **Settings:** the ⚙ after a table in the editor opens its settings: which rows to
-  show (from and to), the lines (under the header, a grid, or none), the n column,
-  and showing every row of a long table. They're kept in the sheet after a
-  semicolon in the brackets, `@table(t, x; rows 5-20, lines grid, numbers off,
-  all rows)`, so they can be typed too. Rows only limit what's shown: a computed
-  column is still worked out for every row.
-- Tables go into the LaTeX and Word exports as arrays.
+  show (from and to), the lines (a grid, the default; under the header; or none), the
+  row numbers, row labels, showing every row of a long table, and a title. They're
+  kept in the sheet after a semicolon in the brackets, `@table(t, x; rows 5-20,
+  lines header, numbers off, labels salts, all rows, title "Runs")`, so they can be
+  typed too. Rows only limit what's shown: a computed column is still worked out
+  for every row.
+- In the LaTeX and Word exports a table is a table, as one is written by hand:
+  its title a numbered caption over it, the full width of the page, the row
+  numbers or labels bold and to the left, the other columns centred, the header bold. In LaTeX it's
+  a `table` float held where it's written (`tabularx`; in a list or a column it's
+  centred where it is, captioned with `\captionof`); in Word a Word table, its
+  header repeated on each page and its caption Word's own, so a table of tables
+  lists it. The Rendered tab draws it the same way (its caption unnumbered).
 
 ### Plots
 

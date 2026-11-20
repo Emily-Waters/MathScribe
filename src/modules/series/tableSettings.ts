@@ -1,18 +1,21 @@
 /**
  * A table's settings, kept in the sheet after a semicolon inside its brackets:
  *
- *   @table(t, x, v = x / t; rows 5-20, lines grid, numbers off, all rows)
+ *   @table(t, x, v = x / t; rows 5-20, lines header, numbers off, all rows)
  *
  *   rows 5-20     only rows 5 to 20 (rows 5- from 5 on, rows -20 up to 20)
- *   lines grid    a line around every cell (lines none: no lines; the default
- *                 is a line under the header and after the row numbers)
- *   numbers off   no n column
+ *   lines header  a line under the header and after the row headers (lines
+ *                 none: no lines; the default, lines grid, a line around every cell)
+ *   numbers off   no row numbers down the side
+ *   labels salts  a series' values down the side in their place: `salts =
+ *                 @series("KCl", "KBr")` labels row 1 KCl, row 2 KBr
  *   all rows      every row, even in a long table (normally it's shortened)
+ *   title "Runs"  its caption (quoted, so it can hold commas)
  *
  * The table's ⚙ button in the editor writes them, so they don't need typing.
  */
 
-/** How a table's lines are drawn: under the header (the default), around every cell, or none. */
+/** How a table's lines are drawn: under the header, around every cell (the default), or none. */
 export const TABLE_LINE = { header: 'header', grid: 'grid', none: 'none' } as const
 export type TableLines = (typeof TABLE_LINE)[keyof typeof TABLE_LINE]
 export const TABLE_LINES: readonly TableLines[] = Object.values(TABLE_LINE)
@@ -22,13 +25,17 @@ export interface TableSettings {
   from?: number
   to?: number
   lines: TableLines
-  /** Show the n column. */
+  /** Show the row numbers down the side. */
   numbers: boolean
+  /** The series whose values go down the side instead, as the rows' labels: `labels salts`. */
+  labels?: string
   /** Show every row, however many. */
   allRows: boolean
+  /** Its caption: `title "Reactivity of the halogens"`. */
+  title?: string
 }
 
-export const DEFAULT_TABLE_SETTINGS: TableSettings = { lines: TABLE_LINE.header, numbers: true, allRows: false }
+export const DEFAULT_TABLE_SETTINGS: TableSettings = { lines: TABLE_LINE.grid, numbers: true, allRows: false }
 
 // ---------------------------------------------------------------------------
 // The words settings are written with (shared by table, plot and select)
@@ -39,6 +46,7 @@ export const SETTING = {
   rows: 'rows',
   lines: 'lines',
   numbers: 'numbers',
+  labels: 'labels',
   allRows: 'all rows',
   on: 'on',
   off: 'off',
@@ -77,9 +85,32 @@ export function formatRowRange(from: number | undefined, to: number | undefined)
 /** A setting as typed, tidied: trimmed, with single spaces inside. */
 export const tidySetting = (part: string) => part.trim().replace(/\s+/g, ' ')
 
-/** Settings text split into its settings, tidied (and empty ones left out). */
-export const settingParts = (text: string | undefined): string[] =>
-  (text ?? '').split(SETTINGS_SEPARATOR).map(tidySetting).filter(Boolean)
+/** A title is quoted, so it can hold commas. */
+const QUOTE = '"'
+/** `title "Run 1"` (1: the title). */
+const TITLE = new RegExp(`^${SETTING.title}\\s+${QUOTE}([^${QUOTE}]*)${QUOTE}$`)
+
+/** A title setting's title (`title "Run 1"` → Run 1), or undefined if `part` isn't one. */
+export const parseTitle = (part: string): string | undefined => TITLE.exec(part)?.[1]
+
+/** A title as a setting: `title "Run 1"`. (A title can't hold a quote mark: it ends the title.) */
+export const titleSetting = (title: string) => `${SETTING.title} ${QUOTE}${title.replaceAll(QUOTE, '')}${QUOTE}`
+
+/** Settings text split into its settings, tidied (and empty ones left out), but not at a comma inside a quoted title. */
+export function settingParts(text: string | undefined): string[] {
+  const parts: string[] = []
+  let current = ''
+  let quoted = false
+  for (const c of text ?? '') {
+    if (c === QUOTE) quoted = !quoted
+    if (c === SETTINGS_SEPARATOR && !quoted) {
+      parts.push(current)
+      current = ''
+    } else current += c
+  }
+  parts.push(current)
+  return parts.map(tidySetting).filter(Boolean)
+}
 
 /** Settings joined into their text. */
 export const joinSettings = (parts: string[]) => parts.join(`${SETTINGS_SEPARATOR} `)
@@ -87,6 +118,8 @@ export const joinSettings = (parts: string[]) => parts.join(`${SETTINGS_SEPARATO
 const LINES = new RegExp(`^${SETTING.lines}\\s+(${TABLE_LINES.join('|')})$`)
 const NUMBERS_ON = `${SETTING.numbers} ${SETTING.on}`
 const NUMBERS_OFF = `${SETTING.numbers} ${SETTING.off}`
+/** `labels salts` (1: the series; whether it is one, the table says when it's worked out). */
+const LABELS = new RegExp(`^${SETTING.labels}\\s+(\\S+)$`)
 
 /**
  * What's between a table's or plot's brackets, split at its first semicolon
@@ -126,17 +159,22 @@ export function parseTableSettings(text: string | undefined): { settings: TableS
   for (const part of settingParts(text)) {
     const rows = parseRowRange(part)
     const lines = LINES.exec(part)
+    const title = parseTitle(part)
+    const labels = LABELS.exec(part)
     if (rows) {
       settings.from = rows.from
       settings.to = rows.to
     } else if (lines) settings.lines = lines[1] as TableLines
     else if (part === NUMBERS_OFF) settings.numbers = false
     else if (part === NUMBERS_ON) settings.numbers = true
+    else if (labels) settings.labels = labels[1]
     else if (part === SETTING.allRows) settings.allRows = true
+    else if (title !== undefined) settings.title = title
     else {
       return {
         settings,
-        error: `"${part}" isn't a table setting: use rows 5-20, lines grid (or none), numbers off, or all rows. The table's ⚙ button sets them.`,
+        error: `"${part}" isn't a table setting: use rows 5-20, lines header (or none), numbers off, labels salts, all rows, `
+          + 'or title "…". The table\'s ⚙ button sets them.',
       }
     }
   }
@@ -150,7 +188,9 @@ export function formatTableSettings(s: TableSettings): string {
   if (rows) parts.push(rows)
   if (s.lines !== DEFAULT_TABLE_SETTINGS.lines) parts.push(`${SETTING.lines} ${s.lines}`)
   if (!s.numbers) parts.push(NUMBERS_OFF)
+  if (s.labels) parts.push(`${SETTING.labels} ${s.labels}`)
   if (s.allRows) parts.push(SETTING.allRows)
+  if (s.title) parts.push(titleSetting(s.title))
   return joinSettings(parts)
 }
 

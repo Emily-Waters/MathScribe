@@ -265,6 +265,13 @@ export interface CustomBlock<D = unknown> extends BlockBase, Spans, Noted, Fault
   data: D
   /** The names it makes usable anywhere in the sheet, if any (as a card's do). */
   defines?: DefinedName[]
+  /**
+   * For a line shown as one (CalcResult.block): the line as written, and a
+   * warning and something worth knowing that isn't a problem, as a calculation's.
+   */
+  source?: string
+  warning?: string
+  info?: string
 }
 
 /** Any block of a sheet. */

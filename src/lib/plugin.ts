@@ -26,6 +26,8 @@ export {
   type DerivedVariable, type InstallableModule, type LineInProgress, type LineStage, type ModuleBlockKind, type ModuleClass, type FormLine, type LookSetting, type ModuleGrammar, type ModuleHost, type PreparedLine, type SettingPlace,
   type TupleLook,
 } from './engine/core/module.ts'
+// (markupText: text with every module's notation in it as inline maths, as a sheet's text and titles have it: `{KCl}` a formula.)
+export { markupText } from './engine/core/module.ts'
 
 // The sheet's language: its words and patterns, and what's built in under `@`.
 export * from './syntax.ts'
@@ -71,6 +73,8 @@ export { expandDots } from './engine/core/memberAccess.ts'
 export { unwrap } from './engine/core/nodes.ts'
 export { SIDE, needsBrackets } from './engine/core/products.ts'
 export { attachUnit, isLitCall, isUnitCall, numberTex, symbolTex, unitCallText, unitTex } from './engine/core/tex.ts'
+// (nestBrackets: an equation's grouping brackets by how deep they go, as every line's are, for LaTeX a module builds itself.)
+export { nestBrackets } from './maths/brackets.ts'
 export { outsideMaths } from './engine/core/text.ts'
 export { linearFit, type LinearFit, type PlotData, type PlotPoint, type PlotSeries } from './output/plot.ts'
 

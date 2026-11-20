@@ -7,6 +7,9 @@
  */
 import { TITLE_SEGMENT, titleSegments } from './textSegments.ts'
 import { ALIGN, type Align } from './alignment.ts'
+
+// (How a paragraph lines up, for a module's constructs: ALIGN.center.)
+export { ALIGN, type Align }
 import type { LatexOptions } from './latex.ts'
 import { PLOT_SIZE, type PlotData } from './plot.ts'
 import { texToMath, texToOmml, xmlEscape } from './omml.ts'
@@ -74,10 +77,15 @@ export const SPACING = {
   pageHeader: 709,
   /** Above a title page's title, to set it a way down the page (two inches). */
   titlePage: 2880,
+  /** Around a caption: a little room above, less between it and its table. */
+  caption: { before: 120, after: 60 },
 }
 
 /** Word's style for a document's title. */
 export const TITLE_STYLE = 'Title'
+
+/** Word's style for a caption (a table's): Word lists these in a table of tables. */
+export const CAPTION_STYLE = 'Caption'
 
 /** A paragraph that starts a new page. */
 export const PAGE_BREAK = '<w:p><w:r><w:br w:type="page"/></w:r></w:p>'
@@ -167,10 +175,10 @@ export function run(text: string, f: RunFormat = {}): string {
 /** A tab, as a run. */
 export const tab = '<w:r><w:tab/></w:r>'
 
-/** A heading, block title, note or line of text: `2p_z` → 2p with a subscript z, `$…$` as maths. */
+/** A heading, block title, note or line of text: `2p_z` → 2p with a subscript z, `$…$` as maths (bold, in bold text). */
 export const titleRuns = (text: string, f: RunFormat = {}) =>
   titleSegments(text).map((s) => (s.kind === TITLE_SEGMENT.math
-    ? texToOmml(s.value, f.size)
+    ? texToOmml(s.value, f.size, f.bold)
     : run(s.value, { ...f, sub: s.kind === TITLE_SEGMENT.sub }))).join('')
 
 // ---------------------------------------------------------------------------
@@ -197,7 +205,33 @@ export interface Ctx {
   images: PlotImages
   /** The pictures placed so far: each is a file in word/media. */
   media: Uint8Array[]
+  /** How many captions of each kind there are so far (Table: tables), to number the next. */
+  captions: Map<string, number>
 }
+
+/** What a caption names its kind with: `Table 1: …`. */
+export const CAPTION_KIND = { table: 'Table' } as const
+export type CaptionKind = (typeof CAPTION_KIND)[keyof typeof CAPTION_KIND]
+
+/**
+ * A caption, `Table 2: Runs`, as Word writes one: in its Caption style, its
+ * number a SEQ field (so Word numbers it, and lists it in a table of tables),
+ * counted here so it shows the right number before Word updates its fields.
+ */
+export function caption(ctx: Ctx, kind: CaptionKind, title: string): Item {
+  const n = (ctx.captions.get(kind) ?? 0) + 1
+  ctx.captions.set(kind, n)
+  const number = `<w:fldSimple w:instr=" SEQ ${kind} \\* ARABIC ">${run(String(n))}</w:fldSimple>`
+  return { props: { style: CAPTION_STYLE, keepNext: true, jc: ALIGN.center }, content: `${run(`${kind} `)}${number}${run(': ')}${titleRuns(title)}` }
+}
+
+/**
+ * Maths alone in its paragraph (a table's cell), lined up as `jc`: Word lines up
+ * maths alone in a paragraph by its own setting, not the paragraph's. `bold`: all
+ * of it bold (a header).
+ */
+export const alignedMath = (tex: string, jc: Align, bold = false) =>
+  `<m:oMathPara><m:oMathParaPr><m:jc m:val="${jc}"/></m:oMathParaPr>${texToOmml(tex, undefined, bold)}</m:oMathPara>`
 
 /** Plots' pictures as PNG files, by the plot they show. */
 export type PlotImages = Map<PlotData, Uint8Array>

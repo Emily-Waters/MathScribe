@@ -101,6 +101,86 @@ what's here better.
       shortened (first three, last two); `#sym` the rule, `#val` the values.
       In the Reference tab, the AI prompt and the editor's `@` suggestions.
       Not yet: a range (see Ranges and sums), and a ⚙ menu for its rows.
+- [x] **Tables as tables**: `@table(…)` written as a real table, as Emily
+      writes them by hand: a `table` float with a caption, full width
+      (`tabularx`, `|l|*{n}{>{\centering\arraybackslash}X|}`), a rule after
+      every row, bold headers and a bold first column; in LaTeX, Word and the
+      Rendered tab alike.
+
+      **Decided (2026-11-19):** a `title "…"` setting (as `@plot` has) is its
+      caption; the n column is the bold first column; the `lines` settings
+      stay. Row headers other than n come from a series of labels:
+      `salts = @series("KCl", "KBr", "KI")` then `@table(t, x; labels salts)`,
+      its values the bold first column in n's place (a later step, after the
+      block's style). A literal table of observations (text, a header over
+      several columns) is a separate feature, after this.
+      **Progress (2026-11-19), step 1a, the block:** a line form can now show
+      its line as a block of its module's own kind (`CalcResult.block`, the
+      core's hook; the calc reader adds it with the line's note, messages,
+      `#hide` and source), and `@table` is the series module's first
+      (`series.table`: tableBlock.ts its data and construct, tableView.tsx its
+      view). Behaviour-neutral: the `array` is written as before; checked side
+      by side with the code before it over 15 sheets of tables (every
+      setting, shortened, with errors, notes, `#hide`, in a list, beside an
+      equation): LaTeX and Word byte for byte the same. Next, step 1b: the
+      style, and `title`.
+      **Progress (2026-11-19), step 1b, LaTeX and `title`:** a `title "…"`
+      setting (and a Title box in the table's ⚙), read and written as a
+      plot's is (the quoted setting and its splitting now shared, in
+      tableSettings.ts). In LaTeX a table is a `table` float (`[H]`), its title
+      the `\caption`, `tabularx` at `\linewidth`: the n column `l` and bold,
+      the others centred `X` columns, the header bold (`\boldsymbol` maths);
+      `lines grid` rules every cell and row, `lines header` (the default) a
+      rule under the header and after n, `lines none` none. In a list or a
+      column it's a `center` with `\captionof`. The preamble gets tabularx,
+      float and caption when there's a table. The data and its `array` moved
+      to a leaf, tableData.ts, so the module's public face can share them.
+      Compiled with pdflatex (TeX Live 2025): no errors or overfull boxes, at
+      the top, in a list and in a column. Next: Word, then the Rendered tab,
+      then `labels`.
+      **Decided (2026-11-19):** a table's lines default to `grid`, as Emily's
+      are (`lines header` is written out now, as `lines grid` was).
+      **Progress (2026-11-19), step 1c, Word:** a Word table (`tableDocx`,
+      tableBlock.ts): its title a caption in Word's Caption style, numbered by
+      a SEQ field (Word lists it in a table of tables) and counted as it's
+      written (`docxKit.caption`, `Ctx.captions`); full width, the n column
+      narrow, bold and to the left, the others centred and sharing the rest;
+      the header row bold and repeated on each page; rules as `lines` says
+      (all of them; under the header and after n; none); its note under it.
+      Two things in the core's Word output this needed, both general: maths
+      alone in a cell is lined up by its own setting, not the paragraph's
+      (`docxKit.alignedMath`), and maths can be set all bold, a variable bold
+      italic (`texToMath`'s `bold`; `\boldsymbol` over a whole header came out
+      as plain upright text). Opened in Word (exported to PDF through Word
+      itself) and checked by eye: grid, header and no lines, captions 1-3, a
+      note, a table in a list. Next: the Rendered tab, then `labels`.
+      **Progress (2026-11-19), step 1d, the Rendered tab:** an HTML table
+      (tableView.tsx, its own stylesheet tableView.css in the module's folder,
+      in the app's colours): its title a caption over it (unnumbered: the
+      numbers are the exports'), the value columns sharing the width equally
+      and n as narrow as its numbers, n and the header bold, each cell KaTeX,
+      the lines as `lines` says, its note under it, the line's messages. A
+      shortened table's ⋮ row has ⋮ in every column, the n column's too (in
+      Word it had been the text `\vdots`). Checked by eye in a screenshot
+      (headless Edge) of the tables drawn with the app's stylesheet. Next:
+      `labels`.
+      **Decided (2026-11-19):** the row numbers' header is blank, not n (as a
+      table written by hand has).
+      **Resolved (2026-11-19), step 2, `labels`:** `@table(t, x; labels
+      salts)` puts a series' values down the side in place of the row numbers
+      (TableData's `rowHeaders`, the first column, text drawn bold as a title
+      is: `$…$` maths, and a module's notation through `markupText`, now in the
+      module API, so `{KCl}` is a formula; a value that isn't text, its
+      maths; a row the series doesn't have, blank; a name that isn't a series,
+      an error). A "Row labels" box in the ⚙. In Word the row headers' column
+      is as wide as its longest label (up to 40% of the table). Bold maths in
+      bold text in all three: `\textbf{\boldmath …}` in LaTeX, `titleRuns`'s
+      maths bold in bold text in Word (bold headings' maths too, now), `Title`'s
+      `bold` and a CSS rule for KaTeX's formulas in the Rendered tab. Found on
+      the way: `splitArgs` split at a comma inside a label in quotes, so
+      `@series("KBr, solid", "KCl")` was an error; it now skips quoted
+      strings. Compiled with pdflatex and checked by eye in LaTeX and the
+      Rendered tab.
 - [x] **Multiline calls**: a call's arguments over several lines, for
       `@series`, `@table`, `@plot` and `@select` first:
 

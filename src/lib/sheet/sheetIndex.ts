@@ -189,8 +189,11 @@ export function collectDiagnostics(blocks: Block[]): Map<number, Diagnostic> {
         put(b.line, DIAGNOSTIC_KIND.warning, b.warning)
         put(b.line, DIAGNOSTIC_KIND.error, b.error)
         break
-      case BLOCK_KIND.import:
       case BLOCK_KIND.custom:
+        put(b.line, DIAGNOSTIC_KIND.warning, b.warning)
+        put(b.line, DIAGNOSTIC_KIND.error, b.error)
+        break
+      case BLOCK_KIND.import:
       case BLOCK_KIND.heading:
       case BLOCK_KIND.text:
       case BLOCK_KIND.latex:

@@ -4,33 +4,20 @@
  * out row by row from the series it uses, and makes a series of its own (v_1,
  * v_2, …, so v_avg works afterwards); an expression without a name is just
  * shown. A long table shows its first and last rows.
+ *
+ * The line is shown as a table block (tableBlock.ts), not an equation: what's
+ * worked out here is its cells, and the block writes them to each export.
  */
 import {
-  attachUnit, EXACT, type FormLine, LineForm, type LineResult, type ModuleHost, numberTex, splitArgs, unitTex,
+  attachUnit, EXACT, type FormLine, LineForm, type LineResult, markupText, type ModuleHost, nestBrackets, numberTex, splitArgs, unitTex,
 } from '../../lib/plugin.ts'
-import { TABLE_LINE, parseTableSettings, splitCallArgs } from './tableSettings.ts'
+import { parseTableSettings, splitCallArgs } from './tableSettings.ts'
 import { rowErrors, seriesColumns } from './columns.ts'
 import { TABLE_CALL } from './syntax.ts'
+import { SERIES_BLOCK, TABLE_CELL, type TableData } from './tableData.ts'
 
 /** How many rows a table shows: all of them up to `max`; past that, the `first` and the `last`, with ⋮ between. */
 export const TABLE_ROWS = { max: 60, first: 50, last: 5 } as const
-
-/** The pieces of a table's LaTeX. */
-const TABLE_TEX = {
-  /** The row-number column's header. */
-  numberHeader: 'n',
-  /** A cell with no value. */
-  empty: '\\text{—}',
-  /** The gap in a shortened table, before its last rows. */
-  gap: '\\vdots',
-  rowEnd: ' \\\\ ',
-  ruledRowEnd: ' \\\\ \\hline ',
-  rule: '\\hline ',
-  cellSeparator: ' & ',
-  /** A column's alignment, and the line between two. */
-  column: 'r',
-  columnRule: '|',
-} as const
 
 /** A table cell (or a value in an @series line): a variable's value as a number (± its uncertainty), and its unit, in its own notation. */
 export function cellParts(host: ModuleHost, name: string): { num: string; unit?: string } {
@@ -47,6 +34,20 @@ export function cellParts(host: ModuleHost, name: string): { num: string; unit?:
     const p = host.split(value, sf, v?.declared === true)
     return p ? { num: numberTex(p.num), unit: p.unit } : { num: host.valueTex(value, sf) }
   })
+}
+
+/**
+ * A row's label, as text drawn as a title is: a text value as it is (`"KCl"` is
+ * KCl; `$…$` maths in it, and a module's notation, `{KCl}` a formula, as in a
+ * sheet's text), any other value
+ * as its maths (`$2.0\,\mathrm{m}$`); '' for a row the series doesn't have.
+ */
+function labelText(host: ModuleHost, name: string | undefined): string {
+  if (name === undefined) return ''
+  const value = host.value(name)
+  if (typeof value === 'string') return markupText(value)
+  const { num, unit } = cellParts(host, name)
+  return `$${unit ? attachUnit(num, unitTex(unit)) : num}$`
 }
 
 export class TableForm extends LineForm {
@@ -79,34 +80,31 @@ export class TableForm extends LineForm {
       const shared = units.size === 1 ? [...units][0] : undefined
       return {
         header: shared ? `${c.header}\\,\\left[${unitTex(shared)}\\right]` : c.header,
-        cells: cells.map((p) => (!p ? TABLE_TEX.empty : shared || !p.unit ? p.num : attachUnit(p.num, unitTex(p.unit)))),
+        cells: cells.map((p) => (!p ? TABLE_CELL.empty : shared || !p.unit ? p.num : attachUnit(p.num, unitTex(p.unit)))),
       }
     })
     for (const name of hidden) host.forget(name)
 
-    // The n column (unless it's turned off), then the columns.
-    const grid = settings.lines === TABLE_LINE.grid
-    const none = settings.lines === TABLE_LINE.none
-    const cellsOf = (n: number, r: number) => [...(settings.numbers ? [String(n)] : []), ...body.map((c) => c.cells[r])]
-    const header = [...(settings.numbers ? [TABLE_TEX.numberHeader] : []), ...body.map((c) => c.header)].join(TABLE_TEX.cellSeparator)
-    // A line after each row in a grid; otherwise just after the header (none for lines none).
-    const rowEnd = grid ? TABLE_TEX.ruledRowEnd : TABLE_TEX.rowEnd
-    const rowsTex = shown.map((n, r) => {
-      const row = cellsOf(n, r).join(TABLE_TEX.cellSeparator)
-      return shortened && r === TABLE_ROWS.first ? `${TABLE_TEX.gap}${rowEnd}${row}` : row
-    })
-    const count = columns.length + (settings.numbers ? 1 : 0)
-    const { column, columnRule } = TABLE_TEX
-    const columnSpec = grid
-      ? `${columnRule}${`${column}${columnRule}`.repeat(count)}`
-      : none || !settings.numbers ? column.repeat(count) : `${column}${columnRule}${column.repeat(count - 1)}`
-    const top = grid ? TABLE_TEX.rule : ''
-    const afterHeader = none ? TABLE_TEX.rowEnd : TABLE_TEX.ruledRowEnd
-    const end = grid ? TABLE_TEX.ruledRowEnd.trimEnd() : ''
-    const tex = `\\begin{array}{${columnSpec}} ${top}${header}${afterHeader}${rowsTex.join(rowEnd)}${end} \\end{array}`
+    // Down the side, each row's header: its label (`labels salts`: salts' value in that row), or its number
+    // (unless they're turned off). Then the columns, each cell's brackets by nesting, as every equation's are.
+    const labels = settings.labels === undefined ? undefined : host.seriesRows(settings.labels)
+    if (labels && !labels.size) {
+      return { tex: '', error: `${settings.labels} isn't a series, so it can't label the rows: define ${settings.labels}_1, ${settings.labels}_2, … (or @series("…", "…")).` }
+    }
+    const rowHeaders = labels !== undefined || settings.numbers
+    const rowHeader = (n: number) => (labels ? [labelText(host, labels.get(n))] : settings.numbers ? [String(n)] : [])
+    const data: TableData = {
+      title: settings.title,
+      lines: settings.lines,
+      rowHeaders,
+      header: [...(rowHeaders ? [TABLE_CELL.rowHeadersHeader] : []), ...body.map((c) => nestBrackets(c.header))],
+      rows: shown.map((n, r) => [...rowHeader(n), ...body.map((c) => nestBrackets(c.cells[r]))]),
+      gapBefore: shortened ? TABLE_ROWS.first : undefined,
+    }
     const range = settings.from !== undefined || settings.to !== undefined
     return {
-      tex,
+      tex: '',
+      block: { type: SERIES_BLOCK.table, data },
       error: rowErrors(errors, (n) => `${n} more row${n > 1 ? 's' : ''}`),
       info: shortened
         ? `${all.length} rows${range ? ' in range' : ''}: the first ${TABLE_ROWS.first} and the last ${TABLE_ROWS.last} are shown (the ⚙ button can show them all).`

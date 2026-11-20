@@ -179,10 +179,28 @@ function tablePanel(text: string | undefined, save: (settingsText: string) => vo
     rowsRow(s, (r) => set({ ...s, ...r })),
     help('Leave a row box empty for the first or last row. These are kept in the table’s brackets, after a semicolon.'),
     row('Lines', choice(TABLE_LINES, LINE_NAMES, s.lines, (lines) => set({ ...s, lines }))),
-    row('Row numbers (n)', checkBox(s.numbers, (numbers) => set({ ...s, numbers }))),
+    row('Row numbers', checkBox(s.numbers, (numbers) => set({ ...s, numbers }))),
+    row('Row labels', textBox(s.labels, 'a series, e.g. salts', (labels) => set({ ...s, labels }))),
+    help('A series whose values go down the side in place of the row numbers: salts = @series("KCl", "KBr").'),
     row('Show every row', checkBox(s.allRows, (allRows) => set({ ...s, allRows }))),
+    titleRow(s.title, (title) => set({ ...s, title })),
   ]
 }
+
+/** A text box (empty for none). */
+function textBox(value: string | undefined, placeholder: string, set: (text: string | undefined) => void): HTMLInputElement {
+  const box = document.createElement('input')
+  box.type = 'text'
+  box.className = 'cm-ms-table-menu__title'
+  box.placeholder = placeholder
+  box.value = value ?? ''
+  box.addEventListener('change', () => set(box.value.trim() || undefined))
+  return box
+}
+
+/** A title box: a table's caption, a plot's title (empty for none). */
+const titleRow = (value: string | undefined, set: (title: string | undefined) => void): HTMLElement =>
+  row('Title', textBox(value, 'none', set))
 
 /** A plot's panel. */
 function plotPanel(text: string | undefined, save: (settingsText: string) => void): HTMLElement[] {
@@ -198,12 +216,6 @@ function plotPanel(text: string | undefined, save: (settingsText: string) => voi
       numberBox(s[name].to, 'auto', false, (to) => update({ to })),
       checkBox(s[name].log, (log) => update({ log })), 'log')
   }
-  const title = document.createElement('input')
-  title.type = 'text'
-  title.className = 'cm-ms-table-menu__title'
-  title.placeholder = 'none'
-  title.value = s.title ?? ''
-  title.addEventListener('change', () => set({ ...s, title: title.value.trim() || undefined }))
   return [
     rowsRow(s, (r) => set({ ...s, ...r })),
     row('Style', choice(PLOT_STYLES, STYLE_NAMES, s.style, (style) => set({ ...s, style }))),
@@ -212,7 +224,7 @@ function plotPanel(text: string | undefined, save: (settingsText: string) => voi
     axis('x'),
     axis('y'),
     help('Leave an axis box empty to fit it to the data. Points outside an axis’s range are left out: of the fit, and of a named plot’s series (p.x).'),
-    row('Title', title),
+    titleRow(s.title, (title) => set({ ...s, title })),
   ]
 }
 

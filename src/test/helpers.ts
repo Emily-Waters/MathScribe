@@ -5,7 +5,8 @@
  */
 import { evaluateSheet, type Sheet } from '../lib/sheet/document.ts'
 import { BLOCK_KIND, isContainer, type Block } from '../lib/sheet/blocks.ts'
-import type { CalcOptions } from '../lib/engine/index.ts'
+import { moduleBlockKind, type CalcOptions } from '../lib/engine/index.ts'
+import { SERIES_BLOCK, tableTex, type TableData } from '../modules/series/public.ts'
 import type { PlotData } from '../lib/output/plot.ts'
 import { EXAMPLE_CALC_OPTIONS } from '../config.ts'
 import { CONSTANTS_TITLE } from '../lib/reading/readers.ts'
@@ -32,12 +33,20 @@ export function sheet(source: string, options: Partial<CalcOptions> = {}): Sheet
   return evaluateSheet(source, { ...OPTIONS, ...options })
 }
 
-/** Every calculation and constant (an `@constants` card's entry) in the sheet, in order, from inside blocks too. */
+/**
+ * Every calculation and constant (an `@constants` card's entry) in the sheet, in
+ * order, from inside blocks too; and every line a module shows as a block of its
+ * own: a table, with its `array` as its LaTeX (another, any equation it is).
+ */
 export function lines(source: string, options: Partial<CalcOptions> = {}): Line[] {
   const out: Line[] = []
   const visit = (b: Block) => {
     if (b.kind === BLOCK_KIND.calc) out.push(b)
-    else if (b.kind === BLOCK_KIND.card && b.title === CONSTANTS_TITLE) out.push(...b.entries)
+    else if (b.kind === BLOCK_KIND.custom && b.source !== undefined) {
+      const { line, source: text, error, warning, info, hidden } = b
+      const tex = b.type === SERIES_BLOCK.table ? tableTex(b.data as TableData) : moduleBlockKind(b.type)?.construct.equation(b)?.tex ?? ''
+      out.push({ line, source: text, tex, error, warning, info, hidden })
+    } else if (b.kind === BLOCK_KIND.card && b.title === CONSTANTS_TITLE) out.push(...b.entries)
     else if (isContainer(b)) b.children.forEach(visit)
   }
   sheet(source, options).blocks.forEach(visit)

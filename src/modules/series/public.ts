@@ -13,3 +13,4 @@ export {
   type AxisSettings, type PlotFit, type PlotSettings, type PlotStyle,
 } from './plotSettings.ts'
 export { CALLS_WITH_SETTINGS, SERIES_CALL, type CallWithSettings } from './syntax.ts'
+export { SERIES_BLOCK, tableTex, type TableData } from './tableData.ts'

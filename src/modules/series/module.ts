@@ -6,14 +6,24 @@
  * t_avg) and imported data are the core's; this builds on them through the
  * ModuleHost.
  */
-import { EngineModule, type Extension, type LineForm, LineFormMember, type Member, type ModuleGrammar } from '../../lib/plugin.ts'
+import {
+  EngineModule, type Extension, type LineForm, LineFormMember, type Member, type ModuleBlockKind, type ModuleGrammar,
+} from '../../lib/plugin.ts'
 import { SERIES_GRAMMAR } from './grammar.ts'
+import { TABLE_PREAMBLE, TableConstruct, usesTables } from './tableBlock.ts'
+import { SERIES_BLOCK } from './tableData.ts'
+import { TableView } from './tableView.tsx'
 import { SERIES_CALL } from './syntax.ts'
 import { PlotForm } from './plot.ts'
 import { SelectForm } from './select.ts'
 import { SeriesForm } from './series.ts'
 import { TableForm } from './table.ts'
 import { tableMenu } from './tableMenu.ts'
+
+/** The series module's kinds of block (one object, as blockKinds asks). */
+const SERIES_BLOCK_KINDS: Readonly<Record<string, ModuleBlockKind>> = {
+  [SERIES_BLOCK.table]: { construct: new TableConstruct(), view: TableView },
+}
 
 export class SeriesModule extends EngineModule {
   override readonly lineForms: readonly LineForm[] = [new TableForm(), new PlotForm(), new SelectForm(), new SeriesForm()]
@@ -26,6 +36,16 @@ export class SeriesModule extends EngineModule {
   /** A ⚙ after a table or plot in the editor, whose panel edits its settings. */
   override editorExtensions(): readonly Extension[] {
     return [tableMenu]
+  }
+
+  /** A table, `@table(…)`, as a block of its own (tableBlock.ts). */
+  override blockKinds(): Readonly<Record<string, ModuleBlockKind>> {
+    return SERIES_BLOCK_KINDS
+  }
+
+  /** What a document with a table in it needs: tabularx, float and caption. */
+  override latexPreamble(tex: string): string[] {
+    return usesTables(tex) ? [...TABLE_PREAMBLE] : []
   }
 
   override builtinMembers(): Member[] {

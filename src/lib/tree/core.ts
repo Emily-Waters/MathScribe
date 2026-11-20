@@ -74,5 +74,6 @@ declareContexts([
   { name: LINE_CONTEXT.latex, lineKind: NODE_KIND.latexLine, content: CONTENT.whole },
   { name: LINE_CONTEXT.constants, lineKind: NODE_KIND.constantLine, content: CONTENT.expression },
   { name: LINE_CONTEXT.data, lineKind: NODE_KIND.data, content: CONTENT.whole, raw: true },
+  { name: LINE_CONTEXT.continued, lineKind: NODE_KIND.continuation, content: CONTENT.continuation },
 ])
 declareLineSyntaxes(GRAMMAR_CORE, SYNTAXES)

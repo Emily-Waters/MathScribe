@@ -1,5 +1,5 @@
 /** The series module's syntax: `@table(…)`, `@plot(…)`, `@select(…)` and `@series(…)`, each a line of its own. */
-import { builtinOpening, NAME, NAMED, SIGIL } from '../../lib/plugin.ts'
+import { builtinOpening, NAMED } from '../../lib/plugin.ts'
 
 /** The series module's functions, each written after @: `@table(t, x)`. */
 export const SERIES_CALL = {
@@ -24,6 +24,3 @@ export const SELECT_CALL = new RegExp(String.raw`^${NAMED}${builtinOpening(SERIE
 /** The calls with settings after a semicolon, and their ⚙ in the editor. */
 export const CALLS_WITH_SETTINGS = [SERIES_CALL.table, SERIES_CALL.plot] as const
 export type CallWithSettings = (typeof CALLS_WITH_SETTINGS)[number]
-
-/** A line that opens a call with settings (1: what's before it, a plot's name too; 2: which call). */
-export const SETTINGS_CALL_OPENING = new RegExp(String.raw`^(\s*(?:${NAME}\s*=\s*)?)${SIGIL}(${CALLS_WITH_SETTINGS.join('|')})\s*\(`)

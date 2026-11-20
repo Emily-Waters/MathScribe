@@ -12,11 +12,11 @@
 import { type EditorState, type Extension } from '@codemirror/state'
 import { Decoration, EditorView, WidgetType } from '@codemirror/view'
 import {
-  PLOT_FITS, PLOT_STYLES, SERIES_CALL, SETTINGS_CALL_OPENING as CALL_OPENING, TABLE_LINES, formatPlotSettings, formatTableSettings,
+  CALLS_WITH_SETTINGS, PLOT_FITS, PLOT_STYLES, SERIES_CALL, TABLE_LINES, formatPlotSettings, formatTableSettings,
   parsePlotSettings, parseTableSettings, splitCallArgs, withSettingsText,
   type AxisSettings, type CallWithSettings as CallKind, type PlotFit, type PlotSettings, type PlotStyle, type TableLines, type TableSettings,
 } from './public.ts'
-import { placeFixedPanel } from '../../lib/plugin.ts'
+import { ASSIGN, ROUND_BRACKETS, SIGIL, TOKEN_KIND, encode, isToken, placeFixedPanel, type Part } from '../../lib/plugin.ts'
 
 /** How each choice reads in the panels. */
 const LINE_NAMES: Record<TableLines, string> = { header: 'Under the header', grid: 'Grid', none: 'None' }
@@ -26,20 +26,79 @@ const FIT_NAMES: Record<PlotFit, string> = { none: 'None', linear: 'Linear (best
 /** ⚙, drawn as text rather than an emoji. */
 const COG = String.fromCodePoint(0x2699, 0xfe0e)
 
-/** A table or plot line: which, and where what's between its brackets is (offsets in the line). */
-function callBrackets(text: string): { kind: CallKind; from: number; to: number } | null {
-  const m = CALL_OPENING.exec(text)
-  if (!m) return null
-  const from = m[0].length
-  let depth = 1
-  let quoted = false
-  for (let i = from; i < text.length; i++) {
-    if (text[i] === '"') quoted = !quoted
-    else if (quoted) continue
-    else if (text[i] === '(') depth++
-    else if (text[i] === ')' && --depth === 0) return { kind: m[2] as CallKind, from, to: i }
+/** A table's or plot's call: which, and where what's between its brackets is (offsets in the sheet's text). */
+interface SettingsCall {
+  readonly kind: CallKind
+  readonly from: number
+  readonly to: number
+}
+
+/** A token of the sheet's tree, and where it starts in the sheet's text. */
+interface Placed {
+  readonly t: string
+  readonly text: string
+  readonly at: number
+}
+
+/** Every token of the sheet's tree, in order, each where it is. */
+function placedTokens(parts: readonly Part[], out: Placed[] = [], at = { pos: 0 }): Placed[] {
+  for (const p of parts) {
+    if (!isToken(p)) placedTokens(p.parts, out, at)
+    else {
+      out.push({ t: p.t, text: p.text, at: at.pos })
+      at.pos += p.text.length
+    }
   }
-  return null
+  return out
+}
+
+/** The calls with a ⚙, as written (`@table`), and which each is. */
+const CALLED: ReadonlyMap<string, CallKind> = new Map(CALLS_WITH_SETTINGS.map((kind) => [`${SIGIL}${kind}`, kind]))
+
+const isDelimiter = (p: Placed | undefined, text: string) => p?.t === TOKEN_KIND.delimiter && p.text === text
+const isSpace = (p: Placed | undefined) => p?.t === TOKEN_KIND.space
+
+/** Whether the token at `i` is the first thing said on its line, or after the name it's given (`p = @plot(…)`). */
+function startsLine(tokens: readonly Placed[], i: number): boolean {
+  let j = i - 1
+  while (isSpace(tokens[j])) j--
+  if (isDelimiter(tokens[j], ASSIGN)) {
+    j--
+    while (isSpace(tokens[j])) j--
+    if (tokens[j]?.t !== TOKEN_KIND.symbol) return false
+    j--
+  }
+  return j < 0 || tokens[j].t === TOKEN_KIND.indent || tokens[j].t === TOKEN_KIND.eol
+}
+
+/** The index of the `)` closing the `(` at `open` (on a later line, for a call over several), or -1. */
+function closingAt(tokens: readonly Placed[], open: number): number {
+  let depth = 0
+  for (let i = open; i < tokens.length; i++) {
+    if (isDelimiter(tokens[i], ROUND_BRACKETS.open)) depth++
+    else if (isDelimiter(tokens[i], ROUND_BRACKETS.close) && --depth === 0) return i
+  }
+  return -1
+}
+
+/**
+ * Every table and plot written as a line of its own (or a line carried on over
+ * several), from the sheet's tree: a call to one, at the start of its line or
+ * after the name it's given, and the bracket closing it.
+ */
+export function settingsCalls(text: string): SettingsCall[] {
+  const tokens = placedTokens(encode(text).body)
+  const calls: SettingsCall[] = []
+  tokens.forEach((token, i) => {
+    const kind = token.t === TOKEN_KIND.builtin ? CALLED.get(token.text) : undefined
+    if (!kind || !startsLine(tokens, i)) return
+    let open = i + 1
+    while (isSpace(tokens[open])) open++
+    if (!isDelimiter(tokens[open], ROUND_BRACKETS.open)) return
+    const close = closingAt(tokens, open)
+    if (close >= 0) calls.push({ kind, from: tokens[open].at + ROUND_BRACKETS.open.length, to: tokens[close].at })
+  })
+  return calls
 }
 
 // ---------------------------------------------------------------------------
@@ -164,20 +223,20 @@ function plotPanel(text: string | undefined, save: (settingsText: string) => voi
 /** The open panel, if any (one at a time), and how to close it. */
 let openPanel: { element: HTMLElement; close: () => void } | null = null
 
-/** Open the settings panel for the table or plot on line `n`, under `button`. */
-function openSettings(view: EditorView, button: HTMLElement, n: number): void {
+/** Open the settings panel for the table or plot whose ⚙ is at `place` (just after its closing bracket), under `button`. */
+function openSettings(view: EditorView, button: HTMLElement, place: number): void {
   openPanel?.close()
-  const call = callBrackets(view.state.doc.line(n).text)
+  const call = settingsCalls(view.state.doc.toString()).find((c) => c.to + ROUND_BRACKETS.close.length === place)
   if (!call) return
-  const settingsText = splitCallArgs(view.state.doc.line(n).text.slice(call.from, call.to)).settings
+  const settingsText = splitCallArgs(view.state.doc.sliceString(call.from, call.to)).settings
 
-  /** Write settings text into the line. */
+  /** Write settings text between the call's brackets (the call is the one starting where it did). */
   const save = (text: string) => {
-    const line = view.state.doc.line(n)
-    const brackets = callBrackets(line.text)
-    if (!brackets) return
-    const next = withSettingsText(line.text, brackets, text)
-    if (next !== line.text) view.dispatch({ changes: { from: line.from, to: line.to, insert: next }, userEvent: 'input.settings' })
+    const now = settingsCalls(view.state.doc.toString()).find((c) => c.from === call.from)
+    if (!now) return
+    const inside = view.state.doc.sliceString(now.from, now.to)
+    const next = withSettingsText(inside, { from: 0, to: inside.length }, text)
+    if (next !== inside) view.dispatch({ changes: { from: now.from, to: now.to, insert: next }, userEvent: 'input.settings' })
   }
 
   const panel = document.createElement('div')
@@ -236,7 +295,7 @@ class SettingsButton extends WidgetType {
         openPanel.close()
         return
       }
-      openSettings(view, button, view.state.doc.lineAt(view.posAtDOM(button)).number)
+      openSettings(view, button, view.posAtDOM(button))
     })
     return button
   }
@@ -250,15 +309,9 @@ const buttons: Record<CallKind, Decoration> = {
   [SERIES_CALL.plot]: Decoration.widget({ widget: new SettingsButton(SERIES_CALL.plot), side: 1 }),
 }
 
-/** A ⚙ after each table's and plot's closing bracket. */
+/** A ⚙ after each table's and plot's closing bracket (on its last line, for one over several). */
 function settingsButtons(state: EditorState) {
-  const marks = []
-  for (let n = 1; n <= state.doc.lines; n++) {
-    const line = state.doc.line(n)
-    const call = callBrackets(line.text)
-    if (call) marks.push(buttons[call.kind].range(line.from + call.to + 1))
-  }
-  return Decoration.set(marks)
+  return Decoration.set(settingsCalls(state.doc.toString()).map((c) => buttons[c.kind].range(c.to + ROUND_BRACKETS.close.length)))
 }
 
 /** Tables' and plots' settings buttons and their panels. */

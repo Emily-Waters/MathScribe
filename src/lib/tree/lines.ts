@@ -15,9 +15,9 @@ import {
 } from '../syntax.ts'
 import { CONTENT, contextInfo, syntaxesIn, type Body, type Content } from './grammar.ts'
 import { HEADING_MARKS } from './core.ts'
-import { lexExpression, node } from './lexer.ts'
-import { lexLine } from './shapes.ts'
-import { NODE_KIND, TOKEN_KIND, type Part, type SyntaxNode, type Token } from './nodes.ts'
+import { closesBracket, isTokenOf, lexExpression, lexTail, node, openBrackets, opensBracket } from './lexer.ts'
+import { ROW_SEPARATOR, SEPARATOR, lexLine, lineShape } from './shapes.ts'
+import { NODE_KIND, TOKEN_KIND, isToken, type Part, type SyntaxNode, type Token } from './nodes.ts'
 
 /** A line, and what ends it: `\n`, `\r\n`, `\r`, or '' (the last line, if the text doesn't end with one). */
 export interface SourceLine {
@@ -51,16 +51,16 @@ const token = (t: string, text: string): Token => Object.freeze({ t, text })
 
 /**
  * A piece of text as a token, with any spaces at its ends as space tokens; or,
- * for what a line says when it's an expression (`asExpression`), as the
- * expression's tokens (lexer.ts).
+ * for what a line says when it's an expression, as the expression's tokens, as
+ * `lex` reads them (lexer.ts).
  */
-function spaced(t: string, text: string, into: Part[], asExpression = false): void {
+function spaced(t: string, text: string, into: Part[], lex?: (text: string) => readonly Part[]): void {
   const lead = LEADING_SPACE.exec(text)?.[0] ?? ''
   const trail = text.length > lead.length ? TRAILING_SPACE.exec(text)?.[0] ?? '' : ''
   const middle = text.slice(lead.length, text.length - trail.length)
   if (lead) into.push(token(TOKEN_KIND.space, lead))
   if (middle) {
-    if (asExpression && t === TOKEN_KIND.body) into.push(...lexLine(middle))
+    if (lex && t === TOKEN_KIND.body) into.push(...lex(middle))
     else into.push(token(t, middle))
   }
   if (trail) into.push(token(TOKEN_KIND.space, trail))
@@ -72,8 +72,14 @@ type BodyReader = (text: string, into: Part[], first: boolean, last: boolean) =>
 /** A body as it is: one token. */
 const plainBody: BodyReader = (text, into) => spaced(TOKEN_KIND.body, text, into)
 
-/** A body that's an expression: its tokens (lexer.ts). */
-const expressionBody: BodyReader = (text, into) => spaced(TOKEN_KIND.body, text, into, true)
+/** A body that's an expression: its tokens, with what it assigns to (shapes.ts). */
+const expressionBody: BodyReader = (text, into) => spaced(TOKEN_KIND.body, text, into, lexLine)
+
+/** A body carrying on an expression: its tokens as they are (lexer.ts), not read for what it assigns. */
+const continuationBody: BodyReader = (text, into) => spaced(TOKEN_KIND.body, text, into, lexExpression)
+
+/** A body carrying on an expression, with what it's said so far: its tokens as the rest of it (lexTail). */
+const tailBody = (said: string): BodyReader => (text, into) => spaced(TOKEN_KIND.body, text, into, (t) => lexTail(said, t))
 
 /** A block's `{`, and any spaces after it, at the end of its opener. */
 const OPENING_BRACE = /\{[ \t]*$/
@@ -132,8 +138,12 @@ const notedLines = new WeakMap<SyntaxNode, NotedLine>()
 /** What a line read as a noted line says: its body, #commands and note (undefined for a line read another way). */
 export const notedOf = (node: SyntaxNode): NotedLine | undefined => notedLines.get(node)
 
-/** A line's content as tokens, read as its kind reads it (`noted`: its content read as a noted line, if it was already). */
-function contentTokens(content: string, style: Content, into: Part[], noted?: NotedLine, bodyToken?: string): void {
+/**
+ * A line's content as tokens, read as its kind reads it (`noted`: its content
+ * read as a noted line, if it was already; `said`: for a continuation line,
+ * what the line it carries on has said so far).
+ */
+function contentTokens(content: string, style: Content, into: Part[], noted?: NotedLine, bodyToken?: string, said?: string): void {
   if (style === CONTENT.whole) {
     into.push(token(TOKEN_KIND.text, content))
     return
@@ -150,9 +160,11 @@ function contentTokens(content: string, style: Content, into: Part[], noted?: No
     rawOpenerTokens(content, into)
     return
   }
-  if (style === CONTENT.noted || style === CONTENT.expression || style === CONTENT.opener) {
+  if (isNoted(style)) {
     // (A line whose body is a token of its own kind, a reaction's formula, has it as that.)
-    const body: BodyReader = bodyToken && style === CONTENT.noted ? (text, parts) => spaced(bodyToken, text, parts) : BODY_READER[style]
+    const body: BodyReader = bodyToken && style === CONTENT.noted ? (text, parts) => spaced(bodyToken, text, parts)
+      : said !== undefined && style === CONTENT.continuation ? tailBody(said)
+        : BODY_READER[style]
     notedTokens(content, into, body, noted)
     return
   }
@@ -167,11 +179,19 @@ function contentTokens(content: string, style: Content, into: Part[], noted?: No
 }
 
 /** How each kind of noted content's body is read. */
-const BODY_READER: Record<typeof CONTENT.noted | typeof CONTENT.expression | typeof CONTENT.opener, BodyReader> = {
+const BODY_READER = {
   [CONTENT.noted]: plainBody,
   [CONTENT.expression]: expressionBody,
+  [CONTENT.continuation]: continuationBody,
   [CONTENT.opener]: openerBody,
-}
+} as const satisfies Partial<Record<Content, BodyReader>>
+
+/** The kinds of content read as a noted line: a body, then #commands and a note. */
+type NotedContent = keyof typeof BODY_READER
+const isNoted = (style: Content): style is NotedContent => style in BODY_READER
+
+/** The kinds of content whose body is an expression: whatever brackets it leaves open carry it on over the lines after it. */
+const EXPRESSION_CONTENT: ReadonlySet<Content> = new Set([CONTENT.expression, CONTENT.continuation])
 
 /** A module's rule for markup in text (chemistry's formulas, `{Na^+}`): what it reads at a position, if anything. */
 export interface TextRule {
@@ -263,15 +283,22 @@ function paragraphTokens(content: string, into: Part[]): void {
 export interface ReadLine {
   readonly node: SyntaxNode
   readonly body?: Body
+  /**
+   * For a line that's an expression, how many round and square brackets it
+   * leaves open (fewer than 0: how many more it closes than it opens). Open
+   * ones carry the line on over the lines after it (stream.ts).
+   */
+  readonly brackets?: number
 }
 
-/** A line read into a node, in a context (not cached: see readLine). */
-function parseLine(line: SourceLine, context: string): ReadLine {
+/** A line read into a node, in a context, after what's been said before it if it carries a line on (not cached: see readLine). */
+function parseLine(line: SourceLine, context: string, said?: string): ReadLine {
   const [, indent, content, trailing] = EDGES.exec(line.text)!
   const parts: Part[] = []
   if (indent) parts.push(token(TOKEN_KIND.indent, indent))
   let kind: string
   let body: Body | undefined
+  let brackets: number | undefined
   // (Read for its #commands and note once: for which kind of line it is, its tokens, and its reader.)
   let noted: NotedLine | undefined
   if (!content) kind = NODE_KIND.blank
@@ -285,15 +312,90 @@ function parseLine(line: SourceLine, context: string): ReadLine {
     kind = syntax?.kind ?? info.lineKind
     body = syntax?.opens
     const style = syntax?.content ?? info.content
-    if (style === CONTENT.noted || style === CONTENT.expression || style === CONTENT.opener) notedOnce()
-    contentTokens(content, style, parts, noted, syntax?.bodyToken)
+    if (isNoted(style)) notedOnce()
+    const start = parts.length
+    contentTokens(content, style, parts, noted, syntax?.bodyToken, said)
+    if (EXPRESSION_CONTENT.has(style)) brackets = openBrackets(parts.slice(start)) || undefined
   }
   if (trailing) parts.push(token(TOKEN_KIND.space, trailing))
   if (line.eol) parts.push(token(TOKEN_KIND.eol, line.eol))
-  const read = Object.freeze({ node: Object.freeze({ kind, parts: Object.freeze(parts) }), body })
+  const read = Object.freeze({ node: Object.freeze({ kind, parts: Object.freeze(parts) }), body, brackets })
   // (What the line says read as a noted line, its content whole, as its reader reads it: see reading/reader.ts Line.)
   if (noted) notedLines.set(read.node, noted)
   return read
+}
+
+/** The kinds of token after what a line says: its #commands, its note, the spaces between them, and its ending. */
+const AFTER_SAID: ReadonlySet<string> = new Set([TOKEN_KIND.space, TOKEN_KIND.command, TOKEN_KIND.note, TOKEN_KIND.eol])
+
+/**
+ * Where in a line's parts the `,` is that what it says ends with (before any
+ * #commands and note), or -1: `5678,` in a call carried on over several lines,
+ * which a trailing comma before its `)` is allowed in.
+ */
+export function trailingSeparatorAt(line: SyntaxNode): number {
+  for (let i = line.parts.length - 1; i >= 0; i--) {
+    const p = line.parts[i]
+    if (isToken(p) && AFTER_SAID.has(p.t)) continue
+    return isTokenOf(p, TOKEN_KIND.delimiter, SEPARATOR) ? i : -1
+  }
+  return -1
+}
+
+/** The last token said in parts, at any depth (before any #commands and note); undefined if nothing's said. */
+function lastSaid(parts: readonly Part[]): Token | undefined {
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const p = parts[i]
+    if (!isToken(p)) {
+      const said = lastSaid(p.parts)
+      if (said) return said
+    } else if (!AFTER_SAID.has(p.t) && p.t !== TOKEN_KIND.indent) return p
+  }
+  return undefined
+}
+
+/** The first token in parts after the line's indentation and spaces, at any depth (a #command or note too). */
+function firstToken(parts: readonly Part[]): Token | undefined {
+  for (const p of parts) {
+    if (!isToken(p)) {
+      const first = firstToken(p.parts)
+      if (first) return first
+    } else if (p.t !== TOKEN_KIND.indent && p.t !== TOKEN_KIND.space) return p
+  }
+  return undefined
+}
+
+/**
+ * Whether a line starts by closing a bracket, as its tokens say: its first token
+ * after its indentation is one (`#val )` doesn't; nor does a `]` in a module's
+ * settings, one token).
+ */
+export function startsClosing(line: SyntaxNode): boolean {
+  const first = firstToken(line.parts)
+  return first?.t === TOKEN_KIND.delimiter && closesBracket(first.text)
+}
+
+/**
+ * Whether what a line says ends expecting more: an open bracket, or a `,` or
+ * `;` (`Fs = @series(`, `1234,`); undefined if it says nothing (a note alone).
+ */
+export function endsExpecting(line: SyntaxNode): boolean | undefined {
+  const said = lastSaid(line.parts)
+  if (!said) return undefined
+  return said.t === TOKEN_KIND.delimiter && (opensBracket(said.text) || said.text === SEPARATOR || said.text === ROW_SEPARATOR)
+}
+
+/**
+ * Whether a line, in a context, would be read as a line of its own: a kind of
+ * line there (a `}`, a heading, a block's opener), or one assigning a name
+ * (`y = 2`). A comment, or a value (`0.231 N,`), wouldn't.
+ */
+export function standsAlone(text: string, context: string): boolean {
+  const trimmed = text.trim()
+  if (isComment(trimmed)) return false
+  let noted: NotedLine | undefined
+  const split = () => (noted ??= readNoted(trimmed))
+  return syntaxesIn(context).some((s) => s.matches(trimmed, split)) || lineShape(split().body).target !== undefined
 }
 
 /** A block's closing line, `}` with any note: read the same wherever it is. */
@@ -318,18 +420,22 @@ export const LINE_CACHE_SIZE = 20_000
 /** Between the parts of a cache key, a character a line can't have. */
 const KEY_JOIN = '\u0000'
 
-/** Lines read, by context, text and ending: least recently read first. */
+/** Lines read, by context, what's been said before (a continuation line's), text and ending: least recently read first. */
 const cache = new Map<string, ReadLine>()
 
-/** A line read, the cached one if this line, in this context, has been read before. */
-export function readLine(line: SourceLine, context: string): ReadLine {
-  const key = [context, line.eol, line.text].join(KEY_JOIN)
+/**
+ * A line read, the cached one if this line, in this context, has been read
+ * before. `said`: for a line carrying on a continued line, what it's said so
+ * far, which the line is read as the rest of (lexer.ts lexTail).
+ */
+export function readLine(line: SourceLine, context: string, said?: string): ReadLine {
+  const key = [context, said ?? '', line.eol, line.text].join(KEY_JOIN)
   let read = cache.get(key)
   if (read) {
     // (Read again: now the most recently read.)
     cache.delete(key)
   } else {
-    read = context === CLOSER_CONTEXT ? closerLine(line) : parseLine(line, context)
+    read = context === CLOSER_CONTEXT ? closerLine(line) : parseLine(line, context, said)
     if (cache.size >= LINE_CACHE_SIZE) cache.delete(cache.keys().next().value!)
   }
   cache.set(key, read)

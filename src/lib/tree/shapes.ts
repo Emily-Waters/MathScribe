@@ -19,7 +19,9 @@ export const ASSIGN = '='
 /** Before each of a name's settings: `v:3:km/h`. */
 export const SETTING_MARK = ':'
 /** Between a call's parameters or arguments. */
-const SEPARATOR = ','
+export const SEPARATOR = ','
+/** mathjs's `;`: between a matrix's rows (and, in a module's call, between its arguments and its settings: `@table(t, x; rows 2-3)`). */
+export const ROW_SEPARATOR = ';'
 
 /** `@tuple`, as typed. */
 const TUPLE_CALL = `${SIGIL}${CALL.tuple}`
@@ -37,7 +39,7 @@ const argumentsOf = (call: SyntaxNode) => {
 }
 
 /** A quote that isn't closed: mathjs's quote as a delimiter of its own (a closed one is in a string token). */
-const STRAY_QUOTES: ReadonlySet<string> = new Set(['"', '\''])
+export const STRAY_QUOTES: ReadonlySet<string> = new Set(['"', '\''])
 
 /**
  * Settings after a name or a head: none, or `:`s each with a setting after it

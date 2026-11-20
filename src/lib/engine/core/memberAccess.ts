@@ -4,7 +4,7 @@
  * a dot is (a member's, not a number's, not in a label) is the lexer's to say.
  */
 import { lexExpression } from '../../tree/lexer.ts'
-import { NODE_KIND, TOKEN_KIND, isToken, type Part, type Token } from '../../tree/nodes.ts'
+import { TOKEN_KIND, isCallKind, isToken, type Part, type Token } from '../../tree/nodes.ts'
 import { MEMBER_DOT, SIGIL } from '../../syntax.ts'
 import { JOIN, RESERVED_NAMESPACES, memberName } from '../../sheet/names.ts'
 
@@ -18,7 +18,7 @@ export interface LineToken {
 export function lineTokens(parts: readonly Part[], out: LineToken[] = [], calls = false): LineToken[] {
   parts.forEach((p, i) => {
     if (isToken(p)) out.push({ token: p, callee: calls && i === 0 })
-    else lineTokens(p.parts, out, p.kind === NODE_KIND.call)
+    else lineTokens(p.parts, out, isCallKind(p.kind))
   })
   return out
 }

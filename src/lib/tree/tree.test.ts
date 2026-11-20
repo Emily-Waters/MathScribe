@@ -4,9 +4,10 @@ import { SAMPLE } from '../content/sample.ts'
 import { REFERENCE } from '../content/reference.ts'
 import { LIBRARY } from '../content/library.ts'
 import {
-  NODE_KIND, SCHEMA, TOKEN_KIND, declareNodeKinds, isBlockKind, declaredNodeKinds, decode, encode, isSheetTree, isToken, schemaId, splitLines,
-  textOf, treeProblems, type SheetTree, type SyntaxNode,
+  NODE_KIND, SCHEMA, TOKEN_KIND, declareNodeKinds, isBlockKind, declaredNodeKinds, decode, encode, isCallKind, isSheetTree, isToken, schemaId, splitLines,
+  textOf, treeProblems, type Part, type SheetTree, type SyntaxNode,
 } from './index.ts'
+import { SERIES_TOKEN } from '../../modules/series/grammar.ts'
 import { clearLineCache, notedOf } from './lines.ts'
 import { splitNote } from '../syntax.ts'
 import { CHEM_NODE } from '../../modules/chemistry/grammar.ts'
@@ -234,6 +235,98 @@ describe('the kinds of line, and the blocks they open', () => {
   it('reads a block that isn’t closed to the end, and a } with none open as a line', () => {
     expect(shape(encode('Open {\n  a = 1').body)).toEqual([NODE_KIND.block, `  ${NODE_KIND.blockOpener}`, `  ${NODE_KIND.calc}`])
     expect(shape(encode('}\na = 1').body)).toEqual([NODE_KIND.blockCloser, NODE_KIND.calc])
+  })
+
+  it('carries a line whose brackets are open over the lines after it, up to the one closing them', () => {
+    const source = 'val = @series(\n    1234,\n    5678\n)\nw = val_2'
+    roundTrips(source)
+    expect(shape(encode(source).body)).toEqual([
+      NODE_KIND.continued, `  ${NODE_KIND.calc}`, `  ${NODE_KIND.continuation}`, `  ${NODE_KIND.continuation}`, `  ${NODE_KIND.continuation}`,
+      NODE_KIND.calc,
+    ])
+  })
+
+  it('counts round and square brackets, nested, but not those in strings, notes or closed calls', () => {
+    const lines = (source: string) => shape(encode(source).body)
+    expect(lines('M = [\n    [1, 2],\n    [3, 4]\n]\nx = 1')).toEqual([
+      NODE_KIND.continued, `  ${NODE_KIND.calc}`, `  ${NODE_KIND.continuation}`, `  ${NODE_KIND.continuation}`, `  ${NODE_KIND.continuation}`,
+      NODE_KIND.calc,
+    ])
+    expect(lines('y = f(a, g(\n    b\n))\nx = 1')).toEqual([
+      NODE_KIND.continued, `  ${NODE_KIND.calc}`, `  ${NODE_KIND.continuation}`, `  ${NODE_KIND.continuation}`, NODE_KIND.calc,
+    ])
+    expect(lines('a = f(1)\nb = "("  # (\n    c = 2')).toEqual([NODE_KIND.calc, NODE_KIND.calc, NODE_KIND.calc])
+  })
+
+  it('carries on a line in a block, closing it at the block’s indentation, and the block’s } still closes the block', () => {
+    expect(shape(encode('Box {\n    val = @series(\n        1,\n        2\n    )\n}\nx = 1').body)).toEqual([
+      NODE_KIND.block, `  ${NODE_KIND.blockOpener}`,
+      `  ${NODE_KIND.continued}`, `    ${NODE_KIND.calc}`, `    ${NODE_KIND.continuation}`, `    ${NODE_KIND.continuation}`, `    ${NODE_KIND.continuation}`,
+      `  ${NODE_KIND.blockCloser}`,
+      NODE_KIND.calc,
+    ])
+  })
+
+  it('ends a bracket never closed where the indentation does, or at a blank line, not at the end of the sheet', () => {
+    expect(shape(encode('x = sin(\ny = 2').body)).toEqual([NODE_KIND.continued, `  ${NODE_KIND.calc}`, NODE_KIND.calc])
+    expect(shape(encode('x = sin(\n    1\n\n    y = 2').body)).toEqual([
+      NODE_KIND.continued, `  ${NODE_KIND.calc}`, `  ${NODE_KIND.continuation}`, NODE_KIND.blank, NODE_KIND.calc,
+    ])
+    expect(shape(encode('Box {\n    x = sin(\n}\ny = 2').body)).toEqual([
+      NODE_KIND.block, `  ${NODE_KIND.blockOpener}`, `  ${NODE_KIND.continued}`, `    ${NODE_KIND.calc}`, `  ${NODE_KIND.blockCloser}`,
+      NODE_KIND.calc,
+    ])
+  })
+
+  it('reads a call over several lines into the tokens it has on one line: its callee a callee, a module’s settings its settings', () => {
+    /** Every token said, at any depth, as its kind and text (not spaces, indentation, line endings or notes, which are where they're written). */
+    const said = (parts: readonly Part[]): string[] => parts.flatMap((p) => {
+      if (!isToken(p)) return [...(isCallKind(p.kind) ? ['call'] : []), ...said(p.parts)]
+      return [TOKEN_KIND.space, TOKEN_KIND.indent, TOKEN_KIND.eol, TOKEN_KIND.note].includes(p.t as never) ? [] : [`${p.t}:${p.text}`]
+    })
+    const cases: [string, string][] = [
+      ['@table(\n    t,\n    x;\n    rows 2-3, lines grid\n)', '@table(t, x; rows 2-3, lines grid)'],
+      ['p = @plot(\n    t,\n    x;  # the run\n    fit linear\n)', 'p = @plot(t, x; fit linear)  # the run'],
+      ['val = @series(\n    sqrt(4),\n    5678\n)', 'val = @series(sqrt(4), 5678)'],
+    ]
+    for (const [multiline, oneLine] of cases) {
+      const [continued] = encode(multiline).body
+      expect(said(continued.parts.filter((p) => !isToken(p)).flatMap((l) => (l as SyntaxNode).parts)).filter((t) => t !== 'call'))
+        .toEqual(said(encode(oneLine).body[0].parts).filter((t) => t !== 'call'))
+      // (Its first line's callee is in a call, open on that line.)
+      expect(said((continued.parts[0] as SyntaxNode).parts)).toContain('call')
+    }
+    const settings = (encode(cases[0][0]).body[0].parts[3] as SyntaxNode).parts.find((p) => isToken(p) && p.t === SERIES_TOKEN.settings)
+    expect(settings).toEqual({ t: SERIES_TOKEN.settings, text: 'rows 2-3, lines grid' })
+  })
+
+  it('carries a call on over a value at the wrong indentation, but not over a line that stands alone', () => {
+    const source = 'Box {\n    Fs = @series(\n0.231 N pm 0.0041 N,\n        0.300 N pm 0.0028 N\n    )\n}'
+    expect(shape(encode(source).body)).toEqual([
+      NODE_KIND.block, `  ${NODE_KIND.blockOpener}`,
+      `  ${NODE_KIND.continued}`, `    ${NODE_KIND.calc}`, `    ${NODE_KIND.continuation}`, `    ${NODE_KIND.continuation}`, `    ${NODE_KIND.continuation}`,
+      `  ${NODE_KIND.blockCloser}`,
+    ])
+    // (A line assigning a name, a block's `}` and a heading each stand alone; nor does a line carry on what doesn't expect more.)
+    expect(shape(encode('x = sin(\ny = 2').body)).toEqual([NODE_KIND.continued, `  ${NODE_KIND.calc}`, NODE_KIND.calc])
+    expect(shape(encode('Box {\n    x = sin(\n}').body)).toEqual([
+      NODE_KIND.block, `  ${NODE_KIND.blockOpener}`, `  ${NODE_KIND.continued}`, `    ${NODE_KIND.calc}`, `  ${NODE_KIND.blockCloser}`,
+    ])
+    expect(shape(encode('x = f(1\n2').body)).toEqual([NODE_KIND.continued, `  ${NODE_KIND.calc}`, NODE_KIND.calc])
+  })
+
+  it('reads a continuation line’s tokens as they are, not for what it assigns', () => {
+    const [continued] = encode('@table(\n    t,\n    v = x / t\n)').body
+    const column = continued.parts[2] as SyntaxNode
+    expect(column.kind).toBe(NODE_KIND.continuation)
+    expect(column.parts.some((p) => !isToken(p) && p.kind === NODE_KIND.assigned)).toBe(false)
+  })
+
+  it('carries on only expressions: not prose or a heading', () => {
+    expect(shape(encode('@layout.text Notes {\n    see (below\n        more\n}').body)).toEqual([
+      NODE_KIND.prose, `  ${NODE_KIND.proseOpener}`, `  ${NODE_KIND.proseLine}`, `  ${NODE_KIND.proseLine}`, `  ${NODE_KIND.blockCloser}`,
+    ])
+    expect(shape(encode('# Heading (one\n    x = 1').body)).toEqual([NODE_KIND.heading, NODE_KIND.calc])
   })
 
   it('reads a module’s own kinds of line: chemistry’s', () => {

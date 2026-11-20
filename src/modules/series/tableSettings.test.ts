@@ -1,11 +1,18 @@
 /** A table's settings: read from, and written back to, the text of its line. */
 import { describe, expect, it } from 'vitest'
-import { formatTableSettings, parseTableSettings, splitCallArgs, withTableSettings } from './tableSettings.ts'
+import { formatTableSettings, parseTableSettings, splitCallArgs, withSettingsText, withTableSettings } from './tableSettings.ts'
 
 describe('table settings', () => {
   it('splits the columns from the settings at the first semicolon outside brackets', () => {
     expect(splitCallArgs('t, x; rows 1-5')).toEqual({ columns: 't, x', settings: ' rows 1-5' })
     expect(splitCallArgs('t, f(a; b)')).toEqual({ columns: 't, f(a; b)' })
+  })
+
+  it('writes settings into a call over several lines, its closing bracket kept on its own line', () => {
+    const write = (inside: string, text: string) => withSettingsText(inside, { from: 0, to: inside.length }, text)
+    expect(write('\n    t,\n    x;\n    rows 2-3\n', 'lines grid')).toBe('\n    t,\n    x; lines grid\n')
+    expect(write('\n    t,\n    x\n', 'lines grid')).toBe('\n    t,\n    x; lines grid\n')
+    expect(write('\n    t,\n    x; rows 2-3\n', '')).toBe('\n    t,\n    x\n')
   })
 
   it('reads and writes them, leaving out the defaults', () => {

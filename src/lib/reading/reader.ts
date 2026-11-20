@@ -18,7 +18,7 @@ import type { SheetReader } from './sheetReader.ts'
 export class Line {
   /** Its index in the sheet's lines (from 0). */
   readonly index: number
-  /** As written (without what ends it). */
+  /** As written (without what ends it); for a line carried on over several, their text joined by a space, at the first's indentation. */
   readonly raw: string
   /** Without spaces at either end. */
   readonly trimmed: string

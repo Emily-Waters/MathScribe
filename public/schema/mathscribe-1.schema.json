@@ -95,10 +95,19 @@
           "$ref": "#/$defs/node.import"
         },
         {
+          "$ref": "#/$defs/node.continued"
+        },
+        {
+          "$ref": "#/$defs/node.continuation"
+        },
+        {
           "$ref": "#/$defs/node.quantity"
         },
         {
           "$ref": "#/$defs/node.call"
+        },
+        {
+          "$ref": "#/$defs/node.openCall"
         },
         {
           "$ref": "#/$defs/node.value"
@@ -835,6 +844,60 @@
         }
       }
     },
+    "node.continued": {
+      "description": "A line carried on while its brackets are open: its first line, its continuation lines, and the line closing them (core)",
+      "type": "object",
+      "required": [
+        "kind",
+        "parts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "continued"
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/token"
+              },
+              {
+                "$ref": "#/$defs/node"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "node.continuation": {
+      "description": "A line carrying on a line whose brackets are open: 5678, in val = @series( (core)",
+      "type": "object",
+      "required": [
+        "kind",
+        "parts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "continuation"
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/token"
+              },
+              {
+                "$ref": "#/$defs/node"
+              }
+            ]
+          }
+        }
+      }
+    },
     "node.quantity": {
       "description": "A number (or a module’s value, a vector) with its unit: 5.00 g (core)",
       "type": "object",
@@ -873,6 +936,33 @@
       "properties": {
         "kind": {
           "const": "call"
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/token"
+              },
+              {
+                "$ref": "#/$defs/node"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "node.openCall": {
+      "description": "A call whose closing bracket isn’t on its line: what’s called, its (, and its arguments to the end of the line, @series( (core)",
+      "type": "object",
+      "required": [
+        "kind",
+        "parts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "openCall"
         },
         "parts": {
           "type": "array",

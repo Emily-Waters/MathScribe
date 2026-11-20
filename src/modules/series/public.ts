@@ -12,4 +12,4 @@ export {
   PLOT_FITS, PLOT_STYLE, PLOT_STYLES, formatPlotSettings, parsePlotSettings,
   type AxisSettings, type PlotFit, type PlotSettings, type PlotStyle,
 } from './plotSettings.ts'
-export { SERIES_CALL, SETTINGS_CALL_OPENING, type CallWithSettings } from './syntax.ts'
+export { CALLS_WITH_SETTINGS, SERIES_CALL, type CallWithSettings } from './syntax.ts'

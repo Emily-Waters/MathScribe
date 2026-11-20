@@ -101,6 +101,61 @@ what's here better.
       shortened (first three, last two); `#sym` the rule, `#val` the values.
       In the Reference tab, the AI prompt and the editor's `@` suggestions.
       Not yet: a range (see Ranges and sums), and a ⚙ menu for its rows.
+- [x] **Multiline calls**: a call's arguments over several lines, for
+      `@series`, `@table`, `@plot` and `@select` first:
+
+      ```
+      val = @series(
+          1234,
+          5678
+      )
+      ```
+
+      **Decided (2026-11-19):** read once, by the tree, not by each call. A line
+      that's an expression and leaves a round or square bracket open is carried
+      on over the lines after it, up to the one closing it (curly braces open
+      blocks, so they don't). Its arguments are indented one level deeper than
+      the line it starts on, its closing bracket at that line's indentation; a
+      trailing comma is allowed, and the formatter takes it off. (A first go,
+      by Copilot on 2026-11-17, joined the lines in the sheet reader and each
+      call's own patterns; it's in `git stash`, set aside.)
+      **Progress (2026-11-19), step 1, the tree:** a line whose tokens leave
+      brackets open (`openBrackets`, lexer.ts) opens a `continued` node
+      (`CONTINUED`, grammar.ts), as a line can open a block; the lines after it
+      are `continuation` lines, read as expressions but not for what they
+      assign, up to the one closing the last bracket (`BODY_END.brackets`). A
+      bracket never closed (`x = sin(`, half typed) ends where the indentation
+      does, or at a blank line, so it can't take in the rest of the sheet. The
+      editor reads lines the same way, so Enter after `@series(` indents, and
+      the call folds.
+      **Progress (2026-11-19), step 2, the sheet reader:** a `continued` node
+      is one line where its first line is (`continuedLine`, sheetReader.ts):
+      its lines' text joined by a space, their bodies, #commands and notes
+      joined (`joinSplit`, syntax/commands.ts), read by its first line's kind's
+      reader, and ending at its last line, so the lines after it keep their
+      numbers. Nothing else changed: the calls get the text they'd get on one
+      line, so `@series`, `@table`, `@plot`, `@select` and any other call work
+      over several lines (`multilineCalls.test.ts` checks each gives what its
+      one-line form gives).
+      **Resolved (2026-11-19):** a trailing comma before the closing bracket is
+      left out as the lines are joined (`trailingSeparatorAt`, tree/lines.ts,
+      finds it from the tokens), so it's allowed in any call, `max(…)` too, not
+      just the series calls, which took one already. The formatter lays the
+      lines out (see Format the sheet, section 5), and the README documents it.
+      **Fixed (2026-11-19), found by Emily in the editor:** a multiline call was
+      coloured differently from the same call on one line, and a multiline
+      table or plot had no ⚙. Each line was read on its own, so `@table(` with
+      its `)` on a later line wasn't a call (its callee coloured as a constant),
+      and the lines after it didn't know they were its arguments (its settings
+      after `;` coloured as maths). Now a call whose `)` isn't on its line is an
+      `openCall` node (lexer.ts), and a continuation line is read as the rest
+      of the line so far (`lexTail`: the frame carries what's been said), so
+      its tokens are the ones it has on one line (tree.test.ts checks they are,
+      kind for kind). The ⚙ (series/tableMenu.ts) finds tables and plots from
+      the sheet's tree's tokens rather than a pattern on each line
+      (`settingsCalls`, with `encode` and `ASSIGN` added to the module API),
+      so it sits after the `)` of one over several lines, and its settings are
+      written between the brackets, keeping the `)` on its own line.
 
 ## 4. Chemistry
 
@@ -155,6 +210,64 @@ working (group 2).
 - [ ] **Quick fixes on warnings**, like VS Code's lightbulb: trailing zeros →
       `300.`, a unit read as a variable → insert `*`, an unknown constant → the
       suggested one.
+- [x] **Format the sheet**, with Ctrl+Shift+F and on Save and Save as: each
+      line's indentation from the blocks it's in, a multiline call's lines laid
+      out as in Multiline calls (section 3), its trailing comma taken off.
+
+      **Decided (2026-11-19):** worked out from the tree's reading of each line
+      (stepLine), so it changes only whitespace at the start of a line and a
+      trailing comma it finds as a token; comments, prose, raw LaTeX and
+      imported data are left as they are. Formatting twice changes nothing more.
+      Not on auto-save, which saves while typing and would move the text under
+      the cursor (to check with Emily). (A first go, by Copilot on
+      2026-11-17, worked on the text and could drop everything after a bracket
+      left open; set aside in `git stash`.)
+      **Resolved (2026-11-19):** `formatChanges` / `formatSheet`
+      (tree/format.ts) read each line in its place with stepLine and give the
+      changes as edits: whitespace at a line's start, and a continuation line's
+      trailing comma. Indentation is normalised to one level (4 spaces) a body,
+      except where it means something: an `@layout` block's lines keep how much
+      further in than its first each is (a list's sub-lists), a continued
+      line's keep what's lined up in it, imported data's rows move with their
+      import; prose and raw LaTeX are kept as written. A closing line goes under
+      its opener only if it starts with its bracket (`2)` closing a call stays
+      a level in). A comma isn't taken off a call's first line (`f({,` would
+      open a block), nor when it's alone on its line (a blank line ends the
+      call). `format.test.ts` checks the layouts, and that formatting every
+      sample, Reference and Library sheet, and random text, keeps its tree and
+      what it works out to, and is the same formatted twice (100,000 random
+      texts checked once by hand). In the editor (editor/format.ts) the edits
+      are one undoable change, so the cursor stays put; Save and Save as format
+      the sheet before writing it (useSheets.ts), and text changed outside the
+      editor now changes only the lines that differ (EditorPane.tsx), so the
+      cursor stays put there too.
+      **Fixed (2026-11-19), found by Emily:** a value in `@series(…)` indented a
+      level too far stayed there on Ctrl+S and Ctrl+Shift+F, because a
+      continued line's lines kept how much further in than its first each was
+      (meant to keep anything lined up by hand). Indentation in a call means
+      nothing but its brackets, so now each of its lines is a level in for each
+      bracket open where it starts (one it starts by closing a level out), and
+      only an `@layout` block's lines keep their own (a list's sub-lists).
+      **Changed (2026-11-19), asked for by Emily:** a call any of whose items
+      is on another line has every item on a line of its own (as Prettier and
+      Black do): a line break after a bracket that closes on a later line,
+      before its closing bracket, and after each `,` or `;` directly in it (a
+      matrix's `[ ]` with rows, only at its `;`s). Breaks only take the place of
+      spaces, only where a bracket is open, never so a line starts with `//`
+      or a separator, and only in a call whose brackets all match and whose
+      quotes close (one half typed is just indented). A bracket that opens and
+      closes on one line is left as it is. `continuedChanges` (tree/format.ts).
+      **Fixed (2026-11-19), found by Emily:** a value at the wrong indentation
+      (not indented further than `Fs = @series(`) ended the call, so the
+      formatter couldn't bring it back. Now a line not indented further still
+      carries a call on if what it's said so far ends expecting more (an open
+      bracket, `,` or `;`) and the line couldn't be a line of its own: not a
+      kind of line there (`}`, a heading, a block's opener) and not assigning a
+      name (`standsAlone`, tree/lines.ts). So `x = sin(` half typed still ends
+      at `y = 2`. The formatter then indents it with the rest. Random checks
+      (100,000 texts each, two alphabets, once by hand) found no change of
+      meaning; one oddity left: a #command in the middle of a call's line
+      (`@table(  #val ,()`) can take a second format to settle.
 - [ ] **Hover shows a variable's value at that line**, not at the end of its scope.
 - [ ] **Inline results**: a faint value at the end of each line in the editor
       (`F = m * a   ⟶ 19.6 N`).

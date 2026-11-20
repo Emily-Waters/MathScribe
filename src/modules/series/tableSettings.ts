@@ -109,11 +109,15 @@ export function splitCallArgs(inner: string): { columns: string; settings?: stri
 /**
  * A table's or plot's line with new settings text, written after a semicolon
  * in its brackets (or taken out, if `text` is empty). `inner`: where what's
- * between the brackets is, in the line.
+ * between the brackets is, in the line. Whatever's between the last of it and
+ * the closing bracket stays (a call over several lines keeps its `)` on a line
+ * of its own).
  */
 export function withSettingsText(line: string, inner: { from: number; to: number }, text: string): string {
-  const { columns } = splitCallArgs(line.slice(inner.from, inner.to))
-  return `${line.slice(0, inner.from)}${columns.trimEnd()}${text ? `${SETTINGS_START} ${text}` : ''}${line.slice(inner.to)}`
+  const inside = line.slice(inner.from, inner.to)
+  const { columns } = splitCallArgs(inside)
+  const before = inside.slice(inside.trimEnd().length)
+  return `${line.slice(0, inner.from)}${columns.trimEnd()}${text ? `${SETTINGS_START} ${text}` : ''}${before}${line.slice(inner.to)}`
 }
 
 /** A table's settings from their text, or what's wrong with them. */

@@ -104,7 +104,7 @@ amber one; hover the bar to read the message.
 | --- | --- |
 | Tab / Shift+Tab | Indent / dedent by one level (4 spaces) |
 | Backspace in the indentation | Removes a whole level |
-| Enter | Keeps the indentation; one level deeper after a line ending in `{` |
+| Enter | Keeps the indentation; one level deeper after a line ending in `{`, or leaving a bracket open |
 | `}` | Dedents itself to match its block |
 | Ctrl+X / Ctrl+C, nothing selected | Cut / copy the whole line (pasting it puts it above the current line) |
 | Alt+↑ / Alt+↓ | Move the line (or selected lines) up / down |
@@ -112,6 +112,7 @@ amber one; hover the bar to read the message.
 | Ctrl+Click a name, or F12 | Go to where a variable, function or constant is defined (names you can jump from are underlined while Ctrl is held) |
 | F2 | Open a small rename panel beside the variable or function and rename every use in scope |
 | Ctrl+F | Find and replace |
+| Ctrl+Shift+F | Format the sheet: each line indented by the blocks it's in, a call over several lines laid out (Save and Save as format it too) |
 | Ctrl+/ | Comment or uncomment the line (or selected lines) with `//` |
 | Ctrl+Z / Ctrl+Y | Undo / redo |
 
@@ -172,8 +173,8 @@ The buttons in the top bar act on the active tab:
 | --- | --- | --- |
 | New | | Opens an empty sheet in a new tab |
 | Open | Ctrl/⌘ + O | Opens one or more sheets (select several in the dialog), each in its own tab; a file that's already open is switched to instead |
-| Save | Ctrl/⌘ + S | Saves to the current file, or asks where the first time |
-| Save as | Ctrl/⌘ + Shift + S | Saves to a new file |
+| Save | Ctrl/⌘ + S | Formats the sheet and saves it to the current file, or asks where the first time |
+| Save as | Ctrl/⌘ + Shift + S | Formats the sheet and saves it to a new file |
 
 Auto-saving happens at two levels:
 
@@ -1273,6 +1274,30 @@ v = @series(d / t; rows 5-20)         # only those rows
 - The line shows the values (the first three and last two of a long series) and
   how many there are; `#sym` shows just the rule, `#val` just the values. Use
   `@table(t)` to see them all.
+
+**A call over several lines:** a line that leaves a `(` or `[` open carries on
+over the lines after it, up to the one that closes it, so a long `@series`,
+`@table`, `@plot` or `@select` (or any call, or a matrix) can list one thing a line:
+
+```
+t = @series(
+    1.52 s,
+    1.48 s,
+    1.55 s,
+)
+@table(
+    t,
+    x,
+    v = x / t;
+    rows 5-20
+)
+```
+
+- The lines inside are indented further than the first; the closing bracket can
+  be under the first line. A blank line, or one not indented further, ends it.
+- A trailing comma before the closing bracket is fine.
+- `#commands` and notes can go on any of its lines, as if it were one.
+- Ctrl+Shift+F (and Save) lays it out like this.
 
 ### Tables
 

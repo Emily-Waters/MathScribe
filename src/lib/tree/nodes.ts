@@ -154,12 +154,22 @@ export const NODE_KIND = {
   data: 'data',
   /** An import: its line, and its data. */
   import: 'import',
+  /** A line carried on over the lines after it while its brackets are open: its first line, its continuation lines, and the one closing them. */
+  continued: 'continued',
+  /** A line carrying on a line whose brackets are open: `    5678,` in `val = @series(`. */
+  continuation: 'continuation',
 
   // An expression's nodes (lexer.ts).
   /** A number (or a module's value, a vector) with its unit: `5.00 g`. */
   quantity: 'quantity',
   /** A call: what's called, and its arguments in brackets, `f(x)`, `@chem.substance({H2O})`. */
   call: 'call',
+  /**
+   * A call whose closing bracket isn't on its line: what's called, its `(`, and
+   * its arguments to the end of the line (`@series(` carried on over the lines
+   * after it, or half typed).
+   */
+  openCall: 'openCall',
   /** A value in text, `{{V:4 to mL}}`: its braces, and the expression between them. */
   value: 'value',
 
@@ -171,6 +181,9 @@ export const NODE_KIND = {
   /** The names a tuple is unpacked into, each with its settings: `@tuple(r:3, theta:deg)`. */
   unpack: 'unpack',
 } as const
+
+/** Whether a kind of node is a call, closed on its line or not: its first part is what it calls. */
+export const isCallKind = (kind: string): boolean => kind === NODE_KIND.call || kind === NODE_KIND.openCall
 
 /** The core's contexts: what a line can be inside, which decides how it's read. */
 export const LINE_CONTEXT = {
@@ -184,4 +197,6 @@ export const LINE_CONTEXT = {
   constants: 'constants',
   /** Imported data's rows. */
   data: 'data',
+  /** The lines carrying on a line whose brackets are open. */
+  continued: 'continued',
 } as const

@@ -5,6 +5,7 @@ import {
 } from './lib/data/files.ts'
 import { SHEET_FILE, TIMING } from './config.ts'
 import { SAMPLE } from './lib/content/sample.ts'
+import { formatSheet } from './lib/tree/index.ts'
 /** Whether a sheet's latest text has been saved (to its file, or the browser). */
 export type SaveState = 'saved' | 'unsaved' | 'saving' | 'error'
 
@@ -83,12 +84,13 @@ export function useSheets() {
     return () => clearTimeout(t)
   }, [sheets, active.id])
 
-  const write = useCallback(async (id: string, target?: FileHandle) => {
+  /** Write a sheet to its file (or `target`): its text, or `formatted`, its text just formatted, which the sheet may not hold yet. */
+  const write = useCallback(async (id: string, target?: FileHandle, formatted?: string) => {
     const sheet = latest.current.find((s) => s.id === id)
     const handle = target ?? sheet?.handle
     if (!sheet || !handle || writing.current.has(id)) return
     writing.current.add(id)
-    const text = sheet.text
+    const text = formatted ?? sheet.text
     update(id, { saving: true })
     try {
       await writeFile(handle, text)
@@ -115,6 +117,13 @@ export function useSheets() {
 
   const setText = useCallback((text: string) => update(activeId, { text }), [activeId, update])
 
+  /** A sheet's text formatted (lib/tree/format.ts), as Save and Save as write it, and in the editor too. (Auto-save writes it as it is.) */
+  const formatted = useCallback((sheet: Sheet): string => {
+    const text = formatSheet(sheet.text)
+    if (text !== sheet.text) update(sheet.id, { text })
+    return text
+  }, [update])
+
   const saveAs = useCallback(async () => {
     const sheet = active
     const target = await chooseSaveFile(sheet.name).catch((e: Error) => {
@@ -123,12 +132,13 @@ export function useSheets() {
     })
     if (target) {
       update(sheet.id, { handle: target, name: target.name, error: null })
-      await write(sheet.id, target)
+      await write(sheet.id, target, formatted(sheet))
     } else if (!canLinkFiles) {
-      downloadFile(sheet.name, sheet.text)
-      update(sheet.id, { savedText: sheet.text })
+      const text = formatted(sheet)
+      downloadFile(sheet.name, text)
+      update(sheet.id, { savedText: text })
     }
-  }, [active, update, write])
+  }, [active, update, write, formatted])
 
   const save = useCallback(async () => {
     const sheet = active
@@ -136,11 +146,11 @@ export function useSheets() {
       // A click counts as permission, so this also un-pauses a blocked auto-save.
       update(sheet.id, { error: null })
       await sheet.handle.requestPermission?.({ mode: 'readwrite' }).catch(() => undefined)
-      await write(sheet.id)
+      await write(sheet.id, undefined, formatted(sheet))
     } else {
       await saveAs()
     }
-  }, [active, update, write, saveAs])
+  }, [active, update, write, saveAs, formatted])
 
   /** Open one or more files, each in its own tab (or switch to it, if it's already open). */
   const open = useCallback(async () => {

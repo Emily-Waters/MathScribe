@@ -6,9 +6,13 @@
  */
 import { Calculator, markupText, outsideMaths, sheetModules, type CalcOptions, type EngineModule } from '../engine/index.ts'
 import type { VariableSummary } from '../sheet/values.ts'
-import { BLOCK_CLOSE, EXACT_SETTING, LAYOUT_STYLE, LAYOUT_SYNTAX, LINE_COMMAND, SIGIL, VALUE_IN_TEXT, closesBlock, type Notation } from '../syntax.ts'
+import {
+  BLOCK_CLOSE, CARRIED_JOIN, EXACT_SETTING, LAYOUT_STYLE, LAYOUT_SYNTAX, LINE_COMMAND, SIGIL, VALUE_IN_TEXT, closesBlock, joinSplit, splitNote, type Notation,
+} from '../syntax.ts'
 import { BLOCK_KIND, type Block, type Command, type GroupBlock, type LayoutBlock } from '../sheet/blocks.ts'
-import { NODE_KIND, TOKEN_KIND, encode, isBlockKind, isToken, notedOf, splitLines, textOf, type SyntaxNode } from '../tree/index.ts'
+import {
+  NODE_KIND, TOKEN_KIND, encode, isBlockKind, isToken, notedOf, splitLines, startsByClosing, textOf, trailingSeparatorAt, type SyntaxNode,
+} from '../tree/index.ts'
 import { parseConstantDeclaration } from './lineSyntax.ts'
 import { Line, readsLines, type NodeReader, type TreeItem } from './reader.ts'
 import { lineReaders } from './readers.ts'
@@ -99,7 +103,7 @@ export class SheetReader {
     if (item.node.kind === NODE_KIND.comment) return
     this.beforeLine(line)
     // (A kind with no reader, which the sheet's grammar doesn't put here, is read as a calculation.)
-    ;(this.readerOf.get(item.node.kind) ?? this.readerOf.get(NODE_KIND.calc)!).read(item, this)
+    ;(this.readerOf.get(lineKindOf(item.node)) ?? this.readerOf.get(NODE_KIND.calc)!).read(item, this)
   }
 
   /** Before a line that's read (not blank, not a comment): sub-lists that end or start at it, and the gap blank lines before it leave. */
@@ -243,9 +247,9 @@ export class SheetReader {
   }
 }
 
-/** A line node's text, as written, without what ends it. */
-const rawOf = (node: SyntaxNode): string =>
-  node.parts.map((p) => (isToken(p) && p.t === TOKEN_KIND.eol ? '' : textOf(p))).join('')
+/** A line node's text, as written, without what ends it (nor the part at `leaving`, if given). */
+const rawOf = (node: SyntaxNode, leaving = -1): string =>
+  node.parts.map((p, i) => (i === leaving || (isToken(p) && p.t === TOKEN_KIND.eol) ? '' : textOf(p))).join('')
 
 /** A node kept as rows (imported data's): each row, as written. */
 function rowsOf(node: SyntaxNode): string[] {
@@ -256,10 +260,45 @@ function rowsOf(node: SyntaxNode): string[] {
   return rows
 }
 
+/** The kind of line a node is read as: a line carried on over several is read as its first line's kind (a calculation, a constant). */
+function lineKindOf(node: SyntaxNode): string {
+  if (node.kind !== NODE_KIND.continued) return node.kind
+  const first = node.parts.find((p): p is SyntaxNode => !isToken(p))
+  return first?.kind ?? node.kind
+}
+
+/**
+ * A line carried on over several while its brackets are open (the tree's
+ * `continued` node), as one line where its first is: its lines' text joined,
+ * and their bodies, #commands and notes (joinSplit). Comments among them are
+ * left out, and so is a trailing comma before a closing bracket (`5678,` then
+ * `)`), which is allowed there though a call on one line can't have one.
+ */
+function continuedLine(lines: readonly SyntaxNode[], index: number): Line {
+  const said = lines.filter((l) => l.kind !== NODE_KIND.comment)
+  const texts = said.map((l, i) => {
+    const comma = trailingSeparatorAt(l)
+    const next = said[i + 1]
+    const trailing = comma >= 0 && next !== undefined && startsByClosing(rawOf(next))
+    return trailing ? rawOf(l, comma).trim() : rawOf(l).trim()
+  })
+  // (A line with its comma left out is split again: the tree's split of it has the comma.)
+  const splits = said.map((l, i) => (texts[i] === rawOf(l).trim() ? notedOf(l) : undefined) ?? splitNote(texts[i]))
+  const [first] = lines[0].parts
+  const indent = isToken(first) && first.t === TOKEN_KIND.indent ? first.text : ''
+  return new Line(index, indent + texts.join(CARRIED_JOIN), joinSplit(splits))
+}
+
 /** Nodes as items, where each is in the sheet: `cursor.at` is the index of the next line, moved on past theirs. */
 function itemsOf(nodes: readonly SyntaxNode[], cursor: { at: number }): TreeItem[] {
   return nodes.map((node): TreeItem => {
     const children = node.parts.filter((p): p is SyntaxNode => !isToken(p))
+    // A line carried on over the lines after it: one line, ending at its last.
+    if (node.kind === NODE_KIND.continued) {
+      const line = continuedLine(children, cursor.at)
+      cursor.at += children.length
+      return { node, line, body: [], rows: [], last: cursor.at - 1 }
+    }
     // A line (the nodes in it, if any, are its expression's).
     if (!isBlockKind(node.kind)) {
       if (node.parts.some((p) => isToken(p) && p.t === TOKEN_KIND.rows)) {

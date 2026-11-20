@@ -1,5 +1,5 @@
 import { useEffect, useRef, type CSSProperties, type ReactNode } from 'react'
-import { Compartment, EditorSelection, EditorState, StateEffect, StateField, type Extension } from '@codemirror/state'
+import { Compartment, EditorSelection, EditorState, StateEffect, StateField, type ChangeSpec, type Extension, type Text } from '@codemirror/state'
 import {
   EditorView, GutterMarker, drawSelection, gutter, highlightActiveLine, highlightActiveLineGutter,
   keymap, lineNumbers, placeholder, type Command,
@@ -22,6 +22,8 @@ import {
 import { typeGreek } from '../editor/greek.ts'
 import { dataBlocksExtension, foldingSettings, sheetLineNumber } from '../editor/dataBlocks.ts'
 import { dataBlockGuard, dataBlockLines, importActions } from '../editor/dataBlockLines.ts'
+import { FORMAT_KEY, formatDocument } from '../editor/format.ts'
+import { splitLines } from '../lib/tree/index.ts'
 
 interface EditorPaneProps {
   value: string
@@ -121,6 +123,39 @@ const tabToStop: Command = (view) => {
   return true
 }
 
+/**
+ * The changes from the editor's text to text from outside it (the sheet
+ * formatted as it's saved), so the cursor stays on what it was on: with as many
+ * lines, only what differs in each line; otherwise, the lines that differ
+ * between those the same at the start and at the end.
+ */
+function changesTo(doc: Text, value: string): ChangeSpec[] {
+  const lines = splitLines(value)
+  if (lines.length !== doc.lines) {
+    let head = 0
+    while (head < lines.length && head < doc.lines && lines[head].text === doc.line(head + 1).text) head++
+    let tail = 0
+    while (tail < lines.length - head && tail < doc.lines - head && lines.at(-1 - tail)!.text === doc.line(doc.lines - tail).text) tail++
+    const from = head < doc.lines ? doc.line(head + 1).from : doc.length
+    const to = doc.lines - tail > head ? doc.line(doc.lines - tail).to : from
+    // (The editor keeps its own line endings: what's inserted is split into lines at `\n`.)
+    const middle = lines.slice(head, lines.length - tail).map((l) => l.text).join('\n')
+    return [{ from, to, insert: middle }]
+  }
+  const changes: ChangeSpec[] = []
+  lines.forEach(({ text }, i) => {
+    const line = doc.line(i + 1)
+    if (line.text === text) return
+    // (What's the same at each end of the line is left alone.)
+    let start = 0
+    while (start < text.length && start < line.text.length && text[start] === line.text[start]) start++
+    let end = 0
+    while (end < text.length - start && end < line.text.length - start && text.at(-1 - end) === line.text.at(-1 - end)) end++
+    changes.push({ from: line.from + start, to: line.to - end, insert: text.slice(start, text.length - end) })
+  })
+  return changes
+}
+
 /** The editor's look, from the app's colour variables (so it follows light/dark). */
 const baseTheme = EditorView.theme({
   '&': { height: '100%', fontSize: '14px', color: 'var(--text)', backgroundColor: 'var(--surface)' },
@@ -204,6 +239,7 @@ function extensions(
     keymap.of([
       // Tab accepts a suggestion if the list is open, turns \Delta into Δ, or else indents.
       { key: 'Tab', run: (v) => acceptOnTab(v) || typeGreek(v) || tabToStop(v), shift: indentLess },
+      { key: FORMAT_KEY, run: formatDocument, preventDefault: true },
       ...defaultKeymap,
       ...historyKeymap,
       ...foldKeymap,
@@ -289,9 +325,7 @@ export function EditorPane({
   // Text that changed outside the editor replaces it.
   useEffect(() => {
     const v = view.current
-    if (v && v.state.doc.toString() !== value) {
-      v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: value } })
-    }
+    if (v && v.state.doc.toString() !== value) v.dispatch({ changes: changesTo(v.state.doc, value) })
   }, [value])
 
   // What the evaluated sheet says (also after switching tabs, since a kept state

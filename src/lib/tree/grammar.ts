@@ -13,6 +13,7 @@
  * itself and the lines of its body, up to where the body ends.
  */
 import type { NotedLine } from '../syntax.ts'
+import { LINE_CONTEXT, NODE_KIND } from './nodes.ts'
 
 /** A line split into what it says and its #commands and note (as syntax/commands.ts reads it): what a syntax needs of it. */
 export type { NotedLine }
@@ -27,6 +28,12 @@ export const BODY_END = {
   braceAlone: 'braceAlone',
   /** The first line that's blank or not indented further (imported data's rows). */
   indent: 'indent',
+  /**
+   * The line closing the brackets its opener left open (a continued line's);
+   * or, if they're never closed, before the first line that's blank or not
+   * indented further and doesn't start by closing a bracket.
+   */
+  brackets: 'brackets',
 } as const
 export type BodyEnd = (typeof BODY_END)[keyof typeof BODY_END]
 
@@ -36,6 +43,12 @@ export const CONTENT = {
   noted: 'noted',
   /** As `noted`, its text read as an expression into tokens (lexer.ts): a calculation, a constant. */
   expression: 'expression',
+  /**
+   * As `expression`, for a line carrying on an expression whose brackets are
+   * open: its tokens as the lexer reads them, but not read for what it assigns
+   * (`v = x / t` there is one of `@table(…)`'s columns, not the line's own name).
+   */
+  continuation: 'continuation',
   /** All one token: raw LaTeX, imported data (a `#` in it is the text's). */
   whole: 'whole',
   /** Text, as `whole`, but with each value in it, `{{c_Na}}`, read as an expression (outside `$…$` maths): prose. */
@@ -61,6 +74,18 @@ export interface Body {
   readonly context: string
   readonly ends: BodyEnd
 }
+
+/**
+ * What a line that's an expression opens when it leaves a round or square
+ * bracket open, in any context (stream.ts): the lines carrying it on, up to the
+ * one closing its brackets.
+ *
+ *   val = @series(
+ *       1234,
+ *       5678
+ *   )
+ */
+export const CONTINUED: Body = { node: NODE_KIND.continued, context: LINE_CONTEXT.continued, ends: BODY_END.brackets }
 
 /** A kind of line. */
 export interface LineSyntax {
@@ -129,7 +154,7 @@ export const declaredLineSyntaxes = () => syntaxes.map(({ owner, syntax }) => ({
  * Whether a kind of node holds lines (a block: what a line opens), rather than
  * being a line (whose nodes are its expression's: a quantity, a call).
  */
-export const isBlockKind = (kind: string) => syntaxes.some((s) => s.syntax.opens?.node === kind)
+export const isBlockKind = (kind: string) => kind === CONTINUED.node || syntaxes.some((s) => s.syntax.opens?.node === kind)
 
 /** Every context declared (for the schema's listing). */
 export const declaredContexts = (): readonly ContextInfo[] => [...contexts.values()]

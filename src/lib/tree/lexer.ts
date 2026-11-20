@@ -14,7 +14,7 @@
  * A rule sees only the text and what's before it on the line, so an
  * expression's tokens depend on its text alone, and are cached with its line.
  */
-import { CONSTANT_PRECISION, NAME, NAME_CHAR, SIGIL, KEYWORD, UNCERTAINTY_WORDS } from '../syntax.ts'
+import { CARRIED_JOIN, CONSTANT_PRECISION, NAME, NAME_CHAR, SIGIL, KEYWORD, UNCERTAINTY_WORDS } from '../syntax.ts'
 import { FIRST_UNIT, NEXT_UNIT, POWER, isUnitName } from '../engine/core/literals.ts'
 import { NODE_KIND, TOKEN_KIND, isToken, type Part, type SyntaxNode, type Token } from './nodes.ts'
 
@@ -39,6 +39,38 @@ const NUMBER = /(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?/y
 export const ROUND_BRACKETS = { open: '(', close: ')' } as const
 const OPEN = ROUND_BRACKETS.open
 const CLOSE = ROUND_BRACKETS.close
+
+/** Brackets around a list or a matrix: `[1, 2; 3, 4]`. */
+export const SQUARE_BRACKETS = { open: '[', close: ']' } as const
+
+/** The brackets a line can leave open, carrying it on over the lines after it (see openBrackets). */
+const CARRYING_BRACKETS = [ROUND_BRACKETS, SQUARE_BRACKETS] as const
+const CARRYING_OPEN: ReadonlySet<string> = new Set(CARRYING_BRACKETS.map((b) => b.open))
+const CARRYING_CLOSE: ReadonlySet<string> = new Set(CARRYING_BRACKETS.map((b) => b.close))
+
+/** Whether a delimiter opens, or closes, a bracket that carries a line on: `(`, `[`; `)`, `]`. */
+export const opensBracket = (delimiter: string): boolean => CARRYING_OPEN.has(delimiter)
+export const closesBracket = (delimiter: string): boolean => CARRYING_CLOSE.has(delimiter)
+
+/** Whether text starts (after its indentation) by closing a bracket that carries a line on: `)` or `]`. */
+export const startsByClosing = (text: string): boolean => CARRYING_CLOSE.has(text.trimStart().charAt(0))
+
+/**
+ * How many round and square brackets parts leave open: those opened less those
+ * closed, read from the delimiter tokens at any depth (a closed call's are in
+ * its node, and cancel out; one in a string is in its token). Less than 0 when
+ * they close more than they open (`)` carrying on a line).
+ */
+export function openBrackets(parts: readonly Part[]): number {
+  let open = 0
+  for (const p of parts) {
+    if (!isToken(p)) open += openBrackets(p.parts)
+    else if (p.t !== TOKEN_KIND.delimiter) continue
+    else if (CARRYING_OPEN.has(p.text)) open++
+    else if (CARRYING_CLOSE.has(p.text)) open--
+  }
+  return open
+}
 
 // ---------------------------------------------------------------------------
 // Rules
@@ -168,6 +200,36 @@ function readSpan(text: string, start: number, end: number, callee: string | und
   return parts
 }
 
+/**
+ * What's said on a line carrying on a continued line, `text`, read as the rest
+ * of it: the line so far (`said`, its lines' bodies joined) and it, read as one
+ * expression, and the parts that fall on this line. So a continuation line's
+ * tokens are the ones it has when the lines are joined, as the engine works
+ * them out: in `@table(` then `x;` then `rows 2-3`, `rows 2-3` is the table's
+ * settings, and `x` one of its arguments.
+ */
+export function lexTail(said: string, text: string): readonly Part[] {
+  const before = said + CARRIED_JOIN
+  return partsFrom(lexExpression(before + text), before.length)
+}
+
+/** Parts from a place in their text on: those after it whole, a node it falls in by its parts from there, a token it falls in from there. */
+function partsFrom(parts: readonly Part[], from: number): Part[] {
+  const out: Part[] = []
+  let at = 0
+  for (const p of parts) {
+    const text = partText(p)
+    const end = at + text.length
+    if (end > from) {
+      if (at >= from) out.push(p)
+      else if (isToken(p)) out.push(token(p.t, text.slice(from - at)))
+      else out.push(...partsFrom(p.parts, from - at))
+    }
+    at = end
+  }
+  return out
+}
+
 /** The text of a part (a token's, or a node's tokens joined; codec.ts's textOf keeps it with the node). */
 export const partText = (part: Part): string => (isToken(part) ? part.text : part.parts.map(partText).join(''))
 
@@ -257,19 +319,20 @@ export function unitPartsAt(text: string, pos: number, end = text.length): Lexed
   return { parts, length: at - pos }
 }
 
-/** A call: what's called, then its arguments in brackets, read as a call's (or undefined if its `(` isn't closed). */
+/**
+ * A call: what's called, then its arguments in brackets, read as a call's; or,
+ * if its `(` isn't closed, an open call, its arguments running to the end of
+ * the span (a call carried on over the lines after it, or half typed).
+ */
 function call(callee: Token, pos: number, state: LexState, span: ReadSpan): Lexed | undefined {
   const after = pos + callee.text.length
   const gap = spacesAt(state.text, after)
   const open = after + gap
   if (state.text[open] !== OPEN) return undefined
   const close = closingBracket(state.text, open, state.end)
-  if (close < 0) return undefined
-  const parts: Part[] = [
-    callee, ...(gap ? [token(TOKEN_KIND.space, state.text.slice(after, open))] : []), token(TOKEN_KIND.delimiter, OPEN),
-    ...span(open + 1, close, callee.text, state.lhs), token(TOKEN_KIND.delimiter, CLOSE),
-  ]
-  return one(node(NODE_KIND.call, parts), close + 1 - pos)
+  const head: Part[] = [callee, ...(gap ? [token(TOKEN_KIND.space, state.text.slice(after, open))] : []), token(TOKEN_KIND.delimiter, OPEN)]
+  if (close < 0) return one(node(NODE_KIND.openCall, [...head, ...span(open + 1, state.end, callee.text, state.lhs)]), state.end - pos)
+  return one(node(NODE_KIND.call, [...head, ...span(open + 1, close, callee.text, state.lhs), token(TOKEN_KIND.delimiter, CLOSE)]), close + 1 - pos)
 }
 
 /** A match of a sticky pattern at a position, or undefined. */

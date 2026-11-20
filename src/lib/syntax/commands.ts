@@ -135,3 +135,25 @@ export function splitNote(text: string): SplitLine {
   const { pieces: _pieces, ...split } = readNoted(text)
   return split
 }
+
+/** Between the pieces of a line carried on over several (its bodies, its notes), when they're joined into one. */
+export const CARRIED_JOIN = ' '
+
+/**
+ * The lines a line is carried on over, each split, as one line: their bodies
+ * joined, their notes joined, and of each sort of command the last (as on one
+ * line). `val = @series(  # values`, `1234,`, `5678  #val`, `)` → body
+ * `val = @series( 1234, 5678 )`, command `val`, note `values`.
+ */
+export function joinSplit(lines: readonly SplitLine[]): SplitLine {
+  const joined = (texts: (string | undefined)[]) => texts.filter(Boolean).join(CARRIED_JOIN)
+  const last = <K extends keyof SplitLine>(key: K) => lines.findLast((l) => l[key] !== undefined)?.[key]
+  return {
+    body: joined(lines.map((l) => l.body)),
+    note: joined(lines.map((l) => l.note)) || undefined,
+    command: last('command'),
+    multiline: lines.some((l) => l.multiline),
+    notation: last('notation'),
+    layout: last('layout'),
+  }
+}

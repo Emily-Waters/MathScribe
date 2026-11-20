@@ -18,7 +18,7 @@ import {
   VALUE_BRACES, COMMAND_NAMES, indentOf, isComment,
 } from '../lib/syntax.ts'
 import {
-  LINE_ROLE, NODE_KIND, TOKEN_KIND, TOKEN_ROLE, TOP, isToken, stepLine, tokenRoleOf, type LineState, type Part, type SyntaxNode, type TokenRole,
+  LINE_ROLE, NODE_KIND, TOKEN_KIND, TOKEN_ROLE, TOP, isCallKind, isToken, stepLine, tokenRoleOf, type LineState, type Part, type SyntaxNode, type TokenRole,
 } from '../lib/tree/index.ts'
 import { dataBlocks, foldRange, opensBody, readAs, sheetLine } from './sheetLines.ts'
 import { ROW_PIECE, rowPieces, type RowPiece, type RowPieceKind } from '../lib/data/csv.ts'
@@ -116,7 +116,7 @@ function piecesOf(line: SyntaxNode): Piece[] {
   const add = (parts: readonly Part[], call: boolean, head: boolean) => parts.forEach((p, i) => {
     if (isToken(p)) pieces.push({ t: p.t, end: (end += p.text.length), callee: call && i === 0, defines: head })
     // (A one-line function's head, `f(x)` in `f(x) = x^2`: its name is a definition.)
-    else add(p.parts, p.kind === NODE_KIND.call, head || p.kind === NODE_KIND.functionHead)
+    else add(p.parts, isCallKind(p.kind), head || p.kind === NODE_KIND.functionHead)
   })
   add(line.parts, false, false)
   return pieces

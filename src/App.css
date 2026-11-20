@@ -670,10 +670,10 @@ body {
   padding: 0 12px;
 }
 
-/* A plot(…) line's plot: as wide as the output allows, up to its drawn size */
+/* A plot(…) line's plot: as wide as the output allows, up to its drawn size, centred (as in the exports) */
 .plot {
   max-width: 640px;
-  margin: 6px 0;
+  margin: 6px auto;
 }
 
 .plot svg {

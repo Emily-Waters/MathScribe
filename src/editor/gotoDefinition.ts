@@ -14,6 +14,7 @@ import { placeFixedPanel } from './popover.ts'
 import { EDITOR_KEY } from './shortcuts.ts'
 import { typeGreekInBox, withGreekLetters } from './greek.ts'
 import { NAME, regex, src } from '../lib/syntax.ts'
+import { parseNumberedName, parseSeriesStatName } from '../lib/sheet/names.ts'
 
 /** A new name for F2's rename: one whole name, as the sheet's (Greek letters too). */
 const WHOLE_NAME = regex(src`^${NAME}$`)
@@ -97,17 +98,18 @@ function nameAt(state: EditorState, pos: number): NameAt | null {
 }
 
 /**
- * Jump to the definition of the name at `pos`: the nearest one above that line
- * (a later redefinition doesn't apply yet), or else the first one.
+ * Where the name at `pos` is defined, as its range there: the nearest
+ * definition above that line (a later redefinition doesn't apply yet), or else
+ * the first one. Null if it isn't a name the sheet defines.
  */
-function goToDefinition(view: EditorView, pos: number): boolean {
-  const target = nameAt(view.state, pos)
-  if (!target) return false
-  const here = view.state.doc.lineAt(pos).number
+export function definitionAt(state: EditorState, pos: number): { from: number; to: number } | null {
+  const target = nameAt(state, pos)
+  if (!target) return null
+  const here = state.doc.lineAt(pos).number
   let lineNo: number | undefined
   if (target.symbol) {
-    if (target.symbol.kind === SYMBOL_KIND.variable || target.symbol.kind === SYMBOL_KIND.constant) {
-      const sameName = view.state.field(symbolsField).filter((s) =>
+    if (target.symbol.kind === SYMBOL_KIND.variable || target.symbol.kind === SYMBOL_KIND.constant || target.symbol.kind === SYMBOL_KIND.namespace) {
+      const sameName = state.field(symbolsField).filter((s) =>
         s.name === target.name
         && s.kind === target.symbol!.kind
         && s.to === target.symbol!.to
@@ -118,20 +120,26 @@ function goToDefinition(view: EditorView, pos: number): boolean {
       lineNo = target.symbol.line
     }
   }
-  const functionLines = view.state.field(definitionsField).get(target.name)
+  const functionLines = state.field(definitionsField).get(target.name)
   if (!lineNo && functionLines?.length) {
     const above = functionLines.filter((l) => l <= here)
     lineNo = above.length ? above[above.length - 1] : functionLines[0]
     if (lineNo === here && above.length > 1) lineNo = above[above.length - 2]
   }
-  if (!lineNo) return false
-  const line = view.state.doc.line(lineNo)
-  const escaped = target.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const at = new RegExp(escaped).exec(line.text)
-  const from = line.from + (at?.index ?? 0)
+  if (!lineNo) return null
+  // (The name on its line, as a token: not a part of another name, `t` in `t_avg` or `@series`.)
+  const at = nameTokens(state, lineNo).find((t) => t.name === target.name)
+  const from = at?.from ?? state.doc.line(lineNo).from
+  return { from, to: at?.to ?? from }
+}
+
+/** Jump to the definition of the name at `pos` (definitionAt). */
+function goToDefinition(view: EditorView, pos: number): boolean {
+  const definition = definitionAt(view.state, pos)
+  if (!definition) return false
   view.dispatch({
-    selection: { anchor: from, head: from + (at ? target.name.length : 0) },
-    effects: EditorView.scrollIntoView(from, { y: 'center' }),
+    selection: { anchor: definition.from, head: definition.to },
+    effects: EditorView.scrollIntoView(definition.from, { y: 'center' }),
   })
   view.focus()
   return true
@@ -196,7 +204,10 @@ function renameSymbol(view: EditorView): boolean {
       input.select()
       return
     }
-    if (replacement !== promptName) applyRename(view, target, promptName, replacement)
+    if (replacement !== promptName) {
+      const changes = renameChanges(view.state, view.state.selection.main.head, replacement)
+      if (changes.length) view.dispatch({ changes })
+    }
     close()
   }
   input.addEventListener('keydown', (event) => {
@@ -204,43 +215,52 @@ function renameSymbol(view: EditorView): boolean {
       event.preventDefault()
       commit()
     } else if ((event.key === ' ' || event.key === 'Tab') && typeGreekInBox(input)) {
-      // `\delta` then Space or Tab: \u03b4, as in the editor.
+      // `\delta` then Space or Tab: δ, as in the editor.
       event.preventDefault()
     }
   })
   return true
 }
 
-/** Apply a rename after the small in-editor panel validates its text. */
-function applyRename(view: EditorView, target: NameAt, promptName: string, replacement: string): void {
-  const here = view.state.doc.lineAt(view.state.selection.main.head).number
+/**
+ * The changes that rename the name at `pos` to `replacement` (validated by the
+ * rename panel): every use resolving to the same definition; for a series, its
+ * members and statistics too (`t_1`, `t3`, `t_avg`). None if there's no name there.
+ */
+export function renameChanges(state: EditorState, pos: number, replacement: string): { from: number; to: number; insert: string }[] {
+  const target = nameAt(state, pos)
+  if (!target) return []
+  const here = state.doc.lineAt(pos).number
   const nextName = replacement
-  if (nextName === promptName) return
 
+  // A series' members and statistics are its name and more, `t_1`, `t3`, `t_avg`: renamed with it.
+  const symbol = target.symbol
+  const isSeries = symbol?.kind === SYMBOL_KIND.variable && state.field(symbolsField)
+    .some((s) => s.line === symbol.line && parseNumberedName(s.name)?.base === symbol.name)
+  const seriesBase = (name: string) => parseNumberedName(name)?.base ?? parseSeriesStatName(name)?.base
   const ranges: { from: number; to: number }[] = []
-  for (let lineNumber = 1; lineNumber <= view.state.doc.lines; lineNumber++) {
-    for (const token of nameTokens(view.state, lineNumber)) {
-      if (token.name !== target.name) continue
+  for (let lineNumber = 1; lineNumber <= state.doc.lines; lineNumber++) {
+    for (const token of nameTokens(state, lineNumber)) {
+      const member = isSeries && token.name !== target.name && seriesBase(token.name) === target.name
+      if (token.name !== target.name && !member) continue
       if (target.symbol) {
-        const resolved = symbolAt(view.state, lineNumber, target.name)
+        const resolved = symbolAt(state, lineNumber, target.name)
         if (!resolved || resolved.kind !== target.symbol.kind || resolved.to !== target.symbol.to) continue
       } else {
-        const lines = view.state.field(definitionsField).get(target.name) ?? []
+        const lines = state.field(definitionsField).get(target.name) ?? []
         const above = lines.filter((l) => l <= lineNumber)
         const nearest = above.at(-1) ?? lines[0]
         if (nearest === undefined) continue
         const targetLine = lines.filter((l) => l <= here).at(-1) ?? lines[0]
         if (nearest !== targetLine) continue
       }
-      ranges.push({ from: token.from, to: token.to })
+      // (A member: only the series' name in it, at its start.)
+      ranges.push({ from: token.from, to: member ? token.from + target.name.length : token.to })
     }
   }
-  if (!ranges.length) return
-  ranges.sort((a, b) => b.from - a.from)
-  view.dispatch({
-    changes: ranges.map((range) => ({ from: range.from, to: range.to, insert: target.name.startsWith('@') ? `@${nextName.replace(/^@/, '')}` : nextName })),
-  })
-  view.focus()
+  return ranges
+    .sort((a, b) => a.from - b.from)
+    .map((range) => ({ from: range.from, to: range.to, insert: target.name.startsWith('@') ? `@${nextName.replace(/^@/, '')}` : nextName }))
 }
 
 /** Underlines a name (or nothing), as the link Ctrl+Click would follow. */

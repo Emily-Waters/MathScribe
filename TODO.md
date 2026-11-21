@@ -372,6 +372,18 @@ working (group 2).
       (100,000 texts each, two alphabets, once by hand) found no change of
       meaning; one oddity left: a #command in the middle of a call's line
       (`@table(  #val ,()`) can take a second format to settle.
+- [x] **F2 and Ctrl+Click for a series', table's and plot's names**, found by
+      Emily: neither worked on them, and a series' hover was its whole line,
+      scrolling. Resolved (2026-11-21): a line that defines names (a series'
+      members, a plot's or selection's) now also lists the name it assigns
+      (sheetIndex.ts): a series' `t` as a variable, a plot's `p` as a new kind,
+      `SYMBOL_KIND.namespace`, gone to and renamed but not suggested on its own.
+      Renaming a series renames its members and statistics with it (`t_1`,
+      `t3`, `t_avg`); go-to-definition finds the name on its line as a token,
+      not as text (`t` in `@series` once matched). A series' hover is how many
+      values it has and its first and last; a namespace's, its members.
+      (`definitionAt` and `renameChanges` are worked out from the editor's
+      state alone, so they're tested: gotoDefinition.test.ts.)
 - [x] **The Rendered tab follows the cursor inside a multiline statement**, found
       by Emily: on a multiline `@series(…)`'s values the output didn't scroll
       to it, only on its first line. Resolved (2026-11-21): the cursor's line is

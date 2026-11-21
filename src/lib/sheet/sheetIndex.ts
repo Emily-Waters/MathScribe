@@ -10,7 +10,8 @@ import { NODE_KIND } from '../tree/nodes.ts'
 import { assignedOf, lineShape } from '../tree/shapes.ts'
 import { BLOCK_KIND, SYMBOL_KIND, isContainer, type Block, type CalcBlock, type SymbolKind } from './blocks.ts'
 import type { Sheet } from '../reading/sheetReader.ts'
-import { NAME, words, type WordOf } from '../syntax.ts'
+import { MEMBER_DOT, NAME, words, type WordOf } from '../syntax.ts'
+import { parseMemberName, parseNumberedName } from './names.ts'
 
 /**
  * Each line's result, by line, for the editor's inline results: the result of
@@ -130,9 +131,16 @@ export function collectSymbols(sheet: Sheet, source: string): SheetSymbol[] {
             }
             break
           }
-          // A line that says what it defines (a selection, a named plot, a reaction): those, a.x_1, p.slope (not a variable a).
+          // A line that says what it defines (a series, a selection, a named plot, a reaction): those, t_1, a.x_1,
+          // p.slope; and the name it assigns, so it can be gone to and renamed (seriesSymbol, namespaceSymbol).
           if (b.defines) {
             for (const d of b.defines ?? []) out.push(variable(d.name, b.line, b.line + 1, to, scope, d.members))
+            if (target?.kind === NODE_KIND.assigned && !b.defines.some((d) => d.name === target.name)) {
+              const namespace = b.defines.every((d) => parseMemberName(d.name)?.namespace === target.name)
+              out.push(namespace
+                ? namespaceSymbol(target.name, b.line, to, b.defines)
+                : seriesSymbol(target.name, b.line, to, b.defines, (name) => lookup(scope).get(name)?.tex))
+            }
             break
           }
           if (target?.kind === NODE_KIND.assigned) {
@@ -171,6 +179,41 @@ export function collectSymbols(sheet: Sheet, source: string): SheetSymbol[] {
   }
   visit(sheet.blocks, lines.length, () => sheet.variables)
   return out
+}
+
+/** What a line that defines names says it defines (a series' members, a namespace's). */
+type Defined = readonly { name: string; members?: number }[]
+
+/**
+ * A series' own name, `t` of `t = @series(…)`, for going to and renaming: its
+ * hover is how many values it has and its first and last (`texOf`: a member's
+ * value), not the whole line, which can be long.
+ */
+function seriesSymbol(name: string, line: number, to: number, defines: Defined, texOf: (name: string) => string | undefined): SheetSymbol {
+  const count = defines.reduce((n, d) => n + (d.members ?? 1), 0)
+  const [first, last] = [defines[0]?.name, defines.at(-1)?.name]
+  return Object.defineProperties(
+    { name, kind: SYMBOL_KIND.variable, line, from: line + 1, to, about: `A series of ${count} value${count === 1 ? '' : 's'}` },
+    {
+      tex: {
+        get: () => [first, last === first ? undefined : last].map((m) => m && texOf(m)).filter(Boolean).join(SERIES_ENDS_TEX) || undefined,
+        enumerable: false,
+      },
+    },
+  ) as SheetSymbol
+}
+
+/** Between a series' first and last values, in its hover. */
+const SERIES_ENDS_TEX = String.raw`,\;\ldots,\;`
+
+/** A namespace, `p` of `p = @plot(…)`, for going to and renaming: its hover names its members (a series among them once). */
+function namespaceSymbol(name: string, line: number, to: number, defines: Defined): SheetSymbol {
+  const members = new Set(defines.map((d) => {
+    const member = parseMemberName(d.name)!.member
+    return parseNumberedName(member)?.base ?? member
+  }))
+  const about = `Its members: ${[...members].map((m) => `${name}${MEMBER_DOT}${m}`).join(', ')}`
+  return { name, kind: SYMBOL_KIND.namespace, line, from: line + 1, to, about }
 }
 
 /**

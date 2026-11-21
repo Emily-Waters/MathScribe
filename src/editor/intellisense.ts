@@ -180,6 +180,8 @@ function symbolInfo(s: SheetSymbol): HTMLElement {
   switch (s.kind) {
     case SYMBOL_KIND.variable:
       // (Its value as its line left it: the definition visible where it's hovered, so its value there.)
+      // (A series says how many values it has, and shows its first and last.)
+      if (s.about) return infoNode(s.tex, `${s.about}, ${where(s).toLowerCase()}`)
       return infoNode(s.tex, s.tex ? `${where(s)}; its value from there` : where(s))
     case SYMBOL_KIND.parameter:
       return infoNode(undefined, `Parameter of the function on line ${s.line}`)
@@ -189,6 +191,8 @@ function symbolInfo(s: SheetSymbol): HTMLElement {
       return infoNode(s.tex, `Your constant, ${where(s).toLowerCase()}`)
     case SYMBOL_KIND.braced:
       return infoNode(s.tex, s.about ?? where(s))
+    case SYMBOL_KIND.namespace:
+      return infoNode(undefined, s.about, where(s))
   }
 }
 
@@ -264,6 +268,8 @@ function nameOptions(visible: SheetSymbol[]): Completion[] {
   // A series' members aren't listed one by one (an imported column can have
   // thousands); the series offers tₙ for them instead, below.
   const options: Completion[] = visible
+    // (Nor is a namespace, `p` of `p.slope`: its members are, as p.slope.)
+    .filter((s) => s.kind !== SYMBOL_KIND.namespace)
     .filter((s) => { const m = SERIES_MEMBER.exec(s.name); return !(s.kind === SYMBOL_KIND.variable && m && isSeries(m[1])) })
     .map((s) => (s.kind === SYMBOL_KIND.function
       ? snippetCompletion(`${s.name}(\${})`, {

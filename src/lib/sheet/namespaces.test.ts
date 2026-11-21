@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest'
 import { last, lines, sheet, value } from '../../test/helpers.ts'
 import { symbolTex } from '../engine/index.ts'
-import { collectSymbols } from './sheetIndex.ts'
+import { SYMBOL_KIND, collectSymbols } from './sheetIndex.ts'
 import type { ImportBlock } from './blocks.ts'
 import { parseMemberName, readableMembers } from './names.ts'
 import { expandDots } from '../engine/core/memberAccess.ts'
@@ -145,10 +145,11 @@ describe('named imports', () => {
 describe('suggestions', () => {
   it('list what a select or named plot made, not a plain variable', () => {
     const src = `${data}a = @select(t, x; t from 0.2)\np = @plot(t, x; fit linear)\nz = 1`
-    const names = collectSymbols(sheet(src), src).map((s) => s.name)
+    const symbols = collectSymbols(sheet(src), src)
+    const names = symbols.map((s) => s.name)
     expect(names).toEqual(expect.arrayContaining(['a__t_1', 'a__t_3', 'a__x_1', 'a__x_3', 'p__slope', 'p__intercept', 'p__r2']))
-    expect(names).not.toContain('a')
-    expect(names).not.toContain('p')
+    // (a and p are namespaces, to go to and rename, not variables.)
+    expect(symbols.filter((s) => s.name === 'a' || s.name === 'p').map((s) => s.kind)).toEqual([SYMBOL_KIND.namespace, SYMBOL_KIND.namespace])
   })
 })
 

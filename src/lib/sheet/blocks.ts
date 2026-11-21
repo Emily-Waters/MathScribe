@@ -210,8 +210,10 @@ export interface CardEntry extends Noted, Faulted {
 /**
  * Each kind of name a sheet defines, as the editor knows them. A `braced` name
  * is written in braces, `{dietzeite}` (a module's: chemistry's species' names).
+ * A `namespace` is a name whose members are what's used, `p` of `p.slope` (a
+ * named plot's, a selection's): gone to and renamed, not suggested on its own.
  */
-export const SYMBOL_KIND = words({ variable: 'variable', parameter: 'parameter', function: 'function', constant: 'constant', braced: 'braced' })
+export const SYMBOL_KIND = words({ variable: 'variable', parameter: 'parameter', function: 'function', constant: 'constant', braced: 'braced', namespace: 'namespace' })
 export type SymbolKind = WordOf<typeof SYMBOL_KIND>
 
 /** A name a card's entry defines, usable elsewhere in the sheet (for the editor): `@g`, a species' `{dietzeite}`. */

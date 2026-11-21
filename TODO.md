@@ -372,6 +372,36 @@ working (group 2).
       (100,000 texts each, two alphabets, once by hand) found no change of
       meaning; one oddity left: a #command in the middle of a call's line
       (`@table(  #val ,()`) can take a second format to settle.
+- [x] **A plot's LaTeX: its fit line across the whole plot, and tidy axis
+      labels**, found by Emily: in the export, the best-fit line stopped at the
+      first and last points, and pgfplots wrote `1·10⁻²`, `2·10⁻²`, … under the
+      x ticks, overlapping. Resolved (2026-11-21): the drawing and the LaTeX now
+      share one set of axes (`plotScales`, output/plot.ts): the export gives
+      pgfplots their range, ticks and labels (`scaled ticks=false`), and draws
+      each fit across the x axis's range. An axis whose ticks would need a power
+      of ten has one for them all, said once in its label (`d [10⁻³ m]`, ticks
+      0.2 … 1.6), in the Rendered tab, the image and the LaTeX alike
+      (`axisTicks`); a log axis keeps a power under each tick that needs one.
+- [x] **A plot's fit equations centred under it, and a toggle for them**, asked
+      for by Emily: in a centred block they sat at the left, under a centred
+      plot. Resolved (2026-11-21): they're centred under the plot wherever it
+      is, as the plot always is: in the Rendered tab (`calc__row--centred`), in
+      LaTeX (`centredEquation`: a `center` environment, which `fleqn` doesn't
+      move) and in Word. `equation off` (the ⚙ menu's *Show fit equation*)
+      leaves them out; the fit's slope and intercept are still variables.
+- [ ] **Plot legends**, asked for by Emily: a setting for whether there's one
+      and where (`legend top left`, …, `legend outside`, `legend off`), with an
+      entry for each series and its fit, in the Rendered tab and the exports.
+- [ ] **Plot colours**, asked for by Emily: points (and their error bars),
+      lines and fit lines each in a colour chosen from one named list that
+      LaTeX (xcolor) and the drawing share, in the settings and the ⚙ menu.
+- [ ] **Plot ideas, to choose from**: a fit through the origin (`fit
+      proportional`, y = kx); other fits (quadratic, exponential, power); max
+      and min slope lines (the gradient's uncertainty, as often taught); marker
+      shapes per series (for black-and-white printing); axis labels of one's
+      own (`xlabel "Extension"`); the fit's equation in the legend; a fit only
+      across the data, not the whole axis; grid off or minor grid; size; a
+      residuals plot; copying a plot as an image.
 - [x] **Uncertainty working written relatively**, asked for by Emily (her
       physics teacher's form: Y = AB/C, δY = Y √((δA/A)² + (δB/B)² + (δC/C)²)).
       Resolved (2026-11-21): an Output option, *Uncertainty working*

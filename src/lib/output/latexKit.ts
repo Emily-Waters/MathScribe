@@ -7,7 +7,7 @@
 import { TITLE_SEGMENT, titleSegments } from './textSegments.ts'
 import { GREEK_BY_CHAR } from '../syntax.ts'
 import { symbolTex, unitTex } from '../engine/index.ts'
-import type { PlotData, PlotName } from './plot.ts'
+import { axisTicks, plotScales, tickLabelTex, type PlotData, type PlotName, type Scale } from './plot.ts'
 import type { LatexOptions } from './latex.ts'
 
 // ---------------------------------------------------------------------------
@@ -68,6 +68,16 @@ export function gather(eqs: Equation[], share = 1): string {
     : `  ${fitted(e.tex, share)}`))
   const separators = eqs.map((e) => (e.note ? ` \\${NOTE_SEPARATOR}\n` : ' \\\\\n'))
   return ['\\begin{gather*}', rows.map((r, i) => (i ? separators[i - 1] : '') + r).join(''), '\\end{gather*}'].join('\n')
+}
+
+/**
+ * An equation centred on the page whatever the document's equations do (as a
+ * plot's fit equations are, under it: the plot is always centred), with its
+ * note after it. (A `center` environment, not `gather*`, which `fleqn` sets flush left.)
+ */
+export function centredEquation(e: Equation): string {
+  const note = e.note ? `\\quad{${NOTE_STYLE}${titleToLatex(e.note)}}` : ''
+  return ['\\begin{center}', `$\\displaystyle ${e.tex}$${note}`, '\\end{center}'].join('\n')
 }
 
 /**
@@ -234,10 +244,15 @@ const PLOT_COLOURS = ['blue', 'orange', 'teal', 'violet', 'brown', 'cyan']
 /** A number for pgfplots: plain, without float noise. */
 const plotNumber = (v: number) => String(Number(v.toPrecision(10)))
 
-/** An axis's or series' name and unit as LaTeX: `$t\,[\mathrm{s}]$`. */
-function plotLabel(p: PlotName & { unit?: string }): string {
+/**
+ * An axis's or series' name and unit as LaTeX: `$t\,[\mathrm{s}]$`; with the
+ * power of ten an axis's ticks share, if they do (axisTicks): `$d\,[10^{-3}\,\mathrm{m}]$`.
+ */
+function plotLabel(p: PlotName & { unit?: string }, power?: number): string {
   const name = p.name ? symbolTex(p.name) : p.expr ? `\\text{${escapeTex(p.expr)}}` : ''
-  const unit = p.unit ? `\\left[${unitTex(p.unit)}\\right]` : ''
+  const scale = power === undefined ? '' : `${p.unit ? '' : '\\times '}10^{${power}}`
+  const inside = [scale, p.unit ? unitTex(p.unit) : ''].filter(Boolean).join('\\,')
+  const unit = inside ? `\\left[${inside}\\right]` : ''
   return `$${[name, unit].filter(Boolean).join('\\,')}$`
 }
 
@@ -247,17 +262,22 @@ function plotLabel(p: PlotName & { unit?: string }): string {
  */
 export function plotToLatex(plot: PlotData): string {
   const { settings } = plot
-  const xs = plot.series.flatMap((s) => s.points.map((p) => p.x))
+  // (The axes the drawing has, plotScales: the same range and ticks, each labelled as the drawing labels it,
+  // not by pgfplots' own scaling, which writes 1·10⁻² under every tick; and a fit drawn across the whole x range.)
+  const scales = plotScales(plot)
+  const ticks = { x: axisTicks(scales.x, settings.x.log), y: axisTicks(scales.y, settings.y.log) }
+  const axisOptions = (axis: 'x' | 'y', s: Scale) => [
+    `${axis}min=${plotNumber(s.from)}`, `${axis}max=${plotNumber(s.to)}`,
+    `${axis}tick={${s.ticks.map(plotNumber).join(',')}}`, `${axis}ticklabels={${ticks[axis].labels.map(tickLabelTex).join(',')}}`,
+  ]
   const options = [
-    'width=0.8\\linewidth', 'height=0.5\\linewidth', 'grid=major',
-    `xlabel={${plotLabel(plot.x)}}`, `ylabel={${plotLabel(plot.y)}}`,
+    'width=0.8\\linewidth', 'height=0.5\\linewidth', 'grid=major', 'scaled ticks=false',
+    `xlabel={${plotLabel(plot.x, ticks.x.power)}}`, `ylabel={${plotLabel(plot.y, ticks.y.power)}}`,
     ...(settings.title ? [`title={${escapeTex(settings.title)}}`] : []),
     ...(settings.x.log ? ['xmode=log'] : []),
     ...(settings.y.log ? ['ymode=log'] : []),
-    ...(settings.x.from !== undefined ? [`xmin=${settings.x.from}`] : []),
-    ...(settings.x.to !== undefined ? [`xmax=${settings.x.to}`] : []),
-    ...(settings.y.from !== undefined ? [`ymin=${settings.y.from}`] : []),
-    ...(settings.y.to !== undefined ? [`ymax=${settings.y.to}`] : []),
+    ...axisOptions('x', scales.x),
+    ...axisOptions('y', scales.y),
     ...(plot.series.length > 1 ? ['legend pos=north west'] : []),
   ]
   const lines = ['\\begin{center}', '\\begin{tikzpicture}', `\\begin{axis}[${options.join(', ')}]`]
@@ -275,8 +295,8 @@ export function plotToLatex(plot: PlotData): string {
       + (errors ? ` +- (${plotNumber(p.dx ?? 0)}, ${plotNumber(p.dy ?? 0)})` : ''))
     lines.push(`\\addplot[${style.join(', ')}] coordinates {${coordinates.join(' ')}};`)
     if (plot.series.length > 1) lines.push(`\\addlegendentry{${plotLabel(s)}}`)
-    if (s.fit && xs.length) {
-      const domain = `${plotNumber(Math.min(...xs))}:${plotNumber(Math.max(...xs))}`
+    if (s.fit && s.points.length) {
+      const domain = `${plotNumber(scales.x.from)}:${plotNumber(scales.x.to)}`
       lines.push(`\\addplot[color=${colour}, dashed, no markers, domain=${domain}, samples=${settings.x.log ? 50 : 2}, forget plot] {${plotNumber(s.fit.slope)}*x + ${plotNumber(s.fit.intercept)}};`)
     }
   })

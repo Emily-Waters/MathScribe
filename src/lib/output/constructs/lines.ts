@@ -3,7 +3,7 @@
  * and calculations.
  */
 import { BLOCK_KIND, type CalcBlock, type HeadingBlock, type LatexBlock, type SpacerBlock, type TextBlock } from '../../sheet/blocks.ts'
-import { errorComment, gather, plotToLatex, titleToLatex, type Equation } from '../latexKit.ts'
+import { centredEquation, errorComment, gather, plotToLatex, titleToLatex, type Equation } from '../latexKit.ts'
 import { baseProps, equation, picture, run, titleRuns, type Ctx, type Item } from '../docxKit.ts'
 import { EM_SPACE } from '../omml.ts'
 import { Construct, type LatexOut } from './construct.ts'
@@ -83,8 +83,8 @@ export class CalcConstruct extends Construct<CalcBlock> {
   latex(b: CalcBlock, out: LatexOut): string {
     if (b.error) return errorComment(b.line, b.source, b.error)
     if (b.hidden) return ''
-    // A plot, as a pgfplots graph, then its fits' equations (if any).
-    if (b.plot) return [plotToLatex(b.plot), b.tex ? gather([{ tex: b.tex, note: b.note }], out.share) : ''].filter(Boolean).join('\n')
+    // A plot, as a pgfplots graph, then its fits' equations (if any), centred under it as it is.
+    if (b.plot) return [plotToLatex(b.plot), b.tex ? centredEquation({ tex: b.tex, note: b.note }) : ''].filter(Boolean).join('\n')
     // The working inside a function call: indented and a little smaller, above the line.
     const working = b.trace?.length ? ['\\begin{msworking}', gather(b.trace, out.share), '\\end{msworking}'].join('\n') : ''
     return [working, gather([{ tex: b.tex, note: b.note }], out.share)].filter(Boolean).join('\n')
@@ -96,7 +96,7 @@ export class CalcConstruct extends Construct<CalcBlock> {
     // A plot: its picture (if it was drawn), then its fits' equations.
     if (b.plot) {
       const png = ctx.images.get(b.plot)
-      return [...(png ? [picture(ctx, png)] : []), ...(b.tex ? [equation(ctx, b.tex, b.note)] : [])]
+      return [...(png ? [picture(ctx, png)] : []), ...(b.tex ? [equation({ ...ctx, center: true }, b.tex, b.note)] : [])]
     }
     return [
       ...(b.trace ?? []).map((t) => equation(ctx, t.tex, t.note, true)),

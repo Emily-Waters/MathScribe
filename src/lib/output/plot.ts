@@ -148,7 +148,7 @@ function niceStep(span: number, count: number): number {
 }
 
 /** An axis: its range, ticks, and how to place a value on it (0 at `from`, 1 at `to`). */
-interface Scale {
+export interface Scale {
   from: number
   to: number
   ticks: number[]
@@ -197,17 +197,71 @@ function scaleFor(values: number[], range: { from?: number; to?: number }, log: 
   return { from, to, ticks, place: (v) => (v - from) / (to - from) }
 }
 
-/** A tick's label: plain digits, or a power of ten for very large or small values. */
-export function tickLabel(v: number): string {
-  if (v === 0) return '0'
-  const a = Math.abs(v)
-  if (a >= 1e5 || a < 1e-3) {
-    const [m, e] = v.toExponential(2).split('e')
-    const mantissa = String(Number(m))
-    const exp = Number(e)
-    return mantissa === '1' ? `10${superscript(exp)}` : `${mantissa}×10${superscript(exp)}`
+/**
+ * A plot's axes: their ranges and ticks, from its points (and their error bars,
+ * if it shows them), where its fits cross the x range, and its settings. The
+ * drawing and the LaTeX export both use these, so a plot has the same axes,
+ * ticks and fit lines wherever it's shown.
+ */
+export function plotScales(plot: PlotData): { x: Scale; y: Scale } {
+  const { settings } = plot
+  const bars = settings.uncertainty !== false
+  const all = plot.series.flatMap((s) => s.points)
+  const xs = all.flatMap((p) => (bars && p.dx ? [p.x - p.dx, p.x + p.dx] : [p.x]))
+  const ys = all.flatMap((p) => (bars && p.dy ? [p.y - p.dy, p.y + p.dy] : [p.y]))
+  // A fit's line counts towards the y range where it crosses the x range.
+  for (const s of plot.series) {
+    if (!s.fit) continue
+    for (const x of [Math.min(...xs), Math.max(...xs)]) ys.push(s.fit.slope * x + s.fit.intercept)
   }
-  return String(Number(v.toPrecision(6)))
+  return { x: scaleFor(xs, settings.x, settings.x.log), y: scaleFor(ys, settings.y, settings.y.log) }
+}
+
+/** Below this, or at or above `large`, a value's written with a power of ten: 2×10⁻⁴, 10⁵. */
+const PLAIN_TICKS = { small: 1e-3, large: 1e5 } as const
+
+/** Whether a value is written as plain digits (0.25, 1200), not with a power of ten. */
+const isPlain = (v: number) => v === 0 || (Math.abs(v) >= PLAIN_TICKS.small && Math.abs(v) < PLAIN_TICKS.large)
+
+/** A number's digits, without float noise: 0.30000000000000004 → 0.3. */
+const digits = (v: number) => String(Number(v.toPrecision(6)))
+
+/** A tick's label: plain digits (`0.25`), or, on a log axis, a power of ten (`10⁻³`, `2×10⁻⁴`). */
+export type TickLabel = { plain: string } | { mantissa: string; exp: number }
+
+/**
+ * An axis's tick labels. On a log axis, each is its own power of ten where it
+ * needs one (10⁻³, 10⁻², 10⁻¹). On a linear axis, either every tick is plain
+ * digits, or, if any would need a power of ten (0.0002, 0.0016), the axis has
+ * one for them all, `power`, said once in its label (`d [10⁻³ m]`), and the
+ * ticks are 0.2, 0.4, …, 1.6: never a mix, or a power under every tick.
+ */
+export function axisTicks(s: Scale, log: boolean): { labels: TickLabel[]; power?: number } {
+  if (log) {
+    return {
+      labels: s.ticks.map((v) => {
+        if (isPlain(v)) return { plain: digits(v) }
+        const [m, e] = v.toExponential(2).split('e')
+        return { mantissa: String(Number(m)), exp: Number(e) }
+      }),
+    }
+  }
+  if (s.ticks.every(isPlain)) return { labels: s.ticks.map((v) => ({ plain: digits(v) })) }
+  const largest = Math.max(...s.ticks.map(Math.abs))
+  const power = Math.floor(Math.log10(largest))
+  return { labels: s.ticks.map((v) => ({ plain: digits(v / 10 ** power) })), power }
+}
+
+/** A tick's label as text: `0.25`, `10⁻³`, `2×10⁻⁴`. */
+export function tickLabelText(t: TickLabel): string {
+  if ('plain' in t) return t.plain
+  return t.mantissa === '1' ? `10${superscript(t.exp)}` : `${t.mantissa}×10${superscript(t.exp)}`
+}
+
+/** A tick's label as LaTeX: `$0.25$`, `$10^{-3}$`, `$2\times10^{-4}$`. */
+export function tickLabelTex(t: TickLabel): string {
+  if ('plain' in t) return `$${t.plain}$`
+  return `$${t.mantissa === '1' ? '' : `${t.mantissa}\\times`}10^{${t.exp}}$`
 }
 
 // ---------------------------------------------------------------------------
@@ -252,9 +306,15 @@ export function unitText(unit: string): string {
     .replace(/[A-Za-z]+/g, (w) => UNIT_LOOKS[w]?.text ?? (w.length > 1 && w.startsWith('u') && w !== 'u' ? `µ${w.slice(1)}` : w))
 }
 
-/** An axis's label: its name and unit, `t [s]`, or just the unit for a shared y axis. */
-function axisLabel(a: PlotAxis): string {
-  const unit = a.unit ? ` [${escapeXml(unitText(a.unit))}]` : ''
+/**
+ * An axis's label: its name and unit, `t [s]`, or just the unit for a shared y
+ * axis; with the power of ten its ticks are in, if they share one (axisTicks):
+ * `d [10⁻³ m]`, or `y [×10⁻³]` with no unit.
+ */
+function axisLabel(a: PlotAxis, power?: number): string {
+  const scale = power === undefined ? '' : `10${superscript(power)}`
+  const inside = [scale, a.unit ? unitText(a.unit) : ''].filter(Boolean).join(' ')
+  const unit = inside ? ` [${escapeXml(a.unit ? inside : `×${inside}`)}]` : ''
   const name = nameSvg(a)
   return name ? `${name}${unit}` : unit.trim()
 }
@@ -307,16 +367,7 @@ export function plotSvg(plot: PlotData, palette: PlotPalette): string {
   const { settings } = plot
   // (Error bars, and the room the axes make for them, only if the plot's settings show uncertainties.)
   const bars = settings.uncertainty !== false
-  const all = plot.series.flatMap((s) => s.points)
-  const xs = all.flatMap((p) => (bars && p.dx ? [p.x - p.dx, p.x + p.dx] : [p.x]))
-  const ys = all.flatMap((p) => (bars && p.dy ? [p.y - p.dy, p.y + p.dy] : [p.y]))
-  // A fit's line counts towards the y range where it crosses the x range.
-  for (const s of plot.series) {
-    if (!s.fit) continue
-    for (const x of [Math.min(...xs), Math.max(...xs)]) ys.push(s.fit.slope * x + s.fit.intercept)
-  }
-  const sx = scaleFor(xs, settings.x, settings.x.log)
-  const sy = scaleFor(ys, settings.y, settings.y.log)
+  const { x: sx, y: sy } = plotScales(plot)
 
   const { width, height } = PLOT_SIZE
   const legend = plot.series.length > 1
@@ -339,21 +390,23 @@ export function plotSvg(plot: PlotData, palette: PlotPalette): string {
   if (settings.title) out.push(`<text x="${margin.left + w / 2}" y="24" text-anchor="middle" font-size="16">${escapeXml(settings.title)}</text>`)
 
   // Grid and ticks.
-  for (const t of sx.ticks) {
+  const xTicks = axisTicks(sx, settings.x.log)
+  const yTicks = axisTicks(sy, settings.y.log)
+  sx.ticks.forEach((t, i) => {
     const x = f(X(t))
     out.push(`<line x1="${x}" y1="${margin.top}" x2="${x}" y2="${margin.top + h}" stroke="${palette.grid}" stroke-width="1"/>`)
-    out.push(`<text x="${x}" y="${margin.top + h + 18}" text-anchor="middle" font-size="12" fill="${palette.muted}">${escapeXml(tickLabel(t))}</text>`)
-  }
-  for (const t of sy.ticks) {
+    out.push(`<text x="${x}" y="${margin.top + h + 18}" text-anchor="middle" font-size="12" fill="${palette.muted}">${escapeXml(tickLabelText(xTicks.labels[i]))}</text>`)
+  })
+  sy.ticks.forEach((t, i) => {
     const y = f(Y(t))
     out.push(`<line x1="${margin.left}" y1="${y}" x2="${margin.left + w}" y2="${y}" stroke="${palette.grid}" stroke-width="1"/>`)
-    out.push(`<text x="${margin.left - 8}" y="${y}" dy="0.35em" text-anchor="end" font-size="12" fill="${palette.muted}">${escapeXml(tickLabel(t))}</text>`)
-  }
+    out.push(`<text x="${margin.left - 8}" y="${y}" dy="0.35em" text-anchor="end" font-size="12" fill="${palette.muted}">${escapeXml(tickLabelText(yTicks.labels[i]))}</text>`)
+  })
   out.push(`<rect x="${margin.left}" y="${margin.top}" width="${w}" height="${h}" fill="none" stroke="${palette.muted}" stroke-width="1"/>`)
 
   // Axis labels.
-  out.push(`<text x="${margin.left + w / 2}" y="${height - 12}" text-anchor="middle">${axisLabel(plot.x)}</text>`)
-  out.push(`<text transform="translate(18 ${margin.top + h / 2}) rotate(-90)" text-anchor="middle">${axisLabel(plot.y)}</text>`)
+  out.push(`<text x="${margin.left + w / 2}" y="${height - 12}" text-anchor="middle">${axisLabel(plot.x, xTicks.power)}</text>`)
+  out.push(`<text transform="translate(18 ${margin.top + h / 2}) rotate(-90)" text-anchor="middle">${axisLabel(plot.y, yTicks.power)}</text>`)
 
   // The series: fit lines, error bars, lines, points.
   out.push(`<g clip-path="url(#${clip})">`)

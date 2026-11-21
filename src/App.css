@@ -682,6 +682,18 @@ body {
   height: auto;
 }
 
+/* A plot's fit equations: centred under it, as in the exports */
+.calc__row--centred {
+  justify-content: center;
+}
+
+.calc__row--centred .math,
+.calc__row--centred .katex-display,
+.calc__row--centred .katex-display > .katex {
+  flex: 0 1 auto;
+  text-align: center;
+}
+
 /* Working from inside a function call, shown above the line that calls it */
 .calc__trace {
   padding-left: 10px;

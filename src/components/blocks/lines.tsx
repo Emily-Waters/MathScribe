@@ -75,7 +75,8 @@ export function CalcView({ block }: { block: CalcBlock }) {
       )}
       {block.plot && <PlotView plot={block.plot} />}
       {(block.tex || !block.plot) && (
-        <div className="calc__row">
+        // (A plot's fit equations are centred under it, as the plot is.)
+        <div className={`calc__row${block.plot ? ' calc__row--centred' : ''}`}>
           {block.tex
             ? <Tex latex={block.tex} display />
             : <code className="calc__source">{block.source}</code>}

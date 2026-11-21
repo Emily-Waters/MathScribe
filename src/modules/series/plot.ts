@@ -196,9 +196,10 @@ export class PlotForm extends LineForm {
       series,
       settings,
     }
+    // (A weighted fit is two rows already, so it's gathered even on its own. With `equation off`, none is shown.)
+    const shown = settings.equation ? fits : []
     return {
-      // (A weighted fit is two rows already, so it's gathered even on its own.)
-      tex: fits.length > 1 || fits[0]?.includes('\\\\') ? `\\begin{gathered}${fits.join(' \\\\ ')}\\end{gathered}` : fits[0] ?? '',
+      tex: shown.length > 1 || shown[0]?.includes('\\\\') ? `\\begin{gathered}${shown.join(' \\\\ ')}\\end{gathered}` : shown[0] ?? '',
       plot,
       error: rowErrors(errors, (n) => `${n} more`),
       info: points ? undefined : 'Nothing to plot: no row has both an x and a y value.',

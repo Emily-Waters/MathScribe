@@ -12,6 +12,7 @@
  *   y from … to …        the y axis's
  *   log x, log y         a logarithmic axis
  *   uncertainty off      no error bars (a fit still weighs the points by their uncertainties)
+ *   equation off         no fit equation under the plot (its slope and intercept are still variables)
  *   title "Run 1"        a title over the plot
  *
  * The plot's ⚙ button in the editor writes them, so they don't need typing.
@@ -48,11 +49,17 @@ export interface PlotSettings {
   title?: string
   /** Draw each point's uncertainty as error bars (`uncertainty off`: the points alone; a fit still weighs them by it). */
   uncertainty: boolean
+  /** Show a fit's equation (and R²) under the plot (`equation off`: the line alone; its slope and intercept are still variables). */
+  equation: boolean
 }
 
 export const defaultPlotSettings = (): PlotSettings => ({
-  style: PLOT_STYLE.points, fit: PLOT_FIT.none, x: { log: false }, y: { log: false }, uncertainty: true,
+  style: PLOT_STYLE.points, fit: PLOT_FIT.none, x: { log: false }, y: { log: false }, uncertainty: true, equation: true,
 })
+
+/** `equation off`, `equation on`: whether a fit's equation is shown under the plot. */
+const EQUATION_OFF = `${SETTING.equation} ${SETTING.off}`
+const EQUATION_ON = `${SETTING.equation} ${SETTING.on}`
 
 /** The axes, as written in settings: `x from 0 to 2`, `log y`. */
 export const PLOT_AXES = ['x', 'y'] as const
@@ -89,11 +96,13 @@ export function parsePlotSettings(text: string | undefined): { settings: PlotSet
     else if (title !== undefined) s.title = title
     else if (part === UNCERTAINTY_OFF) s.uncertainty = false
     else if (part === UNCERTAINTY_ON) s.uncertainty = true
+    else if (part === EQUATION_OFF) s.equation = false
+    else if (part === EQUATION_ON) s.equation = true
     else {
       return {
         settings: s,
         error: `"${part}" isn't a plot setting: use rows 5-20, style lines (or both), fit linear, `
-          + 'x from 0 to 10, log y, uncertainty off, or title "…". The plot\'s ⚙ button sets them.',
+          + 'x from 0 to 10, log y, uncertainty off, equation off, or title "…". The plot\'s ⚙ button sets them.',
       }
     }
   }
@@ -118,6 +127,7 @@ export function formatPlotSettings(s: PlotSettings): string {
     if (s[axis].log) parts.push(`${SETTING.log} ${axis}`)
   }
   if (!s.uncertainty) parts.push(UNCERTAINTY_OFF)
+  if (!s.equation) parts.push(EQUATION_OFF)
   if (s.title) parts.push(titleSetting(s.title))
   return joinSettings(parts)
 }

@@ -216,6 +216,7 @@ function plotPanel(text: string | undefined, save: (settingsText: string) => voi
     row('Style', choice(PLOT_STYLES, STYLE_NAMES, s.style, (style) => set({ ...s, style }))),
     row('Fit', choice(PLOT_FITS, FIT_NAMES, s.fit, (fit) => set({ ...s, fit }))),
     help('A linear fit shows the line’s equation under the plot, and makes its slope and intercept variables: x_slope, x_intercept.'),
+    row('Show fit equation', checkBox(s.equation, (equation) => set({ ...s, equation }))),
     axis('x'),
     axis('y'),
     help('Leave an axis box empty to fit it to the data. Points outside an axis’s range are left out: of the fit, and of a named plot’s series (p.x).'),

@@ -58,6 +58,7 @@ export const SETTING = {
   fit: 'fit',
   log: 'log',
   title: 'title',
+  equation: 'equation',
   from: 'from',
   to: 'to',
 } as const

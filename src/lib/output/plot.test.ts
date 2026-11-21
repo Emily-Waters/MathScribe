@@ -1,9 +1,9 @@
 /** @plot(): its settings, its linear fit, the engine's plot data, and its drawings. */
 import { describe, expect, it } from 'vitest'
-import { last, value } from '../../test/helpers.ts'
+import { last, lines, value } from '../../test/helpers.ts'
 import { formatPlotSettings, parsePlotSettings } from '../../modules/series/public.ts'
-import { PRINT_PALETTE, linearFit, plotSvg } from './plot.ts'
-import { plotToLatex } from './latexKit.ts'
+import { PRINT_PALETTE, axisTicks, linearFit, plotScales, plotSvg, tickLabelText } from './plot.ts'
+import { centredEquation, plotToLatex } from './latexKit.ts'
 
 const data = 't1 = 0.10 s\nt2 = 0.20 s\nt3 = 0.30 s\nt4 = 0.40 s\n'
   + 'x1 = 0.051 m pm 0.004 m\nx2 = 0.098 m pm 0.004 m\nx3 = 0.152 m pm 0.004 m\nx4 = 0.199 m pm 0.004 m\n'
@@ -144,5 +144,37 @@ describe('@plot()', () => {
     const { settings } = parsePlotSettings('fit linear, uncertainty off')
     expect(settings.uncertainty).toBe(false)
     expect(formatPlotSettings(settings)).toBe('fit linear, uncertainty off')
+  })
+
+  it('shows its fit’s equation centred under it, unless its settings say not (its numbers are still variables)', () => {
+    expect(last(`${data}p = @plot(t, x; fit linear)`).tex).toContain('R^{2}')
+    const hidden = last(`${data}p = @plot(t, x; fit linear, equation off)\ns = p.slope`)
+    expect(hidden.tex).not.toContain('R^{2}')
+    expect(value(`${data}p = @plot(t, x; fit linear, equation off)\ns = p.slope`)).toMatch(/m\/s$/)
+    expect(formatPlotSettings(parsePlotSettings('fit linear, equation off').settings)).toBe('fit linear, equation off')
+    const plot = lines(`${data}@plot(t, x; fit linear)`).at(-1)!
+    expect(centredEquation({ tex: plot.tex })).toMatch(/^\\begin\{center\}\n\$\\displaystyle /)
+  })
+
+  it('has the same axes in LaTeX as drawn, and a fit across the whole of x’s', () => {
+    const plot = last(`${data}@plot(t, x; fit linear)`).plot!
+    const { x } = plotScales(plot)
+    const tex = plotToLatex(plot)
+    expect(tex).toContain(`xmin=${x.from}, xmax=${x.to}`)
+    expect(tex).toContain(`domain=${x.from}:${x.to}`)
+    expect(tex).toContain('xticklabels={$0.05$,$0.1$,$0.15$,')
+    expect(tex).toContain('scaled ticks=false')
+  })
+
+  it('labels an axis’s ticks with one power of ten, said in its label, when they’d need one', () => {
+    const plot = last('t = @series(1 s, 2 s, 3 s, 4 s)\nd = @series(2e-4 m, 5e-4 m, 9e-4 m, 1.6e-3 m)\n@plot(t, d)').plot!
+    const ticks = axisTicks(plotScales(plot).y, false)
+    expect(ticks.power).toBe(-3)
+    expect(ticks.labels.map(tickLabelText)).toEqual(['0', '0.2', '0.4', '0.6', '0.8', '1', '1.2', '1.4', '1.6', '1.8'])
+    expect(plotToLatex(plot)).toContain('ylabel={$d\\,\\left[10^{-3}\\,\\mathrm{m}\\right]$}')
+    expect(plotSvg(plot, PRINT_PALETTE)).toContain('[10⁻³ m]')
+    // (A log axis keeps a power under each tick that needs one.)
+    expect(axisTicks({ from: 1e-3, to: 1, ticks: [1e-3, 1e-2, 0.1, 1], place: () => 0 }, true).labels.map(tickLabelText))
+      .toEqual(['0.001', '0.01', '0.1', '1'])
   })
 })

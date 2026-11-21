@@ -1680,7 +1680,14 @@ renamed, change it there too.
   (`jsonSchema`), published at `public/schema/mathscribe-1.schema.json`; `migrations.ts`: the
   schema's version, and bringing an older tree up to date
 - `src/lib/language/`: MathScribe's language described once, from which what
-  reads it and what documents it are made. `settings.ts`: a call's settings
+  reads it and what documents it are made. `tree.ts`: the language tree, its
+  topics (Basics, Units, …), each a list of entries (a feature: what's said
+  about it, the rules for writing it, whole sheets showing it); `topics.ts`:
+  the core's topics (a module's are its own `language.ts`, given by
+  `EngineModule.languageTopics` and placed among them: `languageTopics()` in
+  `engine/index.ts`). The Reference tab shows the tree, and the tests check
+  every example in it (`tree.test.ts`: it works and is formatted;
+  `golden.test.ts`: its output). `settings.ts`: a call's settings
   (a table's, a plot's), each declared as a kind of `Setting` (a switch, a
   choice, a range of rows, a title, …) in a `SettingsSpec`, which reads them,
   writes them back, lists them in its error and makes their ⚙ controls;
@@ -1719,8 +1726,7 @@ renamed, change it there too.
   loads); `src/lib/constants.ts`: the physics constants' values
 - `src/lib/content/library.ts`: the equations in the Library tab (each tested with its
   example); `src/components/LibraryPane.tsx`: the tab
-- `src/lib/content/reference.ts`: the examples shown in the Reference tab;
-  `src/lib/content/sample.ts`: the example sheet shown the first time
+- `src/lib/content/sample.ts`: the example sheet shown the first time
 - `*.test.ts` beside the code they test; `src/test/helpers.ts`: shared test
   helpers (evaluate a sheet, read a result as plain text)
 - `src/lib/data/files.ts`, `src/useSheets.ts`: the open sheets (tabs), opening, saving,

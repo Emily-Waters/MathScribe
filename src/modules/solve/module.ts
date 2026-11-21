@@ -9,8 +9,15 @@ import { EngineModule, type LineForm, LineFormMember, type Member } from '../../
 import { SOLVE_FUNCTION } from './syntax.ts'
 import { SolveForm } from './solve.ts'
 import { SolveSystemForm } from './system.ts'
+import { SOLVE_TOPICS } from './language.ts'
+import type { PlacedTopic } from '../../lib/plugin.ts'
 
 export class SolveModule extends EngineModule {
+  /** Its topics of the language tree: what's said about its features, with examples the tests check (language.ts). */
+  override languageTopics(): readonly PlacedTopic[] {
+    return SOLVE_TOPICS
+  }
+
   override readonly lineForms: readonly LineForm[] = [new SolveSystemForm(), new SolveForm()]
 
   override builtinMembers(): Member[] {

@@ -21,11 +21,18 @@ import { ReactionForm } from './reaction.ts'
 import { SubstanceForm, Substances } from './substance.ts'
 import { ReactionLineReader, SpeciesReader } from './readers.ts'
 import { ANY_SPECIES_FUNCTION, SPECIES_DISPLAY, SPECIES_DISPLAYS, SPECIES_FUNCTION, type SpeciesDisplay } from './syntax.ts'
+import { CHEMISTRY_TOPICS } from './language.ts'
+import type { PlacedTopic } from '../../lib/plugin.ts'
 
 /** Whether a setting on an assigned name says how its line's named species are shown (`m:formula`). */
 const isSpeciesDisplay = (setting: string): setting is SpeciesDisplay => (SPECIES_DISPLAYS as readonly string[]).includes(setting)
 
 export class ChemistryModule extends EngineModule implements ReadsLines {
+  /** Its topics of the language tree: what's said about its features, with examples the tests check (language.ts). */
+  override languageTopics(): readonly PlacedTopic[] {
+    return CHEMISTRY_TOPICS
+  }
+
   /** The species the sheet names (`@chem.species { dietzeite = {…} }`), named before anything else is worked out. */
   readonly names = new SpeciesNames()
 

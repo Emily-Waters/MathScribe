@@ -24,6 +24,7 @@ import type { PartWriter } from './writer.ts'
 import type { BuiltinConstant, NamespaceConstant } from '../../constants.ts'
 import type { Contributions, Variable, VariableFields } from '../../sheet/values.ts'
 import type { SettingsDescription } from '../../language/settings.ts'
+import type { PlacedTopic } from '../../language/tree.ts'
 import type { DisplayMode, Notation, Precision } from '../../syntax.ts'
 import type { formatWithUncertainty } from '../../maths/sigfigs.ts'
 import type { LineResult, ParsedLine } from './results.ts'
@@ -436,6 +437,17 @@ export abstract class EngineModule {
     return []
   }
 
+  /**
+   * Its topics of the language tree (lib/language/tree.ts): each of its
+   * features, what's said about it, the rules for writing it, and whole sheets
+   * showing it, each placed after the core's topic it follows. The Reference tab,
+   * the AI primer and the docs are made from the tree, and the tests check
+   * every example in it.
+   */
+  languageTopics(): readonly PlacedTopic[] {
+    return []
+  }
+
   // =========================================================================
   // Per sheet: called on the sheet's own module, which keeps the sheet's state
   // =========================================================================
@@ -652,6 +664,9 @@ export const moduleBlockKind = (type: string): ModuleBlockKind | undefined =>
 
 /** What the modules add to the editor. */
 export const moduleEditorExtensions = (): Extension[] => shared().flatMap((m) => [...m.editorExtensions()])
+
+/** Every installed module's topics of the language tree, in the order the modules are installed (EngineModule.languageTopics). */
+export const moduleLanguageTopics = (): PlacedTopic[] => shared().flatMap((m) => [...m.languageTopics()])
 
 /** Every installed module's calls' settings, described (EngineModule.settingsDescriptions). */
 export const moduleSettingsDescriptions = (): SettingsDescription[] => shared().flatMap((m) => [...m.settingsDescriptions()])

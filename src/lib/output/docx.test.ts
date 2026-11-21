@@ -5,7 +5,8 @@ import { docxParts, toDocx } from './docx.ts'
 import { DEFAULT_LATEX_OPTIONS, type LatexOptions } from './latex.ts'
 import { parseXml, texToOmml } from './omml.ts'
 import { SAMPLE } from '../content/sample.ts'
-import { REFERENCE } from '../content/reference.ts'
+import { languageTopics } from '../engine/index.ts'
+import { treeExamples } from '../language/tree.ts'
 import { BLOCK_KIND } from '../sheet/blocks.ts'
 
 describe('plots', () => {
@@ -80,7 +81,7 @@ const exportOf = (src: string, o: Partial<LatexOptions> = {}) =>
 
 describe('the Word export', () => {
   it('writes well-formed XML for every part, for every example sheet', () => {
-    for (const src of [SAMPLE, ...REFERENCE.flatMap((s) => s.examples.map((e) => e.source))]) {
+    for (const src of [SAMPLE, ...treeExamples(languageTopics()).map(({ example }) => example.source)]) {
       for (const [path, xml] of Object.entries(exportOf(src))) {
         expect(() => parseXml(xml), `${path} for:\n${src}`).not.toThrow()
       }

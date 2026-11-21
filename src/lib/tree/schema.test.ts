@@ -1,9 +1,9 @@
 /** The schema, described: the listing (introspect) and the JSON Schema, made from what's declared. */
 import { describe, expect, it } from 'vitest'
 import { SAMPLE } from '../content/sample.ts'
-import { REFERENCE } from '../content/reference.ts'
+import { treeExamples } from '../language/tree.ts'
 // (The engine installs its modules as it loads: their kinds are then the schema's.)
-import '../engine/index.ts'
+import { languageTopics } from '../engine/index.ts'
 import { CHEM_NODE } from '../../modules/chemistry/grammar.ts'
 import { GRAMMAR_CORE } from './grammar.ts'
 import { NODE_KIND, SCHEMA, TOKEN_KIND, encode, introspect, jsonSchema, schemaId, treeProblems } from './index.ts'
@@ -38,7 +38,7 @@ function matches(value: unknown, schema: Schema, root: Schema): boolean {
   return true
 }
 
-const SHEETS = [SAMPLE, ...REFERENCE.flatMap((s) => s.examples.map((e) => e.source)), '@chem.species {\n  w = {H2O}\n}\n{2 H2 + O2 -> 2 H2O}']
+const SHEETS = [SAMPLE, ...treeExamples(languageTopics()).map(({ example }) => example.source), '@chem.species {\n  w = {H2O}\n}\n{2 H2 + O2 -> 2 H2O}']
 
 describe('the JSON Schema', () => {
   const schema = jsonSchema() as Schema

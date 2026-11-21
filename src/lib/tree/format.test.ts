@@ -1,7 +1,8 @@
 /** Formatting a sheet: only whitespace and trailing commas change, never what it says. */
 import { describe, expect, it } from 'vitest'
 import { SAMPLE } from '../content/sample.ts'
-import { REFERENCE } from '../content/reference.ts'
+import { languageTopics } from '../engine/index.ts'
+import { treeExamples } from '../language/tree.ts'
 import { LIBRARY } from '../content/library.ts'
 import { NODE_KIND, encode, formatSheet, isBlockKind, isToken, splitLines, type SyntaxNode } from './index.ts'
 import { lines } from '../../test/helpers.ts'
@@ -9,7 +10,7 @@ import { lines } from '../../test/helpers.ts'
 /** Sheets as written: the sample, every Reference example and every Library entry. */
 const SHEETS: string[] = [
   SAMPLE,
-  ...REFERENCE.flatMap((s) => s.examples.map((e) => e.source)),
+  ...treeExamples(languageTopics()).map(({ example }) => example.source),
   ...LIBRARY.flatMap((t) => t.entries.map((e) => e.source)),
 ]
 

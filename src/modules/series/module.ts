@@ -22,6 +22,8 @@ import { tableMenu } from './tableMenu.ts'
 import { memberLabelsExtension } from './memberLabels.ts'
 import { TABLE_SETTINGS } from './tableSettings.ts'
 import { PLOT_SETTINGS } from './plotSettings.ts'
+import { SERIES_TOPICS } from './language.ts'
+import type { PlacedTopic } from '../../lib/plugin.ts'
 
 /** The series module's kinds of block (one object, as blockKinds asks). */
 const SERIES_BLOCK_KINDS: Readonly<Record<string, ModuleBlockKind>> = {
@@ -34,6 +36,11 @@ const SERIES_BLOCK_KINDS: Readonly<Record<string, ModuleBlockKind>> = {
 }
 
 export class SeriesModule extends EngineModule {
+  /** Its topics of the language tree: what's said about its features, with examples the tests check (language.ts). */
+  override languageTopics(): readonly PlacedTopic[] {
+    return SERIES_TOPICS
+  }
+
   override readonly lineForms: readonly LineForm[] = [new TableForm(), new PlotForm(), new SelectForm(), new SeriesForm()]
 
   /** Its part of a sheet's tree: a call's settings after its `;`, as one token. */

@@ -5,7 +5,8 @@
  * recording with `npx vitest run -u`.
  */
 import { describe, expect, it } from 'vitest'
-import { REFERENCE } from './content/reference.ts'
+import { languageTopics } from './engine/index.ts'
+import { treeExamples } from './language/tree.ts'
 import { SAMPLE } from './content/sample.ts'
 import { toLatexDocument } from './output/latex.ts'
 import { lines, readable, sheet } from '../test/helpers.ts'
@@ -69,13 +70,12 @@ describe('golden sheets', () => {
 })
 
 describe('the Reference tab’s examples', () => {
-  for (const section of REFERENCE) {
-    for (const example of section.examples) {
-      it(`${section.title}: ${example.source.split('\n')[0]}`, () => {
-        const out = render(example.source)
-        expect(out).not.toMatch(/ERROR/)
-        expect(out).toMatchSnapshot()
-      })
-    }
+  // (Every example in the language tree: lib/language/tree.ts.)
+  for (const { topic, example } of treeExamples(languageTopics())) {
+    it(`${topic.title}: ${example.source.split('\n')[0]}`, () => {
+      const out = render(example.source)
+      expect(out).not.toMatch(/ERROR/)
+      expect(out).toMatchSnapshot()
+    })
   }
 })

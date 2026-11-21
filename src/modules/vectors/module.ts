@@ -18,6 +18,8 @@ import {
   COMPONENTS_SETTING, UNIT_VECTOR_SETTING, UNIT_VECTOR_TEX, VECTOR_BRACKETS, VECTOR_CALL, VECTOR_FUNCTION, VECTOR_LOOK, VECTOR_LOOKS,
   VECTOR_PRODUCTS, VECTOR_SETTINGS, type VectorLook,
 } from './syntax.ts'
+import { VECTOR_TOPICS } from './language.ts'
+import type { PlacedTopic } from '../../lib/plugin.ts'
 
 /** Whether a look is a vector's. */
 const isVectorLook = (look: TupleLook | undefined): look is VectorLook => (VECTOR_LOOKS as readonly (string | undefined)[]).includes(look)
@@ -39,6 +41,11 @@ class VectorFunction extends FunctionMember {
 }
 
 export class VectorModule extends EngineModule {
+  /** Its topics of the language tree: what's said about its features, with examples the tests check (language.ts). */
+  override languageTopics(): readonly PlacedTopic[] {
+    return VECTOR_TOPICS
+  }
+
   // -------------------------------------------------------------------------
   // Shared
   // -------------------------------------------------------------------------

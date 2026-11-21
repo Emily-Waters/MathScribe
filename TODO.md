@@ -1322,8 +1322,32 @@ into its own file (`docs/REFERENCE.md`), not into the README.
       example named "rows, style, fit, axes and title", out of date since the
       legend, and now points to the section). Tests: the primer lists every
       declared setting's examples, and the Markdown is as expected.
-- [ ] **Step 3: the rest of the language**, area by area: commands,
-      calculations, uncertainty, series, chemistry, layout.
+- [ ] **Step 3: the rest of the language, in one tree**, area by area:
+      commands, calculations, uncertainty, series, chemistry, layout. Agreed
+      with Emily (2026-11-21): the references, tooltips and AI primer all from
+      one tree, which the tests walk, so an example that's no longer valid is
+      caught; an entry's rules shown in both the Reference and the primer.
+   - [x] **Part 1: the tree, its tests, and the Reference's examples in it.**
+         Resolved (2026-11-21): `lib/language/tree.ts`, the tree: topics, each
+         a list of entries (what's said, rules, whole-sheet examples); the
+         core's topics in `topics.ts`, each module's in its own `language.ts`
+         (`EngineModule.languageTopics`, each placed after the core topic it
+         follows), put together by `languageTopics()`. The Reference tab shows
+         it (an entry's rules as a list under it), and `content/reference.ts` is
+         gone, its 72 examples converted into the tree mechanically (the series,
+         vectors, chemistry and solving ones into their modules). Every test
+         that read them (golden, Word, format, schema, round trip) now walks the
+         tree; the golden snapshots are unchanged. `tree.test.ts` checks every
+         example has no errors (and no warnings unless it says it warns) and is
+         written as the formatter writes it, which found two indented by 2
+         spaces, not 4, and one that warns on purpose (`L = 300 m`, now marked).
+   - [ ] **Part 2: settings as entries**, through their specs.
+   - [ ] **Part 3: the AI primer from the tree**: its rules and snippets become
+         entries' rules and examples, the old and new compared before switching.
+   - [ ] **Part 4: editor hovers and completions from the tree** (`#`
+         commands, keywords, settings words), in place of `vocabulary.ts`'s
+         copies; and a test that every declared command, setting and `@`
+         member has an entry.
 - [ ] **Step 4: `docs/REFERENCE.md`**, generated, with a test that fails when
       the checked-in file is out of date.
 

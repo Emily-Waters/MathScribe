@@ -2,8 +2,7 @@ import { useMemo, useRef, type RefObject } from 'react'
 import { EXAMPLE_CALC_OPTIONS } from '../config.ts'
 import { evaluateSheetSafely } from '../lib/sheet/document.ts'
 import { BUILTIN_CONSTANTS } from '../lib/constants.ts'
-import { REFERENCE } from '../lib/content/reference.ts'
-import { moduleSettingsDescriptions } from '../lib/engine/index.ts'
+import { languageTopics, moduleSettingsDescriptions } from '../lib/engine/index.ts'
 import { settingsCallExample, valuesText } from '../lib/language/reference.ts'
 import { SIGIL } from '../lib/syntax.ts'
 import { copyText, useFlash } from '../useFlash.ts'
@@ -16,14 +15,18 @@ const BUILTINS_ID = 'builtins'
 const SETTINGS_ID = 'settings'
 
 /**
- * The Reference tab: each example's source beside its live output.
+ * The Reference tab: the language tree (lib/language/tree.ts), each topic's
+ * entries with their rules, and each example's source beside its live output.
  * Clicking a source copies it, ready to paste into the sheet.
  */
 export function ReferencePane() {
   // Evaluated once, when the tab is first opened.
-  const rendered = useMemo(() => REFERENCE.map((section) => ({
-    ...section,
-    examples: section.examples.map((ex) => ({ ...ex, blocks: evaluateSheetSafely(ex.source, EXAMPLE_CALC_OPTIONS).blocks })),
+  const rendered = useMemo(() => languageTopics().map((topic) => ({
+    ...topic,
+    entries: topic.entries.map((entry) => ({
+      ...entry,
+      examples: entry.examples.map((ex) => ({ ...ex, blocks: evaluateSheetSafely(ex.source, EXAMPLE_CALC_OPTIONS).blocks })),
+    })),
   })), [])
   // Tables' and plots' settings, listed from their declarations (lib/language: the same the AI primer lists).
   const settings = useMemo(() => moduleSettingsDescriptions(), [])
@@ -43,10 +46,16 @@ export function ReferencePane() {
       {rendered.map((s) => (
         <section key={s.id} id={`ref-${s.id}`} className="ref__section">
           <h3 className="doc__heading doc__heading--section">{s.title}</h3>
-          {s.examples.map((ex) => (
-            <div key={ex.source} className="ref__example">
-              <p className="ref__explain">{ex.explain}</p>
-              <div className="ref__pair">
+          {s.entries.map((entry) => (
+            <div key={entry.explain} className="ref__example">
+              <p className="ref__explain">{entry.explain}</p>
+              {entry.rules && (
+                <ul className="ref__rules">
+                  {entry.rules.map((rule) => <li key={rule}>{rule}</li>)}
+                </ul>
+              )}
+              {entry.examples.map((ex) => (
+              <div key={ex.source} className="ref__pair">
                 <button
                   className="ref__source"
                   title="Copy to clipboard"
@@ -59,6 +68,7 @@ export function ReferencePane() {
                   {ex.blocks.map((b) => <RenderedBlock key={`${b.line}-${b.kind}`} block={b} />)}
                 </div>
               </div>
+              ))}
             </div>
           ))}
         </section>

@@ -1,7 +1,7 @@
 /** A sheet as a tree: text → tree → text exactly, through JSON too; its kinds declared; its lines cached. */
 import { describe, expect, it } from 'vitest'
 import { SAMPLE } from '../content/sample.ts'
-import { REFERENCE } from '../content/reference.ts'
+import { treeExamples } from '../language/tree.ts'
 import { LIBRARY } from '../content/library.ts'
 import {
   NODE_KIND, SCHEMA, TOKEN_KIND, declareNodeKinds, isBlockKind, declaredNodeKinds, decode, encode, isCallKind, isSheetTree, isToken, schemaId, splitLines,
@@ -12,7 +12,7 @@ import { clearLineCache, notedOf } from './lines.ts'
 import { splitNote } from '../syntax.ts'
 import { CHEM_NODE } from '../../modules/chemistry/grammar.ts'
 // (The engine installs its modules as it loads: chemistry's kinds of line are then the tree's.)
-import '../engine/index.ts'
+import { languageTopics } from '../engine/index.ts'
 
 /** Text → tree → text, and text → tree → JSON → tree → text. */
 const roundTrips = (source: string) => {
@@ -24,7 +24,7 @@ const roundTrips = (source: string) => {
 /** Sheets as written: the sample, every Reference example and every Library entry. */
 const SHEETS: [string, string][] = [
   ['the sample sheet', SAMPLE],
-  ...REFERENCE.flatMap((s) => s.examples.map((e, i): [string, string] => [`${s.title} ${i + 1}`, e.source])),
+  ...treeExamples(languageTopics()).map(({ topic, entry, example }): [string, string] => [`${topic.title} ${entry}`, example.source]),
   ...LIBRARY.flatMap((t) => t.entries.map((e): [string, string] => [`${t.title}: ${e.source.slice(0, 30)}`, e.source])),
 ]
 

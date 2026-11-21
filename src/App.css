@@ -1014,6 +1014,14 @@ body {
   color: var(--muted);
 }
 
+/* An entry's rules for writing it, in the Reference */
+.ref__rules {
+  margin: 0 0 6px;
+  padding-left: 20px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
 /* A setting as it's written, in the settings' table: each way on a line of its own */
 .ref__setting {
   display: block;

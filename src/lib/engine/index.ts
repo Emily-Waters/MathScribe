@@ -19,8 +19,19 @@ export { outsideMaths, wordsTex } from './core/text.ts'
 export { bareTuple } from './core/tuples.ts'
 export { expandNamespaceCalls } from './core/builtinCalls.ts'
 export {
-  EngineModule, LineForm, markupText, moduleBlockKind, registerModules, sheetModules, moduleEditorExtensions, modulePreamble, moduleSettingsDescriptions, moduleSettingWords, moduleSubscriptTex,
+  EngineModule, LineForm, markupText, moduleBlockKind, registerModules, sheetModules, moduleEditorExtensions, moduleLanguageTopics, modulePreamble, moduleSettingsDescriptions, moduleSettingWords, moduleSubscriptTex,
   type ModuleBlockKind, type ModuleHost,
 } from './core/module.ts'
 // (What the rest of MathScribe may use of a module itself is the module's own `public.ts`:
 // modules/series/public.ts. It's imported from there, not through here, so it needn't load the engine.)
+
+import { moduleLanguageTopics } from './core/module.ts'
+import { CORE_TOPICS } from '../language/topics.ts'
+import { languageTree } from '../language/tree.ts'
+
+/**
+ * MathScribe's language as one tree, in order: the core's topics and every
+ * installed module's (lib/language/tree.ts), from which the Reference tab, the
+ * AI primer and the docs are made, and whose every example the tests check.
+ */
+export const languageTopics = () => languageTree(CORE_TOPICS, moduleLanguageTopics())

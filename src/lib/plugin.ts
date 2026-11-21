@@ -28,6 +28,8 @@ export {
   formatRowRange, joinSettings, parseRowRange, parseTitle, settingParts, titleSetting, type KeysOf, type SettingAbout,
   type SettingDescription, type SettingsDescription, type SettingsPanel, type SettingsState, type SettingValue,
 } from './language/settings.ts'
+// (The language tree's topics: what a module says about its features, with examples the tests check.)
+export type { LanguageEntry, LanguageExample, LanguageTopic, PlacedTopic } from './language/tree.ts'
 
 // The module itself, and what the engine offers it.
 export {

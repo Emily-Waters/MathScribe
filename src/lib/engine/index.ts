@@ -8,8 +8,8 @@
 
 export { Calculator } from './core/calculator.ts'
 export {
-  AUTO_PRECISION, unexpectedError,
-  type CalcOptions, type CalcResult, type DataColumn, type Definition, type LineNotation, type LineValue,
+  AUTO_PRECISION, UNCERTAINTY_WORKING, unexpectedError,
+  type CalcOptions, type UncertaintyWorking, type CalcResult, type DataColumn, type Definition, type LineNotation, type LineValue,
   type TraceLine,
 } from './core/results.ts'
 export { describeUnit, isUnitName, unitNames, withMicroPrefix } from './core/literals.ts'

@@ -1,4 +1,4 @@
-import { AUTO_PRECISION, type CalcOptions } from '../lib/engine/index.ts'
+import { AUTO_PRECISION, UNCERTAINTY_WORKING, type CalcOptions, type UncertaintyWorking } from '../lib/engine/index.ts'
 import { Dropdown } from './Dropdown.tsx'
 
 interface OptionsMenuProps {
@@ -36,6 +36,21 @@ export function OptionsMenu({ options, onChange, hidden }: OptionsMenuProps) {
         <span>Show substitution</span>
       </label>
       <p className="options__help">Include the step with values put in for the variables.</p>
+
+      <label className="options__row">
+        <span>Uncertainty working</span>
+        <select
+          value={options.uncertaintyWorking ?? UNCERTAINTY_WORKING.derivatives}
+          onChange={(e) => onChange({ ...options, uncertaintyWorking: e.target.value as UncertaintyWorking })}
+        >
+          <option value={UNCERTAINTY_WORKING.derivatives}>Partial derivatives</option>
+          <option value={UNCERTAINTY_WORKING.relative}>Relative</option>
+        </select>
+      </label>
+      <p className="options__help">
+        How δF is worked out on the page; the result is the same. Relative: products and quotients
+        as δY = Y√((δA/A)² + (δB/B)²), sums as δY = √(δA² + δB²); any other formula by derivatives.
+      </p>
 
       <label className="options__row">
         <input

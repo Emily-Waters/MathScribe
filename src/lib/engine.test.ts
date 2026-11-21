@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { last, lineAt, lines, readable, sheet, shown, value } from '../test/helpers.ts'
-import { bareTuple, symbolTex } from './engine/index.ts'
+import { UNCERTAINTY_WORKING, bareTuple, symbolTex } from './engine/index.ts'
 
 describe('basic calculation', () => {
   it('substitutes values and tidies the unit', () => {
@@ -151,6 +151,32 @@ describe('uncertainty', () => {
 
   it('accepts a percentage uncertainty', () => {
     expect(shown('m = 2.00 kg pm 2%')).toBe('m = 2.00 kg ± 2%')
+  })
+
+  describe('worked relatively, when asked', () => {
+    const head = 'A = 2.00 m pm 0.02 m\nB = 3.0 s pm 0.1 s\nC = 4.00 kg pm 0.05 kg\nD = 1.50 m pm 0.03 m\n'
+    const relative = { uncertaintyWorking: UNCERTAINTY_WORKING.relative }
+    const both = (formula: string) => [shown(`${head}${formula}\ndelta Y`), shown(`${head}${formula}\ndelta Y`, relative)]
+
+    it('writes a product or quotient’s as Y times its inputs’ relative uncertainties, each times its power', () => {
+      const [derivatives, worked] = both('Y = A * B / C')
+      expect(worked).toBe('\\delta Y = Y \\sqrt(\\frac\\delta AA)^2 + (\\frac\\delta BB)^2 + (\\frac\\delta CC)^2 = 1.50 m· s/kg \\times '
+        + '\\sqrt(\\frac0.02 m2.00 m)^2 + (\\frac0.1 s3.0 s)^2 + (\\frac0.05 kg4.00 kg)^2 = 0.06 m· s/kg')
+      // (The same result: only the working differs.)
+      expect(worked.split(' = ').at(-1)).toBe(derivatives.split(' = ').at(-1))
+      expect(shown(`${head}Y = 4 * pi^2 * A / B^2\ndelta Y`, relative)).toContain('(2 \\frac\\delta BB)^2')
+      expect(shown(`${head}Y = sqrt(A / C)\ndelta Y`, relative)).toContain('(\\frac12 \\frac\\delta AA)^2')
+    })
+
+    it('writes a sum or difference’s as its inputs’ uncertainties in quadrature', () => {
+      expect(shown(`${head}Y = A - D + 1.00 m\ndelta Y`, relative)).toBe('\\delta Y = \\sqrt(\\delta A)^2 + (\\delta D)^2 = \\sqrt(0.02 m)^2 + (0.03 m)^2 = 0.04 m')
+    })
+
+    it('writes any other formula’s by derivatives', () => {
+      const [derivatives, worked] = both('Y = (A + D) / C')
+      expect(worked).toBe(derivatives)
+      expect(worked).toContain('\\partial')
+    })
   })
 })
 

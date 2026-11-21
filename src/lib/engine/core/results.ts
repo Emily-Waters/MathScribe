@@ -1,6 +1,6 @@
 /** What evaluating a line gives back, and how its equation is laid out. */
 import { type MathNode } from 'mathjs'
-import { PERCENT, KEYWORD, DISPLAY_MODE, SIGIL, type DisplayMode, type Notation, type Precision } from '../../syntax.ts'
+import { PERCENT, KEYWORD, DISPLAY_MODE, SIGIL, words, type DisplayMode, type Notation, type Precision, type WordOf } from '../../syntax.ts'
 import { FIT, seriesMemberName } from '../../sheet/names.ts'
 import { FunctionMember, builtinAt } from '../../builtins.ts'
 import type { PlotData } from '../../output/plot.ts'
@@ -37,7 +37,21 @@ export interface CalcOptions {
    * numbers and units apart (2.0 kg × 9.81 m/s²).
    */
   productDots?: boolean
+  /** How `delta F`'s working is written (UNCERTAINTY_WORKING): by partial derivatives (the default), or relatively. */
+  uncertaintyWorking?: UncertaintyWorking
 }
+
+/**
+ * How `delta F`'s working is written. The result is the same either way (each
+ * is first-order propagation in quadrature); only the working differs:
+ *
+ *   derivatives   δY = √((∂Y/∂A · δA)² + (∂Y/∂B · δB)² + …), for any formula
+ *   relative      δY = Y √((δA/A)² + (n δB/B)² + …) for products, quotients and
+ *                 powers, and δY = √(δA² + δB²) for sums and differences, as
+ *                 it's often taught; any other formula as by derivatives
+ */
+export const UNCERTAINTY_WORKING = words({ derivatives: 'derivatives', relative: 'relative' })
+export type UncertaintyWorking = WordOf<typeof UNCERTAINTY_WORKING>
 
 /** The pieces of an equation, put together by layoutEquation. */
 export interface EquationParts {

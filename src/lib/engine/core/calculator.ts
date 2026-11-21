@@ -29,7 +29,7 @@ import {
 import { strayLineFormCall } from './builtinCalls.ts'
 import { BUILTIN_CONSTANT_NAMES } from './literals.ts'
 import { preprocess, typedNumbers } from './writer.ts'
-import { AUTO_PRECISION, ExplainedError, builtinCallHint, FIXED_UNCERTAINTY_SIG_FIGS, type CalcOptions, type EquationParts, layoutEquation, type TraceLine, type CalcResult, unexpectedError, fitHint, type DataColumn, type LineNotation, type LineResult, type ParsedLine, TO_PERCENT, RAW, rawNode, readableUnitError } from './results.ts'
+import { AUTO_PRECISION, UNCERTAINTY_WORKING, ExplainedError, builtinCallHint, FIXED_UNCERTAINTY_SIG_FIGS, type CalcOptions, type EquationParts, layoutEquation, type TraceLine, type CalcResult, unexpectedError, fitHint, type DataColumn, type LineNotation, type LineResult, type ParsedLine, TO_PERCENT, RAW, rawNode, readableUnitError } from './results.ts'
 import { NAME_THEN_SETTINGS, expandParenPm, splitPm } from './uncertainty.ts'
 import { symbolTex, numberTex, unitTex, attachUnit, isUnitCall, unitCallText, isLitCall, CASE_WORDS, caseTex, splitUnit } from './tex.ts'
 import { unwrap, isLiteral, isTupleLiteral, isConversion } from './nodes.ts'
@@ -143,6 +143,7 @@ export class Calculator {
     variableNode: (name) => this.variableNode(name),
     uncertaintyTex: (unc, like, uncSf) => this.uncertaintyTex(unc, like, uncSf),
     showsSubstitution: () => this.options.showSubstitution,
+    uncertaintyWorking: () => this.options.uncertaintyWorking ?? UNCERTAINTY_WORKING.derivatives,
   })
   /** Series aggregates: a series' members, and the sum, mean and spread a line names (aggregates.ts). */
   private readonly aggregates = new SeriesAggregates({

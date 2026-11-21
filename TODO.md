@@ -372,6 +372,22 @@ working (group 2).
       (100,000 texts each, two alphabets, once by hand) found no change of
       meaning; one oddity left: a #command in the middle of a call's line
       (`@table(  #val ,()`) can take a second format to settle.
+- [x] **Uncertainty working written relatively**, asked for by Emily (her
+      physics teacher's form: Y = AB/C, δY = Y √((δA/A)² + (δB/B)² + (δC/C)²)).
+      Resolved (2026-11-21): an Output option, *Uncertainty working*
+      (`CalcOptions.uncertaintyWorking`, `UNCERTAINTY_WORKING`): Partial
+      derivatives, as before, or Relative. It's the same first-order
+      propagation, so results don't change, only `delta F`'s working: a
+      product, quotient or power of the inputs (times anything certain) as
+      δY = Y √((n δA/A)² + …), each input times its power (B² → 2 δB/B, √ → ½);
+      a sum or difference of them, each once, as δY = √(δA² + δB²); with the
+      values put in when substitution is shown. The shapes are read from the
+      formula's tree (engine/core/uncertaintyForms.ts); any other formula,
+      `(A + B)/C`, `2A + B`, `sin θ`, is worked by derivatives, as the option's
+      help says.
+- [ ] **Relative working for mixed formulas, step by step**: `(A + B)/C` as
+      the sum's uncertainty first (δS = √(δA² + δB²)), then the quotient's
+      relatively. Only if sheets need it; for now such formulas use derivatives.
 - [x] **F2 and Ctrl+Click for a series', table's and plot's names**, found by
       Emily: neither worked on them, and a series' hover was its whole line,
       scrolling. Resolved (2026-11-21): a line that defines names (a series'

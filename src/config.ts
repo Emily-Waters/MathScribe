@@ -7,7 +7,7 @@
  * engine's rounding in engine.ts, the sheet language's words and patterns in
  * lib/syntax.ts.)
  */
-import { AUTO_PRECISION, type CalcOptions } from './lib/engine/index.ts'
+import { AUTO_PRECISION, UNCERTAINTY_WORKING, type CalcOptions } from './lib/engine/index.ts'
 import { readStoredJson, writeStoredJson } from './lib/data/storage.ts'
 
 // ---------------------------------------------------------------------------
@@ -48,6 +48,7 @@ export const STORAGE_KEYS = {
 /** The Output options a session starts with. */
 export const DEFAULT_CALC_OPTIONS: CalcOptions = {
   precision: AUTO_PRECISION, showSubstitution: true, approxRounded: false, productDots: false,
+  uncertaintyWorking: UNCERTAINTY_WORKING.derivatives,
 }
 
 /** The output options set last time in this browser (any missing ones at their defaults). */

@@ -11,7 +11,8 @@ import { isArgumentUncertaintyName, isUncertaintyName, uncertaintyName } from '.
 import type { UncertaintyWord } from '../../syntax.ts'
 import { OP, isOp } from '../../maths/mathjsNames.ts'
 import { math } from './math.ts'
-import { STEP } from './results.ts'
+import { STEP, UNCERTAINTY_WORKING, type UncertaintyWorking } from './results.ts'
+import { isSumOfInputs, powerTex, productPowers } from './uncertaintyForms.ts'
 import { DELTA_REF } from './uncertainty.ts'
 import { symbolTex, unitTex, attachUnit, unitCallText } from './tex.ts'
 import { unwrap } from './nodes.ts'
@@ -73,6 +74,8 @@ export interface PropagationHost {
   uncertaintyTex(unc: unknown, like?: unknown, uncSf?: number): string
   /** Whether working shows the values substituted in. */
   showsSubstitution(): boolean
+  /** How `delta F`'s working is written: by partial derivatives, or relatively (CalcOptions.uncertaintyWorking). */
+  uncertaintyWorking(): UncertaintyWorking
 }
 
 export class Propagation {
@@ -195,6 +198,10 @@ export class Propagation {
     // Same letter the user asked with: δx for `delta F`, Δx for `Delta F`.
     const uncOf = (n: string) => symbolTex(uncertaintyName(letter, n))
     const sqrt = (terms: string[]) => `\\sqrt{${terms.join(' + ')}}`
+    if (this.host.uncertaintyWorking() === UNCERTAINTY_WORKING.relative) {
+      const relative = this.relativeWorking(name, def, inputs, uncOf, sqrt)
+      if (relative) return relative
+    }
     // (∂v/∂d δd, and its values (1/1.21 s) × 0.02 m: × before a number, as in any product.)
     const term = (factor: string, delta: string) => `\\left(${factor}${signBeforeTex(delta)}${delta}\\right)^{2}`
     const steps = [sqrt(inputs.map((n) =>
@@ -220,5 +227,37 @@ export class Propagation {
       /* no symbolic derivative (units or user functions in the formula): show the general form only */
     }
     return steps
+  }
+
+  /**
+   * Working for `delta F` written relatively (uncertaintyForms.ts), if F's
+   * formula is a shape that's worked out so: a product, quotient or power,
+   * δY = Y √((δA/A)² + (2 δB/B)²); a sum or difference, δY = √(δA² + δB²);
+   * then, if substitution is shown, with the values put in. Undefined for any
+   * other formula (its working is by derivatives).
+   */
+  private relativeWorking(name: string, def: MathNode, inputs: string[], uncOf: (n: string) => string, sqrt: (terms: string[]) => string): string[] | undefined {
+    const valueTex = (n: string) => this.host.tex(this.host.variableNode(n), new Map())
+    const uncTex = (n: string) => this.host.uncertaintyTex(this.totalOf(n), this.host.value(n), this.host.variable(n)?.uncSf)
+    const squared = (tex: string) => `\\left(${tex}\\right)^{2}`
+    const substituted = this.host.showsSubstitution()
+    const powers = productPowers(def, inputs)
+    if (powers) {
+      // (Each input's relative uncertainty, times its power: `2 δB/B` for B².)
+      const term = (n: string, delta: string, of: string) => {
+        const power = powers.get(n)!
+        const factor = Math.abs(power) === 1 ? '' : `${powerTex(power)}\\,`
+        return squared(`${factor}\\frac{${delta}}{${of}}`)
+      }
+      const steps = [`${symbolTex(name)}\\,${sqrt(inputs.map((n) => term(n, uncOf(n), symbolTex(n))))}`]
+      if (substituted) steps.push(`${valueTex(name)} \\times ${sqrt(inputs.map((n) => term(n, uncTex(n), valueTex(n))))}`)
+      return steps
+    }
+    if (isSumOfInputs(def, inputs)) {
+      const steps = [sqrt(inputs.map((n) => squared(uncOf(n))))]
+      if (substituted) steps.push(sqrt(inputs.map((n) => squared(uncTex(n)))))
+      return steps
+    }
+    return undefined
   }
 }

@@ -89,6 +89,7 @@ remembered in the browser.
   | --- | --- |
   | Sig figs | **Auto** works out each result's sig figs from its inputs; a number shows every result to that many |
   | Show substitution | Include the step with values put in for the variables |
+  | Uncertainty working | How `delta F` is worked out on the page (the result is the same): **Partial derivatives**, δY = √((∂Y/∂A · δA)² + …), or **Relative**: products and quotients as δY = Y√((δA/A)² + (n δB/B)² + …), sums and differences as δY = √(δA² + δB²), anything else by derivatives |
   | Use ≈ for every rounded result | Off: ≈ only when every input is exact (`1/3 ≈ 0.333`); on: before any rounded result |
   | Show · in every product | Off: products as in a textbook, ½mv²; on: ½·m·v² |
 

@@ -61,7 +61,7 @@ describe('what a series’ or a plot’s own name says, hovered', () => {
     const symbols = collectSymbols(sheet(doc), doc)
     const t = symbols.find((s) => s.name === 't')!
     expect(t.about).toBe('A series of 3 values')
-    expect(t.tex).toMatch(/^t_\{1\} = .*\ldots.*t_\{3\} = /)
+    expect(t.tex).toMatch(/^t_\{1\} = .*\\ldots.*t_\{3\} = /)
     expect(symbols.find((s) => s.name === 'p')!.about).toMatch(/^Its members: p\.t, p\.x, .*p\.slope/)
   })
 })

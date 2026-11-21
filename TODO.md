@@ -417,13 +417,28 @@ working (group 2).
       black and grey are the theme's text colours, so they show on a dark theme.
       The ⚙ menu sets every series' (Point, Line and Fit colour); one series'
       own is typed.
-- [ ] **Plot ideas, to choose from**: a fit through the origin (`fit
-      proportional`, y = kx); other fits (quadratic, exponential, power); max
-      and min slope lines (the gradient's uncertainty, as often taught); marker
-      shapes per series (for black-and-white printing); axis labels of one's
-      own (`xlabel "Extension"`); the fit's equation in the legend; a fit only
-      across the data, not the whole axis; grid off or minor grid; size; a
-      residuals plot; copying a plot as an image.
+Plot ideas, to investigate (suggested 2026-11-21, after legends and colours):
+
+- [ ] **Max and min slope lines**: the steepest and shallowest lines through
+      the error bars, and the gradient's uncertainty from them, as often taught
+      in school and first-year labs; drawn dashed or dotted, with their slopes
+      as variables (`p.slope_max`, `p.slope_min`).
+- [ ] **A fit through the origin**, `fit proportional` (y = kx), for Hooke's
+      law, Ohm's law and the like, where the intercept should be 0.
+- [ ] **Other fits**: quadratic, exponential, power law (with their parameters
+      as variables, as a linear fit's are).
+- [ ] **Axis labels of one's own**: `xlabel "Extension"`, `ylabel "Force"`, with
+      the unit still added (`Extension [m]`).
+- [ ] **Marker shapes per series** (circle, square, triangle, …), so a plot
+      reads in black-and-white printing.
+- [ ] **The fit's equation in the legend**, as well as (or instead of) under
+      the plot.
+- [ ] **A fit only across the data**, not the whole x axis (`fit across data`),
+      for when extending it says more than the data does.
+- [ ] **Grid off, or a minor grid.**
+- [ ] **A plot's size** (width, aspect) in the exports.
+- [ ] **A residuals plot** under a fitted one: each point's distance from the line.
+- [ ] **Copying a plot as an image** (PNG or SVG) from the Rendered tab.
 - [x] **Uncertainty working written relatively**, asked for by Emily (her
       physics teacher's form: Y = AB/C, δY = Y √((δA/A)² + (δB/B)² + (δC/C)²)).
       Resolved (2026-11-21): an Output option, *Uncertainty working*

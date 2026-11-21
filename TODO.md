@@ -1308,8 +1308,20 @@ into its own file (`docs/REFERENCE.md`), not into the README.
       **Then (2026-11-21), asked for by Emily:** the help under a control made
       the panel busy; it's now each row's tooltip (its help, else its summary),
       so every row has one and the panel is just its controls.
-- [ ] **Step 2: the reference and the AI primer, generated** for settings,
+- [x] **Step 2: the reference and the AI primer, generated** for settings,
       beside the hand-written ones, then replacing them.
+      Resolved (2026-11-21): a call's settings are described from their
+      declarations (`SettingsSpec.describe`), each module giving its calls'
+      (`EngineModule.settingsDescriptions`, collected by
+      `moduleSettingsDescriptions`), and written out in
+      lib/language/reference.ts: in Markdown for the AI primer (a section for
+      each call: how settings are written in it, then each setting's examples,
+      what it does and its values), and in the Reference tab, a Settings
+      section with a table for each call. There were no hand-written lists of
+      settings in either to replace (the primer had none; the Reference's plot
+      example named "rows, style, fit, axes and title", out of date since the
+      legend, and now points to the section). Tests: the primer lists every
+      declared setting's examples, and the Markdown is as expected.
 - [ ] **Step 3: the rest of the language**, area by area: commands,
       calculations, uncertainty, series, chemistry, layout.
 - [ ] **Step 4: `docs/REFERENCE.md`**, generated, with a test that fails when

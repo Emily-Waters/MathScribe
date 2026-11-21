@@ -1014,6 +1014,12 @@ body {
   color: var(--muted);
 }
 
+/* A setting as it's written, in the settings' table: each way on a line of its own */
+.ref__setting {
+  display: block;
+  white-space: nowrap;
+}
+
 /* ---------- Library tab ---------- */
 
 .lib__bar {

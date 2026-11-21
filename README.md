@@ -1683,7 +1683,10 @@ renamed, change it there too.
   reads it and what documents it are made. `settings.ts`: a call's settings
   (a table's, a plot's), each declared as a kind of `Setting` (a switch, a
   choice, a range of rows, a title, …) in a `SettingsSpec`, which reads them,
-  writes them back and lists them in its error
+  writes them back, lists them in its error and makes their ⚙ controls;
+  `reference.ts`: the language described from its declarations, for the
+  Reference tab and the AI primer (each module's calls' settings, through
+  `EngineModule.settingsDescriptions`)
 - `src/lib/reading/`: reading a sheet's tree (`src/lib/tree`) into blocks.
   `sheetReader.ts`: the `SheetReader`, which reads each node of the tree with
   the reader of its kind and holds what readers share (the Calculator, the open

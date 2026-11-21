@@ -26,7 +26,7 @@
 export {
   ChoiceSetting, FlagSetting, NameSetting, RowsSetting, Setting, SettingsSpec, SwitchSetting, TitleSetting, SETTING_WORD,
   formatRowRange, joinSettings, parseRowRange, parseTitle, settingParts, titleSetting, type KeysOf, type SettingAbout,
-  type SettingsPanel, type SettingsState, type SettingValue,
+  type SettingDescription, type SettingsDescription, type SettingsPanel, type SettingsState, type SettingValue,
 } from './language/settings.ts'
 
 // The module itself, and what the engine offers it.

@@ -351,6 +351,21 @@ export class TitleSetting<S extends { title?: string }> extends Setting<S> {
 // A call's settings
 // ---------------------------------------------------------------------------
 
+/** A setting as it's described (in the reference, the AI primer): how it's written, what it does, and its values, if it's a choice. */
+export interface SettingDescription {
+  readonly label: string
+  readonly summary: string
+  readonly help?: string
+  readonly examples: readonly string[]
+  readonly values?: readonly SettingValue[]
+}
+
+/** A call's settings as they're described: the call they're for (`plot`: `@plot(…)`), and each setting, in order. */
+export interface SettingsDescription {
+  readonly call: string
+  readonly settings: readonly SettingDescription[]
+}
+
 /**
  * A call's settings, declared: what they're for (`plot`, in their error), their
  * defaults, and each setting, in the order they're written back.
@@ -395,6 +410,14 @@ export class SettingsSpec<S> {
       defaults: this.defaults(),
     }
     return this.settings.flatMap((s) => s.controls(panel, state))
+  }
+
+  /** These settings as they're described, for the reference and the AI primer (lib/language/reference.ts). */
+  describe(): SettingsDescription {
+    return {
+      call: this.what,
+      settings: this.settings.map((s) => ({ ...s.about, examples: s.examples, ...(s.values ? { values: s.values } : {}) })),
+    }
   }
 
   /** What's said of a part that isn't one of these settings: what is, each as an example. */

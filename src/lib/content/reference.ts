@@ -155,7 +155,7 @@ export const REFERENCE: ReferenceSection[] = [
         ].join('\n'),
         explain: '@plot(x axis, y series…) draws one series against another, with error bars for uncertainties. '
           + 'fit linear adds a best-fit line and its equation, and makes its slope and intercept variables: x_slope, x_intercept. '
-          + 'The ⚙ after it sets the rows, style, fit, axes and title.',
+          + 'Its settings, after a semicolon, are listed under Settings below; the ⚙ after it sets them too.',
       },
       {
         source: [

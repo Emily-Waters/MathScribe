@@ -3,11 +3,17 @@ import { EXAMPLE_CALC_OPTIONS } from '../config.ts'
 import { evaluateSheetSafely } from '../lib/sheet/document.ts'
 import { BUILTIN_CONSTANTS } from '../lib/constants.ts'
 import { REFERENCE } from '../lib/content/reference.ts'
+import { moduleSettingsDescriptions } from '../lib/engine/index.ts'
+import { settingsCallExample, valuesText } from '../lib/language/reference.ts'
+import { SIGIL } from '../lib/syntax.ts'
 import { copyText, useFlash } from '../useFlash.ts'
 import { RenderedBlock, Tex } from './blocks/index.tsx'
 
 /** The id of the built-in constants list, for the section links. */
 const BUILTINS_ID = 'builtins'
+
+/** The id of the settings section, for the section links. */
+const SETTINGS_ID = 'settings'
 
 /**
  * The Reference tab: each example's source beside its live output.
@@ -19,6 +25,8 @@ export function ReferencePane() {
     ...section,
     examples: section.examples.map((ex) => ({ ...ex, blocks: evaluateSheetSafely(ex.source, EXAMPLE_CALC_OPTIONS).blocks })),
   })), [])
+  // Tables' and plots' settings, listed from their declarations (lib/language: the same the AI primer lists).
+  const settings = useMemo(() => moduleSettingsDescriptions(), [])
   const [flash, showFlash] = useFlash<string>()
   const scroller = useRef<HTMLDivElement>(null)
 
@@ -29,7 +37,7 @@ export function ReferencePane() {
   return (
     <div className="ref" ref={scroller}>
       <nav className="ref__nav" aria-label="Reference sections">
-        <SectionLinks scroller={scroller} prefix="ref" sections={[...rendered, { id: BUILTINS_ID, title: 'Constant list' }]} />
+        <SectionLinks scroller={scroller} prefix="ref" sections={[...rendered, { id: SETTINGS_ID, title: 'Settings' }, { id: BUILTINS_ID, title: 'Constant list' }]} />
       </nav>
 
       {rendered.map((s) => (
@@ -55,6 +63,31 @@ export function ReferencePane() {
           ))}
         </section>
       ))}
+
+      <section id={`ref-${SETTINGS_ID}`} className="ref__section">
+        <h3 className="doc__heading doc__heading--section">Settings</h3>
+        {settings.map((d) => (
+          <div key={d.call} className="ref__example">
+            <p className="ref__explain">
+              <code>{`${SIGIL}${d.call}(…)`}</code>’s settings go after a semicolon in its brackets, separated by commas:{' '}
+              <code>{settingsCallExample(d)}</code>. Its ⚙ in the editor sets them too.
+            </p>
+            <table className="ref__table">
+              <tbody>
+                {d.settings.map((s) => (
+                  <tr key={s.label}>
+                    <td>{s.examples.map((e) => <code key={e} className="ref__setting">{e}</code>)}</td>
+                    <td>
+                      {s.summary}
+                      {s.values && <> {valuesText(s, (v) => v)}.</>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ))}
+      </section>
 
       <section id={`ref-${BUILTINS_ID}`} className="ref__section">
         <h3 className="doc__heading doc__heading--section">Built-in constants</h3>

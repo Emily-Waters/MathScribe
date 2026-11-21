@@ -23,6 +23,7 @@ import { declareTextRules, type TextRule } from '../../tree/lines.ts'
 import type { PartWriter } from './writer.ts'
 import type { BuiltinConstant, NamespaceConstant } from '../../constants.ts'
 import type { Contributions, Variable, VariableFields } from '../../sheet/values.ts'
+import type { SettingsDescription } from '../../language/settings.ts'
 import type { DisplayMode, Notation, Precision } from '../../syntax.ts'
 import type { formatWithUncertainty } from '../../maths/sigfigs.ts'
 import type { LineResult, ParsedLine } from './results.ts'
@@ -426,6 +427,15 @@ export abstract class EngineModule {
     return []
   }
 
+  /**
+   * Its calls' settings, as they're described (each call's `SettingsSpec`,
+   * described: `PLOT_SETTINGS.describe()`), for the reference and the AI
+   * primer, which list them from here.
+   */
+  settingsDescriptions(): readonly SettingsDescription[] {
+    return []
+  }
+
   // =========================================================================
   // Per sheet: called on the sheet's own module, which keeps the sheet's state
   // =========================================================================
@@ -642,6 +652,9 @@ export const moduleBlockKind = (type: string): ModuleBlockKind | undefined =>
 
 /** What the modules add to the editor. */
 export const moduleEditorExtensions = (): Extension[] => shared().flatMap((m) => [...m.editorExtensions()])
+
+/** Every installed module's calls' settings, described (EngineModule.settingsDescriptions). */
+export const moduleSettingsDescriptions = (): SettingsDescription[] => shared().flatMap((m) => [...m.settingsDescriptions()])
 
 export const moduleReadableMessage = (message: string) => shared().reduce((s, m) => m.readableMessage(s), message)
 

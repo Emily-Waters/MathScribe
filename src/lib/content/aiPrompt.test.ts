@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest'
 import { lines, sheet } from '../../test/helpers.ts'
 import { collectDiagnostics } from '../sheet/sheetIndex.ts'
+import { moduleSettingsDescriptions } from '../engine/index.ts'
 import {
   CREATE_KINDS, CREATE_KIND_INFO, EXAMPLE_SHEET, PRIMER, SNIPPETS, buildPrompt, defaultChoices, sheetFromAnswer, sheetName,
 } from './aiPrompt.ts'
@@ -63,5 +64,13 @@ describe('reading an answer back', () => {
   it('names the sheet from its first heading', () => {
     expect(sheetName('> intro\n# Kinematics: practice test!\n', 'created')).toBe('kinematics-practice-test.txt')
     expect(sheetName('x = 1', 'created')).toBe('created.txt')
+  })
+})
+
+describe('the settings in the prompt', () => {
+  it('are every table’s and plot’s setting, listed from their declarations', () => {
+    const described = moduleSettingsDescriptions()
+    expect(described.map((d) => d.call)).toEqual(expect.arrayContaining(['table', 'plot']))
+    for (const d of described) for (const s of d.settings) for (const e of s.examples) expect(PRIMER, `${d.call}: ${e}`).toContain(`\`${e}\``)
   })
 })

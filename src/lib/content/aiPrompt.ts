@@ -10,6 +10,8 @@
  * prompt can't promise syntax MathScribe doesn't accept.
  */
 import { BUILTIN_CONSTANTS } from '../constants.ts'
+import { moduleSettingsDescriptions } from '../engine/index.ts'
+import { settingsMarkdown } from '../language/reference.ts'
 import { SHEET_FILE } from '../../config.ts'
 
 // ---------------------------------------------------------------------------
@@ -169,13 +171,20 @@ Question 2 {
 /** The block of a sheet in an answer: its first fenced code block, or the whole answer. */
 const FENCED = /```[^\n]*\n([\s\S]*?)```/
 
+/** Between paragraphs, in the rules. */
+const BLANK_LINE = '\n\n'
+
 /** Code in the rules. */
 const code = (text: string) => ['```', text, '```'].join('\n')
 
 /** The constants, by name, for the rules. */
 const constantNames = Object.keys(BUILTIN_CONSTANTS).map((n) => `@${n}`).join(', ')
 
-/** How to write a MathScribe sheet, for an AI model. */
+/**
+ * How to write a MathScribe sheet, for an AI model. (Its tables' and plots'
+ * settings are listed from their declarations: lib/language/reference.ts; the
+ * modules are installed before this is loaded, by the app's entry and the tests' setup.)
+ */
 export const PRIMER = `# Writing MathScribe sheets
 
 MathScribe is a plain-text calculation sheet. Each line is evaluated top to bottom
@@ -278,6 +287,8 @@ ${code(SNIPPETS.series)}
 ${code(SNIPPETS.plot)}
 - \`p = @plot(x, y; fit linear)\` graphs y against x with a best-fit line; \`p.slope\`,
   \`p.intercept\` and \`p.r2\` are its results.
+
+${moduleSettingsDescriptions().map((d) => settingsMarkdown(d)).join(BLANK_LINE)}
 
 ## Chemistry
 ${code(SNIPPETS.chemistry)}

@@ -1691,9 +1691,9 @@ renamed, change it there too.
   (a table's, a plot's), each declared as a kind of `Setting` (a switch, a
   choice, a range of rows, a title, …) in a `SettingsSpec`, which reads them,
   writes them back, lists them in its error and makes their ⚙ controls;
-  `reference.ts`: the language described from its declarations, for the
-  Reference tab and the AI primer (each module's calls' settings, through
-  `EngineModule.settingsDescriptions`)
+  `reference.ts`: the tree said in other forms: a call's settings as a topic
+  (`settingsTopic`), and the AI primer's Markdown (`primerMarkdown`, which
+  `content/aiPrompt.ts` puts in its prompt)
 - `src/lib/reading/`: reading a sheet's tree (`src/lib/tree`) into blocks.
   `sheetReader.ts`: the `SheetReader`, which reads each node of the tree with
   the reader of its kind and holds what readers share (the Calculator, the open

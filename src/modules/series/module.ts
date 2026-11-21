@@ -7,7 +7,7 @@
  * ModuleHost.
  */
 import {
-  CAPTION_KIND, EngineModule, type Extension, type LineForm, LineFormMember, type Member, type ModuleBlockKind, type ModuleGrammar, type SettingsDescription,
+  CAPTION_KIND, EngineModule, type Extension, type LineForm, LineFormMember, type Member, type ModuleBlockKind, type ModuleGrammar,
 } from '../../lib/plugin.ts'
 import { SERIES_GRAMMAR } from './grammar.ts'
 import { TABLE_PREAMBLE, TableConstruct, usesTables } from './tableBlock.ts'
@@ -20,8 +20,6 @@ import { SeriesForm } from './series.ts'
 import { TableForm } from './table.ts'
 import { tableMenu } from './tableMenu.ts'
 import { memberLabelsExtension } from './memberLabels.ts'
-import { TABLE_SETTINGS } from './tableSettings.ts'
-import { PLOT_SETTINGS } from './plotSettings.ts'
 import { SERIES_TOPICS } from './language.ts'
 import type { PlacedTopic } from '../../lib/plugin.ts'
 
@@ -52,11 +50,6 @@ export class SeriesModule extends EngineModule {
   override editorExtensions(): readonly Extension[] {
     // (A table's and plot's ⚙, and a series' members' names before its values.)
     return [tableMenu, memberLabelsExtension]
-  }
-
-  /** A table's and a plot's settings, described for the reference and the AI primer. */
-  override settingsDescriptions(): readonly SettingsDescription[] {
-    return [TABLE_SETTINGS.describe(), PLOT_SETTINGS.describe()]
   }
 
   /** A table, `@table(…)`, as a block of its own (tableBlock.ts). */

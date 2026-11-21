@@ -19,7 +19,7 @@ export { outsideMaths, wordsTex } from './core/text.ts'
 export { bareTuple } from './core/tuples.ts'
 export { expandNamespaceCalls } from './core/builtinCalls.ts'
 export {
-  EngineModule, LineForm, markupText, moduleBlockKind, registerModules, sheetModules, moduleEditorExtensions, moduleLanguageTopics, modulePreamble, moduleSettingsDescriptions, moduleSettingWords, moduleSubscriptTex,
+  EngineModule, LineForm, markupText, moduleBlockKind, registerModules, sheetModules, moduleEditorExtensions, moduleLanguageTopics, modulePreamble, moduleSettingWords, moduleSubscriptTex,
   type ModuleBlockKind, type ModuleHost,
 } from './core/module.ts'
 // (What the rest of MathScribe may use of a module itself is the module's own `public.ts`:

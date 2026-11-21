@@ -23,7 +23,6 @@ import { declareTextRules, type TextRule } from '../../tree/lines.ts'
 import type { PartWriter } from './writer.ts'
 import type { BuiltinConstant, NamespaceConstant } from '../../constants.ts'
 import type { Contributions, Variable, VariableFields } from '../../sheet/values.ts'
-import type { SettingsDescription } from '../../language/settings.ts'
 import type { PlacedTopic } from '../../language/tree.ts'
 import type { DisplayMode, Notation, Precision } from '../../syntax.ts'
 import type { formatWithUncertainty } from '../../maths/sigfigs.ts'
@@ -429,15 +428,6 @@ export abstract class EngineModule {
   }
 
   /**
-   * Its calls' settings, as they're described (each call's `SettingsSpec`,
-   * described: `PLOT_SETTINGS.describe()`), for the reference and the AI
-   * primer, which list them from here.
-   */
-  settingsDescriptions(): readonly SettingsDescription[] {
-    return []
-  }
-
-  /**
    * Its topics of the language tree (lib/language/tree.ts): each of its
    * features, what's said about it, the rules for writing it, and whole sheets
    * showing it, each placed after the core's topic it follows. The Reference tab,
@@ -668,8 +658,6 @@ export const moduleEditorExtensions = (): Extension[] => shared().flatMap((m) =>
 /** Every installed module's topics of the language tree, in the order the modules are installed (EngineModule.languageTopics). */
 export const moduleLanguageTopics = (): PlacedTopic[] => shared().flatMap((m) => [...m.languageTopics()])
 
-/** Every installed module's calls' settings, described (EngineModule.settingsDescriptions). */
-export const moduleSettingsDescriptions = (): SettingsDescription[] => shared().flatMap((m) => [...m.settingsDescriptions()])
 
 export const moduleReadableMessage = (message: string) => shared().reduce((s, m) => m.readableMessage(s), message)
 

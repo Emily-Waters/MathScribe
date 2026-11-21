@@ -1,7 +1,7 @@
 /**
- * The language, described from its declarations: what the reference, the AI
- * primer and (to come) docs/REFERENCE.md say about it is made here, from what
- * the core and the modules declare, so none of it is written by hand or can be
+ * The language, described from its declarations: what the Reference, the AI
+ * primer and (to come) docs/REFERENCE.md say about it is made here, from the
+ * language tree and the declarations the core and the modules make, so none of it is written by hand or can be
  * out of date with what's read. (See "One source for the language" in TODO.md.)
  */
 import { SIGIL } from '../syntax.ts'
@@ -24,21 +24,6 @@ export function valuesText(s: SettingDescription, code: (text: string) => string
   const values = s.values ?? []
   if (values.every((v) => v.means === v.value)) return `One of ${values.map((v) => code(v.value)).join(', ')}`
   return values.map((v) => `${code(v.value)}: ${v.means}`).join('; ')
-}
-
-/** A call's settings, in Markdown: what they're written after, then each, how it's written, what it does, and its values. */
-export function settingsMarkdown(d: SettingsDescription, heading = '###'): string {
-  const lines = [
-    `${heading} Settings of ${md(`${SIGIL}${d.call}(…)`)}`,
-    '',
-    `After a semicolon in its brackets, separated by commas: ${md(settingsCallExample(d))}. Leave out any as it is by itself.`,
-    '',
-    ...d.settings.map((s) => {
-      const values = s.values ? ` ${valuesText(s)}.` : ''
-      return `- ${s.examples.map(md).join(', ')}: ${s.summary}${values}`
-    }),
-  ]
-  return lines.join('\n')
 }
 
 /** A topic of the tree for a call's settings: which it is, its title, and the topic it follows. */

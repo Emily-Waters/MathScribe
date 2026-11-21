@@ -1354,7 +1354,7 @@ into its own file (`docs/REFERENCE.md`), not into the README.
          how it's written (`syntax`), shown before what's said of it. A module's
          topic can follow another module's (the tree checks each follows one
          that's there).
-   - [ ] **Part 3: the AI primer from the tree**: its rules and snippets become
+   - [x] **Part 3: the AI primer from the tree**: its rules and snippets become
          entries' rules and examples, the old and new compared before switching.
          Under way (2026-11-21): the primer's rules are now entries' rules in
          the tree (shown in the Reference too, as agreed), and what it described
@@ -1367,6 +1367,12 @@ into its own file (`docs/REFERENCE.md`), not into the README.
          so kept in aiPrompt.ts). It's beside the old PRIMER for Emily to compare
          before it replaces it; a test checks it says every topic, entry, rule
          and setting in the tree.
+         Resolved (2026-11-21): compared, and switched by Emily: the prompt's
+         rules are `primer()`, from the tree; the hand-written PRIMER and its
+         SNIPPETS are gone (their examples are the tree's, which tree.test.ts
+         runs). So is step 2's path for settings (`EngineModule.settingsDescriptions`,
+         `settingsMarkdown`): the primer lists them from the tree, as the
+         Reference does.
    - [ ] **Part 4: editor hovers and completions from the tree** (`#`
          commands, keywords, settings words), in place of `vocabulary.ts`'s
          copies; and a test that every declared command, setting and `@`

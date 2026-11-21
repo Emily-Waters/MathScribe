@@ -1,10 +1,10 @@
-/** Create: the prompt's rules hold (their examples evaluate), and an answer reads back as a sheet. */
+/** Create: the prompt says the whole language tree, its example test holds, and an answer reads back as a sheet. */
 import { describe, expect, it } from 'vitest'
 import { lines, sheet } from '../../test/helpers.ts'
 import { collectDiagnostics } from '../sheet/sheetIndex.ts'
-import { languageTopics, moduleSettingsDescriptions } from '../engine/index.ts'
+import { languageTopics } from '../engine/index.ts'
 import {
-  CREATE_KINDS, CREATE_KIND_INFO, EXAMPLE_SHEET, PRIMER, SNIPPETS, buildPrompt, defaultChoices, primerFromTree, sheetFromAnswer, sheetName,
+  CREATE_KINDS, CREATE_KIND_INFO, EXAMPLE_SHEET, buildPrompt, defaultChoices, primer, sheetFromAnswer, sheetName,
 } from './aiPrompt.ts'
 
 /** A sheet's errors and warnings, as "line: message". */
@@ -12,8 +12,8 @@ const problems = (source: string) =>
   [...collectDiagnostics(sheet(source).blocks)].map(([line, d]) => `${line}: ${d.message}`)
 
 describe('the rules in the prompt', () => {
-  it('only show examples that MathScribe accepts', () => {
-    for (const [name, source] of Object.entries(SNIPPETS)) expect(problems(source), name).toEqual([])
+  // (Its other examples are the language tree's, which lib/language/tree.test.ts runs.)
+  it('show an example test MathScribe accepts', () => {
     expect(problems(EXAMPLE_SHEET)).toEqual([])
   })
 
@@ -23,10 +23,6 @@ describe('the rules in the prompt', () => {
     expect(lines(EXAMPLE_SHEET).map((l) => l.source)).toContain('v = sqrt(2 * a * d)')
   })
 
-  it('include every example and the constants', () => {
-    for (const source of Object.values(SNIPPETS)) expect(PRIMER).toContain(source)
-    expect(PRIMER).toContain('@k_B')
-  })
 })
 
 describe('buildPrompt', () => {
@@ -67,27 +63,19 @@ describe('reading an answer back', () => {
   })
 })
 
-describe('the settings in the prompt', () => {
-  it('are every table’s and plot’s setting, listed from their declarations', () => {
-    const described = moduleSettingsDescriptions()
-    expect(described.map((d) => d.call)).toEqual(expect.arrayContaining(['table', 'plot']))
-    for (const d of described) for (const s of d.settings) for (const e of s.examples) expect(PRIMER, `${d.call}: ${e}`).toContain(`\`${e}\``)
-  })
-})
-
 describe('the primer from the language tree', () => {
   it('says every topic, entry, rule and setting the tree has, with an example of each entry that isn’t one thing to write', () => {
-    const primer = primerFromTree()
+    const said = primer()
     for (const topic of languageTopics()) {
-      expect(primer).toContain(`## ${topic.title}`)
+      expect(said).toContain(`## ${topic.title}`)
       for (const entry of topic.entries) {
-        expect(primer, entry.explain).toContain(entry.explain)
-        for (const rule of entry.rules ?? []) expect(primer, rule).toContain(rule)
-        for (const written of entry.syntax ?? []) expect(primer, written).toContain(`\`${written}\``)
-        if (!entry.syntax) expect(primer, entry.explain).toContain(entry.examples[0].source)
+        expect(said, entry.explain).toContain(entry.explain)
+        for (const rule of entry.rules ?? []) expect(said, rule).toContain(rule)
+        for (const written of entry.syntax ?? []) expect(said, written).toContain(`\`${written}\``)
+        if (!entry.syntax) expect(said, entry.explain).toContain(entry.examples[0].source)
       }
     }
-    expect(primer).toContain('@k_B')
-    expect(primer).toContain(EXAMPLE_SHEET)
+    expect(said).toContain('@k_B')
+    expect(said).toContain(EXAMPLE_SHEET)
   })
 })

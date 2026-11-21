@@ -1679,6 +1679,11 @@ renamed, change it there too.
   `schema.ts`: everything declared, listed (`introspect`) and as a JSON Schema
   (`jsonSchema`), published at `public/schema/mathscribe-1.schema.json`; `migrations.ts`: the
   schema's version, and bringing an older tree up to date
+- `src/lib/language/`: MathScribe's language described once, from which what
+  reads it and what documents it are made. `settings.ts`: a call's settings
+  (a table's, a plot's), each declared as a kind of `Setting` (a switch, a
+  choice, a range of rows, a title, …) in a `SettingsSpec`, which reads them,
+  writes them back and lists them in its error
 - `src/lib/reading/`: reading a sheet's tree (`src/lib/tree`) into blocks.
   `sheetReader.ts`: the `SheetReader`, which reads each node of the tree with
   the reader of its kind and holds what readers share (the Calculator, the open

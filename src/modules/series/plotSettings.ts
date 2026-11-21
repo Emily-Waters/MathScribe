@@ -1,31 +1,13 @@
 /**
  * A plot's settings, kept in the sheet after a semicolon inside its brackets,
- * as a table's are (see tableSettings.ts):
- *
- *   @plot(t, x; style both, fit linear, x from 0 to 2, log y, title "Run 1")
- *
- *   rows 5-20            only rows 5 to 20 (rows 5- from 5 on, rows -20 up to 20)
- *   style lines          lines between the points (style both: points and lines;
- *                        the default is points)
- *   fit linear           a best-fit line, with its slope and intercept
- *   x from 0 to 2        the x axis's range (either end may be left out)
- *   y from … to …        the y axis's
- *   log x, log y         a logarithmic axis
- *   uncertainty off      no error bars (a fit still weighs the points by their uncertainties)
- *   equation off         no fit equation under the plot (its slope and intercept are still variables)
- *   legend top right     a legend there (top left, top right, bottom left, bottom right,
- *                        outside: beside the plot; off: none); without it, one top left
- *                        when there are several series
- *   colour fit red       a colour for every series' points, line or fit (black, grey,
- *                        blue, red, green, orange, purple, teal, brown); `colour F_2
- *                        points green`, one series'. (`color` too.)
- *   title "Run 1"        a title over the plot
- *
- * The plot's ⚙ button in the editor writes them, so they don't need typing.
+ * as a table's are: `@plot(t, x; style both, fit linear, x from 0 to 2, log y,
+ * legend top right, colour fit red, title "Run 1")`. Each is declared once
+ * (PLOT_SETTINGS, below: how it's written and what it does), from which
+ * they're read, written back and listed in their error. The plot's ⚙ button in
+ * the editor writes them, so they don't need typing.
  */
-import {
-  SETTING, UNCERTAINTY_OFF, UNCERTAINTY_ON, formatRowRange, joinSettings, parseRowRange, parseTitle, settingParts, titleSetting,
-} from './tableSettings.ts'
+import { ChoiceSetting, RowsSetting, Setting, SettingsSpec, SwitchSetting, TitleSetting } from '../../lib/plugin.ts'
+import { SETTING } from './tableSettings.ts'
 
 /** How a plot's points are drawn: as points, joined by lines, or both. */
 export const PLOT_STYLE = { points: 'points', lines: 'lines', both: 'both' } as const
@@ -106,10 +88,6 @@ export function partColour(s: PlotSettings, series: string | undefined, part: Pl
 /** Whether a plot has a legend: as its setting says, or, without one, if it has several series. */
 export const showsLegend = (s: PlotSettings, seriesCount: number) => (s.legend === undefined ? seriesCount > 1 : s.legend !== LEGEND_POSITION.off)
 
-/** `equation off`, `equation on`: whether a fit's equation is shown under the plot. */
-const EQUATION_OFF = `${SETTING.equation} ${SETTING.off}`
-const EQUATION_ON = `${SETTING.equation} ${SETTING.on}`
-
 /** The axes, as written in settings: `x from 0 to 2`, `log y`. */
 export const PLOT_AXES = ['x', 'y'] as const
 export type PlotAxisName = (typeof PLOT_AXES)[number]
@@ -118,76 +96,92 @@ export type PlotAxisName = (typeof PLOT_AXES)[number]
 const NUM = String.raw`[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?`
 /** `x from 0 to 2`, `x from 0`, `x to 2` (1: axis, 2: from, 3: to). */
 const RANGE = new RegExp(String.raw`^(${PLOT_AXES.join('|')})(?:\s+${SETTING.from}\s+(${NUM}))?(?:\s+${SETTING.to}\s+(${NUM}))?$`)
-const STYLE = new RegExp(`^${SETTING.style} (${PLOT_STYLES.join('|')})$`)
-const FIT_SETTING = new RegExp(`^${SETTING.fit} (${PLOT_FITS.join('|')})$`)
 const LOG = new RegExp(`^${SETTING.log} (${PLOT_AXES.join('|')})$`)
-/** `legend top right` (1: where). */
-const LEGEND = new RegExp(`^${SETTING.legend} (${LEGEND_POSITIONS.join('|')})$`)
 /** `colour fit red`, `colour F_2 points green`, `color line black` (1: the series, if one; 2: the part; 3: the colour). */
 const COLOUR = new RegExp(String.raw`^(?:${SETTING.colour}|${SETTING.color})\s+(?:(\S+)\s+)?(${PLOT_PARTS.join('|')})\s+(${PLOT_COLOURS.join('|')})$`)
-
-/** A plot's settings from their text, or what's wrong with them. */
-export function parsePlotSettings(text: string | undefined): { settings: PlotSettings; error?: string } {
-  const s = defaultPlotSettings()
-  for (const part of settingParts(text)) {
-    const rows = parseRowRange(part)
-    const range = RANGE.exec(part)
-    const style = STYLE.exec(part)
-    const fit = FIT_SETTING.exec(part)
-    const log = LOG.exec(part)
-    const legend = LEGEND.exec(part)
-    const colour = COLOUR.exec(part)
-    const title = parseTitle(part)
-    if (rows) {
-      s.from = rows.from
-      s.to = rows.to
-    } else if (range && (range[2] !== undefined || range[3] !== undefined)) {
-      const axis = s[range[1] as PlotAxisName]
-      axis.from = range[2] !== undefined ? Number(range[2]) : undefined
-      axis.to = range[3] !== undefined ? Number(range[3]) : undefined
-    } else if (style) s.style = style[1] as PlotStyle
-    else if (fit) s.fit = fit[1] as PlotFit
-    else if (log) s[log[1] as PlotAxisName].log = true
-    else if (title !== undefined) s.title = title
-    else if (part === UNCERTAINTY_OFF) s.uncertainty = false
-    else if (part === UNCERTAINTY_ON) s.uncertainty = true
-    else if (part === EQUATION_OFF) s.equation = false
-    else if (part === EQUATION_ON) s.equation = true
-    else if (legend) s.legend = legend[1] as LegendPosition
-    else if (colour) s.colours.push({ ...(colour[1] ? { series: colour[1] } : {}), part: colour[2] as PlotPart, colour: colour[3] as PlotColour })
-    else {
-      return {
-        settings: s,
-        error: `"${part}" isn't a plot setting: use rows 5-20, style lines (or both), fit linear, `
-          + 'x from 0 to 10, log y, uncertainty off, equation off, legend top right (or off), '
-          + `colour fit red (${PLOT_COLOURS.join(', ')}), or title "…". The plot's ⚙ button sets them.`,
-      }
-    }
-  }
-  return { settings: s }
-}
 
 /** An axis range as a setting: `x from 0 to 2` ('' if it's open at both ends). */
 const rangeText = (axis: PlotAxisName, a: AxisSettings) => (a.from === undefined && a.to === undefined ? ''
   : `${axis}${a.from !== undefined ? ` ${SETTING.from} ${a.from}` : ''}${a.to !== undefined ? ` ${SETTING.to} ${a.to}` : ''}`)
 
-/** Settings as text, leaving out the defaults ('' if there's nothing to say). */
-export function formatPlotSettings(s: PlotSettings): string {
-  const defaults = defaultPlotSettings()
-  const parts: string[] = []
-  const rows = formatRowRange(s.from, s.to)
-  if (rows) parts.push(rows)
-  if (s.style !== defaults.style) parts.push(`${SETTING.style} ${s.style}`)
-  if (s.fit !== defaults.fit) parts.push(`${SETTING.fit} ${s.fit}`)
-  for (const axis of PLOT_AXES) {
-    const range = rangeText(axis, s[axis])
-    if (range) parts.push(range)
-    if (s[axis].log) parts.push(`${SETTING.log} ${axis}`)
+// ---------------------------------------------------------------------------
+// A plot's settings, declared (the language's settings: lib/language/settings.ts)
+// ---------------------------------------------------------------------------
+
+/** An axis's range and scale, `x from 0 to 2` (either end may be left out) and `log x`: the field `x` or `y`. */
+class AxisSetting extends Setting<PlotSettings> {
+  readonly axis: PlotAxisName
+  constructor(axis: PlotAxisName, summary: string) {
+    super(summary)
+    this.axis = axis
   }
-  if (!s.uncertainty) parts.push(UNCERTAINTY_OFF)
-  if (!s.equation) parts.push(EQUATION_OFF)
-  if (s.legend !== undefined) parts.push(`${SETTING.legend} ${s.legend}`)
-  for (const c of s.colours) parts.push([SETTING.colour, c.series, c.part, c.colour].filter(Boolean).join(' '))
-  if (s.title) parts.push(titleSetting(s.title))
-  return joinSettings(parts)
+  get examples() {
+    return [`${this.axis} ${SETTING.from} 0 ${SETTING.to} 10`, `${SETTING.log} ${this.axis}`]
+  }
+  read(part: string, into: PlotSettings): boolean {
+    const range = RANGE.exec(part)
+    if (range?.[1] === this.axis && (range[2] !== undefined || range[3] !== undefined)) {
+      into[this.axis].from = range[2] !== undefined ? Number(range[2]) : undefined
+      into[this.axis].to = range[3] !== undefined ? Number(range[3]) : undefined
+      return true
+    }
+    if (LOG.exec(part)?.[1] !== this.axis) return false
+    into[this.axis].log = true
+    return true
+  }
+  write(s: PlotSettings): string[] {
+    const range = rangeText(this.axis, s[this.axis])
+    return [...(range ? [range] : []), ...(s[this.axis].log ? [`${SETTING.log} ${this.axis}`] : [])]
+  }
 }
+
+/** A colour for a part of the series, `colour fit red`, or of one series, `colour F_2 points green` (`color` too): the list `colours`. */
+class ColourSetting extends Setting<PlotSettings> {
+  readonly examples = [`${SETTING.colour} ${PLOT_PART.fit} ${PLOT_COLOUR.red}`]
+  override get values() {
+    return PLOT_COLOURS.map((value) => ({ value, means: value }))
+  }
+  read(part: string, into: PlotSettings): boolean {
+    const colour = COLOUR.exec(part)
+    if (!colour) return false
+    into.colours.push({ ...(colour[1] ? { series: colour[1] } : {}), part: colour[2] as PlotPart, colour: colour[3] as PlotColour })
+    return true
+  }
+  write(s: PlotSettings): string[] {
+    return s.colours.map((c) => [SETTING.colour, c.series, c.part, c.colour].filter(Boolean).join(' '))
+  }
+}
+
+/** A plot's settings, each declared once: how it's written and what it does, in the order they're written back. */
+export const PLOT_SETTINGS = new SettingsSpec<PlotSettings>('plot', defaultPlotSettings, [
+  new RowsSetting('Only these rows: rows 5-20, rows 5- (from 5 on), rows -20 (up to 20), rows 7.'),
+  new ChoiceSetting(SETTING.style, 'style', [
+    { value: PLOT_STYLE.points, means: 'each row a point (as it is by itself)' },
+    { value: PLOT_STYLE.lines, means: 'a line joining the rows, without their points' },
+    { value: PLOT_STYLE.both, means: 'the points, joined by a line' },
+  ], PLOT_STYLE.both, 'How its rows are drawn.'),
+  new ChoiceSetting(SETTING.fit, 'fit', [
+    { value: PLOT_FIT.none, means: 'no fit (as it is by itself)' },
+    { value: PLOT_FIT.linear, means: 'a best-fit line, its equation under the plot, its slope and intercept variables' },
+  ], PLOT_FIT.linear, 'A line fitted to the points.'),
+  new AxisSetting('x', 'The x axis\'s range (either end may be left out, to fit the data) and, with log x, a logarithmic scale.'),
+  new AxisSetting('y', 'The y axis\'s range and, with log y, a logarithmic scale.'),
+  new SwitchSetting(SETTING.uncertainty, 'uncertainty', 'Error bars for the points\' uncertainties; uncertainty off hides them (a fit still weighs the points by them).'),
+  new SwitchSetting(SETTING.equation, 'equation', 'A fit\'s equation and R² under the plot; equation off leaves them out (its slope and intercept are still variables).'),
+  new ChoiceSetting(SETTING.legend, 'legend', [
+    { value: LEGEND_POSITION.topLeft, means: 'in the top left corner' },
+    { value: LEGEND_POSITION.topRight, means: 'in the top right corner' },
+    { value: LEGEND_POSITION.bottomLeft, means: 'in the bottom left corner' },
+    { value: LEGEND_POSITION.bottomRight, means: 'in the bottom right corner' },
+    { value: LEGEND_POSITION.outside, means: 'beside the plot' },
+    { value: LEGEND_POSITION.off, means: 'none' },
+  ], LEGEND_POSITION.topRight, 'Where its legend goes, listing each series and fit; without it, top left when there are several series.'),
+  new ColourSetting('A colour for every series\' points (with their error bars), line or fit; colour F_2 points green for one series\'.'),
+  new TitleSetting('A title over the plot, quoted so it can hold commas: title "Run 1".'),
+])
+
+/** A plot's settings from their text, or what's wrong with them (as declared: PLOT_SETTINGS). */
+export const parsePlotSettings = (text: string | undefined) => PLOT_SETTINGS.parse(text)
+
+/** Settings as text, leaving out the defaults ('' if there's nothing to say). */
+export const formatPlotSettings = (s: PlotSettings): string => PLOT_SETTINGS.format(s)

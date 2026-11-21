@@ -1,6 +1,7 @@
 /** A table's settings: read from, and written back to, the text of its line. */
 import { describe, expect, it } from 'vitest'
-import { formatTableSettings, parseTableSettings, splitCallArgs, withSettingsText, withTableSettings } from './tableSettings.ts'
+import { TABLE_SETTINGS, formatTableSettings, parseTableSettings, splitCallArgs, withSettingsText, withTableSettings } from './tableSettings.ts'
+import { PLOT_SETTINGS } from './plotSettings.ts'
 
 describe('table settings', () => {
   it('splits the columns from the settings at the first semicolon outside brackets', () => {
@@ -33,5 +34,16 @@ describe('table settings', () => {
       .toBe('    @table(t, x)   # run 1')
     expect(withTableSettings(line, inner, { lines: 'grid', numbers: true, uncertainty: false, allRows: false }))
       .toBe('    @table(t, x; uncertainty off)   # run 1')
+  })
+})
+
+describe('the declared settings’ own examples', () => {
+  // (What the error lists, and the reference will, is what's read: each example is a setting, written back as itself.)
+  it.each([['table', TABLE_SETTINGS], ['plot', PLOT_SETTINGS]] as const)('of a %s are each a setting, written back as typed', (_, spec) => {
+    for (const example of spec.settings.flatMap((s) => s.examples)) {
+      const { settings, error } = (spec as typeof TABLE_SETTINGS).parse(example)
+      expect(error, example).toBeUndefined()
+      expect((spec as typeof TABLE_SETTINGS).format(settings), example).toBe(example)
+    }
   })
 })

@@ -1262,6 +1262,44 @@ edit reads again only what it changed, and nodes are shared between trees.
          but in 10 texts, where the old found a `@table(` closed by a `)` in a
          later statement, which it no longer does (a test says so).
 
+### One source for the language
+
+MathScribe is described in about eight places, mostly by hand: the README, the
+Reference tab, the AI primer, the ⚙ menus, the settings' parsers and their
+errors, `COMMANDS`, `vocabulary.ts`, hovers. A feature added (a plot's legend)
+is written into four or five of them. Instead: each feature declared once, in
+a tree (where it sits, what it is, how it's written, its values, examples,
+rules for writers), by the core or its module through a hook, and the rest
+made from it. Agreed with Emily (2026-11-21); the reference is to be generated
+into its own file (`docs/REFERENCE.md`), not into the README.
+
+- [x] **Step 1a: settings, declared.** Plot and table settings, each declared
+      once, read, written back and listed in their error from the declarations.
+      Resolved (2026-11-21): `src/lib/language/settings.ts`, in the module API:
+      a kind of setting is a class extending `Setting` (switch, flag, choice,
+      name, rows, title), with its examples and, for a choice, what each value
+      means; a call's settings are a `SettingsSpec` (`TABLE_SETTINGS`,
+      `PLOT_SETTINGS`), and a module adds kinds of its own (a plot's axes, its
+      colours). Checked side by side with the hand-written parsers over the
+      whole suite and 40,000 random settings texts: read and written back
+      alike in every one, the same ones refused; then the hand-written ones
+      were taken out. Only the error's wording changed: it now lists every
+      setting by its example. A test checks each declared example is a
+      setting, written back as itself.
+      (The framework is the module API's first export: a module's settings are
+      declared as it loads, which the outputs reach through its public face, so
+      it must be loaded before them.)
+- [ ] **Step 1b: the ⚙ menus from the declarations.** Each kind of setting
+      gives its own control (a checkbox, a choice, number boxes) in terms of a
+      small interface the menu provides, and its help from its summary; the
+      panels become a loop over the declarations.
+- [ ] **Step 2: the reference and the AI primer, generated** for settings,
+      beside the hand-written ones, then replacing them.
+- [ ] **Step 3: the rest of the language**, area by area: commands,
+      calculations, uncertainty, series, chemistry, layout.
+- [ ] **Step 4: `docs/REFERENCE.md`**, generated, with a test that fails when
+      the checked-in file is out of date.
+
 ## 9. Packaging: MathScribe in someone else's app
 
 - [ ] **MathScribe as a package** (2026-11-17, Emily): bundled so someone can

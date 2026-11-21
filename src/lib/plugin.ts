@@ -20,6 +20,14 @@
  *   the editor             CodeMirror extensions (`Extension`)
  */
 
+// The language's settings: a call's settings declared once, each a kind of Setting (lib/language/settings.ts),
+// from which they're read, written back, and listed in their error. (First: it needs nothing, and a
+// module's settings, which the outputs' files reach through its public face, are declared with it as it loads.)
+export {
+  ChoiceSetting, FlagSetting, NameSetting, RowsSetting, Setting, SettingsSpec, SwitchSetting, TitleSetting, SETTING_WORD,
+  formatRowRange, joinSettings, parseRowRange, parseTitle, settingParts, titleSetting, type KeysOf, type SettingValue,
+} from './language/settings.ts'
+
 // The module itself, and what the engine offers it.
 export {
   EngineModule, LINE_STAGE, LINE_STAGES, LineForm, LineStep, SETTING_PLACE, registerModules,

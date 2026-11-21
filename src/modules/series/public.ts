@@ -5,11 +5,11 @@
  * module's leaves (its syntax and settings), so importing it doesn't load the engine.
  */
 export {
-  TABLE_LINES, formatTableSettings, parseTableSettings, splitCallArgs, withSettingsText,
+  TABLE_LINES, TABLE_SETTINGS, formatTableSettings, parseTableSettings, splitCallArgs, withSettingsText,
   type TableLines, type TableSettings,
 } from './tableSettings.ts'
 export {
-  LEGEND_POSITION, LEGEND_POSITIONS, PLOT_COLOURS, PLOT_FITS, PLOT_PART, PLOT_PARTS, PLOT_STYLE, PLOT_STYLES, formatPlotSettings, parsePlotSettings,
+  LEGEND_POSITION, LEGEND_POSITIONS, PLOT_COLOURS, PLOT_FITS, PLOT_PART, PLOT_PARTS, PLOT_SETTINGS, PLOT_STYLE, PLOT_STYLES, formatPlotSettings, parsePlotSettings,
   partColour, showsLegend,
   type AxisSettings, type LegendPosition, type PlotColour, type PlotFit, type PlotPart, type PlotSettings, type PlotStyle,
 } from './plotSettings.ts'

@@ -6,7 +6,9 @@
  * they're read, written back and listed in their error. The plot's ⚙ button in
  * the editor writes them, so they don't need typing.
  */
-import { ChoiceSetting, RowsSetting, Setting, SettingsSpec, SwitchSetting, TitleSetting } from '../../lib/plugin.ts'
+import {
+  ChoiceSetting, RowsSetting, Setting, SettingsSpec, SwitchSetting, TitleSetting, type SettingAbout, type SettingsPanel, type SettingsState,
+} from '../../lib/plugin.ts'
 import { SETTING } from './tableSettings.ts'
 
 /** How a plot's points are drawn: as points, joined by lines, or both. */
@@ -108,11 +110,11 @@ const rangeText = (axis: PlotAxisName, a: AxisSettings) => (a.from === undefined
 // A plot's settings, declared (the language's settings: lib/language/settings.ts)
 // ---------------------------------------------------------------------------
 
-/** An axis's range and scale, `x from 0 to 2` (either end may be left out) and `log x`: the field `x` or `y`. */
+/** An axis's range and scale, `x from 0 to 2` (either end may be left out) and `log x`: the field `x` or `y` (in the menu, a row of both). */
 class AxisSetting extends Setting<PlotSettings> {
   readonly axis: PlotAxisName
-  constructor(axis: PlotAxisName, summary: string) {
-    super(summary)
+  constructor(axis: PlotAxisName, about: SettingAbout) {
+    super(about)
     this.axis = axis
   }
   get examples() {
@@ -133,13 +135,31 @@ class AxisSetting extends Setting<PlotSettings> {
     const range = rangeText(this.axis, s[this.axis])
     return [...(range ? [range] : []), ...(s[this.axis].log ? [`${SETTING.log} ${this.axis}`] : [])]
   }
+  protected rows<C>(panel: SettingsPanel<C>, { current, set }: SettingsState<PlotSettings>): C[] {
+    const update = (patch: Partial<AxisSettings>) => set({ ...current(), [this.axis]: { ...current()[this.axis], ...patch } })
+    const axis = current()[this.axis]
+    return [panel.row(this.about.label,
+      panel.numberBox(axis.from, 'auto', false, (from) => update({ from })), SETTING.to,
+      panel.numberBox(axis.to, 'auto', false, (to) => update({ to })),
+      panel.checkBox(axis.log, (log) => update({ log })), SETTING.log)]
+  }
 }
 
-/** A colour for a part of the series, `colour fit red`, or of one series, `colour F_2 points green` (`color` too): the list `colours`. */
+/** How each part a colour can be chosen for is named in the menu. */
+const PART_LABELS: Record<PlotPart, string> = { [PLOT_PART.points]: 'Point colour', [PLOT_PART.line]: 'Line colour', [PLOT_PART.fit]: 'Fit colour' }
+
+/** The menu's choice for a part's colour as it is by itself: each series its own. */
+const OWN_COLOUR = { value: '', label: 'auto' } as const
+
+/**
+ * A colour for a part of the series, `colour fit red`, or of one series,
+ * `colour F_2 points green` (`color` too): the list `colours`. In the menu, a
+ * choice for each part, of every series' colour (one series' own are typed).
+ */
 class ColourSetting extends Setting<PlotSettings> {
   readonly examples = [`${SETTING.colour} ${PLOT_PART.fit} ${PLOT_COLOUR.red}`]
   override get values() {
-    return PLOT_COLOURS.map((value) => ({ value, means: value }))
+    return PLOT_COLOURS.map((value) => ({ value, label: value, means: value }))
   }
   read(part: string, into: PlotSettings): boolean {
     const colour = COLOUR.exec(part)
@@ -150,34 +170,67 @@ class ColourSetting extends Setting<PlotSettings> {
   write(s: PlotSettings): string[] {
     return s.colours.map((c) => [SETTING.colour, c.series, c.part, c.colour].filter(Boolean).join(' '))
   }
+  protected rows<C>(panel: SettingsPanel<C>, { current, set }: SettingsState<PlotSettings>): C[] {
+    return PLOT_PARTS.map((part) => {
+      const chosen = current().colours.findLast((c) => c.part === part && c.series === undefined)?.colour ?? OWN_COLOUR.value
+      // (Choosing one replaces any other for every series; one series' own stay.)
+      return panel.row(PART_LABELS[part], panel.choice([OWN_COLOUR, ...this.values], chosen, (colour) => {
+        const others = current().colours.filter((c) => c.part !== part || c.series !== undefined)
+        set({ ...current(), colours: colour === OWN_COLOUR.value ? others : [...others, { part, colour: colour as PlotColour }] })
+      }))
+    })
+  }
 }
 
-/** A plot's settings, each declared once: how it's written and what it does, in the order they're written back. */
+/** A plot's settings, each declared once: how it's written, what it does and its ⚙ control, in the order they're written back. */
 export const PLOT_SETTINGS = new SettingsSpec<PlotSettings>('plot', defaultPlotSettings, [
-  new RowsSetting('Only these rows: rows 5-20, rows 5- (from 5 on), rows -20 (up to 20), rows 7.'),
+  new RowsSetting({ label: 'Rows', summary: 'Only these rows: rows 5-20, rows 5- (from 5 on), rows -20 (up to 20), rows 7.' }),
   new ChoiceSetting(SETTING.style, 'style', [
-    { value: PLOT_STYLE.points, means: 'each row a point (as it is by itself)' },
-    { value: PLOT_STYLE.lines, means: 'a line joining the rows, without their points' },
-    { value: PLOT_STYLE.both, means: 'the points, joined by a line' },
-  ], PLOT_STYLE.both, 'How its rows are drawn.'),
+    { value: PLOT_STYLE.points, label: 'Points', means: 'each row a point (as it is by itself)' },
+    { value: PLOT_STYLE.lines, label: 'Lines', means: 'a line joining the rows, without their points' },
+    { value: PLOT_STYLE.both, label: 'Points and lines', means: 'the points, joined by a line' },
+  ], PLOT_STYLE.both, { label: 'Style', summary: 'How its rows are drawn.' }),
   new ChoiceSetting(SETTING.fit, 'fit', [
-    { value: PLOT_FIT.none, means: 'no fit (as it is by itself)' },
-    { value: PLOT_FIT.linear, means: 'a best-fit line, its equation under the plot, its slope and intercept variables' },
-  ], PLOT_FIT.linear, 'A line fitted to the points.'),
-  new AxisSetting('x', 'The x axis\'s range (either end may be left out, to fit the data) and, with log x, a logarithmic scale.'),
-  new AxisSetting('y', 'The y axis\'s range and, with log y, a logarithmic scale.'),
-  new SwitchSetting(SETTING.uncertainty, 'uncertainty', 'Error bars for the points\' uncertainties; uncertainty off hides them (a fit still weighs the points by them).'),
-  new SwitchSetting(SETTING.equation, 'equation', 'A fit\'s equation and R² under the plot; equation off leaves them out (its slope and intercept are still variables).'),
+    { value: PLOT_FIT.none, label: 'None', means: 'no fit (as it is by itself)' },
+    { value: PLOT_FIT.linear, label: 'Linear (best-fit line)', means: 'a best-fit line, its equation under the plot, its slope and intercept variables' },
+  ], PLOT_FIT.linear, {
+    label: 'Fit',
+    summary: 'A line fitted to the points.',
+    help: 'A linear fit shows the line’s equation under the plot, and makes its slope and intercept variables: x_slope, x_intercept.',
+  }),
+  new AxisSetting('x', { label: 'X axis', summary: 'The x axis\'s range (either end may be left out, to fit the data) and, with log x, a logarithmic scale.' }),
+  new AxisSetting('y', {
+    label: 'Y axis',
+    summary: 'The y axis\'s range and, with log y, a logarithmic scale.',
+    help: 'Leave an axis box empty to fit it to the data. Points outside an axis’s range are left out: of the fit, and of a named plot’s series (p.x).',
+  }),
+  new SwitchSetting(SETTING.uncertainty, 'uncertainty', {
+    label: 'Show uncertainty',
+    summary: 'Error bars for the points\' uncertainties; uncertainty off hides them.',
+    help: 'Error bars for the points’ uncertainties. A fit still weighs each point by its uncertainty when they’re hidden.',
+  }),
+  new SwitchSetting(SETTING.equation, 'equation', {
+    label: 'Show fit equation',
+    summary: 'A fit\'s equation and R² under the plot; equation off leaves them out (its slope and intercept are still variables).',
+  }),
   new ChoiceSetting(SETTING.legend, 'legend', [
-    { value: LEGEND_POSITION.topLeft, means: 'in the top left corner' },
-    { value: LEGEND_POSITION.topRight, means: 'in the top right corner' },
-    { value: LEGEND_POSITION.bottomLeft, means: 'in the bottom left corner' },
-    { value: LEGEND_POSITION.bottomRight, means: 'in the bottom right corner' },
-    { value: LEGEND_POSITION.outside, means: 'beside the plot' },
-    { value: LEGEND_POSITION.off, means: 'none' },
-  ], LEGEND_POSITION.topRight, 'Where its legend goes, listing each series and fit; without it, top left when there are several series.'),
-  new ColourSetting('A colour for every series\' points (with their error bars), line or fit; colour F_2 points green for one series\'.'),
-  new TitleSetting('A title over the plot, quoted so it can hold commas: title "Run 1".'),
+    { value: LEGEND_POSITION.topLeft, label: 'Top left', means: 'in the top left corner' },
+    { value: LEGEND_POSITION.topRight, label: 'Top right', means: 'in the top right corner' },
+    { value: LEGEND_POSITION.bottomLeft, label: 'Bottom left', means: 'in the bottom left corner' },
+    { value: LEGEND_POSITION.bottomRight, label: 'Bottom right', means: 'in the bottom right corner' },
+    { value: LEGEND_POSITION.outside, label: 'Beside the plot', means: 'beside the plot' },
+    { value: LEGEND_POSITION.off, label: 'None', means: 'none' },
+  ], LEGEND_POSITION.topRight, {
+    label: 'Legend',
+    summary: 'Where its legend goes, listing each series and fit; without it, top left when there are several series.',
+    help: 'Auto: a legend top left when there are several series. Each fit has an entry too.',
+  }),
+  new ColourSetting({
+    label: 'Colours',
+    summary: 'A colour for every series\' points (with their error bars), line or fit; colour F_2 points green for one series\'.',
+    help: 'Auto: each series its own colour. These are every series’; one series’ own is typed: colour F_2 points green.',
+  }),
+  new TitleSetting({ label: 'Title', summary: 'A title over the plot, quoted so it can hold commas: title "Run 1".' }),
 ])
 
 /** A plot's settings from their text, or what's wrong with them (as declared: PLOT_SETTINGS). */

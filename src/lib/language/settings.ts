@@ -86,10 +86,48 @@ export const titleSetting = (title: string) => `${SETTING_WORD.title} ${QUOTE}${
 /** The keys of `S` whose values are `V` (or, if optional, `V` or undefined). */
 export type KeysOf<S, V> = { [K in keyof S]-?: NonNullable<S[K]> extends V ? (V extends NonNullable<S[K]> ? K : never) : never }[keyof S]
 
-/** One value a setting can take, and what it means: `top right`, the legend in the plot's top right corner. */
+/** One value a setting can take: as it's written, as the ⚙ menu names it, and what it means (`top right`: the plot's top right corner). */
 export interface SettingValue<V extends string = string> {
   readonly value: V
+  readonly label: string
   readonly means: string
+}
+
+/** What's said about a setting: its name in the ⚙ menu, what it does, and anything the menu says under it. */
+export interface SettingAbout {
+  /** Its name in the ⚙ menu: `Show uncertainty`. */
+  readonly label: string
+  /** What it does, in a sentence. */
+  readonly summary: string
+  /** Its control's tooltip in the ⚙ menu, if there's more to say there than its summary: how to leave it to the data. */
+  readonly help?: string
+}
+
+/**
+ * What a setting's control in the ⚙ menu is made of, as the menu makes it
+ * (`C`: an element), so a setting says what its control is without the page:
+ * a labelled row of controls (and words between them), a checkbox, a choice,
+ * number and text boxes (empty for none), and a tooltip on a row.
+ */
+export interface SettingsPanel<C> {
+  row(label: string, ...controls: (C | string)[]): C
+  checkBox(value: boolean, set: (on: boolean) => void): C
+  choice(options: readonly { readonly value: string; readonly label: string }[], value: string, set: (value: string) => void): C
+  /** `whole`: a row number (1 or more); otherwise any number. */
+  numberBox(value: number | undefined, placeholder: string, whole: boolean, set: (value: number | undefined) => void): C
+  textBox(value: string | undefined, placeholder: string, set: (text: string | undefined) => void): C
+  /** A row with a tooltip, shown on hover (so the panel itself stays short). */
+  withTip(row: C, text: string): C
+}
+
+/**
+ * The settings a control changes: as they are now (each control reads them as
+ * it's used), setting new ones (which are saved), and the defaults.
+ */
+export interface SettingsState<S> {
+  readonly current: () => S
+  readonly set: (next: S) => void
+  readonly defaults: S
 }
 
 /** Set a field of a settings object (each kind of setting knows its field's type: see KeysOf). */
@@ -97,15 +135,23 @@ const put = <S>(into: S, key: keyof S, value: unknown) => {
   (into as Record<keyof S, unknown>)[key] = value
 }
 
+/** Settings with a field changed (a copy, as a control sets them). */
+const changed = <S>(s: S, key: keyof S, value: unknown): S => ({ ...s, [key]: value })
+
 /**
- * A setting: how it's written (an example of it), what it does, and how it's
- * read from a setting's text into the settings and written back from them.
+ * A setting: how it's written (examples of it), what it does, how it's read
+ * from a setting's text into the settings and written back from them, and its
+ * control in the ⚙ menu.
  */
 export abstract class Setting<S> {
+  readonly about: SettingAbout
+  constructor(about: SettingAbout) {
+    this.about = about
+  }
+
   /** What it does, in a sentence. */
-  readonly summary: string
-  constructor(summary: string) {
-    this.summary = summary
+  get summary(): string {
+    return this.about.summary
   }
 
   /** How it's written, as examples: `legend top right`; an axis's `x from 0 to 10` and `log x`. */
@@ -121,14 +167,22 @@ export abstract class Setting<S> {
 
   /** It as written for `s`: its parts (none if it's as `defaults` has it). */
   abstract write(s: S, defaults: S): string[]
+
+  /** Its control in the ⚙ menu: its rows, each with its help (or else its summary) as a tooltip. */
+  controls<C>(panel: SettingsPanel<C>, state: SettingsState<S>): C[] {
+    return this.rows(panel, state).map((row) => panel.withTip(row, this.about.help ?? this.about.summary))
+  }
+
+  /** Its control's rows. */
+  protected abstract rows<C>(panel: SettingsPanel<C>, state: SettingsState<S>): C[]
 }
 
-/** On or off, `uncertainty off`: a field that's true or false. */
+/** On or off, `uncertainty off`: a field that's true or false (in the menu, a checkbox). */
 export class SwitchSetting<S> extends Setting<S> {
   readonly word: string
   readonly key: KeysOf<S, boolean>
-  constructor(word: string, key: KeysOf<S, boolean>, summary: string) {
-    super(summary)
+  constructor(word: string, key: KeysOf<S, boolean>, about: SettingAbout) {
+    super(about)
     this.word = word
     this.key = key
   }
@@ -146,14 +200,17 @@ export class SwitchSetting<S> extends Setting<S> {
     const on = s[this.key] as boolean
     return on === defaults[this.key] ? [] : [`${this.word} ${on ? SETTING_WORD.on : SETTING_WORD.off}`]
   }
+  protected rows<C>(panel: SettingsPanel<C>, { current, set }: SettingsState<S>): C[] {
+    return [panel.row(this.about.label, panel.checkBox(current()[this.key] as boolean, (on) => set(changed(current(), this.key, on))))]
+  }
 }
 
-/** Said or not, `all rows`: a field that's true when it's written. */
+/** Said or not, `all rows`: a field that's true when it's written (in the menu, a checkbox). */
 export class FlagSetting<S> extends Setting<S> {
   readonly word: string
   readonly key: KeysOf<S, boolean>
-  constructor(word: string, key: KeysOf<S, boolean>, summary: string) {
-    super(summary)
+  constructor(word: string, key: KeysOf<S, boolean>, about: SettingAbout) {
+    super(about)
     this.word = word
     this.key = key
   }
@@ -168,17 +225,26 @@ export class FlagSetting<S> extends Setting<S> {
   write(s: S): string[] {
     return s[this.key] ? [this.word] : []
   }
+  protected rows<C>(panel: SettingsPanel<C>, { current, set }: SettingsState<S>): C[] {
+    return [panel.row(this.about.label, panel.checkBox(current()[this.key] as boolean, (on) => set(changed(current(), this.key, on))))]
+  }
 }
 
-/** One of some values, `style both`: a field that's one of them (or, if it's optional, none: as it is by itself). */
+/** The menu's choice for a setting left as it is by itself (an optional choice's, unset). */
+const AUTOMATIC = { value: '', label: 'Auto' } as const
+
+/**
+ * One of some values, `style both`: a field that's one of them (in the menu, a
+ * choice). If the field is optional, unset is how it is by itself, the menu's Auto.
+ */
 export class ChoiceSetting<S, V extends string> extends Setting<S> {
   readonly word: string
   readonly key: KeysOf<S, V>
   readonly choices: readonly SettingValue<V>[]
   /** The value its example shows: `style both`. */
   private readonly shown: V
-  constructor(word: string, key: KeysOf<S, V>, choices: readonly SettingValue<V>[], shown: V, summary: string) {
-    super(summary)
+  constructor(word: string, key: KeysOf<S, V>, choices: readonly SettingValue<V>[], shown: V, about: SettingAbout) {
+    super(about)
     this.word = word
     this.key = key
     this.choices = choices
@@ -202,15 +268,22 @@ export class ChoiceSetting<S, V extends string> extends Setting<S> {
     const value = s[this.key] as V | undefined
     return value === undefined || value === defaults[this.key] ? [] : [`${this.word} ${value}`]
   }
+  protected rows<C>(panel: SettingsPanel<C>, { current, set, defaults }: SettingsState<S>): C[] {
+    // (A field unset by itself, `legend`, has Auto first: unset.)
+    const options = defaults[this.key] === undefined ? [AUTOMATIC, ...this.choices] : this.choices
+    const value = (current()[this.key] as V | undefined) ?? AUTOMATIC.value
+    return [panel.row(this.about.label, panel.choice(options, value,
+      (chosen) => set(changed(current(), this.key, chosen === AUTOMATIC.value ? undefined : chosen))))]
+  }
 }
 
-/** A name, `labels salts`: a field holding one word (a series' name, say). */
+/** A name, `labels salts`: a field holding one word, a series' name, say (in the menu, a text box). */
 export class NameSetting<S> extends Setting<S> {
   readonly word: string
   readonly key: KeysOf<S, string>
   readonly sample: string
-  constructor(word: string, key: KeysOf<S, string>, sample: string, summary: string) {
-    super(summary)
+  constructor(word: string, key: KeysOf<S, string>, sample: string, about: SettingAbout) {
+    super(about)
     this.word = word
     this.key = key
     this.sample = sample
@@ -228,9 +301,14 @@ export class NameSetting<S> extends Setting<S> {
     const name = s[this.key] as string | undefined
     return name ? [`${this.word} ${name}`] : []
   }
+  protected rows<C>(panel: SettingsPanel<C>, { current, set }: SettingsState<S>): C[] {
+    // (A name is one word: what's typed is taken up to its first space.)
+    return [panel.row(this.about.label, panel.textBox(current()[this.key] as string | undefined, `e.g. ${this.sample}`,
+      (text) => set(changed(current(), this.key, text?.split(/\s+/)[0] || undefined))))]
+  }
 }
 
-/** Which rows, `rows 5-20` (`rows 5-` from 5 on, `rows -20` up to 20, `rows 7` just 7): the fields `from` and `to`. */
+/** Which rows, `rows 5-20` (`rows 5-` from 5 on, `rows -20` up to 20, `rows 7` just 7): the fields `from` and `to` (in the menu, two number boxes). */
 export class RowsSetting<S extends { from?: number; to?: number }> extends Setting<S> {
   readonly examples = [`${SETTING_WORD.rows} 5-20`]
   read(part: string, into: S): boolean {
@@ -244,9 +322,15 @@ export class RowsSetting<S extends { from?: number; to?: number }> extends Setti
     const rows = formatRowRange(s.from, s.to)
     return rows ? [rows] : []
   }
+  protected rows<C>(panel: SettingsPanel<C>, { current, set }: SettingsState<S>): C[] {
+    // (Each box sets only its own end, so setting one keeps the other.)
+    return [panel.row(this.about.label,
+      panel.numberBox(current().from, 'first', true, (from) => set({ ...current(), from })), SETTING_WORD.to,
+      panel.numberBox(current().to, 'last', true, (to) => set({ ...current(), to })))]
+  }
 }
 
-/** A title, quoted so it can hold commas, `title "Run 1"`: the field `title`. */
+/** A title, quoted so it can hold commas, `title "Run 1"`: the field `title` (in the menu, a text box). */
 export class TitleSetting<S extends { title?: string }> extends Setting<S> {
   readonly examples = [`${SETTING_WORD.title} "…"`]
   read(part: string, into: S): boolean {
@@ -257,6 +341,9 @@ export class TitleSetting<S extends { title?: string }> extends Setting<S> {
   }
   write(s: S): string[] {
     return s.title ? [titleSetting(s.title)] : []
+  }
+  protected rows<C>(panel: SettingsPanel<C>, { current, set }: SettingsState<S>): C[] {
+    return [panel.row(this.about.label, panel.textBox(current().title, 'none', (title) => set({ ...current(), title })))]
   }
 }
 
@@ -291,6 +378,23 @@ export class SettingsSpec<S> {
   format(s: S): string {
     const defaults = this.defaults()
     return joinSettings(this.settings.flatMap((setting) => setting.write(s, defaults)))
+  }
+
+  /**
+   * The ⚙ menu's controls for these settings, read from their text: each
+   * setting's, in the order declared; `save` writes their text back as each changes.
+   */
+  controls<C>(panel: SettingsPanel<C>, text: string | undefined, save: (text: string) => void): C[] {
+    let settings = this.parse(text).settings
+    const state: SettingsState<S> = {
+      current: () => settings,
+      set: (next) => {
+        settings = next
+        save(this.format(settings))
+      },
+      defaults: this.defaults(),
+    }
+    return this.settings.flatMap((s) => s.controls(panel, state))
   }
 
   /** What's said of a part that isn't one of these settings: what is, each as an example. */

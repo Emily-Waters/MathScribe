@@ -25,7 +25,8 @@
 // module's settings, which the outputs' files reach through its public face, are declared with it as it loads.)
 export {
   ChoiceSetting, FlagSetting, NameSetting, RowsSetting, Setting, SettingsSpec, SwitchSetting, TitleSetting, SETTING_WORD,
-  formatRowRange, joinSettings, parseRowRange, parseTitle, settingParts, titleSetting, type KeysOf, type SettingValue,
+  formatRowRange, joinSettings, parseRowRange, parseTitle, settingParts, titleSetting, type KeysOf, type SettingAbout,
+  type SettingsPanel, type SettingsState, type SettingValue,
 } from './language/settings.ts'
 
 // The module itself, and what the engine offers it.

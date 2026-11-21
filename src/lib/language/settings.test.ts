@@ -1,7 +1,7 @@
 /** Settings, declared: each kind read and written back, and a call's settings read, written and listed in their error. */
 import { describe, expect, it } from 'vitest'
 import {
-  ChoiceSetting, FlagSetting, NameSetting, RowsSetting, SettingsSpec, SwitchSetting, TitleSetting,
+  ChoiceSetting, FlagSetting, NameSetting, RowsSetting, SettingsSpec, SwitchSetting, TitleSetting, type SettingsPanel,
 } from './settings.ts'
 
 /** A call's settings, with one of each kind. */
@@ -16,12 +16,15 @@ interface Demo {
 }
 
 const DEMO = new SettingsSpec<Demo>('demo', () => ({ shade: 'light', marks: true, every: false }), [
-  new RowsSetting('Which rows.'),
-  new ChoiceSetting<Demo, Demo['shade']>('shade', 'shade', [{ value: 'light', means: 'pale' }, { value: 'dark', means: 'deep' }], 'dark', 'How it’s shaded.'),
-  new SwitchSetting('marks', 'marks', 'Its marks.'),
-  new FlagSetting('every row', 'every', 'Every row.'),
-  new NameSetting('key', 'key', 'salts', 'A series down the side.'),
-  new TitleSetting('Its title.'),
+  new RowsSetting({ label: 'Rows', summary: 'Which rows.', help: 'Leave a box empty for the first or last.' }),
+  new ChoiceSetting<Demo, Demo['shade']>('shade', 'shade', [
+    { value: 'light', label: 'Light', means: 'pale' },
+    { value: 'dark', label: 'Dark', means: 'deep' },
+  ], 'dark', { label: 'Shade', summary: 'How it’s shaded.' }),
+  new SwitchSetting('marks', 'marks', { label: 'Show marks', summary: 'Its marks.' }),
+  new FlagSetting('every row', 'every', { label: 'Every row', summary: 'Every row.' }),
+  new NameSetting('key', 'key', 'salts', { label: 'Key', summary: 'A series down the side.' }),
+  new TitleSetting({ label: 'Title', summary: 'Its title.' }),
 ])
 
 describe('a call’s declared settings', () => {
@@ -39,7 +42,30 @@ describe('a call’s declared settings', () => {
   })
 
   it('list a choice’s values with what each means', () => {
-    expect(DEMO.settings[1].values).toEqual([{ value: 'light', means: 'pale' }, { value: 'dark', means: 'deep' }])
+    expect(DEMO.settings[1].values?.map((v) => v.means)).toEqual(['pale', 'deep'])
     expect(DEMO.settings[2].values).toBeUndefined()
+  })
+
+  it('give the ⚙ menu its controls, in order, with their help on hover, each setting the settings and saving their text', () => {
+    // (A panel of text: each control as what it shows, with a way to use it.)
+    const uses = new Map<string, (v: never) => void>()
+    const panel: SettingsPanel<string> = {
+      row: (label, ...controls) => `${label}: ${controls.join(' ')}`,
+      checkBox: (on, set) => (uses.set(`check ${uses.size}`, set as never), `[${on ? 'x' : ' '}]`),
+      choice: (options, value, set) => (uses.set(`choice ${uses.size}`, set as never), `<${options.map((o) => (o.value === value ? `*${o.label}` : o.label)).join('|')}>`),
+      numberBox: (v, placeholder, _whole, set) => (uses.set(`number ${uses.size}`, set as never), `#${v ?? placeholder}`),
+      textBox: (v, placeholder, set) => (uses.set(`text ${uses.size}`, set as never), `"${v ?? placeholder}"`),
+      withTip: (row, text) => `${row} (${text})`,
+    }
+    const saved: string[] = []
+    const controls = DEMO.controls(panel, 'rows 3-, key salts', (text) => saved.push(text))
+    expect(controls).toEqual([
+      'Rows: #3 to #last (Leave a box empty for the first or last.)', 'Shade: <*Light|Dark> (How it’s shaded.)', 'Show marks: [x] (Its marks.)',
+      'Every row: [ ] (Every row.)', 'Key: "salts" (A series down the side.)', 'Title: "none" (Its title.)',
+    ])
+    uses.get('number 1')!(8 as never)
+    uses.get('choice 2')!('dark' as never)
+    uses.get('check 3')!(false as never)
+    expect(saved).toEqual(['rows 3-8, key salts', 'rows 3-8, shade dark, key salts', 'rows 3-8, shade dark, marks off, key salts'])
   })
 })

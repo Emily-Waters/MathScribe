@@ -5,24 +5,16 @@
  * plotSettings.ts), so the sheet's text is always what's shown. The series module
  * adds it to the editor (SeriesModule.editorExtensions).
  *
- * - A table: which rows, how the lines are drawn, the n column, showing every row.
- * - A plot: which rows, points or lines, a best-fit line, each axis's range and
- *   log scale, and a title.
+ * The panel's controls are the settings' own, as declared (TABLE_SETTINGS,
+ * PLOT_SETTINGS: each kind of setting says what its control is, in terms of
+ * the DOM panel below), so a setting added there is in its menu too.
  */
 import { type EditorState, type Extension } from '@codemirror/state'
 import { Decoration, EditorView, WidgetType } from '@codemirror/view'
+import { CALLS_WITH_SETTINGS, PLOT_SETTINGS, SERIES_CALL, TABLE_SETTINGS, splitCallArgs, withSettingsText, type CallWithSettings as CallKind } from './public.ts'
 import {
-  CALLS_WITH_SETTINGS, LEGEND_POSITION, LEGEND_POSITIONS, PLOT_COLOURS, PLOT_FITS, PLOT_PART, PLOT_PARTS, PLOT_STYLES, SERIES_CALL, TABLE_LINES, formatPlotSettings,
-  formatTableSettings, parsePlotSettings, parseTableSettings, splitCallArgs, withSettingsText,
-  type AxisSettings, type CallWithSettings as CallKind, type LegendPosition, type PlotColour, type PlotFit, type PlotPart, type PlotSettings,
-  type PlotStyle, type TableLines, type TableSettings,
-} from './public.ts'
-import { ASSIGN, ROUND_BRACKETS, SIGIL, TOKEN_KIND, encode, placeFixedPanel, sheetStatements, type SheetStatement } from '../../lib/plugin.ts'
-
-/** How each choice reads in the panels. */
-const LINE_NAMES: Record<TableLines, string> = { header: 'Under the header', grid: 'Grid', none: 'None' }
-const STYLE_NAMES: Record<PlotStyle, string> = { points: 'Points', lines: 'Lines', both: 'Points and lines' }
-const FIT_NAMES: Record<PlotFit, string> = { none: 'None', linear: 'Linear (best-fit line)' }
+  ASSIGN, ROUND_BRACKETS, SIGIL, TOKEN_KIND, encode, placeFixedPanel, sheetStatements, type SettingsPanel, type SheetStatement,
+} from '../../lib/plugin.ts'
 
 /** ⚙, drawn as text rather than an emoji. */
 const COG = String.fromCodePoint(0x2699, 0xfe0e)
@@ -136,51 +128,17 @@ function checkBox(value: boolean, set: (v: boolean) => void) {
   return input
 }
 
-function choice<T extends string>(ids: readonly T[], names: Record<T, string>, value: T, set: (v: T) => void) {
+function choice(options: readonly { readonly value: string; readonly label: string }[], value: string, set: (value: string) => void) {
   const select = document.createElement('select')
-  for (const id of ids) select.add(new Option(names[id], id, false, value === id))
-  select.addEventListener('change', () => set(select.value as T))
+  for (const o of options) select.add(new Option(o.label, o.value, false, value === o.value))
+  select.addEventListener('change', () => set(select.value))
   return select
 }
 
-function help(text: string) {
-  const p = document.createElement('p')
-  p.className = 'options__help'
-  p.textContent = text
-  return p
-}
-
-/**
- * The rows boxes: from and to. Each saves only its own end, which the panel
- * merges into its current settings (so setting one keeps the other).
- */
-const rowsRow = (s: { from?: number; to?: number }, save: (r: { from?: number } | { to?: number }) => void) =>
-  row('Rows',
-    numberBox(s.from, 'first', true, (from) => save({ from })), 'to',
-    numberBox(s.to, 'last', true, (to) => save({ to })))
-
-// ---------------------------------------------------------------------------
-// The panels
-// ---------------------------------------------------------------------------
-
-/** A table's panel. `save` writes the settings into its line. */
-function tablePanel(text: string | undefined, save: (settingsText: string) => void): HTMLElement[] {
-  let s = parseTableSettings(text).settings
-  const set = (next: TableSettings) => {
-    s = next
-    save(formatTableSettings(s))
-  }
-  return [
-    rowsRow(s, (r) => set({ ...s, ...r })),
-    help('Leave a row box empty for the first or last row. These are kept in the table’s brackets, after a semicolon.'),
-    row('Lines', choice(TABLE_LINES, LINE_NAMES, s.lines, (lines) => set({ ...s, lines }))),
-    row('Row numbers', checkBox(s.numbers, (numbers) => set({ ...s, numbers }))),
-    row('Row labels', textBox(s.labels, 'a series, e.g. salts', (labels) => set({ ...s, labels }))),
-    help('A series whose values go down the side in place of the row numbers: salts = @series("KCl", "KBr").'),
-    row('Show every row', checkBox(s.allRows, (allRows) => set({ ...s, allRows }))),
-    row('Show uncertainty', checkBox(s.uncertainty, (uncertainty) => set({ ...s, uncertainty }))),
-    titleRow(s.title, (title) => set({ ...s, title })),
-  ]
+/** A row with a tooltip (a setting's help, on hover). */
+function withTip(row: HTMLElement, text: string) {
+  row.title = text
+  return row
 }
 
 /** A text box (empty for none). */
@@ -194,66 +152,13 @@ function textBox(value: string | undefined, placeholder: string, set: (text: str
   return box
 }
 
-/** A title box: a table's caption, a plot's title (empty for none). */
-const titleRow = (value: string | undefined, set: (title: string | undefined) => void): HTMLElement =>
-  row('Title', textBox(value, 'none', set))
+/** The panel's controls, as the settings' declarations ask for them (SettingsPanel). */
+const DOM_PANEL: SettingsPanel<HTMLElement> = { row, checkBox, choice, numberBox, textBox, withTip }
 
-/** A plot's panel. */
-function plotPanel(text: string | undefined, save: (settingsText: string) => void): HTMLElement[] {
-  let s = parsePlotSettings(text).settings
-  const set = (next: PlotSettings) => {
-    s = next
-    save(formatPlotSettings(s))
-  }
-  const axis = (name: 'x' | 'y') => {
-    const update = (patch: Partial<AxisSettings>) => set({ ...s, [name]: { ...s[name], ...patch } })
-    return row(`${name.toUpperCase()} axis`,
-      numberBox(s[name].from, 'auto', false, (from) => update({ from })), 'to',
-      numberBox(s[name].to, 'auto', false, (to) => update({ to })),
-      checkBox(s[name].log, (log) => update({ log })), 'log')
-  }
-  return [
-    rowsRow(s, (r) => set({ ...s, ...r })),
-    row('Style', choice(PLOT_STYLES, STYLE_NAMES, s.style, (style) => set({ ...s, style }))),
-    row('Fit', choice(PLOT_FITS, FIT_NAMES, s.fit, (fit) => set({ ...s, fit }))),
-    help('A linear fit shows the line’s equation under the plot, and makes its slope and intercept variables: x_slope, x_intercept.'),
-    row('Show fit equation', checkBox(s.equation, (equation) => set({ ...s, equation }))),
-    axis('x'),
-    axis('y'),
-    help('Leave an axis box empty to fit it to the data. Points outside an axis’s range are left out: of the fit, and of a named plot’s series (p.x).'),
-    row('Show uncertainty', checkBox(s.uncertainty, (uncertainty) => set({ ...s, uncertainty }))),
-    help('Error bars for the points’ uncertainties. A fit still weighs each point by its uncertainty when they’re hidden.'),
-    row('Legend', choice([AUTO, ...LEGEND_POSITIONS], LEGEND_NAMES, s.legend ?? AUTO,
-      (legend) => set({ ...s, legend: legend === AUTO ? undefined : legend }))),
-    help('Auto: a legend top left when there are several series. Each fit has an entry too.'),
-    ...PLOT_PARTS.map((part) => row(PART_NAMES[part], colourChoice(s, part, set))),
-    help('Auto: each series its own colour. These are every series’; one series’ own is typed: colour F_2 points green.'),
-    titleRow(s.title, (title) => set({ ...s, title })),
-  ]
-}
-
-/** The choice for "as it is": a legend where it goes by itself, a series' own colour. */
-const AUTO = 'auto'
-
-const LEGEND_NAMES: Record<LegendPosition | typeof AUTO, string> = {
-  [AUTO]: 'Auto',
-  [LEGEND_POSITION.topLeft]: 'Top left',
-  [LEGEND_POSITION.topRight]: 'Top right',
-  [LEGEND_POSITION.bottomLeft]: 'Bottom left',
-  [LEGEND_POSITION.bottomRight]: 'Bottom right',
-  [LEGEND_POSITION.outside]: 'Beside the plot',
-  [LEGEND_POSITION.off]: 'None',
-}
-const PART_NAMES: Record<PlotPart, string> = { [PLOT_PART.points]: 'Point colour', [PLOT_PART.line]: 'Line colour', [PLOT_PART.fit]: 'Fit colour' }
-const COLOUR_NAMES = Object.fromEntries([[AUTO, 'auto'], ...PLOT_COLOURS.map((c) => [c, c])]) as Record<PlotColour | typeof AUTO, string>
-
-/** The colour box for a part of every series: auto, or a colour (replacing any other for every series; one series' own stay). */
-function colourChoice(s: PlotSettings, part: PlotPart, set: (next: PlotSettings) => void): HTMLSelectElement {
-  const current = s.colours.findLast((c) => c.part === part && c.series === undefined)?.colour ?? AUTO
-  return choice([AUTO, ...PLOT_COLOURS], COLOUR_NAMES, current, (colour) => {
-    const others = s.colours.filter((c) => c.part !== part || c.series !== undefined)
-    set({ ...s, colours: colour === AUTO ? others : [...others, { part, colour }] })
-  })
+/** Each call's panel: its settings' controls, read from its settings text, each saving that text as it changes. */
+const PANELS: Record<CallKind, (text: string | undefined, save: (settingsText: string) => void) => HTMLElement[]> = {
+  [SERIES_CALL.table]: (text, save) => TABLE_SETTINGS.controls(DOM_PANEL, text, save),
+  [SERIES_CALL.plot]: (text, save) => PLOT_SETTINGS.controls(DOM_PANEL, text, save),
 }
 
 // ---------------------------------------------------------------------------
@@ -283,7 +188,7 @@ function openSettings(view: EditorView, button: HTMLElement, place: number): voi
   panel.className = 'options__panel cm-ms-table-menu'
   panel.setAttribute('role', 'group')
   panel.setAttribute('aria-label', call.kind === SERIES_CALL.table ? 'Table settings' : 'Plot settings')
-  panel.append(...(call.kind === SERIES_CALL.table ? tablePanel : plotPanel)(settingsText, save))
+  panel.append(...PANELS[call.kind](settingsText, save))
 
   // Beside the button, kept fully on screen.
   const at = button.getBoundingClientRect()

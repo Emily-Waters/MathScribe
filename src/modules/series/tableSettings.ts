@@ -115,17 +115,25 @@ export const withTableSettings = (line: string, inner: { from: number; to: numbe
 // A table's settings, declared (the language's settings: lib/language/settings.ts)
 // ---------------------------------------------------------------------------
 
-/** A table's settings, each declared once: how it's written and what it does, in the order they're written back. */
+/** A table's settings, each declared once: how it's written, what it does and its ⚙ control, in the order they're written back. */
 export const TABLE_SETTINGS = new SettingsSpec<TableSettings>('table', () => ({ ...DEFAULT_TABLE_SETTINGS }), [
-  new RowsSetting('Only these rows: rows 5-20, rows 5- (from 5 on), rows -20 (up to 20), rows 7.'),
-  new ChoiceSetting('lines', 'lines', [
-    { value: TABLE_LINE.header, means: 'a line under the header, and after the row headers' },
-    { value: TABLE_LINE.grid, means: 'a line around every cell (as it is by itself)' },
-    { value: TABLE_LINE.none, means: 'no lines' },
-  ], TABLE_LINE.header, 'How its lines are drawn.'),
-  new SwitchSetting('numbers', 'numbers', 'Row numbers down the side; numbers off leaves them out.'),
-  new NameSetting('labels', 'labels', 'salts', 'A series\' values down the side, in the row numbers\' place: salts = @series("KCl", "KBr").'),
-  new SwitchSetting('uncertainty', 'uncertainty', 'Each value with ± its uncertainty; uncertainty off shows the values alone.'),
-  new FlagSetting('all rows', 'allRows', 'Every row, even in a long table (one is normally shortened).'),
-  new TitleSetting('Its caption, quoted so it can hold commas: title "Reactivity of the halogens".'),
+  new RowsSetting({
+    label: 'Rows',
+    summary: 'Only these rows: rows 5-20, rows 5- (from 5 on), rows -20 (up to 20), rows 7.',
+    help: 'Leave a row box empty for the first or last row. These are kept in the table’s brackets, after a semicolon.',
+  }),
+  new ChoiceSetting(SETTING.lines, 'lines', [
+    { value: TABLE_LINE.header, label: 'Under the header', means: 'a line under the header, and after the row headers' },
+    { value: TABLE_LINE.grid, label: 'Grid', means: 'a line around every cell (as it is by itself)' },
+    { value: TABLE_LINE.none, label: 'None', means: 'no lines' },
+  ], TABLE_LINE.header, { label: 'Lines', summary: 'How its lines are drawn.' }),
+  new SwitchSetting(SETTING.numbers, 'numbers', { label: 'Row numbers', summary: 'Row numbers down the side; numbers off leaves them out.' }),
+  new NameSetting(SETTING.labels, 'labels', 'salts', {
+    label: 'Row labels',
+    summary: 'A series\' values down the side, in the row numbers\' place.',
+    help: 'A series whose values go down the side in place of the row numbers: salts = @series("KCl", "KBr").',
+  }),
+  new SwitchSetting(SETTING.uncertainty, 'uncertainty', { label: 'Show uncertainty', summary: 'Each value with ± its uncertainty; uncertainty off shows the values alone.' }),
+  new FlagSetting(SETTING.allRows, 'allRows', { label: 'Show every row', summary: 'Every row, even in a long table (one is normally shortened).' }),
+  new TitleSetting({ label: 'Title', summary: 'Its caption, quoted so it can hold commas: title "Reactivity of the halogens".' }),
 ])

@@ -1289,10 +1289,25 @@ into its own file (`docs/REFERENCE.md`), not into the README.
       (The framework is the module API's first export: a module's settings are
       declared as it loads, which the outputs reach through its public face, so
       it must be loaded before them.)
-- [ ] **Step 1b: the ⚙ menus from the declarations.** Each kind of setting
+- [x] **Step 1b: the ⚙ menus from the declarations.** Each kind of setting
       gives its own control (a checkbox, a choice, number boxes) in terms of a
       small interface the menu provides, and its help from its summary; the
       panels become a loop over the declarations.
+      Resolved (2026-11-21): a setting's declaration says what it's called in
+      the menu, what it does and any help under it (`SettingAbout`), and each
+      choice's values their names there; each kind of setting gives its control
+      (`rows`, in terms of `SettingsPanel`: a row, a checkbox, a choice, number
+      and text boxes, help), and `SettingsSpec.controls` makes a call's panel
+      from them, in the order declared. The ⚙ menu (tableMenu.ts) provides the
+      DOM panel and nothing else of its own: its hand-made panels, names and
+      colour box are gone. The panels are as before but for their order, which
+      is now the settings' (a table's *Show uncertainty* before *Show every
+      row*; a plot's *Show fit equation* after *Show uncertainty*), and a row
+      label box's placeholder (`e.g. salts`). A test drives a declared call's
+      controls through a panel of text.
+      **Then (2026-11-21), asked for by Emily:** the help under a control made
+      the panel busy; it's now each row's tooltip (its help, else its summary),
+      so every row has one and the panel is just its controls.
 - [ ] **Step 2: the reference and the AI primer, generated** for settings,
       beside the hand-written ones, then replacing them.
 - [ ] **Step 3: the rest of the language**, area by area: commands,

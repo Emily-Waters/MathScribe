@@ -1341,7 +1341,19 @@ into its own file (`docs/REFERENCE.md`), not into the README.
          example has no errors (and no warnings unless it says it warns) and is
          written as the formatter writes it, which found two indented by 2
          spaces, not 4, and one that warns on purpose (`L = 300 m`, now marked).
-   - [ ] **Part 2: settings as entries**, through their specs.
+   - [x] **Part 2: settings as entries**, through their specs.
+         Resolved (2026-11-21): `settingsTopic` (lib/language/reference.ts, in
+         the module API) makes a call's settings a topic of the tree from their
+         declarations: how they're written in the call, then an entry for each
+         setting (its syntax, what it does, its values), each with a whole sheet
+         using it, which a module gives (the series module's table and plot
+         samples: series/language.ts). So the tests run every table and plot
+         setting in a real sheet (19 new golden snapshots), and the Reference
+         tab's separate Settings section is gone: Table settings and Plot
+         settings are topics, after Repeated measurements. An entry can now say
+         how it's written (`syntax`), shown before what's said of it. A module's
+         topic can follow another module's (the tree checks each follows one
+         that's there).
    - [ ] **Part 3: the AI primer from the tree**: its rules and snippets become
          entries' rules and examples, the old and new compared before switching.
    - [ ] **Part 4: editor hovers and completions from the tree** (`#`

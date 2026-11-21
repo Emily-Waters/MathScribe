@@ -428,6 +428,72 @@ exports[`the Reference tab’s examples > Layout: @layout.val.multiline Results 
 
 exports[`the Reference tab’s examples > Layout: F = 2.00 kg * 9.81 m/s^2   #center 1`] = `"1: F = 2.00 kg\\times 9.81 m/s^2 = 19.6 N"`;
 
+exports[`the Reference tab’s examples > Plot settings: t = @series(0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s) 1`] = `
+"1: t = (0.10,\\ 0.20,\\ 0.30,\\ 0.40,\\ 0.50,\\ 0.60) s\\quad \\text6 values
+2: x = (0.051 ± 0.004,\\ 0.098 ± 0.004,\\ 0.152 ± 0.004,\\ 0.199 ± 0.004,\\ 0.248 ± 0.004,\\ 0.301 ± 0.004) m\\quad \\text6 values
+3: \\begingatheredx = [(0.50 ± 0.01) m/s] t + (0.000 ± 0.004) m R^2 = 0.9997,\\quad \\chi^2_\\nu = 0.23\\quad \\text(weighted by \\delta x\\text)\\endgathered"
+`;
+
+exports[`the Reference tab’s examples > Plot settings: t = @series(0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s) 2`] = `
+"1: t = (0.10,\\ 0.20,\\ 0.30,\\ 0.40,\\ 0.50,\\ 0.60) s\\quad \\text6 values
+2: x = (0.051 ± 0.004,\\ 0.098 ± 0.004,\\ 0.152 ± 0.004,\\ 0.199 ± 0.004,\\ 0.248 ± 0.004,\\ 0.301 ± 0.004) m\\quad \\text6 values
+3: \\begingatheredx = [(0.53 ± 0.06) m/s] t + (-0.02 ± 0.03) m R^2 = 1.0000\\quad \\text(weighted by \\delta x\\text)\\endgathered"
+`;
+
+exports[`the Reference tab’s examples > Plot settings: t = @series(0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s) 3`] = `
+"1: t = (0.10,\\ 0.20,\\ 0.30,\\ 0.40,\\ 0.50,\\ 0.60) s\\quad \\text6 values
+2: x = (0.051 ± 0.004,\\ 0.098 ± 0.004,\\ 0.152 ± 0.004,\\ 0.199 ± 0.004,\\ 0.248 ± 0.004,\\ 0.301 ± 0.004) m\\quad \\text6 values
+3: \\begingatheredx = [(0.50 ± 0.01) m/s] t + (0.000 ± 0.004) m R^2 = 0.9997,\\quad \\chi^2_\\nu = 0.23\\quad \\text(weighted by \\delta x\\text)\\endgathered"
+`;
+
+exports[`the Reference tab’s examples > Plot settings: t = @series(0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s) 4`] = `
+"1: t = (0.10,\\ 0.20,\\ 0.30,\\ 0.40,\\ 0.50,\\ 0.60) s\\quad \\text6 values
+2: x = (0.051 ± 0.004,\\ 0.098 ± 0.004,\\ 0.152 ± 0.004,\\ 0.199 ± 0.004,\\ 0.248 ± 0.004,\\ 0.301 ± 0.004) m\\quad \\text6 values
+3: \\begingatheredx = [(0.50 ± 0.01) m/s] t + (0.000 ± 0.004) m R^2 = 0.9997,\\quad \\chi^2_\\nu = 0.23\\quad \\text(weighted by \\delta x\\text)\\endgathered"
+`;
+
+exports[`the Reference tab’s examples > Plot settings: t = @series(0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s) 5`] = `
+"1: t = (0.10,\\ 0.20,\\ 0.30,\\ 0.40,\\ 0.50,\\ 0.60) s\\quad \\text6 values
+2: x = (0.051 ± 0.004,\\ 0.098 ± 0.004,\\ 0.152 ± 0.004,\\ 0.199 ± 0.004,\\ 0.248 ± 0.004,\\ 0.301 ± 0.004) m\\quad \\text6 values
+3: \\begingatheredx = [(0.50 ± 0.01) m/s] t + (0.000 ± 0.004) m R^2 = 0.9997,\\quad \\chi^2_\\nu = 0.23\\quad \\text(weighted by \\delta x\\text)\\endgathered"
+`;
+
+exports[`the Reference tab’s examples > Plot settings: t = @series(0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s) 6`] = `
+"1: t = (0.10,\\ 0.20,\\ 0.30,\\ 0.40,\\ 0.50,\\ 0.60) s\\quad \\text6 values
+2: x = (0.051 ± 0.004,\\ 0.098 ± 0.004,\\ 0.152 ± 0.004,\\ 0.199 ± 0.004,\\ 0.248 ± 0.004,\\ 0.301 ± 0.004) m\\quad \\text6 values
+3: \\begingatheredx = [(0.50 ± 0.01) m/s] t + (0.000 ± 0.004) m R^2 = 0.9997,\\quad \\chi^2_\\nu = 0.23\\quad \\text(weighted by \\delta x\\text)\\endgathered"
+`;
+
+exports[`the Reference tab’s examples > Plot settings: t = @series(0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s) 7`] = `
+"1: t = (0.10,\\ 0.20,\\ 0.30,\\ 0.40,\\ 0.50,\\ 0.60) s\\quad \\text6 values
+2: x = (0.051 ± 0.004,\\ 0.098 ± 0.004,\\ 0.152 ± 0.004,\\ 0.199 ± 0.004,\\ 0.248 ± 0.004,\\ 0.301 ± 0.004) m\\quad \\text6 values
+3: \\begingatheredx = [(0.50 ± 0.01) m/s] t + (0.000 ± 0.004) m R^2 = 0.9997,\\quad \\chi^2_\\nu = 0.23\\quad \\text(weighted by \\delta x\\text)\\endgathered"
+`;
+
+exports[`the Reference tab’s examples > Plot settings: t = @series(0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s) 8`] = `
+"1: t = (0.10,\\ 0.20,\\ 0.30,\\ 0.40,\\ 0.50,\\ 0.60) s\\quad \\text6 values
+2: x = (0.051 ± 0.004,\\ 0.098 ± 0.004,\\ 0.152 ± 0.004,\\ 0.199 ± 0.004,\\ 0.248 ± 0.004,\\ 0.301 ± 0.004) m\\quad \\text6 values
+3: "
+`;
+
+exports[`the Reference tab’s examples > Plot settings: t = @series(0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s) 9`] = `
+"1: t = (0.10,\\ 0.20,\\ 0.30,\\ 0.40,\\ 0.50,\\ 0.60) s\\quad \\text6 values
+2: x = (0.051 ± 0.004,\\ 0.098 ± 0.004,\\ 0.152 ± 0.004,\\ 0.199 ± 0.004,\\ 0.248 ± 0.004,\\ 0.301 ± 0.004) m\\quad \\text6 values
+3: \\begingatheredx = [(0.50 ± 0.01) m/s] t + (0.000 ± 0.004) m R^2 = 0.9997,\\quad \\chi^2_\\nu = 0.23\\quad \\text(weighted by \\delta x\\text)\\endgathered"
+`;
+
+exports[`the Reference tab’s examples > Plot settings: t = @series(0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s) 10`] = `
+"1: t = (0.10,\\ 0.20,\\ 0.30,\\ 0.40,\\ 0.50,\\ 0.60) s\\quad \\text6 values
+2: x = (0.051 ± 0.004,\\ 0.098 ± 0.004,\\ 0.152 ± 0.004,\\ 0.199 ± 0.004,\\ 0.248 ± 0.004,\\ 0.301 ± 0.004) m\\quad \\text6 values
+3: "
+`;
+
+exports[`the Reference tab’s examples > Plot settings: t = @series(0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s) 11`] = `
+"1: t = (0.10,\\ 0.20,\\ 0.30,\\ 0.40,\\ 0.50,\\ 0.60) s\\quad \\text6 values
+2: x = (0.051 ± 0.004,\\ 0.098 ± 0.004,\\ 0.152 ± 0.004,\\ 0.199 ± 0.004,\\ 0.248 ± 0.004,\\ 0.301 ± 0.004) m\\quad \\text6 values
+3: \\begingatheredx = [(0.50 ± 0.01) m/s] t + (0.000 ± 0.004) m R^2 = 0.9997,\\quad \\chi^2_\\nu = 0.23\\quad \\text(weighted by \\delta x\\text)\\endgathered"
+`;
+
 exports[`the Reference tab’s examples > Repeated measurements: @import("ramp.csv") 1`] = `
 "6: \\bart = \\frac13\\sum_i=1^3 t_i = \\fract_1 + t_2 + t_33 = \\frac1.21 s + 1.17 s + 1.24 s3 = (1.21 ± 0.02) s
 7: v = \\fracd_2t_2 = \\frac3.48 m1.17 s = 2.97 m/s"
@@ -531,6 +597,62 @@ exports[`the Reference tab’s examples > Solving: v = 5.00 m/s 1`] = `
 2: a = 2.00 m/s^2
 3: d = \\fracv^22 a = \\frac(5.00 m/s)^22\\times 2.00 m/s^2 = 6.25 m
      ↳ v^2 = 2 a d"
+`;
+
+exports[`the Reference tab’s examples > Table settings: t = @series(0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s) 1`] = `
+"1: t = (0.10,\\ 0.20,\\ 0.30,\\ 0.40,\\ 0.50,\\ 0.60) s\\quad \\text6 values
+2: x = (0.051 ± 0.004,\\ 0.098 ± 0.004,\\ 0.152 ± 0.004,\\ 0.199 ± 0.004,\\ 0.248 ± 0.004,\\ 0.301 ± 0.004) m\\quad \\text6 values
+3: salts = (\\text"KCl",\\ \\text"KBr",\\ \\text"KI",\\ \\text"NaCl",\\ \\text"NaBr",\\ \\text"NaI")\\quad \\text6 values
+4: \\beginarrayrr t [s] x [m] \\hline 0.10 0.051 ± 0.004 0.20 0.098 ± 0.004 0.30 0.152 ± 0.004 0.40 0.199 ± 0.004 0.50 0.248 ± 0.004 0.60 0.301 ± 0.004 \\endarray"
+`;
+
+exports[`the Reference tab’s examples > Table settings: t = @series(0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s) 2`] = `
+"1: t = (0.10,\\ 0.20,\\ 0.30,\\ 0.40,\\ 0.50,\\ 0.60) s\\quad \\text6 values
+2: x = (0.051 ± 0.004,\\ 0.098 ± 0.004,\\ 0.152 ± 0.004,\\ 0.199 ± 0.004,\\ 0.248 ± 0.004,\\ 0.301 ± 0.004) m\\quad \\text6 values
+3: salts = (\\text"KCl",\\ \\text"KBr",\\ \\text"KI",\\ \\text"NaCl",\\ \\text"NaBr",\\ \\text"NaI")\\quad \\text6 values
+4: \\beginarray|r|r|r| \\hline t [s] x [m] \\hline 5 0.50 0.248 ± 0.004 \\hline 6 0.60 0.301 ± 0.004 \\hline \\endarray"
+`;
+
+exports[`the Reference tab’s examples > Table settings: t = @series(0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s) 3`] = `
+"1: t = (0.10,\\ 0.20,\\ 0.30,\\ 0.40,\\ 0.50,\\ 0.60) s\\quad \\text6 values
+2: x = (0.051 ± 0.004,\\ 0.098 ± 0.004,\\ 0.152 ± 0.004,\\ 0.199 ± 0.004,\\ 0.248 ± 0.004,\\ 0.301 ± 0.004) m\\quad \\text6 values
+3: salts = (\\text"KCl",\\ \\text"KBr",\\ \\text"KI",\\ \\text"NaCl",\\ \\text"NaBr",\\ \\text"NaI")\\quad \\text6 values
+4: \\beginarrayr|rr t [s] x [m] \\hline 1 0.10 0.051 ± 0.004 2 0.20 0.098 ± 0.004 3 0.30 0.152 ± 0.004 4 0.40 0.199 ± 0.004 5 0.50 0.248 ± 0.004 6 0.60 0.301 ± 0.004 \\endarray"
+`;
+
+exports[`the Reference tab’s examples > Table settings: t = @series(0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s) 4`] = `
+"1: t = (0.10,\\ 0.20,\\ 0.30,\\ 0.40,\\ 0.50,\\ 0.60) s\\quad \\text6 values
+2: x = (0.051 ± 0.004,\\ 0.098 ± 0.004,\\ 0.152 ± 0.004,\\ 0.199 ± 0.004,\\ 0.248 ± 0.004,\\ 0.301 ± 0.004) m\\quad \\text6 values
+3: salts = (\\text"KCl",\\ \\text"KBr",\\ \\text"KI",\\ \\text"NaCl",\\ \\text"NaBr",\\ \\text"NaI")\\quad \\text6 values
+4: \\beginarray|r|r| \\hline t [s] x [m] \\hline 0.10 0.051 ± 0.004 \\hline 0.20 0.098 ± 0.004 \\hline 0.30 0.152 ± 0.004 \\hline 0.40 0.199 ± 0.004 \\hline 0.50 0.248 ± 0.004 \\hline 0.60 0.301 ± 0.004 \\hline \\endarray"
+`;
+
+exports[`the Reference tab’s examples > Table settings: t = @series(0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s) 5`] = `
+"1: t = (0.10,\\ 0.20,\\ 0.30,\\ 0.40,\\ 0.50,\\ 0.60) s\\quad \\text6 values
+2: x = (0.051 ± 0.004,\\ 0.098 ± 0.004,\\ 0.152 ± 0.004,\\ 0.199 ± 0.004,\\ 0.248 ± 0.004,\\ 0.301 ± 0.004) m\\quad \\text6 values
+3: salts = (\\text"KCl",\\ \\text"KBr",\\ \\text"KI",\\ \\text"NaCl",\\ \\text"NaBr",\\ \\text"NaI")\\quad \\text6 values
+4: \\beginarray|r|r|r| \\hline t [s] x [m] \\hline KCl 0.10 0.051 ± 0.004 \\hline KBr 0.20 0.098 ± 0.004 \\hline KI 0.30 0.152 ± 0.004 \\hline NaCl 0.40 0.199 ± 0.004 \\hline NaBr 0.50 0.248 ± 0.004 \\hline NaI 0.60 0.301 ± 0.004 \\hline \\endarray"
+`;
+
+exports[`the Reference tab’s examples > Table settings: t = @series(0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s) 6`] = `
+"1: t = (0.10,\\ 0.20,\\ 0.30,\\ 0.40,\\ 0.50,\\ 0.60) s\\quad \\text6 values
+2: x = (0.051 ± 0.004,\\ 0.098 ± 0.004,\\ 0.152 ± 0.004,\\ 0.199 ± 0.004,\\ 0.248 ± 0.004,\\ 0.301 ± 0.004) m\\quad \\text6 values
+3: salts = (\\text"KCl",\\ \\text"KBr",\\ \\text"KI",\\ \\text"NaCl",\\ \\text"NaBr",\\ \\text"NaI")\\quad \\text6 values
+4: \\beginarray|r|r|r| \\hline t [s] x [m] \\hline 1 0.10 0.051 \\hline 2 0.20 0.098 \\hline 3 0.30 0.152 \\hline 4 0.40 0.199 \\hline 5 0.50 0.248 \\hline 6 0.60 0.301 \\hline \\endarray"
+`;
+
+exports[`the Reference tab’s examples > Table settings: t = @series(0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s) 7`] = `
+"1: t = (0.10,\\ 0.20,\\ 0.30,\\ 0.40,\\ 0.50,\\ 0.60) s\\quad \\text6 values
+2: x = (0.051 ± 0.004,\\ 0.098 ± 0.004,\\ 0.152 ± 0.004,\\ 0.199 ± 0.004,\\ 0.248 ± 0.004,\\ 0.301 ± 0.004) m\\quad \\text6 values
+3: salts = (\\text"KCl",\\ \\text"KBr",\\ \\text"KI",\\ \\text"NaCl",\\ \\text"NaBr",\\ \\text"NaI")\\quad \\text6 values
+4: \\beginarray|r|r|r| \\hline t [s] x [m] \\hline 1 0.10 0.051 ± 0.004 \\hline 2 0.20 0.098 ± 0.004 \\hline 3 0.30 0.152 ± 0.004 \\hline 4 0.40 0.199 ± 0.004 \\hline 5 0.50 0.248 ± 0.004 \\hline 6 0.60 0.301 ± 0.004 \\hline \\endarray"
+`;
+
+exports[`the Reference tab’s examples > Table settings: t = @series(0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s) 8`] = `
+"1: t = (0.10,\\ 0.20,\\ 0.30,\\ 0.40,\\ 0.50,\\ 0.60) s\\quad \\text6 values
+2: x = (0.051 ± 0.004,\\ 0.098 ± 0.004,\\ 0.152 ± 0.004,\\ 0.199 ± 0.004,\\ 0.248 ± 0.004,\\ 0.301 ± 0.004) m\\quad \\text6 values
+3: salts = (\\text"KCl",\\ \\text"KBr",\\ \\text"KI",\\ \\text"NaCl",\\ \\text"NaBr",\\ \\text"NaI")\\quad \\text6 values
+4: \\beginarray|r|r|r| \\hline t [s] x [m] \\hline 1 0.10 0.051 ± 0.004 \\hline 2 0.20 0.098 ± 0.004 \\hline 3 0.30 0.152 ± 0.004 \\hline 4 0.40 0.199 ± 0.004 \\hline 5 0.50 0.248 ± 0.004 \\hline 6 0.60 0.301 ± 0.004 \\hline \\endarray"
 `;
 
 exports[`the Reference tab’s examples > Tuples and coordinates: p = @tuple(1.414 m, 0.7854) 1`] = `

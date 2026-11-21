@@ -52,10 +52,12 @@ describe('the language tree', () => {
     expect(placed[1]).not.toHaveProperty('after')
   })
 
-  it('follows each module’s topic after the core topic it says', () => {
+  it('places each module’s topic after the topic it says, the core’s or another of a module’s', () => {
+    const ids = TREE.map((t) => t.id)
     for (const m of moduleLanguageTopics()) {
       if (!m.after) continue
-      expect(CORE_TOPICS.map((t) => t.id), m.id).toContain(m.after)
+      expect(ids, m.id).toContain(m.after)
+      expect(ids.indexOf(m.id), m.id).toBeGreaterThan(ids.indexOf(m.after))
     }
   })
 })

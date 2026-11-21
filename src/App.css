@@ -1022,9 +1022,9 @@ body {
   color: var(--muted);
 }
 
-/* A setting as it's written, in the settings' table: each way on a line of its own */
-.ref__setting {
-  display: block;
+/* How an entry is written (a setting's, `legend top right`), before what's said of it */
+.ref__syntax {
+  margin-right: 8px;
   white-space: nowrap;
 }
 

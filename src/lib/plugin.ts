@@ -30,6 +30,8 @@ export {
 } from './language/settings.ts'
 // (The language tree's topics: what a module says about its features, with examples the tests check.)
 export type { LanguageEntry, LanguageExample, LanguageTopic, PlacedTopic } from './language/tree.ts'
+// (settingsTopic: a call's settings as a topic of the tree, made from their declarations.)
+export { settingsTopic, type SettingsTopicPlace } from './language/reference.ts'
 
 // The module itself, and what the engine offers it.
 export {

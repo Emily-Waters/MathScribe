@@ -3,7 +3,8 @@
  * each a list of entries, each entry one feature: how it's written, what it
  * does, the rules for writing it, and whole sheets showing it. The core
  * declares its topics (lib/language/topics.ts), and each module its own
- * (EngineModule.languageTopics), placed after the topic they follow.
+ * (EngineModule.languageTopics), placed after the topic they follow (the
+ * core's, or one a module gave before).
  *
  * What MathScribe says about itself is made from this tree: the Reference tab,
  * the AI primer, the editor's hovers and the docs (see "One source for the
@@ -20,8 +21,10 @@ export interface LanguageExample {
   readonly warns?: boolean
 }
 
-/** One feature: what's said about it, the rules for writing it, and examples of it. */
+/** One feature: how it's written, what's said about it, the rules for writing it, and examples of it. */
 export interface LanguageEntry {
+  /** How it's written, if it's one thing to write (a setting: `legend top right`, `log x`). */
+  readonly syntax?: readonly string[]
   /** What it is and does, as the Reference says it. */
   readonly explain: string
   /** Do and don't for whoever writes it, people or AI models: shown in the Reference and in the AI primer. */

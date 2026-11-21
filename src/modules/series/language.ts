@@ -3,7 +3,26 @@
  * feature, what's said about it, and whole sheets showing it, which the
  * Reference tab shows live and the tests check.
  */
-import type { PlacedTopic } from '../../lib/plugin.ts'
+import { settingsTopic, type PlacedTopic } from '../../lib/plugin.ts'
+import { TABLE_SETTINGS } from './tableSettings.ts'
+import { PLOT_SETTINGS } from './plotSettings.ts'
+
+/** The series a table's and a plot's settings are shown with, in the reference. */
+const SAMPLE_DATA = [
+  't = @series(0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s)',
+  'x = @series(0.051 m pm 0.004 m, 0.098 m pm 0.004 m, 0.152 m pm 0.004 m, 0.199 m pm 0.004 m, 0.248 m pm 0.004 m, 0.301 m pm 0.004 m)',
+  'salts = @series("KCl", "KBr", "KI", "NaCl", "NaBr", "NaI")',
+]
+
+/** Between a sample's lines. */
+const LINE = '\n'
+
+/** A table of the sample with these settings. */
+const tableSample = (settings: string) => [...SAMPLE_DATA, `@table(t, x; ${settings})`].join(LINE)
+
+/** A plot of the sample with these settings, and a fit, unless they say what fit (so a fit's settings show). */
+const plotSample = (settings: string) =>
+  [...SAMPLE_DATA.slice(0, 2), `@plot(t, x; ${settings.includes('fit ') ? settings : `fit linear, ${settings}`})`].join(LINE)
 
 /** Its topics, each placed after the core's topic it follows. */
 export const SERIES_TOPICS: readonly PlacedTopic[] = [
@@ -73,7 +92,7 @@ export const SERIES_TOPICS: readonly PlacedTopic[] = [
       {
         explain: '@plot(x axis, y series…) draws one series against another, with error bars for uncertainties. fit '
           + 'linear adds a best-fit line and its equation, and makes its slope and intercept variables: x_slope, '
-          + 'x_intercept. Its settings, after a semicolon, are listed under Settings below; the ⚙ after it sets '
+          + 'x_intercept. Its settings, after a semicolon, are listed under Plot settings; the ⚙ after it sets '
           + 'them too.',
         examples: [{
           source: [
@@ -112,4 +131,7 @@ export const SERIES_TOPICS: readonly PlacedTopic[] = [
       },
     ],
   },
+  // A table's and a plot's settings, from their declarations (tableSettings.ts, plotSettings.ts).
+  settingsTopic(TABLE_SETTINGS.describe(), { id: 'table-settings', title: 'Table settings', after: 'series' }, tableSample),
+  settingsTopic(PLOT_SETTINGS.describe(), { id: 'plot-settings', title: 'Plot settings', after: 'table-settings' }, plotSample),
 ]

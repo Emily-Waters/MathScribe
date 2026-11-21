@@ -389,12 +389,34 @@ working (group 2).
       LaTeX (`centredEquation`: a `center` environment, which `fleqn` doesn't
       move) and in Word. `equation off` (the ⚙ menu's *Show fit equation*)
       leaves them out; the fit's slope and intercept are still variables.
-- [ ] **Plot legends**, asked for by Emily: a setting for whether there's one
+- [x] **Log axes from 0, and a fit's slope in the series' units**, found by
+      Emily: turning on log x (or y) with `x from 0` set drew an empty plot
+      (log 0); and a fit of N against m gave its slope in kg/s². Resolved
+      (2026-11-21): a log axis leaves an end set at 0 or below to its values
+      (scaleFor), and over a decade or two has its ends and ticks at 1, 2 and 5
+      of each (0.013 … 0.103 m: 0.01 to 0.2, not to 1). A slope's unit is y's
+      over x's as the series give them (N/m), unless they cancel (m against mm:
+      a number), in the equation and in `p.slope`.
+- [x] **Plot legends**, asked for by Emily: a setting for whether there's one
       and where (`legend top left`, …, `legend outside`, `legend off`), with an
       entry for each series and its fit, in the Rendered tab and the exports.
-- [ ] **Plot colours**, asked for by Emily: points (and their error bars),
+      Resolved (2026-11-21): `legend …` (`LEGEND_POSITION`, plotSettings.ts;
+      the ⚙ menu's *Legend*); without it, as before, one for several series,
+      now top left in the drawing too (it was a row above the plot), as in
+      LaTeX. Each series has an entry with its marks as drawn, and each fit
+      one, *Best fit* (`Best fit, x` with several series). In the drawing it's
+      a box in its corner, or beside the plot (`outside`, which narrows the
+      plot to make room); in LaTeX, pgfplots' `legend pos`.
+- [x] **Plot colours**, asked for by Emily: points (and their error bars),
       lines and fit lines each in a colour chosen from one named list that
       LaTeX (xcolor) and the drawing share, in the settings and the ⚙ menu.
+      Resolved (2026-11-21): `colour points|line|fit <colour>` for every
+      series, `colour F_2 points green` for one (`color` too; `PLOT_COLOUR`,
+      `partColour`). Each colour has one shade (`NAMED_COLOURS`, output/plot.ts),
+      written into LaTeX as RGB, so all three outputs agree; in the Rendered tab
+      black and grey are the theme's text colours, so they show on a dark theme.
+      The ⚙ menu sets every series' (Point, Line and Fit colour); one series'
+      own is typed.
 - [ ] **Plot ideas, to choose from**: a fit through the origin (`fit
       proportional`, y = kx); other fits (quadratic, exponential, power); max
       and min slope lines (the gradient's uncertainty, as often taught); marker

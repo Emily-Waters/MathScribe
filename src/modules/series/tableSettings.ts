@@ -59,6 +59,10 @@ export const SETTING = {
   log: 'log',
   title: 'title',
   equation: 'equation',
+  legend: 'legend',
+  colour: 'colour',
+  /** `colour`, as it's spelt in American English too. */
+  color: 'color',
   from: 'from',
   to: 'to',
 } as const

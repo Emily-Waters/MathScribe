@@ -5,9 +5,11 @@
  * shown in the output, in the app's colours, and exported as an image, in
  * fixed ones.
  */
-import { PLOT_STYLE, type PlotSettings } from '../../modules/series/public.ts'
+import {
+  LEGEND_POSITION, PLOT_PART, PLOT_STYLE, partColour, showsLegend, type PlotColour, type PlotPart, type PlotSettings,
+} from '../../modules/series/public.ts'
 import { GREEK_BY_NAME, GREEK_CHARS, SUBSCRIPT } from '../syntax.ts'
-import { parseMemberName } from '../sheet/names.ts'
+import { parseMemberName, typedName } from '../sheet/names.ts'
 import { UNIT_LOOKS } from '../maths/mathjsNames.ts'
 
 /** One point: its row number, and its x and y (in the axes' units), with any uncertainties. */
@@ -155,8 +157,15 @@ export interface Scale {
   place: (v: number) => number
 }
 
+/** A log axis's ticks in each decade, when it spans few enough of them (LOG_FINE_DECADES): 1, 2 and 5 times a power of ten. */
+const LOG_STEPS = [1, 2, 5]
+/** Up to how many decades a log axis has ticks at 1, 2 and 5 of each (beyond, at each power of ten). */
+const LOG_FINE_DECADES = 2
+
 /** An axis's scale from its values, the settings' range (which wins), and whether it's logarithmic. */
-function scaleFor(values: number[], range: { from?: number; to?: number }, log: boolean): Scale {
+function scaleFor(values: number[], set: { from?: number; to?: number }, log: boolean): Scale {
+  // (A log axis can't reach 0 or below: an end set there, `x from 0` kept from a linear axis, is left to the data.)
+  const range = log ? { from: set.from !== undefined && set.from > 0 ? set.from : undefined, to: set.to !== undefined && set.to > 0 ? set.to : undefined } : set
   const shown = log ? values.filter((v) => v > 0) : values
   let lo = range.from ?? (shown.length ? Math.min(...shown) : 0)
   let hi = range.to ?? (shown.length ? Math.max(...shown) : 1)
@@ -165,15 +174,14 @@ function scaleFor(values: number[], range: { from?: number; to?: number }, log: 
     if (hi <= lo) hi = lo * 10
     const first = Math.floor(Math.log10(lo))
     const last = Math.ceil(Math.log10(hi))
-    const from = range.from ?? 10 ** first
-    const to = range.to ?? 10 ** Math.max(last, first + 1)
-    const ticks: number[] = []
-    for (let k = first; k <= last; k++) {
-      for (const m of last - first <= 1 ? [1, 2, 5] : [1]) {
-        const t = m * 10 ** k
-        if (t >= from * (1 - 1e-9) && t <= to * (1 + 1e-9)) ticks.push(t)
-      }
-    }
+    // Over a decade or two, ticks at 1, 2 and 5 of each, and the axis's ends on the nearest of them around
+    // the values (0.013 … 0.103: 0.01 to 0.2); over more, at each power of ten, and its ends on them.
+    const steps = last - first <= LOG_FINE_DECADES ? LOG_STEPS : [1]
+    const marks: number[] = []
+    for (let k = first; k <= last; k++) for (const m of steps) marks.push(Number((m * 10 ** k).toPrecision(12)))
+    const from = range.from ?? marks.findLast((t) => t <= lo * (1 + 1e-9)) ?? 10 ** first
+    const to = range.to ?? marks.find((t) => t >= hi * (1 - 1e-9) && t > from) ?? 10 ** Math.max(last, first + 1)
+    const ticks = marks.filter((t) => t >= from * (1 - 1e-9) && t <= to * (1 + 1e-9))
     const a = Math.log10(from)
     const b = Math.log10(to)
     return { from, to, ticks, place: (v) => (Math.log10(v) - a) / (b - a) }
@@ -329,16 +337,33 @@ export interface PlotPalette {
   muted: string
   grid: string
   background: string
+  /** Behind a legend in a corner of the plot, over what's drawn there. */
+  legendBackground: string
+  /** Each series' colour, in order, unless its settings choose one. */
   series: string[]
+  /** The shade of each colour a plot's settings can choose (`colour fit red`). */
+  named: Record<PlotColour, string>
 }
 
-/** The app's colours (they follow its theme). */
+/**
+ * The shade of each colour a plot's settings can choose, on white: the
+ * exported image's, and the LaTeX export's (latexKit.ts writes them as RGB, so
+ * a chosen colour is the same shade in both).
+ */
+export const NAMED_COLOURS: Record<PlotColour, string> = {
+  black: '#1a1a1a', grey: '#7f7f7f', blue: '#3a5bd9', red: '#d62728', green: '#2ca02c',
+  orange: '#e8743b', purple: '#945ecf', teal: '#13a4b4', brown: '#8c564b',
+}
+
+/** The app's colours (they follow its theme: black and grey are its text's, so they show on a dark one too). */
 export const THEME_PALETTE: PlotPalette = {
   text: 'var(--text)',
   muted: 'var(--muted)',
   grid: 'var(--border)',
   background: 'transparent',
+  legendBackground: 'var(--surface)',
   series: ['var(--accent)', '#e8743b', '#19a979', '#945ecf', '#d4a017', '#13a4b4'],
+  named: { ...NAMED_COLOURS, black: 'var(--text)', grey: 'var(--muted)' },
 }
 
 /** Fixed colours on white, for an exported image. */
@@ -347,8 +372,24 @@ export const PRINT_PALETTE: PlotPalette = {
   muted: '#555555',
   grid: '#d9d9d9',
   background: '#ffffff',
+  legendBackground: '#ffffff',
   series: ['#3a5bd9', '#e8743b', '#19a979', '#945ecf', '#d4a017', '#13a4b4'],
+  named: NAMED_COLOURS,
 }
+
+/** The colours chosen for each part of a series (its points, line and fit), by its plot's settings; undefined where none is. */
+export function chosenColours(plot: PlotData, s: PlotSeries): Record<PlotPart, PlotColour | undefined> {
+  // (A series is named in settings as it's typed: a.x, not a__x.)
+  const name = s.name === undefined ? undefined : typedName(s.name)
+  return {
+    points: partColour(plot.settings, name, PLOT_PART.points),
+    line: partColour(plot.settings, name, PLOT_PART.line),
+    fit: partColour(plot.settings, name, PLOT_PART.fit),
+  }
+}
+
+/** What a legend says for each series' fit: `Best fit`, or with several series, `Best fit, x`. */
+export const FIT_LEGEND = 'Best fit'
 
 /** The drawing's size, in its own units (it scales to fit). */
 export const PLOT_SIZE = { width: 640, height: 400 }
@@ -358,6 +399,45 @@ const MARK = { point: 3.5, cap: 4, line: 1.75, fit: 1.5 }
 
 /** How many plots have been drawn, for each one's own clip-path id. */
 let plotCount = 0
+
+/** A legend's sizes, in drawing units: its rows, the sample of each mark beside its label, and its padding. */
+const LEGEND = { row: 18, sample: 24, gap: 6, padding: 8, inset: 8, charWidth: 7, fontSize: 13, beside: 12 } as const
+
+/** One row of a legend: what it shows (a series' marks, or a fit's dashed line), in its colours, and its label. */
+interface LegendEntry {
+  label: string
+  /** Its label's length in characters (for the legend's width). */
+  length: number
+  point?: string
+  line?: string
+  dashed?: string
+}
+
+/**
+ * A plot's legend rows: each series (its points and line, as its style draws
+ * them) and each fit (`Best fit`, or `Best fit, x` with several series).
+ */
+function legendEntries(plot: PlotData, colours: { point: string; line: string; fit: string }[]): LegendEntry[] {
+  const { style } = plot.settings
+  const several = plot.series.length > 1
+  const textOf = (s: PlotSeries) => (s.name ? typedName(s.name) : s.expr ?? '')
+  return plot.series.flatMap((s, i) => {
+    const c = colours[i]
+    const series: LegendEntry = {
+      label: nameSvg(s), length: textOf(s).length,
+      ...(style !== PLOT_STYLE.lines ? { point: c.point } : {}),
+      ...(style !== PLOT_STYLE.points ? { line: c.line } : {}),
+    }
+    if (!s.fit) return [series]
+    const fitLabel = several ? `${FIT_LEGEND}, ` : FIT_LEGEND
+    const fit: LegendEntry = {
+      label: several ? `${escapeXml(fitLabel)}${nameSvg(s)}` : escapeXml(fitLabel),
+      length: fitLabel.length + (several ? textOf(s).length : 0),
+      dashed: c.fit,
+    }
+    return [series, fit]
+  })
+}
 
 /**
  * A plot as SVG markup, in `palette`'s colours, with a note of anything left
@@ -369,10 +449,21 @@ export function plotSvg(plot: PlotData, palette: PlotPalette): string {
   const bars = settings.uncertainty !== false
   const { x: sx, y: sy } = plotScales(plot)
 
+  // Each series' colours: its own (the palette's next), unless its settings choose one for a part.
+  const colours = plot.series.map((s, i) => {
+    const own = palette.series[i % palette.series.length]
+    const chosen = chosenColours(plot, s)
+    const of = (c: PlotColour | undefined) => (c ? palette.named[c] : own)
+    return { point: of(chosen.points), line: of(chosen.line), fit: of(chosen.fit) }
+  })
+  const entries = showsLegend(settings, plot.series.length) ? legendEntries(plot, colours) : []
+  const legendWidth = LEGEND.padding * 2 + LEGEND.sample + LEGEND.gap + Math.max(0, ...entries.map((e) => e.length)) * LEGEND.charWidth
+  const legendHeight = LEGEND.padding * 2 + entries.length * LEGEND.row - (LEGEND.row - LEGEND.fontSize)
+  const outside = entries.length > 0 && settings.legend === LEGEND_POSITION.outside
+
   const { width, height } = PLOT_SIZE
-  const legend = plot.series.length > 1
-  // Room at the top for the title and the legend (a row above the plot, clear of the points).
-  const margin = { left: 74, right: 18, top: 18 + (settings.title ? 24 : 0) + (legend ? 24 : 0), bottom: 56 }
+  // Room at the top for the title, and at the right for a legend beside the plot.
+  const margin = { left: 74, right: 18 + (outside ? legendWidth + LEGEND.beside : 0), top: 18 + (settings.title ? 24 : 0), bottom: 56 }
   const w = width - margin.left - margin.right
   const h = height - margin.top - margin.bottom
   const X = (v: number) => margin.left + sx.place(v) * w
@@ -411,7 +502,7 @@ export function plotSvg(plot: PlotData, palette: PlotPalette): string {
   // The series: fit lines, error bars, lines, points.
   out.push(`<g clip-path="url(#${clip})">`)
   plot.series.forEach((s, i) => {
-    const colour = palette.series[i % palette.series.length]
+    const colour = colours[i]
     const points = s.points.filter((p) => onX(p.x) && onY(p.y)).sort((a, b) => a.x - b.x)
     if (s.fit) {
       // Enough short pieces to follow the line on a log scale too.
@@ -422,7 +513,7 @@ export function plotSvg(plot: PlotData, palette: PlotPalette): string {
         const y = s.fit.slope * x + s.fit.intercept
         if (onY(y)) coords.push(`${f(X(x))},${f(Y(y))}`)
       }
-      if (coords.length > 1) out.push(`<polyline points="${coords.join(' ')}" fill="none" stroke="${colour}" stroke-width="${MARK.fit}" stroke-dasharray="6 4"/>`)
+      if (coords.length > 1) out.push(`<polyline points="${coords.join(' ')}" fill="none" stroke="${colour.fit}" stroke-width="${MARK.fit}" stroke-dasharray="6 4"/>`)
     }
     for (const p of points) {
       const x = X(p.x)
@@ -430,32 +521,41 @@ export function plotSvg(plot: PlotData, palette: PlotPalette): string {
       if (bars && p.dy && onY(p.y - p.dy)) {
         const top = f(Y(p.y + p.dy))
         const bottom = f(Y(p.y - p.dy))
-        out.push(`<path d="M${f(x)},${top}V${bottom}M${f(x - MARK.cap)},${top}H${f(x + MARK.cap)}M${f(x - MARK.cap)},${bottom}H${f(x + MARK.cap)}" stroke="${colour}" stroke-width="1" fill="none"/>`)
+        out.push(`<path d="M${f(x)},${top}V${bottom}M${f(x - MARK.cap)},${top}H${f(x + MARK.cap)}M${f(x - MARK.cap)},${bottom}H${f(x + MARK.cap)}" stroke="${colour.point}" stroke-width="1" fill="none"/>`)
       }
       if (bars && p.dx && onX(p.x - p.dx)) {
         const left = f(X(p.x - p.dx))
         const right = f(X(p.x + p.dx))
-        out.push(`<path d="M${left},${f(y)}H${right}M${left},${f(y - MARK.cap)}V${f(y + MARK.cap)}M${right},${f(y - MARK.cap)}V${f(y + MARK.cap)}" stroke="${colour}" stroke-width="1" fill="none"/>`)
+        out.push(`<path d="M${left},${f(y)}H${right}M${left},${f(y - MARK.cap)}V${f(y + MARK.cap)}M${right},${f(y - MARK.cap)}V${f(y + MARK.cap)}" stroke="${colour.point}" stroke-width="1" fill="none"/>`)
       }
     }
     if (settings.style !== PLOT_STYLE.points && points.length > 1) {
-      out.push(`<polyline points="${points.map((p) => `${f(X(p.x))},${f(Y(p.y))}`).join(' ')}" fill="none" stroke="${colour}" stroke-width="${MARK.line}"/>`)
+      out.push(`<polyline points="${points.map((p) => `${f(X(p.x))},${f(Y(p.y))}`).join(' ')}" fill="none" stroke="${colour.line}" stroke-width="${MARK.line}"/>`)
     }
     if (settings.style !== PLOT_STYLE.lines) {
-      for (const p of points) out.push(`<circle cx="${f(X(p.x))}" cy="${f(Y(p.y))}" r="${MARK.point}" fill="${colour}"/>`)
+      for (const p of points) out.push(`<circle cx="${f(X(p.x))}" cy="${f(Y(p.y))}" r="${MARK.point}" fill="${colour.point}"/>`)
     }
   })
   out.push('</g>')
 
-  // A legend, when there's more than one series: a row above the plot, from its left edge.
-  if (legend) {
-    const y = margin.top - 14
-    const step = 90
-    plot.series.forEach((s, i) => {
-      const colour = palette.series[i % palette.series.length]
-      const x = margin.left + i * step
-      out.push(`<circle cx="${x + 6}" cy="${y}" r="${MARK.point}" fill="${colour}"/>`)
-      out.push(`<text x="${x + 16}" y="${y}" dy="0.35em" font-size="13">${nameSvg(s)}</text>`)
+  // The legend: in a corner of the plot (on a background, over what's under it), or beside it.
+  if (entries.length) {
+    const position = settings.legend ?? LEGEND_POSITION.topLeft
+    const right = position === LEGEND_POSITION.topRight || position === LEGEND_POSITION.bottomRight
+    const bottom = position === LEGEND_POSITION.bottomLeft || position === LEGEND_POSITION.bottomRight
+    const left = outside
+      ? margin.left + w + LEGEND.beside
+      : right ? margin.left + w - LEGEND.inset - legendWidth : margin.left + LEGEND.inset
+    const top = bottom && !outside ? margin.top + h - LEGEND.inset - legendHeight : margin.top + (outside ? 0 : LEGEND.inset)
+    out.push(`<rect x="${f(left)}" y="${f(top)}" width="${f(legendWidth)}" height="${f(legendHeight)}" fill="${palette.legendBackground}" stroke="${palette.grid}" stroke-width="1"/>`)
+    entries.forEach((e, k) => {
+      const y = top + LEGEND.padding + LEGEND.fontSize / 2 + k * LEGEND.row
+      const x0 = left + LEGEND.padding
+      const x1 = x0 + LEGEND.sample
+      if (e.line) out.push(`<line x1="${f(x0)}" y1="${f(y)}" x2="${f(x1)}" y2="${f(y)}" stroke="${e.line}" stroke-width="${MARK.line}"/>`)
+      if (e.dashed) out.push(`<line x1="${f(x0)}" y1="${f(y)}" x2="${f(x1)}" y2="${f(y)}" stroke="${e.dashed}" stroke-width="${MARK.fit}" stroke-dasharray="6 4"/>`)
+      if (e.point) out.push(`<circle cx="${f((x0 + x1) / 2)}" cy="${f(y)}" r="${MARK.point}" fill="${e.point}"/>`)
+      out.push(`<text x="${f(x1 + LEGEND.gap)}" y="${f(y)}" dy="0.35em" font-size="${LEGEND.fontSize}">${e.label}</text>`)
     })
   }
   out.push('</svg>')

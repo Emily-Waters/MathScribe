@@ -33,8 +33,15 @@ function fitTex(
   host: ModuleHost, s: PlotSeries, fit: LinearFit, xName: string | undefined, xUnit: string | undefined, yUnit: string | undefined,
   target: (suffix: string) => string | undefined,
 ): string {
-  // The slope's unit is simplified (m/s, not m/s… as a ratio); the intercept stays in y's unit.
-  const slopeQuantity = (v: number, unit: string | undefined) => (unit ? normalise(math.unit(v, unit), false) : v)
+  // The slope's unit is y's over x's, as the series give them (N/m, not kg/s², for N against m),
+  // unless they cancel (m against mm: a number); the intercept stays in y's unit.
+  const slopeQuantity = (v: number, unit: string | undefined) => {
+    if (!unit) return v
+    const u = math.unit(v, unit)
+    if (u.dimensions.every((d) => d === 0)) return normalise(u, false)
+    u.fixPrefix = true
+    return u
+  }
   const interceptQuantity = (v: number) => {
     if (!yUnit) return v
     const u = math.unit(v, yUnit)

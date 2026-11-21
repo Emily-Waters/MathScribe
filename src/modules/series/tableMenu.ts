@@ -12,9 +12,10 @@
 import { type EditorState, type Extension } from '@codemirror/state'
 import { Decoration, EditorView, WidgetType } from '@codemirror/view'
 import {
-  CALLS_WITH_SETTINGS, PLOT_FITS, PLOT_STYLES, SERIES_CALL, TABLE_LINES, formatPlotSettings, formatTableSettings,
-  parsePlotSettings, parseTableSettings, splitCallArgs, withSettingsText,
-  type AxisSettings, type CallWithSettings as CallKind, type PlotFit, type PlotSettings, type PlotStyle, type TableLines, type TableSettings,
+  CALLS_WITH_SETTINGS, LEGEND_POSITION, LEGEND_POSITIONS, PLOT_COLOURS, PLOT_FITS, PLOT_PART, PLOT_PARTS, PLOT_STYLES, SERIES_CALL, TABLE_LINES, formatPlotSettings,
+  formatTableSettings, parsePlotSettings, parseTableSettings, splitCallArgs, withSettingsText,
+  type AxisSettings, type CallWithSettings as CallKind, type LegendPosition, type PlotColour, type PlotFit, type PlotPart, type PlotSettings,
+  type PlotStyle, type TableLines, type TableSettings,
 } from './public.ts'
 import { ASSIGN, ROUND_BRACKETS, SIGIL, TOKEN_KIND, encode, placeFixedPanel, sheetStatements, type SheetStatement } from '../../lib/plugin.ts'
 
@@ -222,8 +223,37 @@ function plotPanel(text: string | undefined, save: (settingsText: string) => voi
     help('Leave an axis box empty to fit it to the data. Points outside an axis’s range are left out: of the fit, and of a named plot’s series (p.x).'),
     row('Show uncertainty', checkBox(s.uncertainty, (uncertainty) => set({ ...s, uncertainty }))),
     help('Error bars for the points’ uncertainties. A fit still weighs each point by its uncertainty when they’re hidden.'),
+    row('Legend', choice([AUTO, ...LEGEND_POSITIONS], LEGEND_NAMES, s.legend ?? AUTO,
+      (legend) => set({ ...s, legend: legend === AUTO ? undefined : legend }))),
+    help('Auto: a legend top left when there are several series. Each fit has an entry too.'),
+    ...PLOT_PARTS.map((part) => row(PART_NAMES[part], colourChoice(s, part, set))),
+    help('Auto: each series its own colour. These are every series’; one series’ own is typed: colour F_2 points green.'),
     titleRow(s.title, (title) => set({ ...s, title })),
   ]
+}
+
+/** The choice for "as it is": a legend where it goes by itself, a series' own colour. */
+const AUTO = 'auto'
+
+const LEGEND_NAMES: Record<LegendPosition | typeof AUTO, string> = {
+  [AUTO]: 'Auto',
+  [LEGEND_POSITION.topLeft]: 'Top left',
+  [LEGEND_POSITION.topRight]: 'Top right',
+  [LEGEND_POSITION.bottomLeft]: 'Bottom left',
+  [LEGEND_POSITION.bottomRight]: 'Bottom right',
+  [LEGEND_POSITION.outside]: 'Beside the plot',
+  [LEGEND_POSITION.off]: 'None',
+}
+const PART_NAMES: Record<PlotPart, string> = { [PLOT_PART.points]: 'Point colour', [PLOT_PART.line]: 'Line colour', [PLOT_PART.fit]: 'Fit colour' }
+const COLOUR_NAMES = Object.fromEntries([[AUTO, 'auto'], ...PLOT_COLOURS.map((c) => [c, c])]) as Record<PlotColour | typeof AUTO, string>
+
+/** The colour box for a part of every series: auto, or a colour (replacing any other for every series; one series' own stay). */
+function colourChoice(s: PlotSettings, part: PlotPart, set: (next: PlotSettings) => void): HTMLSelectElement {
+  const current = s.colours.findLast((c) => c.part === part && c.series === undefined)?.colour ?? AUTO
+  return choice([AUTO, ...PLOT_COLOURS], COLOUR_NAMES, current, (colour) => {
+    const others = s.colours.filter((c) => c.part !== part || c.series !== undefined)
+    set({ ...s, colours: colour === AUTO ? others : [...others, { part, colour }] })
+  })
 }
 
 // ---------------------------------------------------------------------------

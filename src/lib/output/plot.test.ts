@@ -1,12 +1,15 @@
 /** @plot(): its settings, its linear fit, the engine's plot data, and its drawings. */
 import { describe, expect, it } from 'vitest'
 import { last, lines, value } from '../../test/helpers.ts'
-import { formatPlotSettings, parsePlotSettings } from '../../modules/series/public.ts'
-import { PRINT_PALETTE, axisTicks, linearFit, plotScales, plotSvg, tickLabelText } from './plot.ts'
+import { PLOT_PART, formatPlotSettings, parsePlotSettings, partColour } from '../../modules/series/public.ts'
+import { NAMED_COLOURS, PRINT_PALETTE, axisTicks, linearFit, plotScales, plotSvg, tickLabelText } from './plot.ts'
 import { centredEquation, plotToLatex } from './latexKit.ts'
 
 const data = 't1 = 0.10 s\nt2 = 0.20 s\nt3 = 0.30 s\nt4 = 0.40 s\n'
   + 'x1 = 0.051 m pm 0.004 m\nx2 = 0.098 m pm 0.004 m\nx3 = 0.152 m pm 0.004 m\nx4 = 0.199 m pm 0.004 m\n'
+
+/** A second series, y, to plot beside x. */
+const SECOND = 'y1 = 0.10 m\ny2 = 0.21 m\ny3 = 0.29 m\ny4 = 0.40 m\n'
 
 describe('plot settings', () => {
   it('reads and writes them, leaving out the defaults', () => {
@@ -154,6 +157,54 @@ describe('@plot()', () => {
     expect(formatPlotSettings(parsePlotSettings('fit linear, equation off').settings)).toBe('fit linear, equation off')
     const plot = lines(`${data}@plot(t, x; fit linear)`).at(-1)!
     expect(centredEquation({ tex: plot.tex })).toMatch(/^\\begin\{center\}\n\$\\displaystyle /)
+  })
+
+  it('has a legend where its settings say, with each series and fit; by itself, only for several series', () => {
+    const one = last(`${data}@plot(t, x; fit linear)`).plot!
+    expect(plotSvg(one, PRINT_PALETTE)).not.toContain('Best fit')
+    expect(plotToLatex(one)).not.toContain('legend')
+    expect(plotToLatex(one)).toContain('forget plot')
+    const placed = last(`${data}@plot(t, x; fit linear, legend bottom right)`).plot!
+    expect(plotSvg(placed, PRINT_PALETTE)).toContain('Best fit')
+    const tex = plotToLatex(placed)
+    expect(tex).toContain('legend pos=south east')
+    expect(tex).toContain('\\addlegendentry{Best fit}')
+    expect(tex).not.toContain('forget plot')
+    expect(plotToLatex(last(`${data}${SECOND}@plot(t, x, y; legend off)`).plot!)).not.toContain('legend')
+    expect(plotToLatex(last(`${data}${SECOND}@plot(t, x, y)`).plot!)).toContain('legend pos=north west')
+  })
+
+  it('colours a series’ points, line and fit as its settings say: every series’, or one’s own', () => {
+    const text = 'style both, fit linear, legend outside, colour fit red, colour y line purple, color points black'
+    const { settings, error } = parsePlotSettings(text)
+    expect(error).toBeUndefined()
+    expect(formatPlotSettings(settings)).toBe(text.replace('color points', 'colour points'))
+    expect(partColour(settings, 'y', PLOT_PART.line)).toBe('purple')
+    expect(partColour(settings, 'x', PLOT_PART.line)).toBeUndefined()
+    expect(partColour(settings, 'x', PLOT_PART.fit)).toBe('red')
+    const plot = last(`${data}${SECOND}@plot(t, x, y; ${text})`).plot!
+    const svg = plotSvg(plot, PRINT_PALETTE)
+    expect(svg).toContain(`stroke="${NAMED_COLOURS.red}" stroke-width="1.5" stroke-dasharray`)
+    expect(svg).toContain(`stroke="${NAMED_COLOURS.purple}" stroke-width="1.75"/>`)
+    const tex = plotToLatex(plot)
+    expect(tex).toContain('color={rgb,255:red,214;green,39;blue,40}, dashed')
+    expect(tex).toContain('legend pos=outer north east')
+    expect(parsePlotSettings('colour fit pink').error).toMatch(/isn't a plot setting/)
+  })
+
+  it('keeps a log axis to its values when its range is set from 0 (kept from a linear axis), on 1, 2 and 5', () => {
+    const plot = last(`${data}@plot(t, x; fit linear, x from 0, y from 0, log x, log y)`).plot!
+    const { x, y } = plotScales(plot)
+    expect([x.from, x.to, x.ticks]).toEqual([0.1, 0.5, [0.1, 0.2, 0.5]])
+    expect([y.from, y.to]).toEqual([0.02, 0.5])
+    expect(plotToLatex(plot)).toContain('xmin=0.1, xmax=0.5')
+    expect(plotSvg(plot, PRINT_PALETTE)).not.toContain('NaN')
+  })
+
+  it('gives a fit’s slope in y’s unit over x’s, as the series give them', () => {
+    const src = 'x = @series(0.010 m, 0.020 m, 0.030 m)\nF = @series(0.066 N, 0.133 N, 0.199 N)\np = @plot(x, F; fit linear)\nk = p.slope'
+    expect(value(src)).toMatch(/N\/m$/)
+    expect(last(src.split('\nk')[0]).tex).toContain('\\mathrm{N}/\\mathrm{m}')
   })
 
   it('has the same axes in LaTeX as drawn, and a fit across the whole of x’s', () => {

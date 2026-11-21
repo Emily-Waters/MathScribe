@@ -1391,10 +1391,23 @@ v = x_slope                # the fit's slope, with its uncertainty
   otherwise give a slope uncertainty far too small and χ²_ν in the thousands.
   The line under the graph says which were used: (weighted by δT² and δm).
 - **Settings:** the ⚙ after a plot opens its settings: rows, style (points, lines,
-  or both), fit, each axis's range and log scale, showing uncertainties (error
-  bars, unless turned off: a fit still weighs the points by them), and a title.
-  As with tables, they're kept after a semicolon: `@plot(t, x; rows 2-, style
-  both, fit linear, x from 0 to 1, log y, uncertainty off, title "Run 1")`.
+  or both), fit, showing the fit's equation, each axis's range and log scale,
+  showing uncertainties (error bars, unless turned off: a fit still weighs the
+  points by them), the legend, colours, and a title. As with tables, they're kept
+  after a semicolon: `@plot(t, x; rows 2-, style both, fit linear, x from 0 to 1,
+  log y, uncertainty off, equation off, legend top right, colour fit red, title
+  "Run 1")`.
+- **Legend:** `legend top left` (or `top right`, `bottom left`, `bottom right`;
+  `outside`, beside the plot; `off`, none). It lists each series and each fit
+  (Best fit). Without the setting, a plot with several series has one top left.
+- **Colours:** `colour points black`, `colour line grey`, `colour fit red` set every
+  series' points (with their error bars), joining line and fit line; `colour F_2
+  points green` sets one series'. The colours are black, grey, blue, red, green,
+  orange, purple, teal and brown, the same shade in the Rendered tab and both
+  exports. (`color` works too.)
+- **Axis numbers:** ticks are plain numbers; when an axis's would need a power of
+  ten (0.0002 … 0.0016), it's said once in the axis's label instead, `d [10⁻³ m]`,
+  with ticks 0.2 … 1.6.
 - **What's on the axes is what's plotted:** a point outside an axis's range isn't
   drawn, isn't fitted, and isn't in a named plot's series. So `x from 0.15 to 0.45`
   fits just that stretch of the data, and `p.slope` is that stretch's slope.

@@ -13,6 +13,12 @@
  *   log x, log y         a logarithmic axis
  *   uncertainty off      no error bars (a fit still weighs the points by their uncertainties)
  *   equation off         no fit equation under the plot (its slope and intercept are still variables)
+ *   legend top right     a legend there (top left, top right, bottom left, bottom right,
+ *                        outside: beside the plot; off: none); without it, one top left
+ *                        when there are several series
+ *   colour fit red       a colour for every series' points, line or fit (black, grey,
+ *                        blue, red, green, orange, purple, teal, brown); `colour F_2
+ *                        points green`, one series'. (`color` too.)
  *   title "Run 1"        a title over the plot
  *
  * The plot's ⚙ button in the editor writes them, so they don't need typing.
@@ -30,6 +36,36 @@ export const PLOT_STYLES: readonly PlotStyle[] = Object.values(PLOT_STYLE)
 export const PLOT_FIT = { none: 'none', linear: 'linear' } as const
 export type PlotFit = (typeof PLOT_FIT)[keyof typeof PLOT_FIT]
 export const PLOT_FITS: readonly PlotFit[] = Object.values(PLOT_FIT)
+
+/**
+ * Where a plot's legend goes: in a corner of the plot, beside it, or nowhere.
+ * Without the setting, there's one (top left) when the plot has several series.
+ */
+export const LEGEND_POSITION = {
+  topLeft: 'top left', topRight: 'top right', bottomLeft: 'bottom left', bottomRight: 'bottom right', outside: 'outside', off: 'off',
+} as const
+export type LegendPosition = (typeof LEGEND_POSITION)[keyof typeof LEGEND_POSITION]
+export const LEGEND_POSITIONS: readonly LegendPosition[] = Object.values(LEGEND_POSITION)
+
+/** The colours a plot's parts can be: names the drawing and LaTeX both know (output/plot.ts gives each its shade). */
+export const PLOT_COLOUR = {
+  black: 'black', grey: 'grey', blue: 'blue', red: 'red', green: 'green', orange: 'orange', purple: 'purple', teal: 'teal', brown: 'brown',
+} as const
+export type PlotColour = (typeof PLOT_COLOUR)[keyof typeof PLOT_COLOUR]
+export const PLOT_COLOURS: readonly PlotColour[] = Object.values(PLOT_COLOUR)
+
+/** The parts of a series that can each have a colour: its points (and error bars), the line joining them, its fit. */
+export const PLOT_PART = { points: 'points', line: 'line', fit: 'fit' } as const
+export type PlotPart = (typeof PLOT_PART)[keyof typeof PLOT_PART]
+export const PLOT_PARTS: readonly PlotPart[] = Object.values(PLOT_PART)
+
+/** A colour for a part of a plot's series: `colour fit red` (every series'), `colour F_2 points green` (one series'). */
+export interface PartColour {
+  /** The series it's for, by name, or every series if none. */
+  series?: string
+  part: PlotPart
+  colour: PlotColour
+}
 
 /** One axis's settings: its range (either end may be open), and a log scale. */
 export interface AxisSettings {
@@ -51,11 +87,24 @@ export interface PlotSettings {
   uncertainty: boolean
   /** Show a fit's equation (and R²) under the plot (`equation off`: the line alone; its slope and intercept are still variables). */
   equation: boolean
+  /** Where its legend goes; undefined: top left if it has several series, else none. */
+  legend?: LegendPosition
+  /** Colours chosen for parts of its series, in the order written (a later one for the same part wins). */
+  colours: PartColour[]
 }
 
 export const defaultPlotSettings = (): PlotSettings => ({
-  style: PLOT_STYLE.points, fit: PLOT_FIT.none, x: { log: false }, y: { log: false }, uncertainty: true, equation: true,
+  style: PLOT_STYLE.points, fit: PLOT_FIT.none, x: { log: false }, y: { log: false }, uncertainty: true, equation: true, colours: [],
 })
+
+/** The colour chosen for a part of a series (by its name), if one is: its own, else every series'. */
+export function partColour(s: PlotSettings, series: string | undefined, part: PlotPart): PlotColour | undefined {
+  const chosen = s.colours.filter((c) => c.part === part)
+  return (chosen.findLast((c) => series !== undefined && c.series === series) ?? chosen.findLast((c) => c.series === undefined))?.colour
+}
+
+/** Whether a plot has a legend: as its setting says, or, without one, if it has several series. */
+export const showsLegend = (s: PlotSettings, seriesCount: number) => (s.legend === undefined ? seriesCount > 1 : s.legend !== LEGEND_POSITION.off)
 
 /** `equation off`, `equation on`: whether a fit's equation is shown under the plot. */
 const EQUATION_OFF = `${SETTING.equation} ${SETTING.off}`
@@ -72,6 +121,10 @@ const RANGE = new RegExp(String.raw`^(${PLOT_AXES.join('|')})(?:\s+${SETTING.fro
 const STYLE = new RegExp(`^${SETTING.style} (${PLOT_STYLES.join('|')})$`)
 const FIT_SETTING = new RegExp(`^${SETTING.fit} (${PLOT_FITS.join('|')})$`)
 const LOG = new RegExp(`^${SETTING.log} (${PLOT_AXES.join('|')})$`)
+/** `legend top right` (1: where). */
+const LEGEND = new RegExp(`^${SETTING.legend} (${LEGEND_POSITIONS.join('|')})$`)
+/** `colour fit red`, `colour F_2 points green`, `color line black` (1: the series, if one; 2: the part; 3: the colour). */
+const COLOUR = new RegExp(String.raw`^(?:${SETTING.colour}|${SETTING.color})\s+(?:(\S+)\s+)?(${PLOT_PARTS.join('|')})\s+(${PLOT_COLOURS.join('|')})$`)
 
 /** A plot's settings from their text, or what's wrong with them. */
 export function parsePlotSettings(text: string | undefined): { settings: PlotSettings; error?: string } {
@@ -82,6 +135,8 @@ export function parsePlotSettings(text: string | undefined): { settings: PlotSet
     const style = STYLE.exec(part)
     const fit = FIT_SETTING.exec(part)
     const log = LOG.exec(part)
+    const legend = LEGEND.exec(part)
+    const colour = COLOUR.exec(part)
     const title = parseTitle(part)
     if (rows) {
       s.from = rows.from
@@ -98,11 +153,14 @@ export function parsePlotSettings(text: string | undefined): { settings: PlotSet
     else if (part === UNCERTAINTY_ON) s.uncertainty = true
     else if (part === EQUATION_OFF) s.equation = false
     else if (part === EQUATION_ON) s.equation = true
+    else if (legend) s.legend = legend[1] as LegendPosition
+    else if (colour) s.colours.push({ ...(colour[1] ? { series: colour[1] } : {}), part: colour[2] as PlotPart, colour: colour[3] as PlotColour })
     else {
       return {
         settings: s,
         error: `"${part}" isn't a plot setting: use rows 5-20, style lines (or both), fit linear, `
-          + 'x from 0 to 10, log y, uncertainty off, equation off, or title "…". The plot\'s ⚙ button sets them.',
+          + 'x from 0 to 10, log y, uncertainty off, equation off, legend top right (or off), '
+          + `colour fit red (${PLOT_COLOURS.join(', ')}), or title "…". The plot's ⚙ button sets them.`,
       }
     }
   }
@@ -128,6 +186,8 @@ export function formatPlotSettings(s: PlotSettings): string {
   }
   if (!s.uncertainty) parts.push(UNCERTAINTY_OFF)
   if (!s.equation) parts.push(EQUATION_OFF)
+  if (s.legend !== undefined) parts.push(`${SETTING.legend} ${s.legend}`)
+  for (const c of s.colours) parts.push([SETTING.colour, c.series, c.part, c.colour].filter(Boolean).join(' '))
   if (s.title) parts.push(titleSetting(s.title))
   return joinSettings(parts)
 }

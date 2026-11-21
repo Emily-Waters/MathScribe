@@ -6,7 +6,7 @@
  */
 import { SIGIL } from '../syntax.ts'
 import type { SettingDescription, SettingsDescription } from './settings.ts'
-import type { LanguageEntry, PlacedTopic } from './tree.ts'
+import type { LanguageEntry, LanguageTopic, PlacedTopic } from './tree.ts'
 
 /** Code, in Markdown. */
 const md = (text: string) => `\`${text}\``
@@ -69,4 +69,26 @@ export function settingsTopic(d: SettingsDescription, place: SettingsTopicPlace,
     examples: [{ source: sample(s.examples.join(', ')) }],
   }))
   return { ...place, entries: [intro, ...entries] }
+}
+
+/** Code, in a fenced block. */
+const fenced = (text: string) => ['```', text, '```'].join('\n')
+
+/**
+ * The language tree as the AI primer says it, in Markdown: each topic under
+ * its title, each entry as how it's written (if it's one thing) and what it
+ * does, its rules under it, and its first example (an entry with a syntax, a
+ * setting, is said in a line, without one). `extras`: more to say after a
+ * topic, by its id (the constants' names, after Constants).
+ */
+export function primerMarkdown(tree: readonly LanguageTopic[], extras: Readonly<Record<string, string>> = {}): string {
+  return tree.map((topic) => {
+    const entries = topic.entries.map((entry) => {
+      const written = entry.syntax ? `${entry.syntax.map(md).join(', ')}: ` : ''
+      const rules = (entry.rules ?? []).map((rule) => `  - ${rule}`)
+      const example = entry.syntax ? [] : [fenced(entry.examples[0].source)]
+      return [`- ${written}${entry.explain}`, ...rules, ...example].join('\n')
+    })
+    return [`## ${topic.title}`, ...entries, ...(extras[topic.id] ? [extras[topic.id]] : [])].join('\n')
+  }).join('\n\n')
 }

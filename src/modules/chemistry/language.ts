@@ -16,6 +16,10 @@ export const CHEMISTRY_TOPICS: readonly PlacedTopic[] = [
         explain: '@chem.substance is a substance: its molar mass (.M), and an amount of it (.n, 1 mol until set) and '
           + 'its mass (.m); each element’s amount, mass, molar mass and mass fraction in it (.H.n, .H.m, .H.M, '
           + '.H.w). A member on its own line shows how it’s worked out.',
+        rules: [
+          'A substance\'s molar mass comes from its formula (brackets and a hydrate\'s * work); set any amount '
+            + 'or mass and the rest follow.',
+        ],
         examples: [{
           source: [
             'H2SO4 = @chem.substance({H2SO4})',
@@ -42,6 +46,13 @@ export const CHEMISTRY_TOPICS: readonly PlacedTopic[] = [
       {
         explain: '{formula} after a value is its species: on g a mass of it, on mol an amount, on g/mol a molar mass. '
           + 'Once there are species, every mass, amount and molar mass needs one.',
+        rules: [
+          'A formula goes in single braces: {Na^+}, {Ca^2+}, {H3O^+(aq)}, {2 H2O(l)} (counts as digits, a '
+            + 'charge after ^, a state in brackets).',
+          'Species are strict: once a calculation has species, give every mass, amount and molar mass in it '
+            + 'its species. Go from one species to another only with a mole ratio, (1 mol {X}) / (1 mol {EDTA}).',
+          'M is molarity (mol/L). A whole number of a species (1 mol {X}) is exact.',
+        ],
         examples: [{
           source: [
             'NaOH = @chem.substance({NaOH})',
@@ -99,6 +110,10 @@ export const CHEMISTRY_TOPICS: readonly PlacedTopic[] = [
       {
         explain: 'A display-name template: words in quotes with {{x}} where each argument goes, used as a setting on a '
           + 'name. A subscript starting with a capital is drawn as a formula.',
+        rules: [
+          'A display name goes on the name being assigned: n_Na:"Moles of {Na^+}" = …; it can hold values: '
+            + '"Moles in {{V}}".',
+        ],
         examples: [{
           source: [
             'massName(x) = "m_{{x}}"',

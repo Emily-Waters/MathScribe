@@ -2,9 +2,9 @@
 import { describe, expect, it } from 'vitest'
 import { lines, sheet } from '../../test/helpers.ts'
 import { collectDiagnostics } from '../sheet/sheetIndex.ts'
-import { moduleSettingsDescriptions } from '../engine/index.ts'
+import { languageTopics, moduleSettingsDescriptions } from '../engine/index.ts'
 import {
-  CREATE_KINDS, CREATE_KIND_INFO, EXAMPLE_SHEET, PRIMER, SNIPPETS, buildPrompt, defaultChoices, sheetFromAnswer, sheetName,
+  CREATE_KINDS, CREATE_KIND_INFO, EXAMPLE_SHEET, PRIMER, SNIPPETS, buildPrompt, defaultChoices, primerFromTree, sheetFromAnswer, sheetName,
 } from './aiPrompt.ts'
 
 /** A sheet's errors and warnings, as "line: message". */
@@ -72,5 +72,22 @@ describe('the settings in the prompt', () => {
     const described = moduleSettingsDescriptions()
     expect(described.map((d) => d.call)).toEqual(expect.arrayContaining(['table', 'plot']))
     for (const d of described) for (const s of d.settings) for (const e of s.examples) expect(PRIMER, `${d.call}: ${e}`).toContain(`\`${e}\``)
+  })
+})
+
+describe('the primer from the language tree', () => {
+  it('says every topic, entry, rule and setting the tree has, with an example of each entry that isn’t one thing to write', () => {
+    const primer = primerFromTree()
+    for (const topic of languageTopics()) {
+      expect(primer).toContain(`## ${topic.title}`)
+      for (const entry of topic.entries) {
+        expect(primer, entry.explain).toContain(entry.explain)
+        for (const rule of entry.rules ?? []) expect(primer, rule).toContain(rule)
+        for (const written of entry.syntax ?? []) expect(primer, written).toContain(`\`${written}\``)
+        if (!entry.syntax) expect(primer, entry.explain).toContain(entry.examples[0].source)
+      }
+    }
+    expect(primer).toContain('@k_B')
+    expect(primer).toContain(EXAMPLE_SHEET)
   })
 })

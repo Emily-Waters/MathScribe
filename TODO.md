@@ -1356,6 +1356,17 @@ into its own file (`docs/REFERENCE.md`), not into the README.
          that's there).
    - [ ] **Part 3: the AI primer from the tree**: its rules and snippets become
          entries' rules and examples, the old and new compared before switching.
+         Under way (2026-11-21): the primer's rules are now entries' rules in
+         the tree (shown in the Reference too, as agreed), and what it described
+         that the Reference lacked is now entries of Basics with examples
+         (comments, names, the functions of maths, values in text: 4 new golden
+         snapshots). `primerFromTree()` (aiPrompt.ts) makes the primer from the
+         tree (`primerMarkdown`, lib/language/reference.ts: each topic, each
+         entry with its rules and first example, a setting in a line), with the
+         constants' names and how a sheet of questions is laid out (the task's,
+         so kept in aiPrompt.ts). It's beside the old PRIMER for Emily to compare
+         before it replaces it; a test checks it says every topic, entry, rule
+         and setting in the tree.
    - [ ] **Part 4: editor hovers and completions from the tree** (`#`
          commands, keywords, settings words), in place of `vocabulary.ts`'s
          copies; and a test that every declared command, setting and `@`

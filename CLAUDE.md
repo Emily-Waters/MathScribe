@@ -73,6 +73,13 @@ by the engine (`src/lib/engine/`), and the blocks drawn in the Rendered tab
   co-author line.
 - **Comments** say what a thing is and why, in plain sentences, as the existing
   ones do.
+- **What a user writes is described once, in the language tree**
+  (`src/lib/language/`: `topics.ts`, a module's `language.ts`, a call's settings'
+  declarations). The Reference tab, the AI primer, the editor's tooltips and the
+  docs are made from it, and the tests run every example in it. Code comments
+  say how and why the code works, and point to the declaration
+  (`{@link PLOT_SETTINGS}`) rather than restate what a user writes; a feature
+  added or changed is described there, with an example, not in a comment or by hand.
 
 ## Checking work
 

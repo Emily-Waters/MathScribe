@@ -33,6 +33,10 @@ export const SERIES_TOPICS: readonly PlacedTopic[] = [
     entries: [
       {
         explain: 'Numbered variables form a series: t_avg is the mean ± standard error, t_count the count, t the sum.',
+        rules: [
+          'T1, T2, … (or T_1, T_2) form a series T: T_avg, T_std, T_sem, T_count and T each show their working '
+            + 'on a line of their own.',
+        ],
         examples: [{
           source: [
             't_1 = 1.21 s',
@@ -94,6 +98,9 @@ export const SERIES_TOPICS: readonly PlacedTopic[] = [
           + 'linear adds a best-fit line and its equation, and makes its slope and intercept variables: x_slope, '
           + 'x_intercept. Its settings, after a semicolon, are listed under Plot settings; the ⚙ after it sets '
           + 'them too.',
+        rules: [
+          'A named plot keeps its fit: p = @plot(x, y; fit linear), then p.slope, p.intercept and p.r2.',
+        ],
         examples: [{
           source: [
             't1 = 0.10 s',

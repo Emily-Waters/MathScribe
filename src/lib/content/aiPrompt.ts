@@ -10,8 +10,8 @@
  * prompt can't promise syntax MathScribe doesn't accept.
  */
 import { BUILTIN_CONSTANTS } from '../constants.ts'
-import { moduleSettingsDescriptions } from '../engine/index.ts'
-import { settingsMarkdown } from '../language/reference.ts'
+import { languageTopics, moduleSettingsDescriptions } from '../engine/index.ts'
+import { primerMarkdown, settingsMarkdown } from '../language/reference.ts'
 import { SHEET_FILE } from '../../config.ts'
 
 // ---------------------------------------------------------------------------
@@ -173,6 +173,8 @@ const FENCED = /```[^\n]*\n([\s\S]*?)```/
 
 /** Between paragraphs, in the rules. */
 const BLANK_LINE = '\n\n'
+/** At the end of the rules. */
+const LINE_END = '\n'
 
 /** Code in the rules. */
 const code = (text: string) => ['```', text, '```'].join('\n')
@@ -332,6 +334,36 @@ ${code(EXAMPLE_SHEET)}
 // ---------------------------------------------------------------------------
 // The prompt, and reading the answer back
 // ---------------------------------------------------------------------------
+
+/** What MathScribe is, at the head of the primer. */
+const PRIMER_INTRO = `MathScribe is a plain-text calculation sheet. Each line is evaluated top to bottom
+and shown as typeset maths with its working: \`F = m * a\` shows
+F = ma = (2.00 kg)(9.81 m/s²) = 19.6 N, with units, significant figures and
+uncertainties carried through automatically.`
+
+/** How a sheet with questions is laid out: the task's, not the language's (so it's here, not in the tree). */
+const QUESTIONS_AND_SOLUTIONS = `## Questions and solutions
+Write every question first, then a \`# Solutions\` section at the end, with one block per
+question. A question states its values in its text, with inline maths (\`$h = 12.0$ m\`); its
+solution block starts by defining them as variables, then works the answer out. Blocks keep
+their variables to themselves, so different questions can use the same names.
+
+${code(EXAMPLE_SHEET)}`
+
+/**
+ * How to write a MathScribe sheet, for an AI model, made from the language
+ * tree (lib/language: every topic, entry, rule and example, as the Reference
+ * shows them), with the built-in constants' names after Constants, and how a
+ * sheet of questions is laid out. (Beside PRIMER, to compare, before it replaces it.)
+ */
+export const primerFromTree = (): string => [
+  '# Writing MathScribe sheets',
+  PRIMER_INTRO,
+  primerMarkdown(languageTopics(), {
+    constants: `The constants: ${constantNames}. 3 sig figs by default; \`@c:5\` for 5, \`@c:exact\` for every digit.`,
+  }),
+  QUESTIONS_AND_SOLUTIONS,
+].join(BLANK_LINE) + LINE_END
 
 /** The prompt for an AI model: the rules, then what to write and how. */
 export function buildPrompt(kind: CreateKind, request: string, choices: Record<string, boolean>): string {

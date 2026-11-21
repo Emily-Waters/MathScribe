@@ -14,10 +14,30 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
     entries: [
       {
         explain: 'Assign a value. Text after # is a note shown beside the result.',
+        rules: [
+          'Text after ` # ` on a calculation is its note: two spaces or more before the #.',
+        ],
         examples: [{ source: 'm = 2.00 kg   # mass of the block' }],
       },
       {
+        explain: '// starts a comment, never shown. A blank line is spacing; two leave a gap in the output.',
+        rules: [
+          'Don\'t use # for a comment on its own line: it makes a heading.',
+        ],
+        examples: [{
+          source: [
+            '// the block\'s mass',
+            'm = 2.00 kg',
+          ].join('\n'),
+        }],
+      },
+      {
         explain: 'Use earlier variables; the working is shown with values substituted.',
+        rules: [
+          'Always write * for multiplication: 1/2 * m * v^2, 2 * pi * r. Never 2m or 1/2 m v^2.',
+          'Don\'t write LaTeX in calculation lines (\\frac, \\cdot): write plain maths.',
+          'A variable can be redefined; later lines use the newest value.',
+        ],
         examples: [{
           source: [
             'm = 2.00 kg',
@@ -26,8 +46,40 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
         }],
       },
       {
+        explain: 'Names are letters, digits and underscores, and _ makes a subscript: v_0 is v₀, v_1x (or v1x) is '
+          + 'v₁ₓ, F_net_x is F_net,x; a subscript that\'s a word (net, max) is upright. Greek letters by name '
+          + '(theta, mu_k, Delta) or as characters (ΔE, ω).',
+        rules: [
+          'Name things as the question writes them.',
+          'Write Δt, not dt. No dots in names.',
+          'Don\'t use phi, tau, e or pi as names of your own.',
+        ],
+        examples: [{
+          source: [
+            'v_0 = 2.0 m/s',
+            'Δt = 1.5 s',
+            'mu_k = 0.150',
+            'a = v_0 / Δt',
+          ].join('\n'),
+        }],
+      },
+      {
+        explain: 'Powers are ^. The functions of maths: sqrt, sin, cos, tan, asin, acos, atan, atan2, exp, log '
+          + '(natural), log10, abs, min, max, round; and pi and e.',
+        examples: [{
+          source: [
+            'r = 2.00 m',
+            'A = pi * r^2',
+            'h = sqrt(2 * 9.81 m/s^2 * 1.20 m)',
+          ].join('\n'),
+        }],
+      },
+      {
         explain: 'Headings. # and ## are numbered, like LaTeX sections. In headings and block titles, a_b is a '
           + 'subscript (write \\_ for a plain underscore) and $…$ is maths.',
+        rules: [
+          'A line starting with # is always a heading: write // for a comment.',
+        ],
         examples: [{
           source: [
             '# Section',
@@ -38,7 +90,24 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
       },
       {
         explain: 'A line starting with > is a paragraph of text.',
+        rules: [
+          'Don\'t start a line with $: $…$ is inline maths, for prose.',
+        ],
         examples: [{ source: '> Prose, with inline maths like $E = mc^2$.' }],
+      },
+      {
+        explain: '{{name}} in prose or a heading puts in a variable\'s value as worked out above it, with its unit and '
+          + 'sig figs. Settings and to work in it: {{V:3 to L}}.',
+        rules: [
+          'Don\'t type a worked-out number into prose: write {{name}}, so it stays right.',
+        ],
+        examples: [{
+          source: [
+            'T1 = 1.21 s',
+            'T2 = 1.17 s',
+            '> The mean period was {{T_avg}}.',
+          ].join('\n'),
+        }],
       },
       {
         explain: '@latex { … } is raw LaTeX, displayed but not calculated.',
@@ -59,6 +128,11 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
       },
       {
         explain: 'Title { … } is a block. Variables assigned inside are local to it.',
+        rules: [
+          'Indent the lines inside 4 spaces.',
+          'Title {  #hide works the whole block out without showing it.',
+          'Don\'t end a line with : to start a block: write Title {.',
+        ],
         examples: [{
           source: [
             'g = 9.81 m/s^2',
@@ -77,6 +151,12 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
     entries: [
       {
         explain: 'A unit goes right after the number. Compound units have no spaces.',
+        rules: [
+          'A unit goes right after a number: 9.81 m/s^2, 2.00 kg, 5.0 um (micro is u). Never after a name (m '
+            + 'kg).',
+          'Compound units have no spaces: kg*m^2, J/mol/K.',
+          'Litres are L and mL. Use kelvin for temperature.',
+        ],
         examples: [{ source: 'g = 9.81 m/s^2' }],
       },
       {
@@ -99,6 +179,9 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
       },
       {
         explain: 'Angles in deg or rad; trig functions accept either.',
+        rules: [
+          'Trig takes radians unless given deg; asin, acos and atan give radians, so add to deg.',
+        ],
         examples: [{ source: 'theta = 30.0 deg' }],
       },
       {
@@ -119,10 +202,17 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
     entries: [
       {
         explain: 'Numbers with a decimal point or a unit are measured; whole numbers alone (the 2) are exact.',
+        rules: [
+          'Write 1/2, not 0.5, for an exact factor: 0.5 is a measurement with 1 sig fig, and rounds the answer '
+            + 'to 1.',
+        ],
         examples: [{ source: 'd = 2 * 1.50 m' }],
       },
       {
         explain: 'Trailing zeros without a decimal point aren’t significant. Write 300. m if they are.',
+        rules: [
+          'Prefer values like 12.0 m and 30.0 deg; write 300. m or 3.00e2 m when the zeros count.',
+        ],
         examples: [{ source: 'L = 300 m', warns: true }],
       },
       {
@@ -137,6 +227,9 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
       },
       {
         explain: 'name:n = … sets the sig figs of a result.',
+        rules: [
+          'Settings go on the name being assigned, left of = only: d:km = …, N:sci = …, L:dec = ….',
+        ],
         examples: [{ source: 'third:3 = 1/3' }],
       },
       {
@@ -175,6 +268,9 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
     entries: [
       {
         explain: 'pm (or ±) gives a value an uncertainty.',
+        rules: [
+          'Write pm only where a value is defined, never inside a function\'s brackets: it propagates by itself.',
+        ],
         examples: [{ source: 'd = 3.50 m pm 0.02 m' }],
       },
       {
@@ -184,6 +280,9 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
       {
         explain: 'Results combine uncertainties in quadrature. delta v = shows how; delta v / v is the relative '
           + 'uncertainty.',
+        rules: [
+          'delta F (shown δF) is F\'s uncertainty; on its own line it shows the working of its propagation.',
+        ],
         examples: [{
           source: [
             'd = 3.50 m pm 0.02 m',
@@ -202,6 +301,9 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
     entries: [
       {
         explain: 'A one-line function, written as in maths.',
+        rules: [
+          'A function is one line, f(x) = …; it can use variables defined above it. There are no loops.',
+        ],
         examples: [{
           source: [
             'f(x) = 2 * x^2 + 1',
@@ -212,6 +314,9 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
       {
         explain: 'condition ? a : b gives a if the condition holds and b otherwise; conditions nest, for more than two '
           + 'cases.',
+        rules: [
+          'Conditions compare values: <, >, <=, >=, ==, and, or.',
+        ],
         examples: [{
           source: [
             'ramp(x) = x > 0 ? x : 0',
@@ -270,6 +375,9 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
       {
         explain: '@tuple(…) makes a tuple, shown as (x, y, z). A shared unit is written once; tuples scale, add, '
           + 'convert with to, and norm, dot and cross work on them.',
+        rules: [
+          'Don\'t write (a, b) for a pair: write @tuple(a, b). <3.0, 4.0> N is a vector.',
+        ],
         examples: [{
           source: [
             'r = @tuple(1.00 m, 2.00 m, 3.00 m)',

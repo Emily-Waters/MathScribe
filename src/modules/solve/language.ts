@@ -14,6 +14,9 @@ export const SOLVE_TOPICS: readonly PlacedTopic[] = [
     entries: [
       {
         explain: '@solve(equation, unknown) rearranges for the unknown and evaluates it.',
+        rules: [
+          'Give a guess for a hard one: @solve(x = cos(x), x, 0.5).',
+        ],
         examples: [{
           source: [
             'v = 5.00 m/s',
@@ -25,6 +28,9 @@ export const SOLVE_TOPICS: readonly PlacedTopic[] = [
       {
         explain: 'Several unknowns: name them in @tuple(…) on the left, and give as many equations. They are solved by '
           + 'substitution, and the working shows each unknown in turn.',
+        rules: [
+          'Give as many equations as unknowns: linear ones, or ones easily rearranged.',
+        ],
         examples: [{
           source: [
             'm_1 = 3.00 kg',

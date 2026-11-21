@@ -26,6 +26,7 @@ import { FORMAT_KEY, formatDocument } from '../editor/format.ts'
 import { headingHighlight } from '../editor/headings.ts'
 import { inlineResults, setInlineResults } from '../editor/inlineResults.ts'
 import { paramHints } from '../editor/paramHints.ts'
+import { statementStart } from '../editor/sheetLines.ts'
 import type { LineValue } from '../lib/engine/index.ts'
 import { splitLines } from '../lib/tree/index.ts'
 
@@ -258,7 +259,8 @@ function extensions(
       if (u.docChanged) handlers.change(u.state.doc.toString())
       if (u.docChanged || u.selectionSet) {
         const clicked = u.transactions.some((tr) => tr.isUserEvent('select.pointer'))
-        handlers.cursor(u.state.doc.lineAt(u.state.selection.main.head).number, clicked)
+        // (On a line carrying a statement on, a multiline `@series(…)`'s, the output is the statement's, linked to its first line.)
+        handlers.cursor(statementStart(u.state.doc, u.state.doc.lineAt(u.state.selection.main.head).number), clicked)
       }
     }),
   ]
@@ -321,7 +323,7 @@ export function EditorPane({
     requestAnimationFrame(() => {
       v.scrollDOM.scrollTop = scroll
     })
-    handlers.current.cursor(v.state.doc.lineAt(v.state.selection.main.head).number, false)
+    handlers.current.cursor(statementStart(v.state.doc, v.state.doc.lineAt(v.state.selection.main.head).number), false)
     // Only on switching sheets; `value` is the new sheet's text at that moment.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [docId])

@@ -8,7 +8,7 @@ import { codeFolding, ensureSyntaxTree, foldEffect, foldable, getIndentation, ma
 import { insertNewlineAndIndent } from '@codemirror/commands'
 import { highlightTree, tagHighlighter, tags as t } from '@lezer/highlight'
 import { mathscribeFolding, mathscribeIndent, mathscribeLanguage } from './language.ts'
-import { inLatexBlock, inTextBlock } from './sheetLines.ts'
+import { inLatexBlock, inTextBlock, statementStart } from './sheetLines.ts'
 
 const names = tagHighlighter([
   { tag: t.number, class: 'num' }, { tag: t.unit, class: 'unit' }, { tag: t.variableName, class: 'var' },
@@ -257,5 +257,12 @@ describe('folding', () => {
 
   it('doesn’t fold ordinary lines', () => {
     expect(foldsAt('x = 1\ny = 2', 1)).toBeNull()
+  })
+})
+
+describe('the line a statement starts on', () => {
+  it('is a line carrying a multiline call on’s first line, where its output is linked', () => {
+    const doc = EditorState.create({ doc: 't = @series(\n    1.0 s,\n    2.0 s\n)\n@constants {\n    g = 9.81 m/s^2\n}' }).doc
+    expect([1, 2, 3, 4, 5, 6, 7].map((n) => statementStart(doc, n))).toEqual([1, 1, 1, 1, 5, 6, 7])
   })
 })

@@ -113,6 +113,18 @@ export function sheetLines(doc: DocLines): SheetLine[] {
 /** Line n, read in its place. */
 export const sheetLine = (doc: DocLines, n: number): SheetLine => sheetLines(doc)[n - 1]
 
+/**
+ * The line a statement that line n is part of starts on: n itself, or for a
+ * line carrying a statement on (a multiline `@series(…)`'s values, its `)`),
+ * the line it began on, where its output is linked to.
+ */
+export function statementStart(doc: DocLines, n: number): number {
+  const lines = sheetLines(doc)
+  let start = n
+  while (start > 1 && lines[start - 1].step.context === LINE_CONTEXT.continued) start--
+  return start
+}
+
 /** Whether a line opens a body (a block, an import). */
 export const opensBody = (step: Step) => step.role === LINE_ROLE.opener
 

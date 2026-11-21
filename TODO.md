@@ -372,6 +372,12 @@ working (group 2).
       (100,000 texts each, two alphabets, once by hand) found no change of
       meaning; one oddity left: a #command in the middle of a call's line
       (`@table(  #val ,()`) can take a second format to settle.
+- [x] **The Rendered tab follows the cursor inside a multiline statement**, found
+      by Emily: on a multiline `@series(…)`'s values the output didn't scroll
+      to it, only on its first line. Resolved (2026-11-21): the cursor's line is
+      reported as the line its statement starts on (`statementStart`,
+      editor/sheetLines.ts: back over lines carrying a statement on), the line
+      its output is linked to.
 - [x] **A block's closing `}` coloured as its opening `{`**, found by Emily: it
       was uncoloured and didn't match its opener.
       Resolved (2026-11-21): a closing line's `}` is a token of its own,

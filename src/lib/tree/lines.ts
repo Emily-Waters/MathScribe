@@ -448,7 +448,8 @@ function closerLine(line: SourceLine): ReadLine {
   const parts: Part[] = []
   if (indent) parts.push(token(TOKEN_KIND.indent, indent))
   const noted = readNoted(content)
-  notedTokens(content, parts, plainBody, noted)
+  // (Its `}` is a closing brace, as its opener's `{` is an opening one: coloured, and matched, alike.)
+  notedTokens(content, parts, (text, into) => spaced(TOKEN_KIND.blockClose, text, into), noted)
   if (trailing) parts.push(token(TOKEN_KIND.space, trailing))
   if (line.eol) parts.push(token(TOKEN_KIND.eol, line.eol))
   const read = Object.freeze({ node: Object.freeze({ kind: NODE_KIND.blockCloser, parts: Object.freeze(parts) }) })

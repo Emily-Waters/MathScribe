@@ -117,6 +117,7 @@ declareTokenKinds(CORE_OWNER, {
   [TOKEN_KIND.blockName]: 'A block’s @ name, at the start of its opener: @layout.list.val, @constants, @latex',
   [TOKEN_KIND.title]: 'A block’s title, in its opener: Steps in @layout.numbered Steps {',
   [TOKEN_KIND.blockOpen]: 'A block’s opening brace, ending its opener',
+  [TOKEN_KIND.blockClose]: 'A block’s closing brace, its closing line’s }',
   [TOKEN_KIND.rows]: 'Imported data’s rows, as they are',
   [TOKEN_KIND.number]: 'A number, as mathjs reads one: 2.00, 1.2e-3',
   [TOKEN_KIND.symbol]: 'A name, as mathjs reads a symbol: m, v_0, θ',

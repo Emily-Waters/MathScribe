@@ -83,6 +83,8 @@ export const TOKEN_KIND = {
   title: 'title',
   /** A block's opening brace, ending its opener. */
   blockOpen: 'blockOpen',
+  /** A block's closing brace, its closing line's `}`. */
+  blockClose: 'blockClose',
   /** Imported data's rows, as they are (indentation and line endings too). */
   rows: 'rows',
 

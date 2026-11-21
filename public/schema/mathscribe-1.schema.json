@@ -186,6 +186,9 @@
           "$ref": "#/$defs/token.blockOpen"
         },
         {
+          "$ref": "#/$defs/token.blockClose"
+        },
+        {
           "$ref": "#/$defs/token.rows"
         },
         {
@@ -1481,6 +1484,23 @@
       "properties": {
         "t": {
           "const": "blockOpen"
+        },
+        "text": {
+          "type": "string"
+        }
+      }
+    },
+    "token.blockClose": {
+      "description": "A block’s closing brace, its closing line’s } (core)",
+      "type": "object",
+      "required": [
+        "t",
+        "text"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "const": "blockClose"
         },
         "text": {
           "type": "string"

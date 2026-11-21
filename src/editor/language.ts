@@ -166,6 +166,7 @@ const WHOLE_TOKEN_STYLE: Readonly<Record<string, Token>> = {
   [TOKEN_KIND.blockName]: TOKEN.keyword,
   [TOKEN_KIND.title]: TOKEN.title,
   [TOKEN_KIND.blockOpen]: TOKEN.brace,
+  [TOKEN_KIND.blockClose]: TOKEN.brace,
   [TOKEN_KIND.marker]: TOKEN.marker,
   [TOKEN_KIND.maths]: TOKEN.latex,
 }

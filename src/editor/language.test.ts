@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { EditorState } from '@codemirror/state'
-import { codeFolding, ensureSyntaxTree, foldEffect, foldable, getIndentation } from '@codemirror/language'
+import { codeFolding, ensureSyntaxTree, foldEffect, foldable, getIndentation, matchBrackets } from '@codemirror/language'
 import { insertNewlineAndIndent } from '@codemirror/commands'
 import { highlightTree, tagHighlighter, tags as t } from '@lezer/highlight'
 import { mathscribeFolding, mathscribeIndent, mathscribeLanguage } from './language.ts'
@@ -132,6 +132,7 @@ describe('text blocks', () => {
     expect(lines[0]).toEqual(['@layout.text:kw', 'Notes:title', '{:brace'])
     expect(lines[1]).toEqual(['m = 2 kg is prose here, with :text', '$x^2$:latex'])
     expect(lines[3]).toEqual(['Results::text'])
+    expect(lines[4]).toEqual(['}:brace'])
     expect(lines[5]).toEqual(['y:var', '2.0:num', 'm:unit'])
   })
 
@@ -141,6 +142,17 @@ describe('text blocks', () => {
     expect(lines[1]).toEqual(['m = 2 kg:text'])
     expect(lines[3]).toEqual(['@layout.val.multiline:kw', '{:brace'])
     expect(lines[4]).toEqual(['y:var', '2.0:num', 'm:unit'])
+    expect(lines[5]).toEqual(['}:brace'])
+  })
+
+  it('colour a closing } with a note after it as its opener’s {', () => {
+    const lines = tokensByLine('@constants {\n    g = 9.81 m/s^2\n}  # end')
+    expect(lines[2]).toEqual(['}:brace', '# end:note'])
+    // (Coloured alike, the two are a pair for bracket matching.)
+    const doc = '@constants {\n    g = 9.81 m/s^2\n}'
+    const state = EditorState.create({ doc, extensions: [mathscribeLanguage] })
+    ensureSyntaxTree(state, doc.length, 5000)
+    expect(matchBrackets(state, doc.indexOf('{'), 1)).toMatchObject({ matched: true, end: { from: doc.length - 1 } })
   })
 
   it('colour an @latex block’s lines as LaTeX, on one line or up to a } alone', () => {
@@ -149,6 +161,7 @@ describe('text blocks', () => {
     expect(lines[1]).toEqual(['@latex:kw', '{:brace'])
     expect(lines[2]).toEqual(['\\frac{:latex'])
     expect(lines[3]).toEqual(['a}{b}:latex'])
+    expect(lines[4]).toEqual(['}:brace'])
     expect(lines[5]).toEqual(['y:var', '2.0:num', 'm:unit'])
     const doc = EditorState.create({ doc: '@latex {\n    \\Delta\n}\nx = 1' }).doc
     expect([2, 3, 4].map((n) => inLatexBlock(doc, n))).toEqual([true, false, false])

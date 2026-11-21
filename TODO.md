@@ -372,6 +372,12 @@ working (group 2).
       (100,000 texts each, two alphabets, once by hand) found no change of
       meaning; one oddity left: a #command in the middle of a call's line
       (`@table(  #val ,()`) can take a second format to settle.
+- [x] **A block's closing `}` coloured as its opening `{`**, found by Emily: it
+      was uncoloured and didn't match its opener.
+      Resolved (2026-11-21): a closing line's `}` is a token of its own,
+      `blockClose` (tree/lines.ts, closerLine; it was the line's plain body),
+      coloured as a brace like `blockOpen`, so the two are coloured alike and
+      bracket matching pairs them. (The tree's JSON Schema has it too.)
 - [x] **Sections in the editor**: a slight highlight on `#` (section) and `##`
       (subsection) lines, a section's brighter; and sections and subsections
       collapsible up to the next heading of their kind, or of a higher one.

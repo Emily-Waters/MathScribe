@@ -152,7 +152,9 @@ a command or keyword does.
 
 **Results in the editor:** each line that works something out shows its result,
 faintly, at its end (`F = m * a      = 19.6 N`), so you can check a value without
-looking across at the output. Turn them off under Input → Options.
+looking across at the output. A series written over several lines shows each
+value's member name before it, faintly (`x₁: 1.0 s`, `x₂: 2.0 s`), so you can see
+which value is which without counting. Turn them off under Input → Options.
 
 **Parameter hints:** inside a call's brackets, what the function takes appears
 above the cursor, the parameter being typed in bold: `E_k(1, ` shows `E_k(n, m

@@ -19,6 +19,7 @@ import { SelectForm } from './select.ts'
 import { SeriesForm } from './series.ts'
 import { TableForm } from './table.ts'
 import { tableMenu } from './tableMenu.ts'
+import { memberLabelsExtension } from './memberLabels.ts'
 
 /** The series module's kinds of block (one object, as blockKinds asks). */
 const SERIES_BLOCK_KINDS: Readonly<Record<string, ModuleBlockKind>> = {
@@ -40,7 +41,8 @@ export class SeriesModule extends EngineModule {
 
   /** A ⚙ after a table or plot in the editor, whose panel edits its settings. */
   override editorExtensions(): readonly Extension[] {
-    return [tableMenu]
+    // (A table's and plot's ⚙, and a series' members' names before its values.)
+    return [tableMenu, memberLabelsExtension]
   }
 
   /** A table, `@table(…)`, as a block of its own (tableBlock.ts). */

@@ -6,7 +6,7 @@
  * that works nothing out (a value typed as it is) shows none. The editor's
  * Options turn them off.
  */
-import { StateEffect, StateField, type Extension, type Range } from '@codemirror/state'
+import { Facet, StateEffect, StateField, type Extension, type Range } from '@codemirror/state'
 import { Decoration, EditorView, WidgetType, type DecorationSet } from '@codemirror/view'
 import katex from 'katex'
 import type { LineValue } from '../lib/engine/index.ts'
@@ -15,6 +15,13 @@ import { STORAGE_KEYS } from '../config.ts'
 
 /** The results, by line number, as the evaluated sheet has them. */
 export const setInlineResults = StateEffect.define<ReadonlyMap<number, LineValue>>()
+
+/**
+ * Whether the editor shows its faint hints: each line's result after it, and
+ * what modules add of the same kind (a series' members' names before its
+ * values). The editor's Options turn them off; shown unless the app says not.
+ */
+export const inlineHintsShown = Facet.define<boolean, boolean>({ combine: (values) => values.at(-1) ?? true })
 
 /** What goes before a result: `=`, or `≈` for a rounded one. */
 const RELATION = { equals: '=', approx: '\\approx' } as const

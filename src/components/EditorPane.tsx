@@ -24,7 +24,7 @@ import { dataBlocksExtension, foldingSettings, sheetLineNumber } from '../editor
 import { dataBlockGuard, dataBlockLines, importActions } from '../editor/dataBlockLines.ts'
 import { FORMAT_KEY, formatDocument } from '../editor/format.ts'
 import { headingHighlight } from '../editor/headings.ts'
-import { inlineResults, setInlineResults } from '../editor/inlineResults.ts'
+import { inlineHintsShown, inlineResults, setInlineResults } from '../editor/inlineResults.ts'
 import { paramHints } from '../editor/paramHints.ts'
 import { statementStart } from '../editor/sheetLines.ts'
 import type { LineValue } from '../lib/engine/index.ts'
@@ -47,6 +47,8 @@ interface EditorPaneProps {
   diagnostics: Map<number, Diagnostic>
   /** Each line's result, by line, shown faintly at its end (none if they're turned off). */
   results: ReadonlyMap<number, LineValue>
+  /** Whether the editor's faint hints show: results, and what modules add of the kind (a series' members' names). */
+  hintsShown: boolean
   /** Where each function is defined (for Ctrl+Click / F12). */
   definitions: Map<string, number[]>
   /** What the sheet defines, for completions and hover information. */
@@ -202,12 +204,15 @@ const baseTheme = EditorView.theme({
 
 /** Light or dark, for CodeMirror's built-in styles; changed when the app theme changes. */
 const darkness = new Compartment()
+/** Whether the editor's faint hints show (inlineHintsShown); changed with the editor's Options. */
+const hints = new Compartment()
 
 /** Everything a sheet's editor is set up with; `on` reports edits and cursor moves to the app. */
 function extensions(
   handlers: { change: (v: string) => void; cursor: (line: number, clicked: boolean) => void; chooseImport: (line: number) => void },
   dark: boolean,
   acceptKeys: AcceptKeys,
+  hintsShown: boolean,
 ): Extension[] {
   return [
     lineNumbers({ formatNumber: (n, state) => String(sheetLineNumber(state, n)) }),
@@ -240,6 +245,7 @@ function extensions(
     acceptKeysSetting(acceptKeys),
     baseTheme,
     darkness.of(EditorView.darkTheme.of(dark)),
+    hints.of(inlineHintsShown.of(hintsShown)),
     placeholder('m = 2.0 kg'),
     EditorView.contentAttributes.of({ 'aria-label': 'Math input', spellcheck: 'false' }),
     // (Before the usual keys: moving, deleting and copying lines keep imported data whole.)
@@ -274,7 +280,7 @@ function extensions(
  * definition, and blocks fold from the gutter.
  */
 export function EditorPane({
-  value, onChange, docId, openIds, jump, insert, onCursorLine, diagnostics, results, definitions, symbols, theme, dark, customPalette,
+  value, onChange, docId, openIds, jump, insert, onCursorLine, diagnostics, results, hintsShown, definitions, symbols, theme, dark, customPalette,
   acceptKeys, onChooseImport, options,
 }: EditorPaneProps) {
   const host = useRef<HTMLDivElement>(null)
@@ -289,6 +295,7 @@ export function EditorPane({
 
   const darkNow = useRef(dark)
   const acceptKeysNow = useRef(acceptKeys)
+  const hintsNow = useRef(hintsShown)
   /** A fresh editor state for a sheet's text. */
   const makeState = useRef((text: string) => EditorState.create({
     doc: text,
@@ -296,7 +303,7 @@ export function EditorPane({
       change: (s) => handlers.current.change(s),
       cursor: (l, clicked) => handlers.current.cursor(l, clicked),
       chooseImport: (l) => handlers.current.chooseImport(l),
-    }, darkNow.current, acceptKeysNow.current),
+    }, darkNow.current, acceptKeysNow.current, hintsNow.current),
   }))
 
   useEffect(() => {
@@ -362,6 +369,11 @@ export function EditorPane({
     darkNow.current = dark
     view.current?.dispatch({ effects: darkness.reconfigure(EditorView.darkTheme.of(dark)) })
   }, [dark, docId])
+
+  useEffect(() => {
+    hintsNow.current = hintsShown
+    view.current?.dispatch({ effects: hints.reconfigure(inlineHintsShown.of(hintsShown)) })
+  }, [hintsShown, docId])
 
   useEffect(() => {
     acceptKeysNow.current = acceptKeys

@@ -224,6 +224,7 @@ export default function App() {
               onCursorLine={followCursor}
               diagnostics={diagnostics}
               results={results}
+              hintsShown={inlineShown}
               definitions={definitions}
               symbols={symbols}
               theme={syntaxTheme}
@@ -246,7 +247,7 @@ export default function App() {
                     <input type="checkbox" checked={inlineShown} onChange={(e) => changeInlineShown(e.target.checked)} />
                     <span>Show results in the editor</span>
                   </label>
-                  <p className="options__help">Each line's result, faintly, at the end of the line.</p>
+                  <p className="options__help">Each line's result, faintly, at the end of the line, and a series' members' names (x₁, x₂, …) before its values when it's written over several lines.</p>
                   <ShortcutOptions />
                 </>
               }

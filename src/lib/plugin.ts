@@ -42,14 +42,16 @@ export {
 export { LINE_CONTEXT, NODE_KIND, TOKEN_KIND, isToken, type Part } from './tree/nodes.ts'
 export { TOKEN_ROLE } from './tree/registry.ts'
 export { BODY_END, CONTENT } from './tree/grammar.ts'
-export { ROUND_BRACKETS, lexExpression, node, token, withUnit, type LexRule } from './tree/lexer.ts'
+// (opensBracket, closesBracket: whether a delimiter opens or closes a bracket, for following a call's depth over its tokens.)
+export { ROUND_BRACKETS, closesBracket, lexExpression, node, opensBracket, token, withUnit, type LexRule } from './tree/lexer.ts'
 export type { TextRule } from './tree/lines.ts'
 // (encode: a sheet's text as its tree, for a module's part of the editor that finds its lines in it, as the series' ⚙ does;
 // sheetStatements: each thing it says, as one line over however many it's written, every token where it is.)
 export { encode, textOf } from './tree/codec.ts'
 export { sheetStatements, type PlacedToken, type SheetStatement, type Statement } from './tree/statements.ts'
-// (SETTING_MARK: the `:` before each of a name's settings, for writing a name with its settings back out; ASSIGN: the `=` that assigns.)
-export { ASSIGN, SETTING_MARK, lineShape, soleCall } from './tree/shapes.ts'
+// (SETTING_MARK: the `:` before each of a name's settings, for writing a name with its settings back out; ASSIGN: the `=` that assigns;
+// SEPARATOR: the `,` between a call's arguments.)
+export { ASSIGN, SEPARATOR, SETTING_MARK, lineShape, soleCall } from './tree/shapes.ts'
 
 // Reading a sheet into blocks.
 export { NodeReader, SheetWideReader, bodyLines, type ReadsLines, type TreeItem } from './reading/reader.ts'
@@ -90,3 +92,5 @@ export { useCaptionNumber, useLineLink } from '../components/blocks/context.ts'
 // The editor.
 export type { Extension } from '@codemirror/state'
 export { fixedPanelPosition, placeFixedPanel, type PanelAnchor, type PanelAlignment } from '../editor/popover.ts'
+// (inlineHintsShown: whether the editor shows its faint hints, a line's result after it and the like: a module's hints follow it.)
+export { inlineHintsShown } from '../editor/inlineResults.ts'

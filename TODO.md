@@ -389,6 +389,19 @@ working (group 2).
       LaTeX (`centredEquation`: a `center` environment, which `fleqn` doesn't
       move) and in Word. `equation off` (the ⚙ menu's *Show fit equation*)
       leaves them out; the fit's slope and intercept are still variables.
+- [x] **A series' members' names before its values in the editor**, asked for
+      by Emily: in a series written over several lines, `x₁:`, `x₂:`, … faint
+      before each value, as a line's result is after it. Resolved
+      (2026-11-21): the series module's editor extension (memberLabels.ts), from
+      the sheet's statements as the ⚙ menus find their calls: a `name =
+      @series(` closed on a later line, each value directly in it (between its
+      top-level commas, so `max(3, 4) m` is one) named in order. They follow the
+      editor's *Show results in the editor* option, which modules can now read
+      (`inlineHintsShown`, in the module API).
+      **Fixed (2026-11-21), found by Emily:** the names took room of their own,
+      pushing each value right of where it's indented. Now each is in a box of
+      no width at its value's start, set to its left over the indentation, so
+      the values stay where they are.
 - [x] **Log axes from 0, and a fit's slope in the series' units**, found by
       Emily: turning on log x (or y) with `x from 0` set drew an empty plot
       (log 0); and a fit of N against m gave its slope in kg/s². Resolved

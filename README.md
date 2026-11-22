@@ -85,10 +85,13 @@ remembered in the browser.
     **Insert** puts it in the sheet at the cursor (on the cursor's line if it's
     empty, otherwise just below it), where it's ordinary text you can rename or
     change. Temperatures are converted to kelvin on the way in (`T to K`), so
-    25.0 degC works.
+    25.0 degC works. As in the Reference, a menu picks the topic (or all of
+    them), and the search box narrows it to the equations with every word you type.
   - **Reference** (the question mark): every feature as an example you can copy, shown with its real
     output (each example is evaluated live, so the reference always matches what
-    MathScribe actually does), plus the list of built-in constants.
+    MathScribe actually does), plus the list of built-in constants. A menu picks
+    the topic (or all of them; it's remembered), and a search box narrows it to
+    the entries with every word you type.
 
   Its options menu (the sliders) holds the output settings:
 

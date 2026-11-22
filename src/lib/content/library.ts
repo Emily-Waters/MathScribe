@@ -5,6 +5,7 @@
  * you can rename or change it. Each entry's example is evaluated live by the
  * real engine, as in the Reference tab.
  */
+import { matchesWords, searchWords } from '../search.ts'
 
 export interface LibrarySymbol {
   /** As written in MathScribe (`v_0`); shown typeset. */
@@ -573,14 +574,11 @@ export const entryName = (e: LibraryEntry) => /^[A-Za-z]\w*/.exec(e.source)![0]
 
 /** Entries whose title, name, symbols or keywords contain every word of the query. */
 export function searchLibrary(query: string): LibraryTopic[] {
-  const words = query.toLowerCase().split(/\s+/).filter(Boolean)
+  const words = searchWords(query)
   if (!words.length) return LIBRARY
   return LIBRARY.map((t) => ({
     ...t,
-    entries: t.entries.filter((e) => {
-      const hay = [t.title, t.subject, e.title, e.source, e.note ?? '', e.keywords ?? '',
-        ...e.symbols.map((x) => `${x.name} ${x.meaning}`)].join(' ').toLowerCase()
-      return words.every((w) => hay.includes(w))
-    }),
+    entries: t.entries.filter((e) => matchesWords([t.title, t.subject, e.title, e.source, e.note ?? '', e.keywords ?? '',
+      ...e.symbols.map((x) => `${x.name} ${x.meaning}`)], words)),
   })).filter((t) => t.entries.length)
 }

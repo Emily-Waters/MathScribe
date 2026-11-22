@@ -19,6 +19,22 @@ what's here better.
 - [ ] **Symbolic calculus and algebra**: differentiate, integrate, expand and
       simplify an expression symbolically (`derivative(x^2 * sin(x), x)` →
       2x sin x + x² cos x), by way of a computer algebra library.
+- [ ] **Investigate how to do calculus** (the two items above), before building
+      either. Found (2026-11-22): mathjs's own `derivative` already slips
+      through, half working: `derivative("x^2 * sin(x)", "x")` gives the right
+      answer but shows it as plain text (`2 * x * sin(x) + …`), a sheet's
+      function can't be differentiated (`derivative(f(x), x)`: "Undefined
+      symbol x"), and nothing carries units, sig figs or uncertainty. To look
+      into: a calculus module of its own, written with `@` (`@derivative`,
+      `@integral`), and whether it should block mathjs's bare `derivative`;
+      numerical methods (central differences, adaptive Simpson or
+      Gauss–Kronrod) and how units go through them (d/dx divides by x's unit,
+      ∫ multiplies by it); the uncertainty of a value worked out numerically;
+      typesetting as d/dx and ∫ in the Rendered tab, LaTeX and Word; whether
+      mathjs's symbolic `derivative` and `simplify` are good enough for
+      first-year sheets, or which computer algebra library would be (size,
+      licence, running in the browser); and the language tree's entries and
+      examples for each.
 - [ ] **Ranges and sums**: `x = range(0, 10, 0.5)` as a series, `sum(f(n), n, 1, 10)`
       and products, so a series can be generated as well as typed or imported.
       Progress (2026-11-17): `@series(…)` (group 3) makes a series on one line;
@@ -653,6 +669,21 @@ Plot ideas, to investigate (suggested 2026-11-21, after legends and colours):
       Share's icon turns to a tick for a moment, and "Link copied" shows
       beside the buttons (it used to replace the button's word). `Dropdown`
       takes an `icon`.
+- [x] **The Reference tab, tidied**: with so many topics, its row of section
+      links had become a wall of buttons.
+      Resolved (2026-11-22): a topic menu (each topic of the language tree,
+      All topics, and Built-in constants; the choice remembered in the
+      browser) and a search box beside it, which narrows what's shown to the
+      entries with every word typed, in their topic's title, how they're
+      written, what they do, their terms, rules or examples (`entryMatches`,
+      tree.ts, tested in tree.test.ts). A search that finds nothing in the
+      topic shown, or more in others, offers to show them all. The Library's
+      search matches the same way (lib/search.ts). Each example is now worked
+      out the first time it's shown, so a topic opens without the whole
+      tree being worked out. Then the Library the same way: its topic menu
+      lists its topics under their subjects (Physics, Chemistry). The bar is
+      one component for both (TopicSearch.tsx: `TopicBar`, `OtherMatches`;
+      the choice kept by `useShownTopic`), and the old section links are gone.
 ### Mobile view
 
 Level 1 (one pane at a time below 800px) is done: see "Narrow screens" above.

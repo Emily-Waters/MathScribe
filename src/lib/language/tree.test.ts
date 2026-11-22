@@ -14,7 +14,8 @@ import { BUILTINS, ConstantMember, Namespace } from '../builtins.ts'
 import {
   COMMAND_NAMES, EXACT_SETTING, KEYWORD, NOTATION, PERCENT, SERIES_SUFFIXES, SIGIL, SUBSCRIPT, UNCERTAINTY_WORDS,
 } from '../syntax.ts'
-import { TERM_KIND, languageTree, treeExamples, treeTerms, type LanguageTopic, type TermKind } from './tree.ts'
+import { TERM_KIND, entryMatches, languageTree, treeExamples, treeTerms, type LanguageTopic, type TermKind } from './tree.ts'
+import { searchWords } from '../search.ts'
 import { CORE_TOPICS } from './topics.ts'
 
 const TREE = languageTopics()
@@ -97,5 +98,20 @@ describe('the language tree', () => {
       expect(ids, m.id).toContain(m.after)
       expect(ids.indexOf(m.id), m.id).toBeGreaterThan(ids.indexOf(m.after))
     }
+  })
+})
+
+describe('searching the tree (the Reference tab)', () => {
+  const found = (query: string) => languageTopics().flatMap((topic) =>
+    topic.entries.filter((entry) => entryMatches(topic, entry, searchWords(query))).map(() => topic.id))
+
+  it('finds an entry by any of its words, whatever the case and order', () => {
+    expect(found('LEGEND')).toContain('plot-settings')
+    expect(found('pm uncertainty').length).toBeGreaterThan(0)
+  })
+
+  it('finds every entry for a blank search, and none for a word nowhere in the tree', () => {
+    expect(found('  ').length).toBe(languageTopics().flatMap((t) => t.entries).length)
+    expect(found('zzqx')).toEqual([])
   })
 })

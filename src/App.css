@@ -947,21 +947,6 @@ body {
   border-bottom: 1px solid var(--border);
 }
 
-.ref__nav button {
-  font: inherit;
-  font-size: 12px;
-  border: 0;
-  border-radius: 4px;
-  padding: 3px 8px;
-  color: var(--muted);
-  background: var(--surface-2);
-  cursor: pointer;
-}
-
-.ref__nav button:hover {
-  color: var(--text);
-}
-
 .ref__section {
   scroll-margin-top: 48px;
 }
@@ -1081,25 +1066,43 @@ body {
 
 /* ---------- Library tab ---------- */
 
-.lib__bar {
+/* The Library's and Reference's bar (TopicSearch.tsx): the topic menu, and the search box beside it */
+.topic-bar {
+  flex-wrap: nowrap;
   align-items: center;
+  gap: 8px;
 }
 
-.lib__search {
-  flex: 1 1 100%;
+.topic-bar__menu,
+.topic-bar__search {
+  min-width: 0;
   font: inherit;
   font-size: 13px;
-  padding: 6px 8px;
-  margin-bottom: 4px;
   color: var(--text);
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 6px;
 }
 
-.lib__search:focus {
+/* 40% for the menu and 60% for the search, whatever the topics' names, so both tabs' bars match. */
+.topic-bar__menu {
+  flex: 2 1 0;
+  padding: 5px 6px;
+}
+
+.topic-bar__search {
+  flex: 3 1 0;
+  padding: 6px 8px;
+}
+
+.topic-bar__menu:focus,
+.topic-bar__search:focus {
   outline: none;
   border-color: var(--accent);
+}
+
+.topic-bar__elsewhere {
+  margin: 16px 0 0;
 }
 
 .lib__intro {

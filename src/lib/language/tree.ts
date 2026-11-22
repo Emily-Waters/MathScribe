@@ -12,6 +12,7 @@
  * (it works, it's formatted, its output is as it was: lib/language/tree.test.ts,
  * golden.test.ts), and none can go out of date.
  */
+import { matchesWords } from '../search.ts'
 
 /** A whole sheet showing an entry, evaluated (live in the Reference, and by the tests). */
 export interface LanguageExample {
@@ -110,3 +111,15 @@ export const treeExamples = (tree: readonly LanguageTopic[]) =>
 /** Every term of a kind in the tree, in its order. */
 export const treeTerms = (tree: readonly LanguageTopic[], kind: TermKind): LanguageTerm[] =>
   tree.flatMap((topic) => topic.entries.flatMap((entry) => (entry.terms ?? []).filter((t) => t.kind === kind)))
+
+/**
+ * Whether an entry matches a search (the Reference tab's): every word is in its
+ * topic's title, how it's written, what it does, its terms, its rules or its
+ * examples' source.
+ */
+export const entryMatches = (topic: LanguageTopic, entry: LanguageEntry, words: readonly string[]): boolean =>
+  matchesWords([
+    topic.title, ...(entry.syntax ?? []), entry.explain,
+    ...(entry.terms ?? []).flatMap((t) => [termShown(t), t.summary]),
+    ...(entry.rules ?? []), ...entry.examples.map((e) => e.source),
+  ], words)

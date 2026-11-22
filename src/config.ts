@@ -39,6 +39,10 @@ export const STORAGE_KEYS = {
   calcOptions: 'mathscribe:calc-options',
   /** Whether each line's result is shown at its end in the editor. */
   inlineResults: 'mathscribe:inline-results',
+  /** The Reference tab's chosen topic. */
+  referenceTopic: 'mathscribe:reference-topic',
+  /** The Library tab's chosen topic. */
+  libraryTopic: 'mathscribe:library-topic',
 } as const
 
 // ---------------------------------------------------------------------------

@@ -1,11 +1,19 @@
 import { useMemo, useRef, useState } from 'react'
-import { EXAMPLE_CALC_OPTIONS } from '../config.ts'
+import { EXAMPLE_CALC_OPTIONS, STORAGE_KEYS } from '../config.ts'
 import { evaluateSheetSafely } from '../lib/sheet/document.ts'
 import { symbolTex } from '../lib/engine/index.ts'
 import { LIBRARY, searchLibrary, type LibraryEntry } from '../lib/content/library.ts'
 import { copyText, useFlash } from '../useFlash.ts'
 import { RenderedBlock, Tex } from './blocks/index.tsx'
-import { SectionLinks } from './ReferencePane.tsx'
+import { ALL_TOPICS, isShown, useShownTopic, type TopicGroup } from '../useShownTopic.ts'
+import { OtherMatches, TopicBar } from './TopicSearch.tsx'
+
+/** The topic menu: the library's topics under their subjects (Physics, Chemistry), in the library's order. */
+const TOPIC_GROUPS: TopicGroup[] = [...new Set(LIBRARY.map((t) => t.subject))]
+  .map((subject) => ({ label: subject, topics: LIBRARY.filter((t) => t.subject === subject) }))
+
+/** Every topic's id, for the menu. */
+const TOPIC_IDS = LIBRARY.map((t) => t.id)
 
 interface LibraryPaneProps {
   /** Put an entry's function into the sheet, at the editor's cursor. */
@@ -14,13 +22,18 @@ interface LibraryPaneProps {
 
 /**
  * The Library tab: common equations, each a one-line function with a worked
- * example, to insert at the cursor (or copy).
+ * example, to insert at the cursor (or copy). A menu picks the topic shown (or
+ * all of them), and a search box narrows it to the equations with every word typed.
  */
 export function LibraryPane({ onInsert }: LibraryPaneProps) {
-  const [query, setQuery] = useState('')
-  const topics = useMemo(() => searchLibrary(query), [query])
-  const [flash, showFlash] = useFlash<string>()
   const scroller = useRef<HTMLDivElement>(null)
+  const [shown, setShown] = useShownTopic(STORAGE_KEYS.libraryTopic, TOPIC_IDS, scroller)
+  const [query, setQuery] = useState('')
+  // The equations that match, in every topic (not only the one shown, so a search can say how many match elsewhere).
+  const matching = useMemo(() => searchLibrary(query), [query])
+  const topics = matching.filter((t) => isShown(shown, t.id))
+  const elsewhere = matching.reduce((n, t) => n + (isShown(shown, t.id) ? 0 : t.entries.length), 0)
+  const [flash, showFlash] = useFlash<string>()
 
   const copy = async (e: LibraryEntry) => {
     if (await copyText(e.source)) showFlash(e.id, 'Copied')
@@ -28,23 +41,20 @@ export function LibraryPane({ onInsert }: LibraryPaneProps) {
 
   return (
     <div className="ref" ref={scroller}>
-      <div className="ref__nav lib__bar">
-        <input
-          className="lib__search"
-          type="search"
-          value={query}
-          placeholder="Search: ideal gas, momentum, half-life…"
-          aria-label="Search the equation library"
-          onChange={(e) => setQuery(e.target.value)}
-        />
-        {!query && <SectionLinks scroller={scroller} prefix="lib" sections={LIBRARY} />}
-      </div>
+      <TopicBar
+        groups={TOPIC_GROUPS}
+        shown={shown}
+        onShow={setShown}
+        query={query}
+        onQuery={setQuery}
+        placeholder="Search: ideal gas, momentum, half-life…"
+        searchLabel="Search the equation library"
+      />
       <p className="ref__explain lib__intro">
         Insert puts the function on the line with the cursor (or just below it), ready to call: rename it or
         change it as you like. Its working shows in the output like any other line.
       </p>
 
-      {!topics.length && <p className="doc__empty">No equations match “{query}”.</p>}
       {topics.map((t) => (
         <section key={t.id} id={`lib-${t.id}`} className="ref__section">
           <h3 className="doc__heading doc__heading--section">
@@ -64,6 +74,7 @@ export function LibraryPane({ onInsert }: LibraryPaneProps) {
           ))}
         </section>
       ))}
+      <OtherMatches query={query} foundHere={topics.length > 0} elsewhere={elsewhere} onShowAll={() => setShown(ALL_TOPICS)} />
     </div>
   )
 }

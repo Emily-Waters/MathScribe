@@ -58,6 +58,10 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
           'Name things as the question writes them.',
           'Write Δt, not dt. No dots in names.',
           'Don\'t use phi, tau, e or pi as names of your own.',
+          'A Greek letter typed into a name stays part of it: ΔE is a variable of its own, while Delta E (with '
+            + 'a space) is E\'s uncertainty; both show ΔE.',
+          'Type one as \\ and its name, then Tab or a space: \\Delta gives Δ, and the space ends the name, as in '
+            + 'LaTeX (\\Delta E types ΔE). Not in headings, prose, @latex, notes or $…$, where \\Delta is LaTeX.',
         ],
         examples: [{
           source: [
@@ -103,6 +107,17 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
           { kind: TERM_KIND.constant, name: 'e', summary: 'Euler’s number ≈ 2.71828' },
           { kind: TERM_KIND.constant, name: 'tau', summary: 'τ = 2π' },
           { kind: TERM_KIND.constant, name: 'phi', summary: 'The golden ratio ≈ 1.61803' },
+        ],
+        rules: [
+          'Everything mathjs has works, matrices ([1, 2; 3, 4]) too.',
+          'pi, e and the like stay symbols in substitution steps, and so does a variable made only of numbers '
+            + 'and them: after theta = pi/4, sin(theta) shows sin(π/4).',
+          'sin, cos and tan of exact angles are exact: sin(pi) is 0, sin(30 deg) is 0.5.',
+          'A series doesn\'t take a built-in constant\'s name: with e1 and e2 defined, e is still Euler\'s number '
+            + '(e_avg is the series\' mean).',
+          'phi and tau are built in too (the golden ratio, 2π): define them before using them as names of your '
+            + 'own.',
+          'atan2(y, x) takes coordinates with units, as long as they match: atan2(1.0 m, 2.0 m).',
         ],
         examples: [{
           source: [
@@ -209,6 +224,44 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
         }],
       },
       {
+        explain: 'A name can be shown as words, with a setting in quotes on the name being assigned: n_Na:"Moles of '
+          + '{Na^+}" = …. It\'s shown so wherever the variable is: on its own line, in later substitutions and in '
+          + 'the exports.',
+        rules: [
+          'It can hold formulas and values; a value in it is the one when the variable was defined. It '
+            + 'combines with the other settings: n:3:"Moles":sci = ….',
+          'Subscripts work as in names: m_ball, x_{max}, F_net_x; one starting with a capital letter is a '
+            + 'formula, m_{H2O}. $…$ is maths.',
+        ],
+        examples: [{
+          source: [
+            'V_s = 25.00 mL',
+            'n_X = 0.00120 mol',
+            'n_Ca:"Moles of {Ca^2+} in {{V_s}}" = n_X / 6',
+          ].join('\n'),
+        }],
+      },
+      {
+        explain: 'A line that leaves a ( or [ open carries on over the lines after it, up to the one that closes it, '
+          + 'so a long @series, @table or @plot (or any call, or a matrix) can list one thing a line.',
+        rules: [
+          'The lines inside are indented further than the first; the closing bracket can be under the first '
+            + 'line. A blank line, or one not indented further, ends it.',
+          'A trailing comma before the closing bracket is fine (the formatter takes it out). #commands and '
+            + 'notes can go on any of its lines.',
+          'The formatter (Ctrl+Shift+F, or saving) lays it out so.',
+        ],
+        examples: [{
+          source: [
+            't = @series(',
+            '    1.52 s,',
+            '    1.48 s,',
+            '    1.55 s',
+            ')',
+          ].join('\n'),
+        }],
+      },
+      {
         explain: 'Title { … } is a block. Variables assigned inside are local to it.',
         rules: [
           'Indent the lines inside 4 spaces.',
@@ -252,6 +305,13 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
             + 'kg).',
           'Compound units have no spaces: kg*m^2, J/mol/K.',
           'Litres are L and mL. Use kelvin for temperature.',
+          'A unit right after a number is always a unit, even where a variable has its name: after m = 2.0 kg, '
+            + '3.5 m is metres. To multiply by such a variable, write *; a warning says when a line looks like '
+            + 'that mistake.',
+          'Micro is u (5.0 um, 2.0 uF), or typed as µ or μ (5.0 µm); μ alone is still a name.',
+          'A value you type keeps its unit wherever it\'s shown later: L = 1.00e-10 m stays in m.',
+          'Worked-out results are shown in tidy units (N/kg is m/s², kg m/s² is N) with a sensible prefix, '
+            + 'none beyond pico and tera; a single unit with a fractional power (Å^-1.5) is kept as it is.',
         ],
         examples: [{ source: 'g = 9.81 m/s^2' }],
       },
@@ -259,6 +319,9 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
         explain: 'to converts to another unit.',
         terms: [
           { kind: TERM_KIND.keyword, name: KEYWORD.to, summary: 'Convert to a unit: v to km/h, or to percent' },
+        ],
+        rules: [
+          'A variable defined with to (a = @a_0 to angstrom) keeps that unit.',
         ],
         examples: [{
           source: [
@@ -274,6 +337,10 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
       {
         explain: 'name:unit shows (and keeps) the result in that unit; a plain angle from atan or asin counts as '
           + 'radians. Combine it with sig figs in either order: phi:3:deg.',
+        rules: [
+          'A unit that doesn\'t fit is an error (3.0 m can\'t be shown in deg); a plain number takes only an '
+            + 'angle unit this way. Uncertainties are converted too.',
+        ],
         examples: [{ source: 'phi:3:deg = atan(1.00 / 2.00)' }],
       },
       {
@@ -287,6 +354,9 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
         explain: 'to percent shows a unitless result ×100 (stored as the fraction). Values with units are refused.',
         terms: [
           { kind: TERM_KIND.setting, name: PERCENT, summary: 'a unitless result ×100, with %' },
+        ],
+        rules: [
+          'The variable keeps the fraction, so later lines work with it.',
         ],
         examples: [{
           source: [
@@ -307,6 +377,13 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
         rules: [
           'Write 1/2, not 0.5, for an exact factor: 0.5 is a measurement with 1 sig fig, and rounds the answer '
             + 'to 1.',
+          '× ÷, powers and functions: the fewest sig figs of the inputs. + −: the least precise decimal place '
+            + '(12.52 m + 3.1 m = 15.6 m).',
+          'Values are kept at full precision and rounded only to be shown, so rounding doesn\'t build up; a '
+            + 'substitution step shows each variable to its own sig figs.',
+          'Trailing zeros that count show with a decimal point (20., 90.°); where one can\'t show the '
+            + 'precision, scientific notation does: 1.50 × 10³.',
+          'Sig figs in the Output options can be a number instead of Auto, to show every result to that many.',
         ],
         examples: [{ source: 'd = 2 * 1.50 m' }],
       },
@@ -322,6 +399,7 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
           + 'too.',
         rules: [
           'A value with a ± always uses =.',
+          'A result of exact inputs isn\'t limited (1/3 ≈ 0.333333): write name:3 = … to choose.',
         ],
         examples: [{
           source: [
@@ -334,6 +412,13 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
         explain: 'name:n = … sets the sig figs of a result.',
         rules: [
           'Settings go on the name being assigned, left of = only: d:km = …, N:sci = …, L:dec = ….',
+          'Later lines count it as that many; its value is kept at full precision. It keeps them with a fixed '
+            + 'Sig figs setting too.',
+          'It\'s that assignment\'s: a later m = … without :n counts as written again.',
+          'With a pm uncertainty, the uncertainty sets its precision, and :n is ignored, with a warning.',
+          'It works in blocks, function bodies, @constants and with @solve (d:3 = @solve(…, d)).',
+          'A function\'s result takes its sig figs from its expression, so a measured number in it carries '
+            + 'through.',
         ],
         examples: [{ source: 'third:3 = 1/3' }],
       },
@@ -350,6 +435,14 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
         terms: [
           { kind: TERM_KIND.setting, name: NOTATION.sci, summary: 'always scientific notation' },
           { kind: TERM_KIND.setting, name: NOTATION.dec, summary: 'always decimal notation, no powers of ten' },
+        ],
+        rules: [
+          'Without them, numbers are plain digits, and scientific for very large or small values, or where '
+            + 'digits can\'t show the precision.',
+          ':sci always uses a power of ten (but not × 10⁰); :dec never does, even where its zeros then can\'t '
+            + 'show the precision.',
+          'It works with uncertainties ((1.50 ± 0.02) × 10³ m), tuples and their unpacked names, and a '
+            + 'function\'s result (f(x):sci = …).',
         ],
         examples: [{
           source: [
@@ -385,6 +478,7 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
         ],
         rules: [
           'Write pm only where a value is defined, never inside a function\'s brackets: it propagates by itself.',
+          '(2.0 pm 0.1) kg brackets it; 3.50 m pm 0.05 takes the value\'s unit. A value without pm has none.',
         ],
         examples: [{ source: 'd = 3.50 m pm 0.02 m' }],
       },
@@ -400,6 +494,16 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
         ],
         rules: [
           'delta F (shown δF) is F\'s uncertainty; on its own line it shows the working of its propagation.',
+          'It works through any formula, functions and blocks too.',
+          'Correlations are kept: each pm is a source of its own, so in F = m * a then G = F / m, m\'s '
+            + 'uncertainty cancels, and m - m has none.',
+          'delta and Delta mean an uncertainty only before a defined variable; otherwise they\'re δ and Δ, '
+            + 'names like any other (delta = 5 deg). Write delta * x to multiply.',
+          'A worked-out uncertainty is given to 1 sig fig (2 if it starts with 1), and its value to the same '
+            + 'place: (20 ± 1) N. A declared one keeps the precision typed; with a fixed Sig figs setting, 2 sig '
+            + 'figs.',
+          'The working\'s derivatives are left out when the formula has a unit written in it or a function of '
+            + 'yours, or when its inputs share a source; the result still counts it.',
         ],
         examples: [{
           source: [
@@ -532,6 +636,12 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
           + 'convert with to, and norm, dot and cross work on them.',
         rules: [
           'Don\'t write (a, b) for a pair: write @tuple(a, b). <3.0, 4.0> N is a vector.',
+          'A unit every value shares is written once, after the bracket; values with different units keep '
+            + 'their own: (1.41 m, 45.0°).',
+          'A display unit (r:cm = …) applies to every value.',
+          'A bracketed list, (1, 2), is an error that points to @tuple(1, 2): brackets only group, or call a '
+            + 'function.',
+          'For now, uncertainties don\'t carry into a tuple\'s values.',
         ],
         examples: [{
           source: [
@@ -544,6 +654,11 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
       {
         explain: '@tuple(a, b) = … unpacks a tuple: each value becomes a variable of its own. Each name can take sig '
           + 'figs and a unit, like b:cm or theta:3:deg.',
+        rules: [
+          'The right-hand side can be any tuple, a function\'s result too: @tuple(r, theta) = polar(x, y). It '
+            + 'works in function bodies.',
+          'Each name keeps its settings afterwards.',
+        ],
         examples: [{
           source: [
             'p = @tuple(1.414 m, 0.7854)',
@@ -560,6 +675,16 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
     entries: [
       {
         explain: 'Built-in constants start with @ and default to 3 sig figs (list below).',
+        rules: [
+          'The rounded value counts as a measured value with that many sig figs, as when a problem says use g '
+            + '= 9.81 m/s².',
+          'Constants carry units, so conversions work: @R gives litres with to L.',
+          'A mistyped name suggests the nearest: @kb, Did you mean @k_B?',
+          '@e is the elementary charge and @g standard gravity: they don\'t clash with Euler\'s e, grams, or a g '
+            + 'of your own.',
+          'The values are CODATA 2018 (exact means exact by definition in the SI). The elements\' molar masses '
+            + 'are in @chem.',
+        ],
         examples: [{ source: 'E = @h * @c / 532 nm to eV' }],
       },
       {
@@ -568,6 +693,11 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
       },
       {
         explain: 'A line with only @name:n sets that constant’s precision for the whole sheet.',
+        rules: [
+          'It applies to the whole sheet, lines above it and constants defined from it too, and its line shows '
+            + 'the value it sets. A use with its own :n still wins; a second declaration is ignored, with a '
+            + 'warning. It can go in an @constants { } block.',
+        ],
         examples: [{
           source: [
             '@c:4',
@@ -586,6 +716,13 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
       },
       {
         explain: 'Define your own constants, usable anywhere in the sheet as @name.',
+        rules: [
+          'They\'re usable anywhere as @name, above the block too.',
+          'They default to the precision they\'re written with; :n and :exact work as for built-ins.',
+          'They can use units, other constants and pm uncertainties, but not the sheet\'s variables: they\'re '
+            + 'worked out first.',
+          'One with a built-in\'s name takes its place.',
+        ],
         examples: [{
           source: [
             '@constants {',

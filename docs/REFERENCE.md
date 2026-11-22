@@ -45,6 +45,8 @@ Names are letters, digits and underscores, and \_ makes a subscript: v\_0 is v�
 - Name things as the question writes them.
 - Write Δt, not dt. No dots in names.
 - Don't use phi, tau, e or pi as names of your own.
+- A Greek letter typed into a name stays part of it: ΔE is a variable of its own, while Delta E (with a space) is E's uncertainty; both show ΔE.
+- Type one as \\ and its name, then Tab or a space: \\Delta gives Δ, and the space ends the name, as in LaTeX (\\Delta E types ΔE). Not in headings, prose, @latex, notes or \$…\$, where \\Delta is LaTeX.
 
 ```
 v_0 = 2.0 m/s
@@ -88,6 +90,13 @@ Powers are ^. The functions of maths: sqrt, sin, cos, tan, asin, acos, atan, ata
 | `e` | Euler’s number ≈ 2.71828 |
 | `tau` | τ = 2π |
 | `phi` | The golden ratio ≈ 1.61803 |
+
+- Everything mathjs has works, matrices (\[1, 2; 3, 4\]) too.
+- pi, e and the like stay symbols in substitution steps, and so does a variable made only of numbers and them: after theta = pi/4, sin(theta) shows sin(π/4).
+- sin, cos and tan of exact angles are exact: sin(pi) is 0, sin(30 deg) is 0.5.
+- A series doesn't take a built-in constant's name: with e1 and e2 defined, e is still Euler's number (e\_avg is the series' mean).
+- phi and tau are built in too (the golden ratio, 2π): define them before using them as names of your own.
+- atan2(y, x) takes coordinates with units, as long as they match: atan2(1.0 m, 2.0 m).
 
 ```
 r = 2.00 m
@@ -170,6 +179,31 @@ Over several lines, it goes up to a \} on its own line.
 }
 ```
 
+A name can be shown as words, with a setting in quotes on the name being assigned: n\_Na:"Moles of \{Na^+\}" = …. It's shown so wherever the variable is: on its own line, in later substitutions and in the exports.
+
+- It can hold formulas and values; a value in it is the one when the variable was defined. It combines with the other settings: n:3:"Moles":sci = ….
+- Subscripts work as in names: m\_ball, x\_\{max\}, F\_net\_x; one starting with a capital letter is a formula, m\_\{H2O\}. \$…\$ is maths.
+
+```
+V_s = 25.00 mL
+n_X = 0.00120 mol
+n_Ca:"Moles of {Ca^2+} in {{V_s}}" = n_X / 6
+```
+
+A line that leaves a ( or \[ open carries on over the lines after it, up to the one that closes it, so a long @series, @table or @plot (or any call, or a matrix) can list one thing a line.
+
+- The lines inside are indented further than the first; the closing bracket can be under the first line. A blank line, or one not indented further, ends it.
+- A trailing comma before the closing bracket is fine (the formatter takes it out). \#commands and notes can go on any of its lines.
+- The formatter (Ctrl+Shift+F, or saving) lays it out so.
+
+```
+t = @series(
+    1.52 s,
+    1.48 s,
+    1.55 s
+)
+```
+
 Title \{ … \} is a block. Variables assigned inside are local to it.
 
 - Indent the lines inside 4 spaces.
@@ -203,6 +237,10 @@ A unit goes right after the number. Compound units have no spaces.
 - A unit goes right after a number: 9.81 m/s^2, 2.00 kg, 5.0 um (micro is u). Never after a name (m kg).
 - Compound units have no spaces: kg\*m^2, J/mol/K.
 - Litres are L and mL. Use kelvin for temperature.
+- A unit right after a number is always a unit, even where a variable has its name: after m = 2.0 kg, 3.5 m is metres. To multiply by such a variable, write \*; a warning says when a line looks like that mistake.
+- Micro is u (5.0 um, 2.0 uF), or typed as µ or μ (5.0 µm); μ alone is still a name.
+- A value you type keeps its unit wherever it's shown later: L = 1.00e-10 m stays in m.
+- Worked-out results are shown in tidy units (N/kg is m/s², kg m/s² is N) with a sensible prefix, none beyond pico and tera; a single unit with a fractional power (Å^-1.5) is kept as it is.
 
 ```
 g = 9.81 m/s^2
@@ -213,6 +251,8 @@ to converts to another unit.
 | Written | Does |
 | --- | --- |
 | `to` | Convert to a unit: v to km/h, or to percent |
+
+- A variable defined with to (a = @a\_0 to angstrom) keeps that unit.
 
 ```
 v = 25.0 m/s
@@ -226,6 +266,8 @@ r = 0.400 angstrom
 ```
 
 name:unit shows (and keeps) the result in that unit; a plain angle from atan or asin counts as radians. Combine it with sig figs in either order: phi:3:deg.
+
+- A unit that doesn't fit is an error (3.0 m can't be shown in deg); a plain number takes only an angle unit this way. Uncertainties are converted too.
 
 ```
 phi:3:deg = atan(1.00 / 2.00)
@@ -245,6 +287,8 @@ to percent shows a unitless result ×100 (stored as the fraction). Values with u
 | --- | --- |
 | `percent` | a unitless result ×100, with % |
 
+- The variable keeps the fraction, so later lines work with it.
+
 ```
 P = 0.950 angstrom^-1
 dr = 0.010 angstrom
@@ -256,6 +300,10 @@ shell = P * dr to percent
 Numbers with a decimal point or a unit are measured; whole numbers alone (the 2) are exact.
 
 - Write 1/2, not 0.5, for an exact factor: 0.5 is a measurement with 1 sig fig, and rounds the answer to 1.
+- × ÷, powers and functions: the fewest sig figs of the inputs. + −: the least precise decimal place (12.52 m + 3.1 m = 15.6 m).
+- Values are kept at full precision and rounded only to be shown, so rounding doesn't build up; a substitution step shows each variable to its own sig figs.
+- Trailing zeros that count show with a decimal point (20., 90.°); where one can't show the precision, scientific notation does: 1.50 × 10³.
+- Sig figs in the Output options can be a number instead of Auto, to show every result to that many.
 
 ```
 d = 2 * 1.50 m
@@ -272,6 +320,7 @@ L = 300 m
 A rounded result of exact inputs follows ≈. Measured results use =; Options can switch them to ≈ too.
 
 - A value with a ± always uses =.
+- A result of exact inputs isn't limited (1/3 ≈ 0.333333): write name:3 = … to choose.
 
 ```
 q = pi / 4
@@ -281,6 +330,11 @@ F = 2.00 kg * 9.81 m/s^2
 name:n = … sets the sig figs of a result.
 
 - Settings go on the name being assigned, left of = only: d:km = …, N:sci = …, L:dec = ….
+- Later lines count it as that many; its value is kept at full precision. It keeps them with a fixed Sig figs setting too.
+- It's that assignment's: a later m = … without :n counts as written again.
+- With a pm uncertainty, the uncertainty sets its precision, and :n is ignored, with a warning.
+- It works in blocks, function bodies, @constants and with @solve (d:3 = @solve(…, d)).
+- A function's result takes its sig figs from its expression, so a measured number in it carries through.
 
 ```
 third:3 = 1/3
@@ -302,6 +356,10 @@ third:exact = 1/3
 | --- | --- |
 | `sci` | always scientific notation |
 | `dec` | always decimal notation, no powers of ten |
+
+- Without them, numbers are plain digits, and scientific for very large or small values, or where digits can't show the precision.
+- :sci always uses a power of ten (but not × 10⁰); :dec never does, even where its zeros then can't show the precision.
+- It works with uncertainties ((1.50 ± 0.02) × 10³ m), tuples and their unpacked names, and a function's result (f(x):sci = …).
 
 ```
 N:sci = 1500. * 12.0
@@ -331,6 +389,7 @@ pm (or ±) gives a value an uncertainty.
 | `pm` | An uncertainty: 2.0 kg pm 0.1 kg (also ± or +-) |
 
 - Write pm only where a value is defined, never inside a function's brackets: it propagates by itself.
+- (2.0 pm 0.1) kg brackets it; 3.50 m pm 0.05 takes the value's unit. A value without pm has none.
 
 ```
 d = 3.50 m pm 0.02 m
@@ -349,6 +408,11 @@ Results combine uncertainties in quadrature. delta v = shows how; delta v / v is
 | `delta` | The uncertainty of a variable: delta F |
 
 - delta F (shown δF) is F's uncertainty; on its own line it shows the working of its propagation.
+- It works through any formula, functions and blocks too.
+- Correlations are kept: each pm is a source of its own, so in F = m \* a then G = F / m, m's uncertainty cancels, and m - m has none.
+- delta and Delta mean an uncertainty only before a defined variable; otherwise they're δ and Δ, names like any other (delta = 5 deg). Write delta \* x to multiply.
+- A worked-out uncertainty is given to 1 sig fig (2 if it starts with 1), and its value to the same place: (20 ± 1) N. A declared one keeps the precision typed; with a fixed Sig figs setting, 2 sig figs.
+- The working's derivatives are left out when the formula has a unit written in it or a function of yours, or when its inputs share a source; the result still counts it.
 
 ```
 d = 3.50 m pm 0.02 m
@@ -371,6 +435,12 @@ Numbered variables form a series: t\_avg is the mean ± standard error, t\_count
 | `t_sem` | Standard error of the mean |
 
 - T1, T2, … (or T\_1, T\_2) form a series T: T\_avg, T\_std, T\_sem, T\_count and T each show their working on a line of their own.
+- t1 and t\_1 are the same name, whichever is written.
+- Each on its own line shows its working: Σ notation, the members and their values. They're worked out each time they're used, so a t6 added later counts.
+- A variable of your own with the name wins: after t = 9.0 s, t is that, though t\_avg is still the mean.
+- The sum carries the members' pm uncertainties; the mean's is σ/√n, from their spread. delta t\_avg shows its working. Every use of a mean shares one source, so t\_avg twice in a formula is correlated.
+- Members must have compatible units; results are in the first member's unit.
+- A name matching one numbered variable is a series of one: psi, with psi\_200 defined.
 
 ```
 t_1 = 1.21 s
@@ -383,6 +453,11 @@ t
 
 @import() opens a file chooser for a CSV file. Its rows go into the sheet under the line, folded away, and each value becomes a variable named for its column and row: t\_1, t\_2, …. A unit in a header, t (s), goes with that column.
 
+- The first row names the columns; a unit in brackets, t (s) or t \[s\], goes with every value in it. Values keep their sig figs as typed; commas, tabs or semicolons separate them, and empty cells are skipped.
+- A column dx (or δx, σx, delta\_x, sigma\_x, x\_unc, x\_err) holds x's uncertainties, each row's as if typed with pm, in its own unit or x's; dx (%) is a percentage. It makes no variables of its own.
+- Name an import (run1 = @import(…)) to keep two files apart: run1.x\_avg.
+- The data is kept in the sheet, and left out of the exports.
+
 ```
 @import("ramp.csv")
     t (s), d (m)
@@ -394,6 +469,12 @@ v = d_2 / t_2
 ```
 
 @table(…) shows series side by side, a row per number. name = … works out a column row by row, and makes it a series of its own (v\_1, v\_2, …), so v\_avg works afterwards.
+
+- A unit every value shares goes in the header; a value with an uncertainty shows as 3.0 ± 0.1; a row a series doesn't have shows —.
+- An expression without a name (@table(x / t)) is just shown.
+- A table of more than 60 rows shows its first 50 and last 5, with ⋮ between (all rows shows every one).
+- Row labels are text, as a sheet's text is (\$…\$, \{KCl\}); a series of numbers labels with its values; a row it doesn't have is blank.
+- In the exports it's a table, its title a numbered caption above it: in LaTeX a table float (tabularx), in Word a Word table, its header on each page.
 
 ```
 t1 = 1.21 s
@@ -408,6 +489,11 @@ v_avg
 
 @series(…) makes a series on one line: its values listed (F\_1, F\_2, F\_3), or a rule worked out row by row from other series, with any other name used as it is. Series of different lengths use the rows they all have (with a warning); ; rows 2-5 works out just those.
 
+- Each value is worked out as if typed on a line of its own, so units, sig figs, pm and settings on the name (m:3 = @series(F / g)) work.
+- In a rule, a series' name is that row's value, and any other name is used as it is (its uncertainty from one source).
+- It keeps the rows of the series it's from, so @table(d, t, v) lines up; if they have different rows, a warning says so, and ; rows … chooses.
+- Making a series again replaces it. Its line shows the values (the first three and last two of a long one); \#sym the rule, \#val the values.
+
 ```
 F = @series(2.00 N, 3.00 N, 10.0 N)
 g_0 = 9.81 m/s^2 pm 0.02 m/s^2
@@ -418,6 +504,12 @@ m_avg
 @plot(x axis, y series…) draws one series against another, with error bars for uncertainties. fit linear adds a best-fit line and its equation, and makes its slope and intercept variables: x\_slope, x\_intercept. Its settings, after a semicolon, are listed under Plot settings; the ⚙ after it sets them too.
 
 - A named plot keeps its fit: p = @plot(x, y; fit linear), then p.slope, p.intercept and p.r2.
+- Each axis is labelled with its name and unit; every y series must be in units that convert to the first one's.
+- When every point has a y uncertainty the fit is weighted (each by 1/δy²), and the reduced χ²\_ν is shown: about 1 when the points scatter as their bars say. Otherwise its uncertainties come from the scatter.
+- In a weighted fit x uncertainties count too, by the effective variance, 1/(δy² + (slope · δx)²); the line under the graph says which were used.
+- What's on the axes is what's plotted: a point outside an axis's range isn't drawn, fitted, or in a named plot's series.
+- With several series, each fit has its own: p.x\_slope, p.y\_slope. An unnamed plot makes x\_slope and x\_intercept.
+- In LaTeX a plot is a pgfplots graph; in Word, a picture.
 
 ```
 t1 = 0.10 s
@@ -433,6 +525,11 @@ v = x_slope
 ```
 
 @select(…) keeps the rows where its conditions hold, as new series under a name: a.t, a.x, numbered from 1. A named plot keeps its fit the same way: p.slope, p.intercept. Name an import too, run1 = @import(…), to keep two files apart.
+
+- Its conditions all hold: t from 0.2 to 0.8 (either end can go), x to 0.16, rows 5-20. A bare number is in the series' unit, or give one: t from 250 ms.
+- In a condition a name means the selected series of that name first: @select(run1.t, run1.x; t from 0.2).
+- A selection doesn't copy: a.x\_1 is x\_2, with its sig figs and uncertainty, so x\_2 - a.x\_1 is exactly 0. a.x is shown x\_a.
+- Names with a dot work alike wherever they're made: a selection, a named import (run1.x\_3), a named plot (p.x, p.slope). Typing a name and a dot suggests what it holds.
 
 ```
 t1 = 0.10 s
@@ -692,6 +789,10 @@ f = @inv(T)
 \<…\> is a vector, shown ⟨…⟩. A unit after the \> applies to every component. Vectors scale and add, and norm, dot and cross work on them.
 
 - @vector(3.0, 4.0) is the same vector as \<3.0, 4.0\>, written as a call.
+- A vector is a tuple, so everything that works on tuples works on it: scaling, adding, to, norm, dot, cross and unpacking.
+- What's worked out from a vector is a vector, and so is a function's result when its body writes one (f(x) = \<x, 2\*x\>); a plain tuple stays a tuple.
+- Each typed component keeps its own sig figs; what's worked out has the fewest of its components'.
+- \< starts a vector only where a value can start, and with a comma inside, so a \< b is still a comparison.
 
 ```
 F = <3.0, 4.0> N
@@ -706,12 +807,16 @@ speed = norm(v)
 
 name:ijk shows a vector with unit vectors, î ĵ k̂. Vectors worked out from it are shown that way too.
 
+- It works on a function's result: f(x):ijk = ….
+
 ```
 v:ijk = <2.0, -1.5, 4.0> m/s
 w = 2 * v
 ```
 
 name:xyz also makes each component a variable of its own, a\_x, a\_y (and a\_z), shown under the vector.
+
+- It combines with the other settings (F\_net:3:ijk:xyz) and works in function bodies. With \#sym, the components are made but not shown.
 
 ```
 a:xyz = <0.50, -9.81> m/s^2
@@ -724,6 +829,10 @@ d_y = 1/2 * a_y * t^2
 @tuple(…) makes a tuple, shown as (x, y, z). A shared unit is written once; tuples scale, add, convert with to, and norm, dot and cross work on them.
 
 - Don't write (a, b) for a pair: write @tuple(a, b). \<3.0, 4.0\> N is a vector.
+- A unit every value shares is written once, after the bracket; values with different units keep their own: (1.41 m, 45.0°).
+- A display unit (r:cm = …) applies to every value.
+- A bracketed list, (1, 2), is an error that points to @tuple(1, 2): brackets only group, or call a function.
+- For now, uncertainties don't carry into a tuple's values.
 
 ```
 r = @tuple(1.00 m, 2.00 m, 3.00 m)
@@ -732,6 +841,9 @@ d = norm(r)
 ```
 
 @tuple(a, b) = … unpacks a tuple: each value becomes a variable of its own. Each name can take sig figs and a unit, like b:cm or theta:3:deg.
+
+- The right-hand side can be any tuple, a function's result too: @tuple(r, theta) = polar(x, y). It works in function bodies.
+- Each name keeps its settings afterwards.
 
 ```
 p = @tuple(1.414 m, 0.7854)
@@ -742,6 +854,12 @@ x = r * cos(theta)
 ## Constants
 
 Built-in constants start with @ and default to 3 sig figs (list below).
+
+- The rounded value counts as a measured value with that many sig figs, as when a problem says use g = 9.81 m/s².
+- Constants carry units, so conversions work: @R gives litres with to L.
+- A mistyped name suggests the nearest: @kb, Did you mean @k\_B?
+- @e is the elementary charge and @g standard gravity: they don't clash with Euler's e, grams, or a g of your own.
+- The values are CODATA 2018 (exact means exact by definition in the SI). The elements' molar masses are in @chem.
 
 ```
 E = @h * @c / 532 nm to eV
@@ -754,6 +872,8 @@ F = @G:5 * 5.972e24 kg * 70.0 kg / (6.371e6 m)^2
 ```
 
 A line with only @name:n sets that constant’s precision for the whole sheet.
+
+- It applies to the whole sheet, lines above it and constants defined from it too, and its line shows the value it sets. A use with its own :n still wins; a second declaration is ignored, with a warning. It can go in an @constants \{ \} block.
 
 ```
 @c:4
@@ -769,6 +889,11 @@ r = 2 * @a_0
 
 Define your own constants, usable anywhere in the sheet as @name.
 
+- They're usable anywhere as @name, above the block too.
+- They default to the precision they're written with; :n and :exact work as for built-ins.
+- They can use units, other constants and pm uncertainties, but not the sheet's variables: they're worked out first.
+- One with a built-in's name takes its place.
+
 ```
 @constants {
     rho_w = 998 kg/m^3   # water at 20 °C
@@ -778,9 +903,33 @@ P = @rho_w * @g * 0.250 m to kPa
 
 ## Chemistry
 
+A formula goes in single braces, anywhere text is: prose, headings, block titles, display names. On a line of its own it's a reaction, drawn but not worked out.
+
+- Inside the braces: counts as digits, a charge after ^ (Ca^2+, OH^-; Na+ works too), a state in brackets, a coefficient before, arrows (-\>, \<=\>), a hydrate's dot as \*.
+- \{\{…\}\} is still a value. Formulas are drawn with mhchem, which the LaTeX export loads when the sheet has one.
+
+```
+> The {Na^+} concentration.
+{OH^-(aq) + H3O^+(aq) -> 2 H2O(l)}
+```
+
+M is mol/L, with mM and µM; a worked-out concentration is shown in M. MPa is still megapascals, and M is still free as a name.
+
+```
+c = 0.100 M
+V = 25.0 mL
+n = c * V
+```
+
 @chem.substance is a substance: its molar mass (.M), and an amount of it (.n, 1 mol until set) and its mass (.m); each element’s amount, mass, molar mass and mass fraction in it (.H.n, .H.m, .H.M, .H.w). A member on its own line shows how it’s worked out.
 
 - A substance's molar mass comes from its formula (brackets and a hydrate's \* work); set any amount or mass and the rest follow.
+- Its members: X.M its molar mass, X.n its amount (1 mol until set), X.m its mass, and each element's X.E.n, X.E.m, X.E.M and X.E.w (its mass fraction).
+- A member on a line of its own shows how it's worked out, back to what was set; in a calculation it's a value like any other.
+- Atomic weights are IUPAC's abridged standard atomic weights (2021), their digits as sig figs; an element with no stable isotope has its longest-lived isotope's mass number.
+- Groups in brackets work (Ca(OH)2, K4\[Fe(CN)6\]). A charge or state doesn't change the molar mass, but is part of the species. Symbols are case-sensitive: \{Co\} is cobalt, \{CO\} carbon monoxide.
+- In a formula of parts joined by \*, a number against a part is how many of it: \{7Ca(IO3)2\*8CaCrO4\} is 7 Ca(IO3)2 and 8 CaCrO4.
+- A substance is one formula, with no count in front: for 2 mol of water, set H2O.n = 2. A mass worked out from grams stays in grams.
 
 ```
 H2SO4 = @chem.substance({H2SO4})
@@ -791,6 +940,8 @@ H2SO4.H.w
 ```
 
 Set any amount or mass, the substance’s or an element’s, and the rest follow from it, from that line on. A formula can have groups in brackets and a hydrate’s water after \*; a charge or state is left out of the molar mass.
+
+- A value with no unit is read as mol or g; one already of a species (from a mole ratio) is used as it is. Molar masses and mass fractions follow from the formula, so they can't be set.
 
 ```
 CuSO4 = @chem.substance({CuSO4*5H2O})
@@ -804,6 +955,9 @@ CuSO4.O.m
 - A formula goes in single braces: \{Na^+\}, \{Ca^2+\}, \{H3O^+(aq)\}, \{2 H2O(l)\} (counts as digits, a charge after ^, a state in brackets).
 - Species are strict: once a calculation has species, give every mass, amount and molar mass in it its species. Go from one species to another only with a mole ratio, (1 mol \{X\}) / (1 mol \{EDTA\}).
 - M is molarity (mol/L). A whole number of a species (1 mol \{X\}) is exact.
+- What \{H2O\} makes a value follows from its unit: a mass, an amount (mol, M), a mass concentration (g/L), a molar mass (g/mol); with no mass or amount, it's an error.
+- It can follow a unit, a bracket or a name (n\_1 \{H2O\}). A value of one species can't be given another.
+- Species cancel as units do, and to keeps the species: n to mmol is in mmol NaOH. 1 mol on its own, as in a molar mass (18.02 g / 1 mol), is exact too.
 
 ```
 NaOH = @chem.substance({NaOH})
@@ -812,6 +966,10 @@ n = m / NaOH.M
 ```
 
 @chem.species names a species: \{dietzeite\} is its formula wherever braces take one, shown by its name (declare it :formula, or put :formula on a line, to show the formula).
+
+- Names apply to the whole sheet, above the block too; a block names several: @chem.species \{ … \}.
+- A name can't be something braces already read: a formula (CO), an electron (e) or a state (aq, s, l, g). What it names needn't be a formula: \{EDTA\} is a species too.
+- In a reaction it's drawn by its formula, and its member is the name: r.dietzeite.
 
 ```
 @chem.species dietzeite = {7Ca(IO3)2*8CaCrO4}
@@ -827,6 +985,10 @@ n:name = 0.0100 mol {dietzeite}
 ```
 
 @chem.reaction checks a reaction balances; each coefficient is a member, an exact amount, so r.H2O / r.H2 is a mole ratio.
+
+- It's checked atom by atom and by charge: \{H2 + O2 -\> H2O\} says O has 2 on the left and 1 on the right. Electrons are e^-; the arrow can be -\>, \<=\>, \<-\> or =.
+- A species whose formula isn't a name is a member by its letters and digits: Ca(OH)2 is r.CaOH2, Na^+ is r.Na.
+- A name's subscript that's a formula (n\_H2O, c\_NaCl) is drawn as chemistry; a single letter, or labels that aren't elements (v\_AB), stay as they are.
 
 ```
 r = @chem.reaction({2 H2 + O2 -> 2 H2O})
@@ -855,6 +1017,8 @@ n = @chem.total(n_Na, n_Cl)
 A display-name template: words in quotes with \{\{x\}\} where each argument goes, used as a setting on a name. A subscript starting with a capital is drawn as a formula.
 
 - A display name goes on the name being assigned: n\_Na:"Moles of \{Na^+\}" = …; it can hold values: "Moles in \{\{V\}\}".
+- Arguments are text, as written, separated by commas. A \{\{name\}\} that isn't a parameter is a value.
+- Braces around a parameter make it a formula: conc(ion) = "\[\{\{\{ion\}\}\}\]".
 
 ```
 massName(x) = "m_{{x}}"
@@ -1108,6 +1272,12 @@ theta = 30.0 deg
 @solve(equation, unknown) rearranges for the unknown and evaluates it.
 
 - Give a guess for a hard one: @solve(x = cos(x), x, 0.5).
+- The result is an ordinary formula: units, sig figs, uncertainty, \#sym and \#val work.
+- @solve(…) is the whole right-hand side, with to after it if wanted: theta = @solve(…, theta) to deg. On a line of its own, without =, it shows the answer without keeping it.
+- The unknown is solved for even if it has a value; assigning the result replaces it.
+- It rearranges when the unknown appears once, collects terms when it's linear, uses the quadratic formula when quadratic, and otherwise works numerically from a guess (which sets the units too: @solve(…, T, 300 K)).
+- With more than one solution (x², √, sin, cos, \|x\|, a quadratic), the principal or positive one is used and the others are noted; a guess chooses the one nearest it.
+- to percent isn't supported on a solve line yet.
 
 ```
 v = 5.00 m/s
@@ -1118,6 +1288,9 @@ d = @solve(v^2 = 2*a*d, d)
 Several unknowns: name them in @tuple(…) on the left, and give as many equations. They are solved by substitution, and the working shows each unknown in turn.
 
 - Give as many equations as unknowns: linear ones, or ones easily rearranged.
+- They're solved by substitution, as by hand; the working shows each unknown's formula, values and result.
+- Each unknown is an ordinary variable afterwards; settings go on the names: @tuple(T:3, a:2) = ….
+- Each step must be one a single equation's solve can do; of a quadratic's two solutions the first is used. Equations that contradict or repeat each other give an error.
 
 ```
 m_1 = 3.00 kg

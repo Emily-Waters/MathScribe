@@ -1402,7 +1402,7 @@ into its own file (`docs/REFERENCE.md`), not into the README.
       (`toMatchFileSnapshot`: `npm run docs` writes it again, and nothing
       else, unlike `vitest -u`). The
       README's Syntax section points to it.
-- [ ] **Step 5: the README's Syntax section into the tree.** It's ~1,270 lines
+- [x] **Step 5: the README's Syntax section into the tree.** It's ~1,270 lines
       written by hand, with much the tree doesn't say yet (why and how, edge
       cases, more examples). Each fact moved into an entry (its explain, a rule,
       an example), section by section, then the section cut down to a short
@@ -1425,10 +1425,18 @@ into its own file (`docs/REFERENCE.md`), not into the README.
          entry for @inv (turning a fraction over). The README's three sections
          are gone; its guide paragraph points to Functions and Layout (1,617 →
          1,371 lines).
-   - [ ] **Batch 3: Greek letters, Built-in functions, Vectors, Tuples, Units.**
-   - [ ] **Batch 4: Significant figures, Uncertainty, Constants.**
-   - [ ] **Batch 5: Chemistry, Solving equations.**
-   - [ ] **Batch 6: Series, Tables, Plots, Selections, Importing data.**
+   - [x] **Batches 3 to 6: the rest** (Greek letters, built-in functions,
+         vectors, tuples, units; significant figures, uncertainty, constants;
+         chemistry, solving; series, tables, plots, selections, imports).
+         Resolved (2026-11-21), asked by Emily to do them all at once: each
+         section's facts are rules of the entries they're about, with new
+         entries where the tree had none: display names and calls over several
+         lines (Basics), formulas in text and molarity (Chemistry), each with an
+         example (4 new golden snapshots). What's about the editor rather than
+         what's written (an import's rows, folded, moved and removed with it)
+         went to the README's The editor. The README's Syntax section is now a
+         paragraph and a list of the reference's topics (1,371 → 517 lines), so
+         nothing is said in two places.
 
 ## 9. Packaging: MathScribe in someone else's app
 

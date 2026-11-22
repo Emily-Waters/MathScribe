@@ -108,6 +108,35 @@ describe('a series in square brackets', () => {
     expect(shown(source)).toMatch(/^n = \(1, 2, 3, …, 7, 8\)\s+8 values$/)
   })
 
+  it('spreads another series’ values in place, slices too, each the value itself', () => {
+    const source = 'x = [1 s:10 s:1 s]\n'
+    expect(value(`${source}y = [...x, 11 s]\nw = y.count`)).toBe('11')
+    expect(value(`${source}y = [...x, 11 s]\nw = y[10]`)).toBe('10. s')
+    expect(value(`${source}y = [...x[9:], ...x[:1], 0 s]\nw = y.sum`)).toBe('20. s')
+    expect(value('x = [1.0 m pm 0.1 m]\ny = [...x, 2.0 m]\nw = y[1] - x[1]')).toBe('0 m')
+    expect(made('q = 2\nw = [...q]').error).toMatch(/q isn't a series, so it can't be spread/)
+  })
+
+  it('is taken apart into names, the rest gathered as a series of its own', () => {
+    const source = 'x = [1 s:10 s:1 s]\n[first, second, ...rest] = x\n'
+    expect(value(`${source}w = first`)).toBe('1 s')
+    expect(value(`${source}w = second`)).toBe('2 s')
+    expect(value(`${source}w = rest[1]`)).toBe('3 s')
+    expect(value(`${source}w = rest.count`)).toBe('8')
+    expect(value('c = [5 kg, 6 kg]\n[a, b] = c\nw = a + b')).toBe('11 kg')
+    expect(value('c = [5 kg, 6 kg]\n[...all] = c\nw = all.count')).toBe('2')
+    expect(value('x = [1.0 m pm 0.1 m, 2.0 m]\n[a, ...r] = x\nw = a - x[1]')).toBe('0 m')
+    const unpacked = (s: string) => lines(s).at(-1)!
+    expect(unpacked('c = [5 kg, 6 kg]\n[p, q, r] = c').error).toBe('c has 2 values, but this takes 3.')
+    expect(unpacked('c = [5 kg, 6 kg]\n[u, ...v, s] = c').error).toMatch(/Only the last name can gather the rest/)
+    expect(unpacked('[a, b] = [1, 2]').error).toMatch(/What's taken apart is a series/)
+  })
+
+  it('counts a range of whole numbers with a unit to its ones: 10. s (2 sig figs), not 1 × 10¹ s', () => {
+    expect(shown('x = [1 s:10 s:1 s]')).toMatch(/, 9, 10\.\) s\s+10 values$/)
+    expect(shown('n = [10:30:10]')).toMatch(/^n = \(10, 20, 30\)/)
+  })
+
   it('explains what it can’t do', () => {
     expect(made('[1, 2]').error).toMatch(/Name the series/)
     expect(made('t = []').error).toMatch(/Give the series its values/)

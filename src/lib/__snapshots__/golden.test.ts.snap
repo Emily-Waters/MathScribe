@@ -666,6 +666,18 @@ exports[`the Reference tab’s examples > Repeated measurements: t1 = [0.10 s, 0
 7: slope_x2,p = (10.2 ± 0.4) m/s"
 `;
 
+exports[`the Reference tab’s examples > Repeated measurements: x = [1 s:5 s:1 s] 1`] = `
+"1: x = (1,\\ 2,\\ 3,\\ 4,\\ 5) s\\quad \\text5 values
+2: y = (1,\\ 2,\\ 3,\\ 4,\\ 5,\\ 11) s\\quad \\text6 values
+3: n_y = 6"
+`;
+
+exports[`the Reference tab’s examples > Repeated measurements: x = [1 s:10 s:1 s] 1`] = `
+"1: x = (1,\\ 2,\\ 3,\\ \\ldots,\\ 9,\\ 10.) s\\quad \\text10 values
+2: first = 1 s,\\qquad rest = (2,\\ 3,\\ 4,\\ \\ldots,\\ 9,\\ 10.) s\\quad \\text9 values
+3: n_rest = 9"
+`;
+
 exports[`the Reference tab’s examples > Significant figures: L = 300 m 1`] = `
 "1: L = 300 m
      WARNING Trailing zeros in 300 aren't significant. Add a decimal point (300.) or use scientific notation if they are."

@@ -16,7 +16,7 @@ import { TableView } from './tableView.tsx'
 import { SERIES_CALL } from './syntax.ts'
 import { PlotForm } from './plot.ts'
 import { SelectForm } from './select.ts'
-import { SeriesForm, SeriesShownForm } from './series.ts'
+import { SeriesForm, SeriesShownForm, UnpackedSeriesForm } from './series.ts'
 import { TableForm } from './table.ts'
 import { tableMenu } from './tableMenu.ts'
 import { memberLabelsExtension } from './memberLabels.ts'
@@ -39,7 +39,7 @@ export class SeriesModule extends EngineModule {
     return SERIES_TOPICS
   }
 
-  override readonly lineForms: readonly LineForm[] = [new TableForm(), new PlotForm(), new SelectForm(), new SeriesForm(), new SeriesShownForm()]
+  override readonly lineForms: readonly LineForm[] = [new TableForm(), new PlotForm(), new SelectForm(), new SeriesForm(), new UnpackedSeriesForm(), new SeriesShownForm()]
 
   /** Its part of a sheet's tree: a call's settings after its `;`, as one token. */
   override grammar(): ModuleGrammar {

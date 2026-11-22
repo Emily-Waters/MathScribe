@@ -5,7 +5,7 @@
  * plotSettings.ts), which the ⚙ menus read and write.
  */
 import { type LexRule, type ModuleGrammar, SIGIL, token, TOKEN_KIND, TOKEN_ROLE } from '../../lib/plugin.ts'
-import { SERIES_CALL } from './syntax.ts'
+import { SERIES_CALL, SPREAD } from './syntax.ts'
 
 /** The series module's kinds of token. */
 export const SERIES_TOKEN = {
@@ -36,9 +36,15 @@ const SETTINGS_RULE: LexRule = {
   },
 }
 
+/** `...`, a series spread in place or the rest of one gathered, as one token (not three dots). */
+const SPREAD_RULE: LexRule = {
+  describes: 'a series spread in place, or the rest of one gathered: ... in [...x, 11 s] and [a, ...rest] = x',
+  read: (pos, state) => (state.text.startsWith(SPREAD, pos) ? { parts: [token(TOKEN_KIND.delimiter, SPREAD)], length: SPREAD.length } : undefined),
+}
+
 export const SERIES_GRAMMAR: ModuleGrammar = {
   tokenKinds: { [SERIES_TOKEN.settings]: 'The settings after a ; in @table(…), @plot(…) or @select(…): fit linear, x from 0 to 2' } satisfies Record<(typeof SERIES_TOKEN)[keyof typeof SERIES_TOKEN], string>,
-  lexRules: [SETTINGS_RULE],
+  lexRules: [SETTINGS_RULE, SPREAD_RULE],
   // (A call's settings are words, read by their own language, not maths.)
   tokenRoles: { [SERIES_TOKEN.settings]: TOKEN_ROLE.text },
 }

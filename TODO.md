@@ -129,6 +129,18 @@ what's here better.
       in a list are errors, and so are square brackets elsewhere in a line's
       maths (`2 * [1, 2]`). The editor's member names (x₁:) follow a series
       over several lines in its brackets, as they did @series'.
+- [x] **Spread and rest** (2026-11-22, Emily): `y = [...x, 11 s]` and
+      `[elem, ...rest] = x`.
+      Resolved (2026-11-22): `...` is one token (the series module's lex
+      rule, SPREAD). In a series' brackets, `...x` (or `...x[2:]`) puts x's
+      values in its place, each the value itself, copied with its
+      uncertainty's sources (so y[1] − x[1] is exactly 0), unless the name's
+      settings ask for it to be worked out again. `[a, b, ...rest] = x`
+      (UnpackedSeriesForm) gives each name its value the same way, and rest
+      the series of what's left, a lookup renumbered from 1; the rest comes
+      last, can be the only name, and without one the counts must match.
+      Also: a range's whole numbers with a unit ending in 0 keep every digit
+      (10. s, 2 sig figs, not 1 × 10¹ s); without a unit they're exact.
 - [x] **Plot functions**, not just data: `@plot(t, x, f(t))`, or a curve over a range.
       Resolved (2026-11-22): a function of the sheet's, by its name, is a
       curve, `@plot(L, T, T_model)` with `T_model(L) = 2 * pi * sqrt(L / @g)`:

@@ -7,6 +7,8 @@
  *                                    m[n] = F[n] / g (g, not a series, is used as it is)
  *   t = [0 s:2.0 s:0.1 s]            a range: from, to (kept) and step (1 if it's left out)
  *   z = m[2:4]                       another series, or a slice of one (renumbered from 1)
+ *   y = [...x, 11 s]                 another's values spread in place, among values of its own
+ *   [a, b, ...rest] = x              its values taken apart: a = x[1], b = x[2], rest = x[3:]
  *
  * Each value is worked out as a line assigning it would be, so units, sig figs
  * and uncertainty are the core's (g's uncertainty carries into every m[n], from
@@ -27,6 +29,7 @@ import {
 } from '../../lib/plugin.ts'
 import { rowErrors, seriesUsedIn, sharedRows, withRowValues } from './columns.ts'
 import { cellParts } from './table.ts'
+import { SPREAD } from './syntax.ts'
 
 /** How many of its values a series' line shows: all of them up to `max`; past that, the `first` and the `last`, with … between. */
 export const SERIES_SHOWN = { max: 6, first: 3, last: 2 } as const
@@ -51,6 +54,12 @@ const MATRIX_ROWS = ';'
 /** A ternary's `?`, whose `:` isn't a range's. */
 const CONDITION = '?'
 
+/** A whole number ending in a 0 (not 0 itself), whose 0s a range means: 10, 200. */
+const TRAILING_ZERO = /^-?[1-9]\d*0$/
+
+/** A number's sign. */
+const SIGN = /^-/
+
 /** A number as a range's from, to or step is typed, and its unit (1: the number, 2: the unit, if any). */
 const RANGE_PART = /^([-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?)\s*(.*)$/
 
@@ -59,7 +68,41 @@ const WRITTEN = {
   listed: 't = [1.52 s, 1.48 s]',
   rule: 'm = [F / g]',
   range: 't = [0 s:2.0 s:0.1 s]',
+  spread: 'y = [...x, 11 s]',
+  unpacked: '[a, ...rest] = x',
 } as const
+
+/** A setting that's a number of sig figs: `m:3`. */
+const WHOLE = /^\d+$/
+
+/** Between what's assigned and its value. */
+const ASSIGNS = '='
+
+/**
+ * A series' values, spread in place of `...x` (or `...x[2:]`): their names, and
+ * which of them are another's values (by place, from 0); or what's wrong.
+ */
+function spreadValues(host: ModuleHost, args: string[]): { values: string[]; spread: Set<number> } | { error: string } {
+  const values: string[] = []
+  const spread = new Set<number>()
+  for (const arg of args) {
+    if (!arg.startsWith(SPREAD)) {
+      values.push(arg)
+      continue
+    }
+    const name = arg.slice(SPREAD.length).trim()
+    const rows = IS_NAME.test(name) && !host.has(name) ? host.seriesRows(name) : new Map<number, string>()
+    if (!rows.size) return { error: `${typedName(name)} isn't a series, so it can't be spread: ${WRITTEN.spread}, with x a series.` }
+    for (const member of rows.values()) {
+      spread.add(values.length)
+      values.push(member)
+    }
+  }
+  return { values, spread }
+}
+
+/** What a series' member keeps of another's value spread into it: the value itself, as it is (not worked out again). */
+const SPREAD_KEEPS = ['value', 'sf', 'contributions', 'uncSf', 'declared', 'notation', 'look', 'shown'] as const
 
 /** Names in a list, as a sentence says them: a, b and c. */
 const spoken = (items: string[]) => (items.length > 1 ? `${items.slice(0, -1).join(', ')} and ${items.at(-1)}` : items.join(''))
@@ -138,7 +181,7 @@ const decimalsOf = (n: string) => {
  * `0 s:2.0 s:0.1 s` → 0.0 s, 0.1 s, …, 2.0 s. From and to must be given; the
  * step is 1 if it isn't; each is in the from's unit (or converted to it).
  */
-function rangeValues(parts: string[]): { values: string[] } | { error: string } {
+function rangeValues(parts: string[]): { values: string[]; figures: (number | undefined)[] } | { error: string } {
   const [fromText, toText, stepText] = parts
   if (!fromText || !toText) return { error: `A range needs where it starts and ends: ${WRITTEN.range} (only a step can be left out).` }
   const read = [fromText, toText, stepText || '1'].map((p) => RANGE_PART.exec(p))
@@ -165,8 +208,12 @@ function rangeValues(parts: string[]): { values: string[] } | { error: string } 
   const count = Math.floor((b.value - a.value) / d.value + 1e-9) + 1
   if (count > MOST_RANGE_VALUES) return { error: `That range is ${count} values: a series can be made of at most ${MOST_RANGE_VALUES}.` }
   const decimals = Math.max(a.decimals, b.decimals, d.decimals)
-  const values = Array.from({ length: count }, (_, k) => `${(a.value + k * d.value).toFixed(decimals)}${unit ? ` ${unit}` : ''}`)
-  return { values }
+  const typed = Array.from({ length: count }, (_, k) => (a.value + k * d.value).toFixed(decimals))
+  const values = typed.map((n) => `${n}${unit ? ` ${unit}` : ''}`)
+  // A whole number with a unit ending in 0 has every digit significant, as the range counts in ones (10 s, not 1 × 10¹ s).
+  // (Without a unit, a whole number is exact already.)
+  const figures = typed.map((n) => (decimals === 0 && unit && TRAILING_ZERO.test(n) ? n.replace(SIGN, '').length : undefined))
+  return { values, figures }
 }
 
 /** A series' name on a line of its own, `t` (or a slice, `t[2:4]`): the series, its values listed. */
@@ -213,13 +260,26 @@ export class SeriesForm extends LineForm {
     }
 
     // Each value is assigned as the name would be, with its settings: m[3]:3 = ….
-    const assigned = (n: number) => `${seriesMemberName(name, n)}${nameSettings.map((s) => `${SETTING_MARK}${s}`).join('')}`
+    // (And a range's whole numbers' sig figs, figures[n - 1], unless the name's settings say how many.)
+    let figures: (number | undefined)[] = []
+    const ownFigures = nameSettings.some((s) => WHOLE.test(s))
+    const assigned = (n: number) => `${seriesMemberName(name, n)}${[...nameSettings, ...(figures[n - 1] && !ownFigures ? [String(figures[n - 1])] : [])]
+      .map((s) => `${SETTING_MARK}${s}`).join('')}`
     if (splitTopLevel(inner!, MATRIX_ROWS).length > 1) {
       return { tex: '', error: `Square brackets make a series, a list of values: ${WRITTEN.listed}. A ; between rows (a matrix) isn't one.` }
     }
     let args = splitTopLevel(inner!, SEPARATOR).filter(Boolean)
     if (!args.length) {
       return { tex: '', error: `Give the series its values, ${WRITTEN.listed}, a rule, ${WRITTEN.rule}, or a range, ${WRITTEN.range}.` }
+    }
+
+    // Another series' values, spread in place: `[...x, 11 s]` (each the value itself: see `copy`).
+    let spread = new Set<number>()
+    if (args.some((a) => a.startsWith(SPREAD))) {
+      const spreading = spreadValues(host, args)
+      if ('error' in spreading) return { tex: '', error: spreading.error }
+      args = spreading.values
+      spread = spreading.spread
     }
 
     // A range, `[0 s:2.0 s:0.1 s]`: its values, listed.
@@ -229,6 +289,7 @@ export class SeriesForm extends LineForm {
       const made = rangeValues(range)
       if ('error' in made) return { tex: '', error: made.error }
       args = made.values
+      figures = made.figures
     }
 
     // (A list in the list, a matrix's row, isn't a value.)
@@ -275,7 +336,16 @@ export class SeriesForm extends LineForm {
       const ruleText = withRowValues(expr, symbolic, 0)
       rule = host.expressionTex(host.expandConstants(ruleText).text)
     } else {
-      args.forEach((value, i) => work(i + 1, value, `Value ${i + 1}`))
+      // A value spread from another series is that value, its uncertainty the very same (so y[1] − x[1] is
+      // exactly 0); unless the name's settings change how it's shown, when it's worked out as typed.
+      const copy = (n: number, of: string) => {
+        const source = host.variable(of)
+        if (!source) return work(n, of, `Value ${n}`)
+        const kept = Object.fromEntries(SPREAD_KEEPS.map((k) => [k, source[k]]))
+        host.store(seriesMemberName(name, n), { ...kept, value: source.value, sf: source.sf })
+        made.push(n)
+      }
+      args.forEach((value, i) => (spread.has(i) && !nameSettings.length ? copy(i + 1, value) : work(i + 1, value, `Value ${i + 1}`)))
     }
 
     // Its values this line didn't make are gone.
@@ -298,3 +368,60 @@ export class SeriesForm extends LineForm {
     }
   }
 }
+
+/**
+ * A series taken apart, `[a, b, ...rest] = x`: a = x[1], b = x[2], and rest the
+ * series of the rest, x[3:] (a lookup, renumbered from 1, as a slice is). The
+ * rest, if there is one, comes last; without one, x must have just as many values.
+ */
+export class UnpackedSeriesForm extends LineForm {
+  evaluate(line: FormLine, host: ModuleHost): LineResult | undefined {
+    const sides = splitTopLevel(line.text, ASSIGNS)
+    if (sides.length !== 2) return undefined
+    const inner = bracketed(sides[0])
+    if (inner === undefined) return undefined
+    const of = sides[1]
+    const rows = IS_NAME.test(of) && !host.has(of) ? host.seriesRows(of) : new Map<number, string>()
+    if (!rows.size) return { tex: '', error: `What's taken apart is a series: ${WRITTEN.unpacked}, with x a series.` }
+    const members = [...rows.entries()].sort((a, b) => a[0] - b[0]).map(([, m]) => m)
+
+    const names = splitTopLevel(inner, SEPARATOR)
+    const restAt = names.findIndex((n) => n.startsWith(SPREAD))
+    const rest = restAt < 0 ? undefined : names[restAt].slice(SPREAD.length).trim()
+    const single = restAt < 0 ? names : names.slice(0, restAt)
+    if (restAt >= 0 && restAt !== names.length - 1) return { tex: '', error: `Only the last name can gather the rest: ${WRITTEN.unpacked}.` }
+    const bad = [...single, ...(rest === undefined ? [] : [rest])].find((n) => !IS_NAME.test(n))
+    if (bad !== undefined) return { tex: '', error: `"${bad}" isn't a name to take a value into: ${WRITTEN.unpacked}.` }
+    if (members.length < single.length || (rest === undefined && members.length !== single.length)) {
+      const wanted = rest === undefined ? `${single.length}` : `at least ${single.length}`
+      return { tex: '', error: `${typedName(of)} has ${members.length} value${members.length === 1 ? '' : 's'}, but this takes ${wanted}.` }
+    }
+
+    // Each name its value: shown as a line assigning it would show it, and kept as the value itself.
+    const shown: string[] = []
+    const defines: Definition[] = []
+    for (const [i, name] of single.entries()) {
+      const result = host.evaluateLine(`${name} = ${members[i]}`, DISPLAY_MODE.val)
+      if (result.error) return { tex: '', error: `${name}: ${result.error}` }
+      // (Kept as the value itself, as a spread value is: name − x[1] is exactly 0.)
+      const source = host.variable(members[i])
+      if (source) host.store(name, { ...Object.fromEntries(SPREAD_KEEPS.map((k) => [k, source[k]])), value: source.value, sf: source.sf })
+      shown.push(result.tex)
+      defines.push({ name })
+    }
+    // The rest, a series of its own: a lookup of the values left.
+    if (rest !== undefined) {
+      const left = members.slice(single.length)
+      for (const [, member] of host.seriesRows(rest)) host.forget(member)
+      host.setView(rest, [])
+      host.setView(rest, left)
+      const restMembers = left.map((_, i) => seriesMemberName(rest, i + 1))
+      shown.push(left.length ? listedTex(host, rest, restMembers) : `${symbolTex(rest)}${SERIES_TEX.equals}\\left(\\right)`)
+      defines.push(...definitions(rest, left.map((_, i) => i + 1)))
+    }
+    return { tex: shown.join(UNPACKED_BETWEEN), defines }
+  }
+}
+
+/** Between the names a series is taken apart into, as shown: a = 1 s, rest = (2, 3) s. */
+const UNPACKED_BETWEEN = ',\\qquad '

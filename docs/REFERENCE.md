@@ -524,6 +524,29 @@ m[::2]
 m[3:].avg
 ```
 
+...x spreads a series' values in place, among values of its own: y = \[...x, 11 s\] is x's values, then 11 s.
+
+- A slice spreads too: \[...x\[2:\], 0 s\]. Several can go in one series, anywhere in it.
+- Each spread value is the series' value itself (its sig figs, its uncertainty from the same source), as a slice's is.
+
+```
+x = [1 s:5 s:1 s]
+y = [...x, 11 s]
+y.count
+```
+
+\[a, b, ...rest\] = x takes a series apart: a is x\[1\], b is x\[2\], and rest the series of the rest, x\[3:\], renumbered from 1.
+
+- Only the last name can gather the rest, with ...; it can be the only one: \[...all\] = x.
+- Without a rest, x must have just as many values as there are names.
+- What's taken apart is a series (or a slice of one): name a list first, c = \[5 kg, 6 kg\], then \[a, b\] = c.
+
+```
+x = [1 s:10 s:1 s]
+[first, ...rest] = x
+rest.count
+```
+
 @plot(x axis, y series…) draws one series against another, with error bars for uncertainties. fit linear adds a best-fit line and its equation, and makes its slope and intercept members of the series: x.slope, x.intercept. Its settings, after a semicolon, are listed under Plot settings; the ⚙ after it sets them too.
 
 - A named plot keeps its fit: p = @plot(x, y; fit linear), then p.slope, p.intercept and p.r2.

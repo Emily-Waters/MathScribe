@@ -47,7 +47,8 @@ export * from './syntax.ts'
 export { BlockMember, ConstantMember, FunctionMember, LineFormMember, Namespace, type Expansion, type Member } from './builtins.ts'
 export { isNamespaceConstant, type BuiltinConstant, type NamespaceConstant } from './constants.ts'
 export {
-  FIT, JOIN, RESERVED_NAMESPACES, builtinFunctionName, memberName, parseMemberName, readableMembers, seriesMemberName, solvedName,
+  FIT, JOIN, RESERVED_NAMESPACES, builtinFunctionName, memberName, parseMemberName, parseNumberedName, readableMembers,
+  SLICE_COLON, parseSliceName, seriesMemberName, seriesStatName, solvedName, typedName,
   unpackedColumnName,
 } from './sheet/names.ts'
 
@@ -86,14 +87,15 @@ export {
   isConversionUnit, isTokenOf, partBefore, preprocess, quantitySource, typedNumbers, unitCallSource, unitSource, type PartWriter,
 } from './engine/core/writer.ts'
 export { parseTupleName, type TupleName } from './engine/core/declarations.ts'
-export { expandDots } from './engine/core/memberAccess.ts'
+export { expandDots, lineTokens, symbolsIn } from './engine/core/memberAccess.ts'
 export { unwrap } from './engine/core/nodes.ts'
 export { SIDE, needsBrackets } from './engine/core/products.ts'
 export { attachUnit, isLitCall, isUnitCall, numberTex, symbolTex, unitCallText, unitTex } from './engine/core/tex.ts'
 // (nestBrackets: an equation's grouping brackets by how deep they go, as every line's are, for LaTeX a module builds itself.)
 export { nestBrackets } from './maths/brackets.ts'
 export { outsideMaths } from './engine/core/text.ts'
-export { linearFit, type LinearFit, type PlotData, type PlotPoint, type PlotSeries } from './output/plot.ts'
+// (plotScales: a plot's axes as they'll be drawn, for a plot that draws something across its x axis.)
+export { linearFit, type LinearFit, type PlotData, type PlotPoint, type PlotSeries, plotScales } from './output/plot.ts'
 
 // A module's own kinds of block: a construct for the exports, and a view for the Rendered tab.
 export { Construct, type DocxOut, type LatexOut } from './output/constructs/construct.ts'

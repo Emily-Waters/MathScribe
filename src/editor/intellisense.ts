@@ -32,8 +32,8 @@ import { SYMBOL_KIND, type SheetSymbol } from '../lib/sheet/sheetIndex.ts'
 import { describeUnit, isUnitName, numberTex, symbolTex, unitNames, unitTex } from '../lib/engine/index.ts'
 import { STORAGE_KEYS } from '../config.ts'
 import { readStored, writeStored } from '../lib/data/storage.ts'
-import { GREEK_CHARS, KEYWORD, MEMBER_DOT, NAME, NAME_CHAR, PERCENT, SIGIL, VALUE_BRACES } from '../lib/syntax.ts'
-import { memberName, parseMemberName, parseNumberedName, seriesMemberName } from '../lib/sheet/names.ts'
+import { GREEK_CHARS, KEYWORD, MEMBER_DOT, MEMBER_INDEX, NAME, NAME_CHAR, PERCENT, SERIES_STAT_SUFFIX, SIGIL, VALUE_BRACES } from '../lib/syntax.ts'
+import { memberName, parseMemberName, parseNumberedName, seriesMemberName, typedName } from '../lib/sheet/names.ts'
 import { BUILTIN_FUNCTIONS, COMMANDS, KEYWORDS, MATH_CONSTANTS, SERIES_SUFFIXES, SETTING_WORDS } from './vocabulary.ts'
 import { inNote, inValue, isProseLine } from './language.ts'
 import { inDataBlock, inNamelessBlock, readAs } from './sheetLines.ts'
@@ -203,14 +203,8 @@ function symbolInfo(s: SheetSymbol): HTMLElement {
 /** Where a unit goes, for hovering one: after a number or `to`, or inside a compound unit (m/s^2). */
 const UNIT_PLACE = new RegExp(String.raw`(?:\d\.?|\b${KEYWORD.to})\s+$|[A-Za-z][/*]$`)
 
-/**
- * `t_1`, `t2`: a numbered member of a series (1: the series' name). The name
- * matches lazily (`${NAME}?` ends in `\w*?`), so the digits all go to the number.
- */
-const SERIES_MEMBER = new RegExp(String.raw`^(${NAME}?)_?(\d+)$`)
-
-/** A subscript n, for a series' members in the suggestion list: tₙ. */
-const SUBSCRIPT_N = String.fromCodePoint(0x2099)
+/** A series' member, as the suggestion list shows it: t[n]. */
+const MEMBER_N = `${MEMBER_INDEX.open}n${MEMBER_INDEX.close}`
 
 /** Every unit, as a suggestion with what it is (1 N = 1 kg m/s^2). */
 const unitOptions: Completion[] = unitNames().map((name) => ({
@@ -231,14 +225,14 @@ function membersOf(symbols: SheetSymbol[], ns: string): SheetSymbol[] {
   })
 }
 
-/** Each namespace, and what's in it (series by name: x, not x_1 … x_40). */
+/** Each namespace, and what's in it (series by name: x, not x[1] … x[40]). */
 function namespaces(symbols: SheetSymbol[]): Map<string, string[]> {
   const out = new Map<string, Set<string>>()
   for (const s of symbols) {
     const m = parseMemberName(s.name)
     if (!m) continue
     const set = out.get(m.namespace) ?? new Set<string>()
-    set.add(SERIES_MEMBER.exec(m.member)?.[1] ?? m.member)
+    set.add(parseNumberedName(m.member)?.base ?? m.member)
     out.set(m.namespace, set)
   }
   return new Map([...out].map(([ns, set]) => [ns, [...set]]))
@@ -246,31 +240,28 @@ function namespaces(symbols: SheetSymbol[]): Map<string, string[]> {
 
 /**
  * Suggestions for names the sheet defines: variables, parameters and
- * functions, with a series (t_1, t_2, …, or t1, t2, …) offered as tₙ and its
- * statistics (t_avg, t_count, …) rather than member by member.
+ * functions, with a series offered as itself (t) and as t[n] for its
+ * members (t__1, t__2, …), rather than member by member; its statistics are
+ * offered after its name and a dot (seriesStatOptions).
  */
 function nameOptions(visible: SheetSymbol[]): Completion[] {
-  const names = new Set(visible.map((s) => s.name))
   // Each series: how many members it has, and its first and last numbers.
   const series = new Map<string, { count: number; first: number; last: number }>()
   for (const s of visible) {
-    const m = SERIES_MEMBER.exec(s.name)
+    const m = parseNumberedName(s.name)
     if (s.kind !== SYMBOL_KIND.variable || !m) continue
-    const n = Number(m[2])
-    const known = series.get(m[1])
-    series.set(m[1], known
-      ? { count: known.count + (s.members ?? 1), first: Math.min(known.first, n), last: Math.max(known.last, n) }
-      : { count: s.members ?? 1, first: n, last: n })
+    const known = series.get(m.base)
+    series.set(m.base, known
+      ? { count: known.count + (s.members ?? 1), first: Math.min(known.first, m.n), last: Math.max(known.last, m.n) }
+      : { count: s.members ?? 1, first: m.n, last: m.n })
   }
-  // One numbered name isn't really a series (psi_200 alone shouldn't suggest psi_avg).
-  const isSeries = (base: string) => (series.get(base)?.count ?? 0) >= 2
 
   // A series' members aren't listed one by one (an imported column can have
-  // thousands); the series offers tₙ for them instead, below.
+  // thousands); the series offers t[n] for them instead, below.
   const options: Completion[] = visible
     // (Nor is a namespace, `p` of `p.slope`: its members are, as p.slope.)
     .filter((s) => s.kind !== SYMBOL_KIND.namespace)
-    .filter((s) => { const m = SERIES_MEMBER.exec(s.name); return !(s.kind === SYMBOL_KIND.variable && m && isSeries(m[1])) })
+    .filter((s) => !(s.kind === SYMBOL_KIND.variable && parseNumberedName(s.name)))
     .map((s) => (s.kind === SYMBOL_KIND.function
       ? snippetCompletion(`${s.name}(\${})`, {
         label: s.name, type: 'function', detail: `(${s.params ?? ''})`, info: () => symbolInfo(s), boost: 2,
@@ -278,21 +269,29 @@ function nameOptions(visible: SheetSymbol[]): Completion[] {
       : { label: s.name, type: 'variable', detail: s.kind === SYMBOL_KIND.parameter ? 'parameter' : undefined, info: () => symbolInfo(s), boost: 3 }))
 
   for (const [base, { count, first, last }] of series) {
-    if (!isSeries(base)) continue
+    const typed = typedName(base)
     const detail = `series (${count})`
-    // tₙ: one of its values; accepting it types the name, ready for the number.
-    options.push(snippetCompletion(`${base}\${n}`, {
-      label: `${base}${SUBSCRIPT_N}`, type: 'variable', detail, boost: 2,
-      info: () => infoNode(`${symbolTex(`${base}_${first}`)} \\ldots ${symbolTex(`${base}_${last}`)}`,
-        `One of the series' ${count} values: type its number after the name, ${base}${first} (or ${base}_${first}).`),
+    const range = `${symbolTex(seriesMemberName(base, first))} \\ldots ${symbolTex(seriesMemberName(base, last))}`
+    // The series itself: what @table and @plot take, and a series can be made of, and a line of its own shows.
+    options.push({
+      label: typed, type: 'variable', detail, boost: 3,
+      info: () => infoNode(range, `A series of ${count} values: ${typed}${MEMBER_DOT} for its statistics (${typed}${MEMBER_DOT}${SERIES_STAT_SUFFIX.avg}), `
+        + `${typed}${MEMBER_INDEX.open}${first}${MEMBER_INDEX.close} for one of them.`),
+    })
+    // t[n]: one of its values; accepting it types the brackets, ready for the number.
+    options.push(snippetCompletion(`${typed}${MEMBER_INDEX.open}\${n}${MEMBER_INDEX.close}`, {
+      label: `${typed}${MEMBER_N}`, type: 'variable', detail, boost: 2,
+      info: () => infoNode(range, `One of the series' ${count} values: its number in brackets, ${typed}${MEMBER_INDEX.open}${first}${MEMBER_INDEX.close}.`),
     }))
-    for (const { suffix, description } of SERIES_SUFFIXES) {
-      if (names.has(base + suffix)) continue
-      options.push({ label: base + suffix, type: 'variable', detail, info: description, boost: 1 })
-    }
   }
   return options
 }
+
+/** A series' statistics, offered after its name and a dot (`t.`): avg, count, std, …, each as its member's name. */
+const seriesStatOptions = (count: number): Completion[] =>
+  SERIES_SUFFIXES.map(({ suffix, description }) => ({
+    label: suffix.slice(MEMBER_DOT.length), type: 'variable', detail: `series (${count})`, info: description, boost: 1,
+  }))
 
 /** Suggestions for what’s being typed, from where the cursor is on the line. */
 export function complete(ctx: CompletionContext): CompletionResult | null {
@@ -383,11 +382,15 @@ export function complete(ctx: CompletionContext): CompletionResult | null {
         validFor: /^[A-Za-z]*$/,
       }
 
-    // `a.`: a namespace's members (a slice's series, a named import's columns, a named plot's fit).
+    // `a.`: a namespace's members (a slice's series, a named import's columns, a named plot's fit);
+    // `t.`: a series' statistics (and anything else it holds: x.slope, from a plot's fit).
     case TYPING.member: {
-      const members = membersOf(visibleNames(ctx.state, line.number), typing.namespace)
-      if (!members.length) return null
-      return { from, options: nameOptions(members), validFor: WORD_SO_FAR }
+      const visible = visibleNames(ctx.state, line.number)
+      const members = membersOf(visible, typing.namespace)
+      const count = visible.reduce((n, s) => n + (parseNumberedName(s.name)?.base === typing.namespace ? (s.members ?? 1) : 0), 0)
+      const options = [...nameOptions(members.filter((m) => !parseNumberedName(m.name))), ...(count ? seriesStatOptions(count) : [])]
+      if (!options.length) return null
+      return { from, options, validFor: WORD_SO_FAR }
     }
 
     case TYPING.name:
@@ -404,6 +407,11 @@ function allNameOptions(visible: SheetSymbol[]): Completion[] {
   // A namespace's members are offered after its name and a dot, not here; it's offered itself.
   const own = visible.filter((s) => !parseMemberName(s.name))
   const names = new Set(own.map((s) => s.name))
+  // (A series is offered as itself already, x, even when it holds more: x.slope.)
+  for (const s of own) {
+    const series = parseNumberedName(s.name)?.base
+    if (series) names.add(series)
+  }
   const options = nameOptions(own)
   for (const [ns, members] of namespaces(visible)) {
     if (names.has(ns)) continue
@@ -473,15 +481,14 @@ export const reconfigureAcceptKeys = (keys: AcceptKeys) => suggestionKeys.reconf
 /**
  * Information on one of a series' members that isn't listed itself (only a
  * series' first and last are: an imported column can have thousands), from the
- * series' listed member: x_57 (or x57), run1.x_57, a.x_3.
+ * series' listed member: x[57], run1.x[57], a.x[3].
  */
 function seriesMemberInfo(visible: Map<string, SheetSymbol>, name: string): HTMLElement | null {
   const numbered = parseNumberedName(name)
   if (!numbered) return null
-  const spellings = [seriesMemberName(numbered.base, numbered.n), `${numbered.base}${numbered.n}`]
   for (const s of visible.values()) {
     if (s.kind !== SYMBOL_KIND.variable || !s.texOf || parseNumberedName(s.name)?.base !== numbered.base) continue
-    const tex = spellings.map((n) => s.texOf!(n)).find(Boolean)
+    const tex = s.texOf(name)
     if (tex) return infoNode(tex, `${where(s)}; value at the end of its scope`)
   }
   return null

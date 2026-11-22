@@ -109,12 +109,12 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
           { kind: TERM_KIND.constant, name: 'phi', summary: 'The golden ratio ≈ 1.61803' },
         ],
         rules: [
-          'Everything mathjs has works, matrices ([1, 2; 3, 4]) too.',
+          'Everything mathjs has works, except matrices: square brackets make a series, [1.0 s, 2.0 s].',
           'pi, e and the like stay symbols in substitution steps, and so does a variable made only of numbers '
             + 'and them: after theta = pi/4, sin(theta) shows sin(π/4).',
           'sin, cos and tan of exact angles are exact: sin(pi) is 0, sin(30 deg) is 0.5.',
-          'A series doesn\'t take a built-in constant\'s name: with e1 and e2 defined, e is still Euler\'s number '
-            + '(e_avg is the series\' mean).',
+          'A name of your own with a number or subscript is a name of its own: with e1 and e_1 defined, e is '
+            + 'still Euler\'s number.',
           'phi and tau are built in too (the golden ratio, 2π): define them before using them as names of your '
             + 'own.',
           'atan2(y, x) takes coordinates with units, as long as they match: atan2(1.0 m, 2.0 m).',
@@ -129,7 +129,7 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
       },
       {
         explain: '@ starts everything built in rather than written in the sheet: constants (@c), the @constants { } '
-          + 'block, MathScribe\'s own functions (@tuple, @series, @table, @plot, @solve, …) and namespaces, whose '
+          + 'block, MathScribe\'s own functions (@tuple, @table, @plot, @solve, …) and namespaces, whose '
           + 'members are written with a dot (@layout.text, @chem.substance). mathjs\'s maths isn\'t (sin, sqrt, '
           + 'norm).',
         rules: [
@@ -193,16 +193,15 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
           + 'sig figs. Settings and to work in it: {{V:3 to L}}.',
         rules: [
           'Don\'t type a worked-out number into prose: write {{name}}, so it stays right.',
-          'Any expression works: {{2 * m}}, {{delta F}}, {{a.x_1}}; and settings ({{x:3}}, {{x:sci}}) and to.',
+          'Any expression works: {{2 * m}}, {{delta F}}, {{t[1]}}, {{t.avg}}; and settings ({{x:3}}, {{x:sci}}) and to.',
           'A value is worked out where the text is, so it must be defined above it: one that isn\'t is marked '
             + 'as an error, and left as typed.',
           'Inside $…$, {{…}} is left alone. In the exports, each value is inline maths.',
         ],
         examples: [{
           source: [
-            'T1 = 1.21 s',
-            'T2 = 1.17 s',
-            '> The mean period was {{T_avg}}.',
+            'T = [1.21 s, 1.17 s]',
+            '> The mean period was {{T.avg}}.',
           ].join('\n'),
         }],
       },
@@ -243,7 +242,7 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
       },
       {
         explain: 'A line that leaves a ( or [ open carries on over the lines after it, up to the one that closes it, '
-          + 'so a long @series, @table or @plot (or any call, or a matrix) can list one thing a line.',
+          + 'so a long series, @table or @plot (or any call) can list one thing a line.',
         rules: [
           'The lines inside are indented further than the first; the closing bracket can be under the first '
             + 'line. A blank line, or one not indented further, ends it.',
@@ -253,11 +252,11 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
         ],
         examples: [{
           source: [
-            't = @series(',
+            't = [',
             '    1.52 s,',
             '    1.48 s,',
             '    1.55 s',
-            ')',
+            ']',
           ].join('\n'),
         }],
       },
@@ -746,7 +745,7 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
         rules: [
           'A command goes before or after the note: F = m * a  #val  # weight is F = m * a  # weight  #val.',
           'Commands combine: #sym #multiline.',
-          'On a line that\'s just a name (delta F, t_avg), #sym shows how it\'s worked out (δF = √(…)), and #val '
+          'On a line that\'s just a name (delta F, t.avg), #sym shows how it\'s worked out (δF = √(…)), and #val '
             + 'its name and value.',
           'Only these words are commands: any other #word (#3) stays part of the note.',
         ],

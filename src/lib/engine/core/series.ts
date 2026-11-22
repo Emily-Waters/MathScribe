@@ -1,23 +1,23 @@
-/** Series aggregates (`t_avg`, `t_std`, …). */
-import { AGGREGATE_KIND, type AggregateKind } from '../../sheet/values.ts'
+/** Series statistics (`t.avg`, `t.std`, …), as their names are read. */
+import type { AggregateKind } from '../../sheet/values.ts'
 import { SERIES_SUFFIXES } from '../../syntax.ts'
 import { parseSeriesStatName } from '../../sheet/names.ts'
 
 // ---------------------------------------------------------------------------
 // Series aggregates
 //
-// Given a1, a2, a3 (or a_1, a_2, a_3) and no variable called `a`:
-//   a         sum of the series
-//   a_avg     mean (also a_mean), ± the standard error σ/√n
-//   a_std     sample standard deviation σ (n − 1)
-//   a_sem     standard error of the mean, σ/√n
-//   a_count   number of values
+// Given a series a (a[1], a[2], a[3], as a__1, a__2, a__3):
+//   a.sum     sum of the series
+//   a.avg     mean (also a.mean), ± the standard error σ/√n
+//   a.std     sample standard deviation σ (n − 1)
+//   a.sem     standard error of the mean, σ/√n
+//   a.count   number of values
 // ---------------------------------------------------------------------------
 
-/** What a name asks of a series: `t_avg` → t's mean; a name without a suffix, the sum. */
-export function parseAggregateName(name: string): { base: string; kind: AggregateKind } {
+/** What a name asks of a series: `t.avg` (t__avg) → t's mean (null if it asks nothing of one). */
+export function parseAggregateName(name: string): { base: string; kind: AggregateKind } | null {
   const stat = parseSeriesStatName(name)
-  return stat ? { base: stat.base, kind: SERIES_SUFFIXES[stat.suffix] } : { base: name, kind: AGGREGATE_KIND.sum }
+  return stat ? { base: stat.base, kind: SERIES_SUFFIXES[stat.suffix] } : null
 }
 
 /** Text, escaped to match literally in a regular expression. */

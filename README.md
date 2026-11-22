@@ -145,7 +145,7 @@ Accept suggestions with.
 
 | Typing | Suggests |
 | --- | --- |
-| a name | variables defined above and in scope (not another block's locals), with their value; a function's parameters inside its body; your functions with their parameters (accepting one puts the cursor between the brackets); series names like `t_avg` (once there are two or more `t_1`, `t_2`, …); built-in functions, `pi`/`e`, and keywords |
+| a name | variables defined above and in scope (not another block's locals), with their value; a function's parameters inside its body; your functions with their parameters (accepting one puts the cursor between the brackets); a series itself (`t`), `t[n]` for one of its values, and after `t.` its statistics (`avg`, `count`, …); built-in functions, `pi`/`e`, and keywords |
 | `@` | constants with their description and value, including your own `@constants`; `@chem`; and, at the start of a line, `@layout` and `@constants { }` |
 | `@chem.` | its elements, with their molar masses, and its functions `mm` and `total` |
 | `@layout.`, at the start of a line | the layouts (`text`, `list`, `numbered`, `center`, `titlepage`), `column` and display settings (`hidden`, `sym`, `val`, …); after another dot, the ones not chosen yet |
@@ -338,7 +338,7 @@ renamed, change it there too.
   `src/lib/syntax.ts` gathers them. Shared by the tree, the engine, the outputs
   and the editor
 - `src/lib/sheet/names.ts`: the names the engine makes for itself (`delta__F`, `at__c__5`,
-  `a__x_1` for `a.x_1`, series members and statistics, a plot's fit), each built and
+  `a__x_1` for `a.x_1`, `t__3` for a series' member `t[3]`, `t__avg` for `t.avg`, a plot's fit), each built and
   read in one place; `src/lib/maths/mathjsNames.ts`: mathjs's operator and function names
   and the units the engine uses by name
 - Shared values are named once: a word, marker or setting used in more than one
@@ -417,7 +417,7 @@ renamed, change it there too.
   unit or a value); `writers.ts`: writing a species for mathjs; `module.ts`:
   `ChemistryModule`, where the engine's hooks meet them.
   `src/lib/output/katex.ts`: KaTeX with mhchem, which everything that draws maths imports
-- `src/modules/series/`: the series module: `@series(…)`, `@table(…)`, `@plot(…)`
+- `src/modules/series/`: the series module: series in square brackets (`[…]`, ranges and slices), `@table(…)`, `@plot(…)`
   and `@select(…)` as line forms (`series.ts`, `table.ts`, `plot.ts`, `select.ts`), and the
   columns they share (`columns.ts`: a column, or a series, worked out row by row)
 - `src/modules/solve/`: the solve module: `x = @solve(eq, x)`, by

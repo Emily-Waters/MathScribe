@@ -158,7 +158,7 @@ export const NODE_KIND = {
   import: 'import',
   /** A line carried on over the lines after it while its brackets are open: its first line, its continuation lines, and the one closing them. */
   continued: 'continued',
-  /** A line carrying on a line whose brackets are open: `    5678,` in `val = @series(`. */
+  /** A line carrying on a line whose brackets are open: `    5678,` in `val = [`. */
   continuation: 'continuation',
 
   // An expression's nodes (lexer.ts).
@@ -168,7 +168,7 @@ export const NODE_KIND = {
   call: 'call',
   /**
    * A call whose closing bracket isn't on its line: what's called, its `(`, and
-   * its arguments to the end of the line (`@series(` carried on over the lines
+   * its arguments to the end of the line (`@table(` carried on over the lines
    * after it, or half typed).
    */
   openCall: 'openCall',

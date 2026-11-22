@@ -13,7 +13,7 @@ import {
   ChoiceSetting, FlagSetting, NameSetting, RowsSetting, SettingsSpec, SwitchSetting, TitleSetting,
 } from '../../lib/plugin.ts'
 
-// (The settings text's own pieces, which @series and @select read too, are the language's: lib/language/settings.ts.)
+// (The settings text's own pieces, which @select reads too, are the language's: lib/language/settings.ts.)
 export { formatRowRange, parseRowRange, settingParts } from '../../lib/plugin.ts'
 
 /** How a table's lines are drawn: under the header, around every cell (the default), or none. */
@@ -133,7 +133,7 @@ export const TABLE_SETTINGS = new SettingsSpec<TableSettings>('table', () => ({ 
   new NameSetting(SETTING.labels, 'labels', 'salts', {
     label: 'Row labels',
     summary: 'A series\' values down the side, in the row numbers\' place.',
-    help: 'A series whose values go down the side in place of the row numbers: salts = @series("KCl", "KBr").',
+    help: 'A series whose values go down the side in place of the row numbers: salts = ["KCl", "KBr"].',
   }),
   new SwitchSetting(SETTING.uncertainty, 'uncertainty', { label: 'Show uncertainty', summary: 'Each value with ± its uncertainty; uncertainty off shows the values alone.' }),
   new FlagSetting(SETTING.allRows, 'allRows', { label: 'Show every row', summary: 'Every row, even in a long table (one is normally shortened).' }),

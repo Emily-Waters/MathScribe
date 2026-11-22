@@ -377,7 +377,7 @@ export function startsClosing(line: SyntaxNode): boolean {
 
 /**
  * Whether what a line says ends expecting more: an open bracket, or a `,` or
- * `;` (`Fs = @series(`, `1234,`); undefined if it says nothing (a note alone).
+ * `;` (`Fs = [`, `1234,`); undefined if it says nothing (a note alone).
  */
 export function endsExpecting(line: SyntaxNode): boolean | undefined {
   const said = lastSaid(line.parts)

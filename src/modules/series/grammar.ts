@@ -20,7 +20,7 @@ const SETTINGS_SEPARATOR = ';'
 const CALLS: ReadonlySet<string> = new Set(Object.values(SERIES_CALL).map((c) => `${SIGIL}${c}`))
 
 const SETTINGS_RULE: LexRule = {
-  describes: 'the settings after a ; in @table(…), @plot(…), @select(…) or @series(…), as one token',
+  describes: 'the settings after a ; in @table(…), @plot(…) or @select(…), as one token',
   read: (pos, state) => {
     if (state.text[pos] !== SETTINGS_SEPARATOR || !state.callee || !CALLS.has(state.callee)) return undefined
     const rest = state.text.slice(pos + 1, state.end)
@@ -37,7 +37,7 @@ const SETTINGS_RULE: LexRule = {
 }
 
 export const SERIES_GRAMMAR: ModuleGrammar = {
-  tokenKinds: { [SERIES_TOKEN.settings]: 'The settings after a ; in @table(…), @plot(…), @select(…) or @series(…): fit linear, x from 0 to 2' } satisfies Record<(typeof SERIES_TOKEN)[keyof typeof SERIES_TOKEN], string>,
+  tokenKinds: { [SERIES_TOKEN.settings]: 'The settings after a ; in @table(…), @plot(…) or @select(…): fit linear, x from 0 to 2' } satisfies Record<(typeof SERIES_TOKEN)[keyof typeof SERIES_TOKEN], string>,
   lexRules: [SETTINGS_RULE],
   // (A call's settings are words, read by their own language, not maths.)
   tokenRoles: { [SERIES_TOKEN.settings]: TOKEN_ROLE.text },

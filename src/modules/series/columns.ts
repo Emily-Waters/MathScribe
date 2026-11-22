@@ -1,9 +1,9 @@
 /**
- * The columns of a table or plot: a series by name (`t`, its t_1, t_2, …), or
+ * The columns of a table or plot: a series by name (`t`, its t[1], t[2], …), or
  * one worked out row by row from the series it uses (`v = x / t`).
  */
 import {
-  DISPLAY_MODE, IS_NAME, type ModuleHost, NAME, NAME_CHAR, NAME_IN_LINE, seriesMemberName, symbolTex,
+  DISPLAY_MODE, IS_NAME, type ModuleHost, NAME, NAME_CHAR, seriesMemberName, symbolsIn, symbolTex,
   unpackedColumnName,
 } from '../../lib/plugin.ts'
 
@@ -24,7 +24,7 @@ export const SERIES_IN_EXPRESSION = new RegExp(String.raw`(?<!${NAME_CHAR}|[.@])
 
 /**
  * A table column's expression for row `n`: each series it uses, replaced by
- * that row's value's name (`x / t` → `x_3 / t_3`).
+ * that row's value's name (`x / t` → `x__3 / t__3`, x[3] / t[3]).
  */
 export function withRowValues(expr: string, series: Map<string, Map<number, string>>, n: number): string {
   return expr.replace(SERIES_IN_EXPRESSION, (match: string, name: string, offset: number) => {
@@ -41,8 +41,7 @@ export function withRowValues(expr: string, series: Map<string, Map<number, stri
  */
 export function seriesUsedIn(host: ModuleHost, expr: string): Map<string, Map<number, string>> {
   const used = new Map<string, Map<number, string>>()
-  for (const m of expr.matchAll(NAME_IN_LINE)) {
-    const id = m[1]
+  for (const id of symbolsIn(expr)) {
     if (used.has(id) || (host.has(id) && !host.variable(id)?.agg)) continue
     const rows = host.seriesRows(id)
     if (rows.size) used.set(id, rows)

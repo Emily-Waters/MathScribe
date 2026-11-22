@@ -100,13 +100,13 @@ describe('a sheet as a tree', () => {
 
 describe('statements', () => {
   it('reads a call over several lines as one statement: its text as one line, its notes and commands as one line’s', () => {
-    const [node] = encode('val = @series(  # readings\n    1234,\n    // the second\n    5678,\n)  #val\nw = 1').body
+    const [node] = encode('val = [  # readings\n    1234,\n    // the second\n    5678,\n]  #val\nw = 1').body
     const s = statementOf(node)
     expect(s.kind).toBe(NODE_KIND.calc)
     expect(s.lines).toHaveLength(5)
     // (Comments left out, and the trailing comma before the closing bracket; a note stays where it's written.)
-    expect(s.text).toBe('val = @series(  # readings 1234, 5678 )  #val')
-    expect(s.noted).toMatchObject({ body: 'val = @series( 1234, 5678 )', command: 'val', note: 'readings' })
+    expect(s.text).toBe('val = [  # readings 1234, 5678 ]  #val')
+    expect(s.noted).toMatchObject({ body: 'val = [ 1234, 5678 ]', command: 'val', note: 'readings' })
   })
 
   it('has every token of its lines, each where it is', () => {
@@ -264,7 +264,7 @@ describe('the kinds of line, and the blocks they open', () => {
   })
 
   it('carries a line whose brackets are open over the lines after it, up to the one closing them', () => {
-    const source = 'val = @series(\n    1234,\n    5678\n)\nw = val_2'
+    const source = 'val = [\n    1234,\n    5678\n]\nw = val_2'
     roundTrips(source)
     expect(shape(encode(source).body)).toEqual([
       NODE_KIND.continued, `  ${NODE_KIND.calc}`, `  ${NODE_KIND.continuation}`, `  ${NODE_KIND.continuation}`, `  ${NODE_KIND.continuation}`,
@@ -285,7 +285,7 @@ describe('the kinds of line, and the blocks they open', () => {
   })
 
   it('carries on a line in a block, closing it at the block’s indentation, and the block’s } still closes the block', () => {
-    expect(shape(encode('Box {\n    val = @series(\n        1,\n        2\n    )\n}\nx = 1').body)).toEqual([
+    expect(shape(encode('Box {\n    val = [\n        1,\n        2\n    ]\n}\nx = 1').body)).toEqual([
       NODE_KIND.block, `  ${NODE_KIND.blockOpener}`,
       `  ${NODE_KIND.continued}`, `    ${NODE_KIND.calc}`, `    ${NODE_KIND.continuation}`, `    ${NODE_KIND.continuation}`, `    ${NODE_KIND.continuation}`,
       `  ${NODE_KIND.blockCloser}`,
@@ -313,21 +313,21 @@ describe('the kinds of line, and the blocks they open', () => {
     const cases: [string, string][] = [
       ['@table(\n    t,\n    x;\n    rows 2-3, lines grid\n)', '@table(t, x; rows 2-3, lines grid)'],
       ['p = @plot(\n    t,\n    x;  # the run\n    fit linear\n)', 'p = @plot(t, x; fit linear)  # the run'],
-      ['val = @series(\n    sqrt(4),\n    5678\n)', 'val = @series(sqrt(4), 5678)'],
+      ['val = [\n    sqrt(4),\n    5678\n]', 'val = [sqrt(4), 5678]'],
     ]
     for (const [multiline, oneLine] of cases) {
       const [continued] = encode(multiline).body
       expect(said(continued.parts.filter((p) => !isToken(p)).flatMap((l) => (l as SyntaxNode).parts)).filter((t) => t !== 'call'))
         .toEqual(said(encode(oneLine).body[0].parts).filter((t) => t !== 'call'))
-      // (Its first line's callee is in a call, open on that line.)
-      expect(said((continued.parts[0] as SyntaxNode).parts)).toContain('call')
+      // (Its first line's callee is in a call, open on that line; a series' bracket is the line's own.)
+      if (!oneLine.startsWith('val = [')) expect(said((continued.parts[0] as SyntaxNode).parts)).toContain('call')
     }
     const settings = (encode(cases[0][0]).body[0].parts[3] as SyntaxNode).parts.find((p) => isToken(p) && p.t === SERIES_TOKEN.settings)
     expect(settings).toEqual({ t: SERIES_TOKEN.settings, text: 'rows 2-3, lines grid' })
   })
 
   it('carries a call on over a value at the wrong indentation, but not over a line that stands alone', () => {
-    const source = 'Box {\n    Fs = @series(\n0.231 N pm 0.0041 N,\n        0.300 N pm 0.0028 N\n    )\n}'
+    const source = 'Box {\n    Fs = [\n0.231 N pm 0.0041 N,\n        0.300 N pm 0.0028 N\n    ]\n}'
     expect(shape(encode(source).body)).toEqual([
       NODE_KIND.block, `  ${NODE_KIND.blockOpener}`,
       `  ${NODE_KIND.continued}`, `    ${NODE_KIND.calc}`, `    ${NODE_KIND.continuation}`, `    ${NODE_KIND.continuation}`, `    ${NODE_KIND.continuation}`,

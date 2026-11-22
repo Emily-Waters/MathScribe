@@ -22,25 +22,25 @@ function renamed(doc: string, name: string, to: string, nth = 0): string {
   return state.update({ changes: renameChanges(state, at, to) }).state.doc.toString()
 }
 
-const SERIES = 't = @series(\n    1.0 s,\n    2.0 s,\n    3.0 s\n)\nx = @series(1.0 m, 2.0 m, 3.0 m)\n'
+const SERIES = 't = [\n    1.0 s,\n    2.0 s,\n    3.0 s\n]\nx = [1.0 m, 2.0 m, 3.0 m]\n'
 
 describe('going to a definition', () => {
   it('goes from a use of a series, in a table, a plot or a sum, to its name where it’s made', () => {
-    const doc = `${SERIES}@table(\n    t,\n    x\n)\np = @plot(t, x; fit linear)\ny = t_avg + p.slope`
+    const doc = `${SERIES}@table(\n    t,\n    x\n)\np = @plot(t, x; fit linear)\ny = t.avg + p.slope`
     const state = stateOf(doc)
     const tInTable = doc.indexOf('t,\n    x\n)')
     expect(definitionAt(state, tInTable)).toEqual({ from: 0, to: 1 })
-    expect(definitionAt(state, doc.indexOf('x; fit'))).toEqual({ from: doc.indexOf('x = @'), to: doc.indexOf('x = @') + 1 })
+    expect(definitionAt(state, doc.indexOf('x; fit'))).toEqual({ from: doc.indexOf('x = ['), to: doc.indexOf('x = [') + 1 })
     expect(definitionAt(state, doc.indexOf('p.slope'))).toEqual({ from: doc.indexOf('p = @'), to: doc.indexOf('p = @') + 1 })
   })
 })
 
 describe('renaming', () => {
   it('renames a series where it’s made and used, with its members and statistics', () => {
-    const doc = `${SERIES}@table(t, x)\ny = t_avg + t_1 + t3\nz = 2 * t`
+    const doc = `${SERIES}@table(t, x)\ny = t.avg + t[1] + t.sum\nz = [2 * t]`
     expect(renamed(doc, 't', 'time')).toBe(
-      'time = @series(\n    1.0 s,\n    2.0 s,\n    3.0 s\n)\nx = @series(1.0 m, 2.0 m, 3.0 m)\n'
-      + '@table(time, x)\ny = time_avg + time_1 + time3\nz = 2 * time',
+      'time = [\n    1.0 s,\n    2.0 s,\n    3.0 s\n]\nx = [1.0 m, 2.0 m, 3.0 m]\n'
+      + '@table(time, x)\ny = time.avg + time[1] + time.sum\nz = [2 * time]',
     )
   })
 
@@ -50,8 +50,8 @@ describe('renaming', () => {
   })
 
   it('leaves names that only start with it', () => {
-    const doc = `${SERIES}tt = 2\ny = tt + t_avg`
-    expect(renamed(doc, 't', 'time')).toBe(`${SERIES.replace(/^t /, 'time ')}tt = 2\ny = tt + time_avg`)
+    const doc = `${SERIES}tt = 2\nt_1 = 3 s\ny = tt + t.avg + t_1`
+    expect(renamed(doc, 't', 'time')).toBe(`${SERIES.replace(/^t /, 'time ')}tt = 2\nt_1 = 3 s\ny = tt + time.avg + t_1`)
   })
 })
 

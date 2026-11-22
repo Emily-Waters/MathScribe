@@ -31,7 +31,7 @@ export class TextConstruct extends Construct<TextBlock> {
   readonly kind = BLOCK_KIND.text
 
   latex(b: TextBlock): string {
-    // (As in a title: a name's subscript, t_avg, and `$…$` as maths.)
+    // (As in a title: a name's subscript, v_0, and `$…$` as maths.)
     return titleToLatex(b.text)
   }
 

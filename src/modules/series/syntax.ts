@@ -1,4 +1,4 @@
-/** The series module's syntax: `@table(…)`, `@plot(…)`, `@select(…)` and `@series(…)`, each a line of its own. */
+/** The series module's syntax: `@table(…)`, `@plot(…)` and `@select(…)`, each a line of its own. (A series itself is in square brackets: series.ts.) */
 import { builtinOpening, NAMED } from '../../lib/plugin.ts'
 
 /** The series module's functions, each written after @: `@table(t, x)`. */
@@ -6,7 +6,6 @@ export const SERIES_CALL = {
   table: 'table',
   plot: 'plot',
   select: 'select',
-  series: 'series',
 } as const
 
 /** A table of series: `@table(t, x, v = x / t)` (1: what's between the brackets). */

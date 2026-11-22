@@ -34,7 +34,7 @@ export const TERM_KIND = {
   function: 'function',
   /** One of mathjs's constants, `pi`. */
   constant: 'constant',
-  /** A name a series makes, as a suffix of the series' name: `_avg` (and the sum, the name itself: ``). */
+  /** What a series has, as what follows its name: `.avg`, `[1]` (and the series itself, its name alone: ``). */
   seriesName: 'seriesName',
 } as const
 export type TermKind = (typeof TERM_KIND)[keyof typeof TERM_KIND]
@@ -42,7 +42,7 @@ export type TermKind = (typeof TERM_KIND)[keyof typeof TERM_KIND]
 /** A word the editor suggests and describes (its completion's detail, its hover), as an entry says it. */
 export interface LanguageTerm {
   readonly kind: TermKind
-  /** As it's written: `#sym`, `to`, `sqrt`, `_avg`. */
+  /** As it's written: `#sym`, `to`, `sqrt`, `.avg`. */
   readonly name: string
   /** What it does, in a phrase. */
   readonly summary: string
@@ -50,11 +50,11 @@ export interface LanguageTerm {
   readonly signature?: string
 }
 
-/** A term as it's shown: a function by how it's called (`nthRoot(x, n)`), a series' name with a series' (`t_avg`), anything else as written. */
+/** A term as it's shown: a function by how it's called (`nthRoot(x, n)`), a series' with a series' name (`t.avg`), anything else as written. */
 export const termShown = (t: LanguageTerm): string =>
   t.signature ?? (t.kind === TERM_KIND.seriesName ? `${SAMPLE_SERIES}${t.name}` : t.name)
 
-/** The series a series' names are shown on: `t_avg`. */
+/** The series what a series has is shown on: `t.avg`. */
 const SAMPLE_SERIES = 't'
 
 /** A display command as a term: `#sym`. */

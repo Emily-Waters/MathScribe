@@ -108,7 +108,7 @@ const MORE = '…'
 /**
  * Which parameter is being typed: the argument's own, or, past the last, the
  * last if it takes any number of values (`max(a, b, …)`); none otherwise
- * (a list of values past what a function's hint names: `@series(1, 2, 3`).
+ * (a list of values past what a function's hint names: `@table(t, x, v`).
  */
 export function currentParameter(signature: Signature, place: CallPlace): number | undefined {
   if (place.inSettings) return undefined
@@ -175,7 +175,7 @@ const closeHint = StateEffect.define<null>()
  * `(`, `,` or `;` in a call opens it; typing on in the call keeps it, worked out
  * again; moving the cursor without typing (a click, an arrow key), or Escape,
  * closes it. So it's there while a call is written, not whenever the cursor is
- * on a line inside one (a long `@series(…)`'s values, edited).
+ * on a line inside one (a long `@table(…)`'s columns, edited).
  */
 const hintField = StateField.define<Tooltip | null>({
   create: () => null,

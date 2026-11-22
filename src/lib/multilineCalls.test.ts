@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { lineAt, lines, value } from '../test/helpers.ts'
 
 /** Three readings of t and x, as series. */
-const DATA = 't1 = 0.10 s\nt2 = 0.20 s\nt3 = 0.30 s\nx1 = 0.012 m\nx2 = 0.047 m\nx3 = 0.106 m\n'
+const DATA = 't = [0.10 s, 0.20 s, 0.30 s]\nx = [0.012 m, 0.047 m, 0.106 m]\n'
 
 /** A sheet's lines as worked out, without where each is (a line over several moves those after it down). */
 const results = (source: string) => lines(source).map(({ line: _line, source: _source, ...result }) => result)
@@ -18,8 +18,8 @@ const same = (oneLine: string, multiline: string) => {
 
 describe('a call over several lines', () => {
   it('makes a listed series', () => {
-    same('val = @series(1234, 5678)\nw = val_2', 'val = @series(\n    1234,\n    5678\n)\nw = val_2')
-    expect(value('val = @series(\n    1234,\n    5678\n)\nw = val_2')).toBe('5678')
+    same('val = [1234, 5678]\nw = val[2]', 'val = [\n    1234,\n    5678\n]\nw = val[2]')
+    expect(value('val = [\n    1234,\n    5678\n]\nw = val[2]')).toBe('5678')
   })
 
   it('makes a table, its columns and its settings', () => {
@@ -34,12 +34,12 @@ describe('a call over several lines', () => {
   })
 
   it('makes a selection', () => {
-    same(`${DATA}a = @select(t, x; t from 0.15 to 0.35)\nn = a.t_count`, `${DATA}a = @select(\n    t, x;\n    t from 0.15 to 0.35\n)\nn = a.t_count`)
+    same(`${DATA}a = @select(t, x; t from 0.15 to 0.35)\nn = a.t.count`, `${DATA}a = @select(\n    t, x;\n    t from 0.15 to 0.35\n)\nn = a.t.count`)
   })
 
   it('works out any call, and brackets in brackets', () => {
     same('y = max(1, 2, 3)', 'y = max(\n    1,\n    2,\n    3\n)')
-    same('M = [[1, 2], [3, 4]]', 'M = [\n    [1, 2],\n    [3, 4]\n]')
+    same('m = [(1 + 2) kg, max(3, 4) kg]', 'm = [\n    (1 + 2) kg,\n    max(3, 4) kg\n]')
   })
 
   it('takes its #commands and note from any of its lines', () => {
@@ -47,10 +47,10 @@ describe('a call over several lines', () => {
   })
 
   it('takes a trailing comma before its closing bracket, in any call', () => {
-    same('val = @series(1234, 5678)\nw = val_2', 'val = @series(\n    1234,\n    5678,\n)\nw = val_2')
+    same('val = [1234, 5678]\nw = val[2]', 'val = [\n    1234,\n    5678,\n]\nw = val[2]')
     same(`${DATA}@table(t, x)`, `${DATA}@table(\n    t,\n    x,\n)`)
     same('y = max(1, 2)  # the larger', 'y = max(\n    1,\n    2,  # the larger\n)')
-    same('M = [[1, 2], [3, 4]]', 'M = [\n    [1, 2],\n    [3, 4],\n]')
+    same('m = [1 kg, 2 kg]', 'm = [\n    1 kg,\n    2 kg,\n]')
   })
 
   it('keeps a comma that isn’t before a closing bracket', () => {
@@ -58,11 +58,11 @@ describe('a call over several lines', () => {
   })
 
   it('takes in a value at the wrong indentation', () => {
-    same('Box {\n    v = @series(1 N, 2 N, 3 N)\n    w = v_1\n}', 'Box {\n    v = @series(\n1 N,\n        2 N,\n        3 N\n    )\n    w = v_1\n}')
+    same('Box {\n    v = [1 N, 2 N, 3 N]\n    w = v[1]\n}', 'Box {\n    v = [\n1 N,\n        2 N,\n        3 N\n    ]\n    w = v[1]\n}')
   })
 
   it('is where its first line is, and the lines after it are where they are', () => {
-    const source = 'val = @series(\n    1234,\n    5678\n)\nw = val_2'
+    const source = 'val = [\n    1234,\n    5678\n]\nw = val[2]'
     expect(lines(source).map((l) => l.line)).toEqual([1, 5])
     expect(lineAt(source, 5).tex).toContain('5678')
   })

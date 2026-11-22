@@ -46,9 +46,9 @@ describe('when the hint shows', () => {
     expect(shown(state)).toBe(false)
   })
 
-  it('doesn’t open just because the cursor is in a call (a long @series’ values, edited)', () => {
-    const state = stateOf('t = @series(\n    1.0 s,\n    2.0 s')
-    expect(shown(state.update({ selection: { anchor: 20 } }).state)).toBe(false)
+  it('doesn’t open just because the cursor is in a call (a long @table’s columns, edited)', () => {
+    const state = stateOf('@table(\n    t,\n    x')
+    expect(shown(state.update({ selection: { anchor: 14 } }).state)).toBe(false)
   })
 })
 
@@ -57,9 +57,9 @@ describe('which parameter is bold', () => {
     const max = { name: 'max', params: ['a', 'b', '…'] }
     expect(currentParameter(max, { callee: 'max', argument: 1, inSettings: false })).toBe(1)
     expect(currentParameter(max, { callee: 'max', argument: 5, inSettings: false })).toBe(2)
-    const series = { name: '@series', params: ['F / g'], settings: 'rows 5-20' }
-    expect(currentParameter(series, { callee: '@series', argument: 4, inSettings: false })).toBeUndefined()
-    expect(currentParameter(series, { callee: '@series', argument: 0, inSettings: true })).toBeUndefined()
+    const series = { name: '@table', params: ['t'], settings: 'rows 5-20' }
+    expect(currentParameter(series, { callee: '@table', argument: 4, inSettings: false })).toBeUndefined()
+    expect(currentParameter(series, { callee: '@table', argument: 0, inSettings: true })).toBeUndefined()
   })
 })
 

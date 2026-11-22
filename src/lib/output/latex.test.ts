@@ -128,7 +128,7 @@ describe('page and title', () => {
 })
 
 describe('plots', () => {
-  const data = 't1 = 0.10 s\nt2 = 0.20 s\nt3 = 0.30 s\nx1 = 0.05 m pm 0.01 m\nx2 = 0.10 m pm 0.01 m\nx3 = 0.16 m pm 0.01 m\n'
+  const data = 't = [0.10 s, 0.20 s, 0.30 s]\nx = [0.05 m pm 0.01 m, 0.10 m pm 0.01 m, 0.16 m pm 0.01 m]\n'
 
   it('are pgfplots graphs, with pgfplots loaded only when there is one', () => {
     expect(exportOf('x = 1')).not.toContain('pgfplots')

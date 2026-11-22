@@ -54,7 +54,7 @@ export function dataUncertainty(c: CsvColumn, x: number, text: string): { unc: u
  */
 export const madeColumns = new WeakMap<CsvColumn, DataValue[] & { range: { lowest: DataValue; highest: DataValue } }>()
 
-/** A column's values, as variables: t_1, t_2, …, with the column's unit and their sig figs as typed. */
+/** A column's values, as variables: t[1], t[2], … (t__1, t__2), with the column's unit and their sig figs as typed. */
 export function columnValues(c: CsvColumn) {
   const made = madeColumns.get(c)
   if (made) return made

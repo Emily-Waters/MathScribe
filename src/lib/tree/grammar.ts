@@ -80,10 +80,10 @@ export interface Body {
  * bracket open, in any context (stream.ts): the lines carrying it on, up to the
  * one closing its brackets.
  *
- *   val = @series(
+ *   val = [
  *       1234,
  *       5678
- *   )
+ *   ]
  */
 export const CONTINUED: Body = { node: NODE_KIND.continued, context: LINE_CONTEXT.continued, ends: BODY_END.brackets }
 

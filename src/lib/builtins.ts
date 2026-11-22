@@ -345,7 +345,7 @@ export const BUILTINS = new Namespace('', 'Built in', [
   ...Object.entries(BUILTIN_CONSTANTS).map(([name, c]) => new ConstantMember(name, c)),
   new TupleFunction(),
   new InvFunction(),
-  new LineFormMember(CALL.import, '"file.csv"', 'Import a CSV file: each value becomes a variable, x_1, x_2, …',
+  new LineFormMember(CALL.import, '"file.csv"', 'Import a CSV file: each column becomes a series, x, its values x[1], x[2], …',
     '@import("run1.csv"), or run1 = @import("run1.csv"), with the file’s rows indented under it'),
   new Namespace(NAMESPACE.layout, 'Blocks that arrange lines (text, list, numbered, center, titlepage) or set how they’re shown (hidden, sym, val, multiline, …)', [
     ...LAYOUT_STYLE.words.map((style) => new LayoutMember(style, LAYOUT_DESCRIPTIONS[style])),

@@ -54,5 +54,8 @@ export const NAMED = src`(?:${named('name', NAME)}\s*=\s*)`
 /** Between a namespace and its member, as typed: a.x_1. */
 export const MEMBER_DOT = '.'
 
-/** Between a series' name and a member's number: t_1. */
+/** Before a subscript in a name, `v_0`; it's part of the name (v_0 is a name of its own, not a member of v). */
 export const SUBSCRIPT = '_'
+
+/** Around a series' member's number, as typed: t[3]. */
+export const MEMBER_INDEX = { open: '[', close: ']' } as const

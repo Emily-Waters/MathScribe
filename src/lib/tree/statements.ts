@@ -7,10 +7,10 @@
  * anything else reading a sheet take a statement as the tree has it, rather than
  * each joining its lines, or laying out its tokens, again:
  *
- *   val = @series(       its lines        the four lines' nodes
+ *   val = [              its lines        the four lines' nodes
  *       1234,            its tokens       every token, at any depth, each where it is
- *       5678,            its text         `val = @series( 1234, 5678 )  # the readings`
- *   )  # the readings    what it says     its body, #commands and note, as one line's
+ *       5678,            its text         `val = [ 1234, 5678 ]  # the readings`
+ *   ]  # the readings    what it says     its body, #commands and note, as one line's
  *
  * Each line keeps its own tokens (the editor reads a sheet a line at a time), and
  * those are the ones the line has as part of the statement (lexer.ts lexTail):
@@ -43,7 +43,7 @@ export interface Statement {
    * continued line's lines' text joined by a space, at its first line's
    * indentation, comments left out, and a trailing comma before a closing
    * bracket (`5678,` then `)`) left out, as a call on one line can't have one.
-   * (A note stays where it's written, `@series(  # readings 1234, …`: what the
+   * (A note stays where it's written, `[  # readings 1234, …`: what the
    * engine works out is `noted`'s body.)
    */
   readonly text: string

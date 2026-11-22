@@ -91,10 +91,10 @@ Powers are ^. The functions of maths: sqrt, sin, cos, tan, asin, acos, atan, ata
 | `tau` | τ = 2π |
 | `phi` | The golden ratio ≈ 1.61803 |
 
-- Everything mathjs has works, matrices (\[1, 2; 3, 4\]) too.
+- Everything mathjs has works, except matrices: square brackets make a series, \[1.0 s, 2.0 s\].
 - pi, e and the like stay symbols in substitution steps, and so does a variable made only of numbers and them: after theta = pi/4, sin(theta) shows sin(π/4).
 - sin, cos and tan of exact angles are exact: sin(pi) is 0, sin(30 deg) is 0.5.
-- A series doesn't take a built-in constant's name: with e1 and e2 defined, e is still Euler's number (e\_avg is the series' mean).
+- A name of your own with a number or subscript is a name of its own: with e1 and e\_1 defined, e is still Euler's number.
 - phi and tau are built in too (the golden ratio, 2π): define them before using them as names of your own.
 - atan2(y, x) takes coordinates with units, as long as they match: atan2(1.0 m, 2.0 m).
 
@@ -104,7 +104,7 @@ A = pi * r^2
 h = sqrt(2 * 9.81 m/s^2 * 1.20 m)
 ```
 
-@ starts everything built in rather than written in the sheet: constants (@c), the @constants \{ \} block, MathScribe's own functions (@tuple, @series, @table, @plot, @solve, …) and namespaces, whose members are written with a dot (@layout.text, @chem.substance). mathjs's maths isn't (sin, sqrt, norm).
+@ starts everything built in rather than written in the sheet: constants (@c), the @constants \{ \} block, MathScribe's own functions (@tuple, @table, @plot, @solve, …) and namespaces, whose members are written with a dot (@layout.text, @chem.substance). mathjs's maths isn't (sin, sqrt, norm).
 
 - The names of MathScribe's functions are free for your own: tuple(a, b) = … defines a function of yours.
 - Your own constants are @name too, so they can't be called layout, chem, constants, or one of MathScribe's functions.
@@ -152,14 +152,13 @@ A line starting with \> is a paragraph of text.
 \{\{name\}\} in prose or a heading puts in a variable's value as worked out above it, with its unit and sig figs. Settings and to work in it: \{\{V:3 to L\}\}.
 
 - Don't type a worked-out number into prose: write \{\{name\}\}, so it stays right.
-- Any expression works: \{\{2 \* m\}\}, \{\{delta F\}\}, \{\{a.x\_1\}\}; and settings (\{\{x:3\}\}, \{\{x:sci\}\}) and to.
+- Any expression works: \{\{2 \* m\}\}, \{\{delta F\}\}, \{\{t\[1\]\}\}, \{\{t.avg\}\}; and settings (\{\{x:3\}\}, \{\{x:sci\}\}) and to.
 - A value is worked out where the text is, so it must be defined above it: one that isn't is marked as an error, and left as typed.
 - Inside \$…\$, \{\{…\}\} is left alone. In the exports, each value is inline maths.
 
 ```
-T1 = 1.21 s
-T2 = 1.17 s
-> The mean period was {{T_avg}}.
+T = [1.21 s, 1.17 s]
+> The mean period was {{T.avg}}.
 ```
 
 @latex \{ … \} is raw LaTeX, displayed but not calculated.
@@ -190,18 +189,18 @@ n_X = 0.00120 mol
 n_Ca:"Moles of {Ca^2+} in {{V_s}}" = n_X / 6
 ```
 
-A line that leaves a ( or \[ open carries on over the lines after it, up to the one that closes it, so a long @series, @table or @plot (or any call, or a matrix) can list one thing a line.
+A line that leaves a ( or \[ open carries on over the lines after it, up to the one that closes it, so a long series, @table or @plot (or any call) can list one thing a line.
 
 - The lines inside are indented further than the first; the closing bracket can be under the first line. A blank line, or one not indented further, ends it.
 - A trailing comma before the closing bracket is fine (the formatter takes it out). \#commands and notes can go on any of its lines.
 - The formatter (Ctrl+Shift+F, or saving) lays it out so.
 
 ```
-t = @series(
+t = [
     1.52 s,
     1.48 s,
     1.55 s
-)
+]
 ```
 
 Title \{ … \} is a block. Variables assigned inside are local to it.
@@ -424,38 +423,39 @@ delta v / v
 
 ## Repeated measurements
 
-Numbered variables form a series: t\_avg is the mean ± standard error, t\_count the count, t the sum.
+A series is measurements under one name, t = \[1.21 s, 1.17 s, 1.24 s\] (or a column of @import, @table or @select). t on its own is the series; t\[2\] is one of its values, and its statistics are members of it: t.avg is the mean ± standard error, t.count the count, t.sum the sum.
 
 | Written | Does |
 | --- | --- |
-| `t` | Sum of the series |
-| `t_avg` | Mean, ± the standard error |
-| `t_count` | Number of values |
-| `t_std` | Sample standard deviation |
-| `t_sem` | Standard error of the mean |
+| `t` | The series: its values, listed |
+| `t[1]` | One of its values, by its number |
+| `t[2:4]` | A slice: from, to and step, any left out |
+| `t.avg` | Mean, ± the standard error |
+| `t.count` | Number of values |
+| `t.sum` | Sum of the series |
+| `t.std` | Sample standard deviation |
+| `t.sem` | Standard error of the mean |
 
-- T1, T2, … (or T\_1, T\_2) form a series T: T\_avg, T\_std, T\_sem, T\_count and T each show their working on a line of their own.
-- t1 and t\_1 are the same name, whichever is written.
-- Each on its own line shows its working: Σ notation, the members and their values. They're worked out each time they're used, so a t6 added later counts.
-- A variable of your own with the name wins: after t = 9.0 s, t is that, though t\_avg is still the mean.
-- The sum carries the members' pm uncertainties; the mean's is σ/√n, from their spread. delta t\_avg shows its working. Every use of a mean shares one source, so t\_avg twice in a formula is correlated.
+- A name is only a series if something made it one: v\_0, t\_1 and t1 are names of their own, and never make or join a series.
+- On a line of its own, t lists its values, and t.avg, t.std, t.sem, t.count and t.sum each show their working: Σ notation, the members and their values. They're worked out from the series as it is then.
+- In a formula a series isn't one value: use one of its values, t\[2\], or a statistic, t.avg; or work out a new series from it, \[2 \* t\].
+- The sum carries the members' pm uncertainties; the mean's is σ/√n, from their spread. delta t.avg shows its working. Every use of a mean shares one source, so t.avg twice in a formula is correlated.
 - Members must have compatible units; results are in the first member's unit.
-- A name matching one numbered variable is a series of one: psi, with psi\_200 defined.
 
 ```
-t_1 = 1.21 s
-t_2 = 1.17 s
-t_3 = 1.24 s
-t_avg
-t_count
+t = [1.21 s, 1.17 s, 1.24 s]
 t
+t.avg
+t.count
+t.sum
+t[2]
 ```
 
-@import() opens a file chooser for a CSV file. Its rows go into the sheet under the line, folded away, and each value becomes a variable named for its column and row: t\_1, t\_2, …. A unit in a header, t (s), goes with that column.
+@import() opens a file chooser for a CSV file. Its rows go into the sheet under the line, folded away, and each column becomes a series named for it: t, its values t\[1\], t\[2\], …. A unit in a header, t (s), goes with that column.
 
 - The first row names the columns; a unit in brackets, t (s) or t \[s\], goes with every value in it. Values keep their sig figs as typed; commas, tabs or semicolons separate them, and empty cells are skipped.
 - A column dx (or δx, σx, delta\_x, sigma\_x, x\_unc, x\_err) holds x's uncertainties, each row's as if typed with pm, in its own unit or x's; dx (%) is a percentage. It makes no variables of its own.
-- Name an import (run1 = @import(…)) to keep two files apart: run1.x\_avg.
+- Name an import (run1 = @import(…)) to keep two files apart: run1.x, run1.x.avg, run1.x\[3\].
 - The data is kept in the sheet, and left out of the exports.
 
 ```
@@ -464,11 +464,11 @@ t
     1.21, 3.50
     1.17, 3.48
     1.24, 3.52
-t_avg
-v = d_2 / t_2
+t.avg
+v = d[2] / t[2]
 ```
 
-@table(…) shows series side by side, a row per number. name = … works out a column row by row, and makes it a series of its own (v\_1, v\_2, …), so v\_avg works afterwards.
+@table(…) shows series side by side, a row per number. name = … works out a column row by row, and makes it a series of its own (v\[1\], v\[2\], …), so v.avg works afterwards.
 
 - A unit every value shares goes in the header; a value with an uncertainty shows as 3.0 ± 0.1; a row a series doesn't have shows —.
 - An expression without a name (@table(x / t)) is just shown.
@@ -477,69 +477,113 @@ v = d_2 / t_2
 - In the exports it's a table, its title a numbered caption above it: in LaTeX a table float (tabularx), in Word a Word table, its header on each page.
 
 ```
-t1 = 1.21 s
-t2 = 1.17 s
-t3 = 1.24 s
-d1 = 3.50 m
-d2 = 3.48 m
-d3 = 3.52 m
+t = [1.21 s, 1.17 s, 1.24 s]
+d = [3.50 m, 3.48 m, 3.52 m]
 @table(t, d, v = d / t)
-v_avg
+v.avg
 ```
 
-@series(…) makes a series on one line: its values listed (F\_1, F\_2, F\_3), or a rule worked out row by row from other series, with any other name used as it is. Series of different lengths use the rows they all have (with a warning); ; rows 2-5 works out just those.
+Square brackets make a series: its values listed, F = \[2.00 N, 3.00 N\], or a rule worked out row by row from other series, m = \[F / g\], with any other name used as it is. Series of different lengths use the rows they all have, with a warning.
 
-- Each value is worked out as if typed on a line of its own, so units, sig figs, pm and settings on the name (m:3 = @series(F / g)) work.
+- Each value is worked out as if typed on a line of its own, so units, sig figs, pm and settings on the name (m:3 = \[F / g\]) work.
 - In a rule, a series' name is that row's value, and any other name is used as it is (its uncertainty from one source).
-- It keeps the rows of the series it's from, so @table(d, t, v) lines up; if they have different rows, a warning says so, and ; rows … chooses.
+- It keeps the rows of the series it's from, so @table(d, t, v) lines up; if they have different rows, a warning says so: slice them to choose, \[d\[1:3\] / t\[1:3\]\].
+- Square brackets are only for series (and their members): there are no matrices.
 - Making a series again replaces it. Its line shows the values (the first three and last two of a long one); \#sym the rule, \#val the values.
 
 ```
-F = @series(2.00 N, 3.00 N, 10.0 N)
+F = [2.00 N, 3.00 N, 10.0 N]
 g_0 = 9.81 m/s^2 pm 0.02 m/s^2
-m = @series(F / g_0)
-m_avg
+m = [F / g_0]
+m.avg
 ```
 
-@plot(x axis, y series…) draws one series against another, with error bars for uncertainties. fit linear adds a best-fit line and its equation, and makes its slope and intercept variables: x\_slope, x\_intercept. Its settings, after a semicolon, are listed under Plot settings; the ⚙ after it sets them too.
+A range makes a series from where it starts to where it ends (both kept), by a step: t = \[0 s:2.0 s:0.5 s\]. Without a step, it counts by 1: n = \[1:5\].
+
+- Its values have as many decimal places as its start, end and step: \[0 s:2.0 s:0.1 s\] is 0.0 s, 0.1 s, …, 2.0 s.
+- The end and step can be in other units than the start (they're converted to it): \[0 s:500 ms:100 ms\].
+- A negative step counts down: \[10:0:-2\]. The start and end must be given.
+
+```
+t = [0 s:2.0 s:0.5 s]
+n = [1:5]
+k = [10:0:-2]
+```
+
+A slice takes some of a series' values, by their numbers: m\[2:4\] is m\[2\], m\[3\] and m\[4\]. Its parts are from, to (both kept) and step, and any can be left out: m\[3:\] to the end, m\[:2\] from the start, m\[::2\] every other one.
+
+- A slice is a series of its own, numbered from 1: after z = m\[2:4\], z\[1\] is m\[2\].
+- It looks its values up rather than copying them, so z\[1\] - m\[2\] is exactly 0, and it changes as m does.
+- It works wherever a series does: m\[2:4\].avg, @table(m\[2:4\]), @plot(t\[2:\], x\[2:\]), \[d\[2:3\] / t\[2:3\]\].
+
+```
+m = [1.0 kg, 2.0 kg, 3.0 kg, 4.0 kg, 5.0 kg]
+z = m[2:4]
+z[1]
+m[::2]
+m[3:].avg
+```
+
+@plot(x axis, y series…) draws one series against another, with error bars for uncertainties. fit linear adds a best-fit line and its equation, and makes its slope and intercept members of the series: x.slope, x.intercept. Its settings, after a semicolon, are listed under Plot settings; the ⚙ after it sets them too.
 
 - A named plot keeps its fit: p = @plot(x, y; fit linear), then p.slope, p.intercept and p.r2.
 - Each axis is labelled with its name and unit; every y series must be in units that convert to the first one's.
 - When every point has a y uncertainty the fit is weighted (each by 1/δy²), and the reduced χ²\_ν is shown: about 1 when the points scatter as their bars say. Otherwise its uncertainties come from the scatter.
 - In a weighted fit x uncertainties count too, by the effective variance, 1/(δy² + (slope · δx)²); the line under the graph says which were used.
 - What's on the axes is what's plotted: a point outside an axis's range isn't drawn, fitted, or in a named plot's series.
-- With several series, each fit has its own: p.x\_slope, p.y\_slope. An unnamed plot makes x\_slope and x\_intercept.
+- With several series, each fit has its own: p.x.slope, p.y.slope. An unnamed plot makes x.slope and x.intercept.
 - In LaTeX a plot is a pgfplots graph; in Word, a picture.
 
 ```
-t1 = 0.10 s
-t2 = 0.20 s
-t3 = 0.30 s
-t4 = 0.40 s
-x1 = 0.051 m pm 0.004 m
-x2 = 0.098 m pm 0.004 m
-x3 = 0.152 m pm 0.004 m
-x4 = 0.199 m pm 0.004 m
+t = [0.10 s, 0.20 s, 0.30 s, 0.40 s]
+x = [0.051 m pm 0.004 m, 0.098 m pm 0.004 m, 0.152 m pm 0.004 m, 0.199 m pm 0.004 m]
 @plot(t, x; fit linear)
-v = x_slope
+v = x.slope
+```
+
+Datasets with x values of their own go on one plot each in brackets, (x, y): @plot((t1, x1), (t2, x2)) draws two runs timed at different moments. Each is its own series, in the legend, with its own fit.
+
+- What follows a dataset in brackets, up to the next, is plotted against its x too: @plot((t1, x1, y1), (t2, x2)).
+- @plot(t, x, y) is still one dataset, x and y against t; it can be followed by others: @plot(t, x, (t2, x2)).
+- Every x must be in units that convert to the first one's, and every y to the first y's.
+- The x axis is named for its x if every dataset has the same one; otherwise by its unit (or xlabel "…").
+- A named plot keeps each dataset's rows: p.t1, p.x1, p.t2, p.x2; and each fit by its series: p.x1.slope.
+- A bracket that's only an expression, (x1 + x2) / 2, is a column worked out row by row as before.
+
+```
+t1 = [0.10 s, 0.20 s, 0.30 s]
+x1 = [1.0 m pm 0.1 m, 2.1 m pm 0.1 m, 2.9 m pm 0.1 m]
+t2 = [0.15 s, 0.25 s, 0.35 s, 0.45 s]
+x2 = [1.4 m pm 0.1 m, 2.4 m pm 0.1 m, 3.6 m pm 0.1 m, 4.4 m pm 0.1 m]
+p = @plot((t1, x1), (t2, x2); fit linear, legend top left)
+p.x1.slope
+p.x2.slope
+```
+
+A function of the sheet's, by its name alone, is drawn as a curve across the plot, beside the data: a model to compare the measurements with, @plot(L, T, T\_model). With no data plotted, @plot(t, f) draws f from t's least value to its greatest.
+
+- The function takes one value, the x axis's, in its unit: T\_model(L) = … for an x axis of lengths.
+- Its values share the y axis with the data, so their units must convert to the data's.
+- It's drawn across the x axis the data make (or the settings' x from … to …), and can be coloured like a series' line: colour T\_model line red. It has no points, error bars or fit.
+- f(t), with brackets, is a column worked out row by row instead, as in @table: a point for each of t's values.
+
+```
+L = [0.20 m, 0.40 m, 0.60 m, 0.80 m]
+T = [0.90 s pm 0.02 s, 1.27 s pm 0.02 s, 1.55 s pm 0.02 s, 1.79 s pm 0.02 s]
+T_model(L) = 2 * pi * sqrt(L / @g)
+@plot(L, T, T_model)
 ```
 
 @select(…) keeps the rows where its conditions hold, as new series under a name: a.t, a.x, numbered from 1. A named plot keeps its fit the same way: p.slope, p.intercept. Name an import too, run1 = @import(…), to keep two files apart.
 
 - Its conditions all hold: t from 0.2 to 0.8 (either end can go), x to 0.16, rows 5-20. A bare number is in the series' unit, or give one: t from 250 ms.
 - In a condition a name means the selected series of that name first: @select(run1.t, run1.x; t from 0.2).
-- A selection doesn't copy: a.x\_1 is x\_2, with its sig figs and uncertainty, so x\_2 - a.x\_1 is exactly 0. a.x is shown x\_a.
-- Names with a dot work alike wherever they're made: a selection, a named import (run1.x\_3), a named plot (p.x, p.slope). Typing a name and a dot suggests what it holds.
+- A selection doesn't copy: a.x\[1\] is x\[2\], with its sig figs and uncertainty, so x\[2\] - a.x\[1\] is exactly 0. a.x is shown x\_a.
+- Names with a dot work alike wherever they're made: a selection, a named import (run1.x\[3\]), a named plot (p.x, p.slope). Typing a name and a dot suggests what it holds.
 
 ```
-t1 = 0.10 s
-t2 = 0.20 s
-t3 = 0.30 s
-t4 = 0.40 s
-x1 = 0.020 m
-x2 = 0.098 m
-x3 = 0.152 m
-x4 = 0.199 m
+t = [0.10 s, 0.20 s, 0.30 s, 0.40 s]
+x = [0.020 m, 0.098 m, 0.152 m, 0.199 m]
 a = @select(t, x; t from 0.2)
 p = @plot(a.t, a.x; fit linear)
 v = p.slope
@@ -550,72 +594,72 @@ v = p.slope
 @table(…)'s settings go after a semicolon in its brackets, separated by commas: @table(…; lines header, numbers off). Leave out any as it is by itself. Its ⚙ in the editor sets them too.
 
 ```
-t = @series(0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s)
-x = @series(0.051 m pm 0.004 m, 0.098 m pm 0.004 m, 0.152 m pm 0.004 m, 0.199 m pm 0.004 m, 0.248 m pm 0.004 m, 0.301 m pm 0.004 m)
-salts = @series("KCl", "KBr", "KI", "NaCl", "NaBr", "NaI")
+t = [0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s]
+x = [0.051 m pm 0.004 m, 0.098 m pm 0.004 m, 0.152 m pm 0.004 m, 0.199 m pm 0.004 m, 0.248 m pm 0.004 m, 0.301 m pm 0.004 m]
+salts = ["KCl", "KBr", "KI", "NaCl", "NaBr", "NaI"]
 @table(t, x; lines header, numbers off)
 ```
 
 `rows 5-20`: Only these rows: rows 5-20, rows 5- (from 5 on), rows -20 (up to 20), rows 7.
 
 ```
-t = @series(0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s)
-x = @series(0.051 m pm 0.004 m, 0.098 m pm 0.004 m, 0.152 m pm 0.004 m, 0.199 m pm 0.004 m, 0.248 m pm 0.004 m, 0.301 m pm 0.004 m)
-salts = @series("KCl", "KBr", "KI", "NaCl", "NaBr", "NaI")
+t = [0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s]
+x = [0.051 m pm 0.004 m, 0.098 m pm 0.004 m, 0.152 m pm 0.004 m, 0.199 m pm 0.004 m, 0.248 m pm 0.004 m, 0.301 m pm 0.004 m]
+salts = ["KCl", "KBr", "KI", "NaCl", "NaBr", "NaI"]
 @table(t, x; rows 5-20)
 ```
 
 `lines header`: How its lines are drawn. header: a line under the header, and after the row headers; grid: a line around every cell (as it is by itself); none: no lines.
 
 ```
-t = @series(0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s)
-x = @series(0.051 m pm 0.004 m, 0.098 m pm 0.004 m, 0.152 m pm 0.004 m, 0.199 m pm 0.004 m, 0.248 m pm 0.004 m, 0.301 m pm 0.004 m)
-salts = @series("KCl", "KBr", "KI", "NaCl", "NaBr", "NaI")
+t = [0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s]
+x = [0.051 m pm 0.004 m, 0.098 m pm 0.004 m, 0.152 m pm 0.004 m, 0.199 m pm 0.004 m, 0.248 m pm 0.004 m, 0.301 m pm 0.004 m]
+salts = ["KCl", "KBr", "KI", "NaCl", "NaBr", "NaI"]
 @table(t, x; lines header)
 ```
 
 `numbers off`: Row numbers down the side; numbers off leaves them out.
 
 ```
-t = @series(0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s)
-x = @series(0.051 m pm 0.004 m, 0.098 m pm 0.004 m, 0.152 m pm 0.004 m, 0.199 m pm 0.004 m, 0.248 m pm 0.004 m, 0.301 m pm 0.004 m)
-salts = @series("KCl", "KBr", "KI", "NaCl", "NaBr", "NaI")
+t = [0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s]
+x = [0.051 m pm 0.004 m, 0.098 m pm 0.004 m, 0.152 m pm 0.004 m, 0.199 m pm 0.004 m, 0.248 m pm 0.004 m, 0.301 m pm 0.004 m]
+salts = ["KCl", "KBr", "KI", "NaCl", "NaBr", "NaI"]
 @table(t, x; numbers off)
 ```
 
 `labels salts`: A series' values down the side, in the row numbers' place.
 
 ```
-t = @series(0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s)
-x = @series(0.051 m pm 0.004 m, 0.098 m pm 0.004 m, 0.152 m pm 0.004 m, 0.199 m pm 0.004 m, 0.248 m pm 0.004 m, 0.301 m pm 0.004 m)
-salts = @series("KCl", "KBr", "KI", "NaCl", "NaBr", "NaI")
+t = [0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s]
+x = [0.051 m pm 0.004 m, 0.098 m pm 0.004 m, 0.152 m pm 0.004 m, 0.199 m pm 0.004 m, 0.248 m pm 0.004 m, 0.301 m pm 0.004 m]
+salts = ["KCl", "KBr", "KI", "NaCl", "NaBr", "NaI"]
 @table(t, x; labels salts)
 ```
 
 `uncertainty off`: Each value with ± its uncertainty; uncertainty off shows the values alone.
 
 ```
-t = @series(0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s)
-x = @series(0.051 m pm 0.004 m, 0.098 m pm 0.004 m, 0.152 m pm 0.004 m, 0.199 m pm 0.004 m, 0.248 m pm 0.004 m, 0.301 m pm 0.004 m)
-salts = @series("KCl", "KBr", "KI", "NaCl", "NaBr", "NaI")
+t = [0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s]
+x = [0.051 m pm 0.004 m, 0.098 m pm 0.004 m, 0.152 m pm 0.004 m, 0.199 m pm 0.004 m, 0.248 m pm 0.004 m, 0.301 m pm 0.004 m]
+salts = ["KCl", "KBr", "KI", "NaCl", "NaBr", "NaI"]
 @table(t, x; uncertainty off)
 ```
 
 `all rows`: Every row, even in a long table (one is normally shortened).
 
 ```
-t = @series(0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s)
-x = @series(0.051 m pm 0.004 m, 0.098 m pm 0.004 m, 0.152 m pm 0.004 m, 0.199 m pm 0.004 m, 0.248 m pm 0.004 m, 0.301 m pm 0.004 m)
-salts = @series("KCl", "KBr", "KI", "NaCl", "NaBr", "NaI")
+t = [0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s]
+x = [0.051 m pm 0.004 m, 0.098 m pm 0.004 m, 0.152 m pm 0.004 m, 0.199 m pm 0.004 m, 0.248 m pm 0.004 m, 0.301 m pm 0.004 m]
+salts = ["KCl", "KBr", "KI", "NaCl", "NaBr", "NaI"]
 @table(t, x; all rows)
 ```
 
 `title "…"`: Its caption, quoted so it can hold commas: title "Reactivity of the halogens".
 
 ```
-t = @series(0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s)
-x = @series(0.051 m pm 0.004 m, 0.098 m pm 0.004 m, 0.152 m pm 0.004 m, 0.199 m pm 0.004 m, 0.248 m pm 0.004 m, 0.301 m pm 0.004 m)
-salts = @series("KCl", "KBr", "KI", "NaCl", "NaBr", "NaI")
+t = [0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s]
+x = [0.051 m pm 0.004 m, 0.098 m pm 0.004 m, 0.152 m pm 0.004 m, 0.199 m pm 0.004 m, 0.248 m pm 0.004 m, 0.301 m pm 0.004 m]
+salts = ["KCl", "KBr", "KI", "NaCl", "NaBr", "NaI"]
 @table(t, x; title "…")
 ```
 
@@ -624,104 +668,104 @@ salts = @series("KCl", "KBr", "KI", "NaCl", "NaBr", "NaI")
 @plot(…)'s settings go after a semicolon in its brackets, separated by commas: @plot(…; style both, fit linear). Leave out any as it is by itself. Its ⚙ in the editor sets them too.
 
 ```
-t = @series(0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s)
-x = @series(0.051 m pm 0.004 m, 0.098 m pm 0.004 m, 0.152 m pm 0.004 m, 0.199 m pm 0.004 m, 0.248 m pm 0.004 m, 0.301 m pm 0.004 m)
+t = [0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s]
+x = [0.051 m pm 0.004 m, 0.098 m pm 0.004 m, 0.152 m pm 0.004 m, 0.199 m pm 0.004 m, 0.248 m pm 0.004 m, 0.301 m pm 0.004 m]
 @plot(t, x; style both, fit linear)
 ```
 
 `rows 5-20`: Only these rows: rows 5-20, rows 5- (from 5 on), rows -20 (up to 20), rows 7.
 
 ```
-t = @series(0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s)
-x = @series(0.051 m pm 0.004 m, 0.098 m pm 0.004 m, 0.152 m pm 0.004 m, 0.199 m pm 0.004 m, 0.248 m pm 0.004 m, 0.301 m pm 0.004 m)
+t = [0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s]
+x = [0.051 m pm 0.004 m, 0.098 m pm 0.004 m, 0.152 m pm 0.004 m, 0.199 m pm 0.004 m, 0.248 m pm 0.004 m, 0.301 m pm 0.004 m]
 @plot(t, x; fit linear, rows 5-20)
 ```
 
 `style both`: How its rows are drawn. points: each row a point (as it is by itself); lines: a line joining the rows, without their points; both: the points, joined by a line.
 
 ```
-t = @series(0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s)
-x = @series(0.051 m pm 0.004 m, 0.098 m pm 0.004 m, 0.152 m pm 0.004 m, 0.199 m pm 0.004 m, 0.248 m pm 0.004 m, 0.301 m pm 0.004 m)
+t = [0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s]
+x = [0.051 m pm 0.004 m, 0.098 m pm 0.004 m, 0.152 m pm 0.004 m, 0.199 m pm 0.004 m, 0.248 m pm 0.004 m, 0.301 m pm 0.004 m]
 @plot(t, x; fit linear, style both)
 ```
 
 `fit linear`: A line fitted to the points. none: no fit (as it is by itself); linear: a best-fit line, its equation under the plot, its slope and intercept variables.
 
 ```
-t = @series(0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s)
-x = @series(0.051 m pm 0.004 m, 0.098 m pm 0.004 m, 0.152 m pm 0.004 m, 0.199 m pm 0.004 m, 0.248 m pm 0.004 m, 0.301 m pm 0.004 m)
+t = [0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s]
+x = [0.051 m pm 0.004 m, 0.098 m pm 0.004 m, 0.152 m pm 0.004 m, 0.199 m pm 0.004 m, 0.248 m pm 0.004 m, 0.301 m pm 0.004 m]
 @plot(t, x; fit linear)
 ```
 
 `x from 0 to 10`, `log x`: The x axis's range (either end may be left out, to fit the data) and, with log x, a logarithmic scale.
 
 ```
-t = @series(0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s)
-x = @series(0.051 m pm 0.004 m, 0.098 m pm 0.004 m, 0.152 m pm 0.004 m, 0.199 m pm 0.004 m, 0.248 m pm 0.004 m, 0.301 m pm 0.004 m)
+t = [0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s]
+x = [0.051 m pm 0.004 m, 0.098 m pm 0.004 m, 0.152 m pm 0.004 m, 0.199 m pm 0.004 m, 0.248 m pm 0.004 m, 0.301 m pm 0.004 m]
 @plot(t, x; fit linear, x from 0 to 10, log x)
 ```
 
 `y from 0 to 10`, `log y`: The y axis's range and, with log y, a logarithmic scale.
 
 ```
-t = @series(0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s)
-x = @series(0.051 m pm 0.004 m, 0.098 m pm 0.004 m, 0.152 m pm 0.004 m, 0.199 m pm 0.004 m, 0.248 m pm 0.004 m, 0.301 m pm 0.004 m)
+t = [0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s]
+x = [0.051 m pm 0.004 m, 0.098 m pm 0.004 m, 0.152 m pm 0.004 m, 0.199 m pm 0.004 m, 0.248 m pm 0.004 m, 0.301 m pm 0.004 m]
 @plot(t, x; fit linear, y from 0 to 10, log y)
 ```
 
 `xlabel "Extension"`: The x axis’s name, in place of its series’ (its unit is still added: Extension \[m\]).
 
 ```
-t = @series(0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s)
-x = @series(0.051 m pm 0.004 m, 0.098 m pm 0.004 m, 0.152 m pm 0.004 m, 0.199 m pm 0.004 m, 0.248 m pm 0.004 m, 0.301 m pm 0.004 m)
+t = [0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s]
+x = [0.051 m pm 0.004 m, 0.098 m pm 0.004 m, 0.152 m pm 0.004 m, 0.199 m pm 0.004 m, 0.248 m pm 0.004 m, 0.301 m pm 0.004 m]
 @plot(t, x; fit linear, xlabel "Extension")
 ```
 
 `ylabel "Force"`: The y axis’s name, in place of its series’ (its unit is still added: Force \[N\]).
 
 ```
-t = @series(0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s)
-x = @series(0.051 m pm 0.004 m, 0.098 m pm 0.004 m, 0.152 m pm 0.004 m, 0.199 m pm 0.004 m, 0.248 m pm 0.004 m, 0.301 m pm 0.004 m)
+t = [0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s]
+x = [0.051 m pm 0.004 m, 0.098 m pm 0.004 m, 0.152 m pm 0.004 m, 0.199 m pm 0.004 m, 0.248 m pm 0.004 m, 0.301 m pm 0.004 m]
 @plot(t, x; fit linear, ylabel "Force")
 ```
 
 `uncertainty off`: Error bars for the points' uncertainties; uncertainty off hides them.
 
 ```
-t = @series(0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s)
-x = @series(0.051 m pm 0.004 m, 0.098 m pm 0.004 m, 0.152 m pm 0.004 m, 0.199 m pm 0.004 m, 0.248 m pm 0.004 m, 0.301 m pm 0.004 m)
+t = [0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s]
+x = [0.051 m pm 0.004 m, 0.098 m pm 0.004 m, 0.152 m pm 0.004 m, 0.199 m pm 0.004 m, 0.248 m pm 0.004 m, 0.301 m pm 0.004 m]
 @plot(t, x; fit linear, uncertainty off)
 ```
 
 `equation off`: A fit's equation and R² under the plot; equation off leaves them out (its slope and intercept are still variables).
 
 ```
-t = @series(0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s)
-x = @series(0.051 m pm 0.004 m, 0.098 m pm 0.004 m, 0.152 m pm 0.004 m, 0.199 m pm 0.004 m, 0.248 m pm 0.004 m, 0.301 m pm 0.004 m)
+t = [0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s]
+x = [0.051 m pm 0.004 m, 0.098 m pm 0.004 m, 0.152 m pm 0.004 m, 0.199 m pm 0.004 m, 0.248 m pm 0.004 m, 0.301 m pm 0.004 m]
 @plot(t, x; fit linear, equation off)
 ```
 
 `legend top right`: Where its legend goes, listing each series and fit; without it, top left when there are several series. top left: in the top left corner; top right: in the top right corner; bottom left: in the bottom left corner; bottom right: in the bottom right corner; outside: beside the plot; off: none.
 
 ```
-t = @series(0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s)
-x = @series(0.051 m pm 0.004 m, 0.098 m pm 0.004 m, 0.152 m pm 0.004 m, 0.199 m pm 0.004 m, 0.248 m pm 0.004 m, 0.301 m pm 0.004 m)
+t = [0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s]
+x = [0.051 m pm 0.004 m, 0.098 m pm 0.004 m, 0.152 m pm 0.004 m, 0.199 m pm 0.004 m, 0.248 m pm 0.004 m, 0.301 m pm 0.004 m]
 @plot(t, x; fit linear, legend top right)
 ```
 
 `colour fit red`: A colour for every series' points (with their error bars), line or fit; colour F\_2 points green for one series'. One of black, grey, blue, red, green, orange, purple, teal, brown.
 
 ```
-t = @series(0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s)
-x = @series(0.051 m pm 0.004 m, 0.098 m pm 0.004 m, 0.152 m pm 0.004 m, 0.199 m pm 0.004 m, 0.248 m pm 0.004 m, 0.301 m pm 0.004 m)
+t = [0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s]
+x = [0.051 m pm 0.004 m, 0.098 m pm 0.004 m, 0.152 m pm 0.004 m, 0.199 m pm 0.004 m, 0.248 m pm 0.004 m, 0.301 m pm 0.004 m]
 @plot(t, x; colour fit red)
 ```
 
 `title "…"`: A title over the plot, quoted so it can hold commas: title "Run 1".
 
 ```
-t = @series(0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s)
-x = @series(0.051 m pm 0.004 m, 0.098 m pm 0.004 m, 0.152 m pm 0.004 m, 0.199 m pm 0.004 m, 0.248 m pm 0.004 m, 0.301 m pm 0.004 m)
+t = [0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s]
+x = [0.051 m pm 0.004 m, 0.098 m pm 0.004 m, 0.152 m pm 0.004 m, 0.199 m pm 0.004 m, 0.248 m pm 0.004 m, 0.301 m pm 0.004 m]
 @plot(t, x; fit linear, title "…")
 ```
 
@@ -1052,7 +1096,7 @@ m_s:massName(NaCl) = 5.85 g
 
 - A command goes before or after the note: F = m \* a  \#val  \# weight is F = m \* a  \# weight  \#val.
 - Commands combine: \#sym \#multiline.
-- On a line that's just a name (delta F, t\_avg), \#sym shows how it's worked out (δF = √(…)), and \#val its name and value.
+- On a line that's just a name (delta F, t.avg), \#sym shows how it's worked out (δF = √(…)), and \#val its name and value.
 - Only these words are commands: any other \#word (\#3) stays part of the note.
 
 ```

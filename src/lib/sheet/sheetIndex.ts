@@ -185,7 +185,7 @@ export function collectSymbols(sheet: Sheet, source: string): SheetSymbol[] {
 type Defined = readonly { name: string; members?: number }[]
 
 /**
- * A series' own name, `t` of `t = @series(…)`, for going to and renaming: its
+ * A series' own name, `t` of `t = […]`, for going to and renaming: its
  * hover is how many values it has and its first and last (`texOf`: a member's
  * value), not the whole line, which can be long.
  */

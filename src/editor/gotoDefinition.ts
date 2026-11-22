@@ -127,7 +127,7 @@ export function definitionAt(state: EditorState, pos: number): { from: number; t
     if (lineNo === here && above.length > 1) lineNo = above[above.length - 2]
   }
   if (!lineNo) return null
-  // (The name on its line, as a token: not a part of another name, `t` in `t_avg` or `@series`.)
+  // (The name on its line, as a token: not a part of another name, `t` in `t_0` or `@table`.)
   const at = nameTokens(state, lineNo).find((t) => t.name === target.name)
   const from = at?.from ?? state.doc.line(lineNo).from
   return { from, to: at?.to ?? from }
@@ -225,7 +225,7 @@ function renameSymbol(view: EditorView): boolean {
 /**
  * The changes that rename the name at `pos` to `replacement` (validated by the
  * rename panel): every use resolving to the same definition; for a series, its
- * members and statistics too (`t_1`, `t3`, `t_avg`). None if there's no name there.
+ * members and statistics too (`t[1]`, `t.avg`). None if there's no name there.
  */
 export function renameChanges(state: EditorState, pos: number, replacement: string): { from: number; to: number; insert: string }[] {
   const target = nameAt(state, pos)
@@ -233,7 +233,7 @@ export function renameChanges(state: EditorState, pos: number, replacement: stri
   const here = state.doc.lineAt(pos).number
   const nextName = replacement
 
-  // A series' members and statistics are its name and more, `t_1`, `t3`, `t_avg`: renamed with it.
+  // A series' members and statistics are its name and more, `t[1]`, `t.avg`: renamed with it.
   const symbol = target.symbol
   const isSeries = symbol?.kind === SYMBOL_KIND.variable && state.field(symbolsField)
     .some((s) => s.line === symbol.line && parseNumberedName(s.name)?.base === symbol.name)

@@ -38,7 +38,7 @@ describe('Greek letters in names', () => {
 
   it('work like any name: in products, series and functions', () => {
     expect(value('ΔE = 3.0 J\nx = 2ΔE')).toBe('6.0 J')
-    expect(value('Δt_1 = 1.0 s\nΔt_2 = 1.2 s\nΔt_avg')).toBe('(1.10 ± 0.10) s')
+    expect(value('Δt = [1.0 s, 1.2 s]\nΔt.avg')).toBe('(1.10 ± 0.10) s')
     expect(value('f(ω) = 2 * ω\ny = f(3.0)')).toBe('6.0')
     // A function named with a Greek letter, called with several arguments (not a bracketed list).
     const call = last('λ(L, n) = 2 * L / n\nL = 300.0 nm\nn1 = 2\nλ_1 = λ(L, n1)')
@@ -491,7 +491,7 @@ describe('#sci and #dec', () => {
 })
 
 describe('@table()', () => {
-  const data = 't1 = 0.10 s\nt2 = 0.20 s\nt3 = 0.30 s\nx1 = 0.012 m\nx2 = 0.047 m\nx3 = 0.106 m\n'
+  const data = 't = [0.10 s, 0.20 s, 0.30 s]\nx = [0.012 m, 0.047 m, 0.106 m]\n'
   /** A table's rows as readable text, header first. */
   // (Its rows, whatever its lines: a grid's, the default, end with a rule after the last.)
   const rowsOf = (tex: string) => tex.replace(/\\begin\{array\}\{[^}]*\}|\\end\{array\}|\\hline/g, '')
@@ -506,23 +506,23 @@ describe('@table()', () => {
   it('works out a named column row by row, and makes it a series', () => {
     expect(rowsOf(last(`${data}@table(t, x, v = x / t)`).tex)[0]).toBe(' & t [s] & x [m] & v [m/s]')
     expect(rowsOf(last(`${data}@table(t, x, v = x / t)`).tex)[2]).toBe('2 & 0.20 & 0.047 & 0.24')
-    expect(value(`${data}@table(t, x, v = x / t)\nv_count`)).toBe('3')
-    expect(value(`${data}@table(t, x, v = x / t)\nw = v_3`)).toBe('0.35 m/s')
+    expect(value(`${data}@table(t, x, v = x / t)\nv.count`)).toBe('3')
+    expect(value(`${data}@table(t, x, v = x / t)\nw = v[3]`)).toBe('0.35 m/s')
   })
 
   it('shows an unnamed column without making a series, and uses other values as they are', () => {
     expect(rowsOf(last(`${data}@table(x / t)`).tex)[0]).toBe(' & \\fracxt [m/s]')
-    expect(last(`${data}@table(x / t)\ny = unpacked__table0_1`).error).toMatch(/Undefined symbol/)
+    expect(last(`${data}@table(x / t)\ny = unpacked__table0__1`).error).toMatch(/Undefined symbol/)
     expect(rowsOf(last(`${data}g = 9.81 m/s^2\n@table(h = 1/2 * g * t^2)`).tex)[1]).toBe('1 & 0.049')
   })
 
   it('shows uncertainties, and a gap where a series has no value', () => {
-    expect(rowsOf(last('d1 = 3.0 m pm 0.1 m\nd2 = 4.0 m pm 0.1 m\n@table(d)').tex)[1]).toBe('1 & 3.0 ± 0.1')
-    expect(rowsOf(last('a1 = 1.0\na2 = 2.0\nb1 = 5.0\n@table(a, b)').tex)[2]).toBe('2 & 2.0 & \\text—')
+    expect(rowsOf(last('d = [3.0 m pm 0.1 m, 4.0 m pm 0.1 m]\n@table(d)').tex)[1]).toBe('1 & 3.0 ± 0.1')
+    expect(rowsOf(last('a = [1.0, 2.0]\nb = [5.0]\n@table(a, b)').tex)[2]).toBe('2 & 2.0 & \\text—')
   })
 
   it('shortens a long table to its first and last rows', () => {
-    const many = Array.from({ length: 80 }, (_, i) => `y${i + 1} = ${i + 1}.0`).join('\n')
+    const many = `y = [${Array.from({ length: 80 }, (_, i) => `${i + 1}.0`).join(', ')}]`
     const line = last(`${many}\n@table(y)`)
     expect(line.info).toBe('80 rows: the first 50 and the last 5 are shown (the ⚙ button can show them all).')
     expect(line.tex).toContain('\\vdots')
@@ -545,9 +545,9 @@ describe('@table()', () => {
   it('explains what doesn’t fit', () => {
     expect(last('@table()').error).toMatch(/^Name the series to show/)
     expect(last('@table(q)').error).toMatch(/^q isn't a series/)
-    expect(last(`${data}@table(2 * t1)`).error).toMatch(/doesn't use any series/)
-    expect(last('a1 = 1.0\na2 = 0\n@table(r = 1 / a)').error).toBeUndefined()
-    expect(last('a1 = 1.0 m\na2 = 2.0 s\n@table(r = a + 1.0 m)').error).toMatch(/^Row 2: The units don't match/)
+    expect(last(`${data}@table(2 * t[1])`).error).toMatch(/doesn't use any series/)
+    expect(last('a = [1.0, 0]\n@table(r = 1 / a)').error).toBeUndefined()
+    expect(last('a = [1.0 m, 2.0 s]\n@table(r = a + 1.0 m)').error).toMatch(/^Row 2: The units don't match/)
   })
 })
 
@@ -722,11 +722,24 @@ describe('solving and series', () => {
     expect(value('v = 5.00 m/s\na = 2.00 m/s^2\nd = @solve(v^2 = 2*a*d, d)')).toBe('6.25 m')
   })
 
-  it('makes means, counts and sums of numbered variables', () => {
-    const src = 't_1 = 1.21 s\nt_2 = 1.17 s\nt_3 = 1.24 s\nt_avg\nt_count\nt'
-    expect(resultOfLine(src, 4)).toBe('(1.21 ± 0.02) s')
-    expect(resultOfLine(src, 5)).toBe('3')
-    expect(resultOfLine(src, 6)).toBe('3.62 s')
+  it('makes means, counts and sums of a series, each a member of it', () => {
+    const src = 't = [1.21 s, 1.17 s, 1.24 s]\nt.avg\nt.count\nt.sum\nt'
+    expect(resultOfLine(src, 2)).toBe('(1.21 ± 0.02) s')
+    expect(resultOfLine(src, 3)).toBe('3')
+    expect(resultOfLine(src, 4)).toBe('3.62 s')
+    // On a line of its own, the series is its values.
+    expect(readable(lineAt(src, 5).tex)).toMatch(/^t = \(1\.21,\\ 1\.17,\\ 1\.24\) s/)
+  })
+
+  it('keeps a name with a number or subscript a name of its own, not a series', () => {
+    expect(value('V_0 = 9.00 V\nV = [9.00 V, 5.52 V]\nw = V[2]')).toBe('5.52 V')
+    expect(value('t1 = 1.0 s\nt_1 = 2.0 s\nw = t1 + t_1')).toBe('3.0 s')
+    expect(last('t1 = 1.0 s\nt2 = 2.0 s\nw = t.avg').error).toMatch(/Undefined symbol t\.avg/)
+  })
+
+  it('says what to write for a series where a value is wanted', () => {
+    expect(last('t = [1.0 s, 2.0 s]\nw = 2 * t').error).toBe(
+      't is a series of 2 values: use one of them, t[1], or a statistic of them, t.avg or t.sum; or work out a series from it, [2 * t].')
   })
 })
 
@@ -737,7 +750,7 @@ function resultOfLine(source: string, n: number): string {
 
 describe('MathScribe’s own functions, written with @', () => {
   it('explains one written without its @', () => {
-    const data = 't1 = 1.0 s\nt2 = 2.0 s\n'
+    const data = 't = [1.0 s, 2.0 s]\n'
     expect(last(`${data}table(t)`).error).toBe('There\'s no function table: MathScribe\'s is written with an @, as @table(…).')
     expect(last('r = vector(3, 4)').error).toBe('There\'s no function vector: MathScribe\'s is written with an @, as @vector(…).')
   })
@@ -748,6 +761,6 @@ describe('MathScribe’s own functions, written with @', () => {
   })
 
   it('explains one that’s a line of its own, written inside an expression', () => {
-    expect(last('t1 = 1.0 s\nt2 = 2.0 s\nx = 2 * @table(t)').error).toMatch(/@table\(…\) is written on a line of its own/)
+    expect(last('t = [1.0 s, 2.0 s]\nx = 2 * @table(t)').error).toMatch(/@table\(…\) is written on a line of its own/)
   })
 })

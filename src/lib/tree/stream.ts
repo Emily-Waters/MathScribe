@@ -24,7 +24,7 @@ export interface Frame {
   readonly open?: number
   /** For a continued line: what it's said so far, its lines' bodies joined (the next is read as the rest of it). */
   readonly said?: string
-  /** For a continued line: whether what it's said so far ends expecting more (`@series(`, `1234,`). */
+  /** For a continued line: whether what it's said so far ends expecting more (`[`, `1234,`). */
   readonly expects?: boolean
 }
 

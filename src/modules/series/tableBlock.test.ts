@@ -12,7 +12,7 @@ import { captionNumbers } from '../../components/blocks/captions.ts'
 import { BLOCK_KIND } from '../../lib/sheet/blocks.ts'
 import { formatTableSettings, parseTableSettings } from './tableSettings.ts'
 
-const DATA = 't1 = 0.10 s\nt2 = 0.20 s\nx1 = 0.012 m\nx2 = 0.047 m\n'
+const DATA = 't = [0.10 s, 0.20 s]\nx = [0.012 m, 0.047 m]\n'
 
 /** A sheet's LaTeX document. */
 const latex = (source: string) => toLatexDocument(sheet(source).blocks)
@@ -56,7 +56,7 @@ describe('a table in LaTeX', () => {
   })
 
   it('shows a long table’s gap, and its note under it', () => {
-    const many = Array.from({ length: 70 }, (_, i) => `d${i + 1} = ${i + 1}.0 m`).join('\n')
+    const many = `d = [${Array.from({ length: 70 }, (_, i) => `${i + 1}.0 m`).join(', ')}]`
     expect(tableOf(`${many}\n@table(d)`)).toContain('\t\t$\\vdots$ & $\\vdots$ \\\\\n\t\t\\hline\n\t\t\\textbf{\\boldmath 66}')
     expect(tableOf(`${DATA}@table(t)  # the times`)).toContain('\t\\par\\smallskip\\textit{the times}\n\\end{table}')
   })
@@ -139,7 +139,7 @@ describe('a table in the Rendered tab', () => {
 
   it('numbers its caption as the exports do: titled tables, not hidden or wrong ones', () => {
     // (The last a table with a row that's wrong: drawn with its error, and left out of the exports.)
-    const wrong = 'a1 = 1.0 m\na2 = 2.0 s\n@table(r = a + 1.0 m; title "Wrong")'
+    const wrong = 'a = [1.0 m, 2.0 s]\n@table(r = a + 1.0 m; title "Wrong")'
     const { blocks } = sheet(`${DATA}@table(t; title "A")\n@table(t)\n@table(t; title "Hidden")  #hide\n@table(t; title "B")\n${wrong}`)
     const numbers = captionNumbers(blocks)
     const tables = blocks.filter((b) => b.kind === BLOCK_KIND.custom)
@@ -149,7 +149,7 @@ describe('a table in the Rendered tab', () => {
   })
 
   it('shows a long table’s gap in every column, and nothing when it’s hidden', () => {
-    const many = Array.from({ length: 70 }, (_, i) => `d${i + 1} = ${i + 1}.0 m`).join('\n')
+    const many = `d = [${Array.from({ length: 70 }, (_, i) => `${i + 1}.0 m`).join(', ')}]`
     const html = rendered(`${many}\n@table(d)`)
     expect(html.match(/<tr>/g)).toHaveLength(1 + 1 + 55)
     expect(html.match(/vdots/g)).toHaveLength(2)
@@ -160,7 +160,7 @@ describe('a table in the Rendered tab', () => {
 })
 
 describe('a table’s uncertainties', () => {
-  const MEASURED = 'x1 = 0.012 m pm 0.001 m\nx2 = 0.047 m pm 0.001 m\n'
+  const MEASURED = 'x = [0.012 m pm 0.001 m, 0.047 m pm 0.001 m]\n'
 
   it('are shown with each value, ±, unless its settings say not: then each value alone, to the digits they give it', () => {
     expect(tableOf(`${MEASURED}@table(x)`)).toContain('$0.012 \\pm 0.001$')
@@ -171,7 +171,7 @@ describe('a table’s uncertainties', () => {
 })
 
 describe('a table’s row labels', () => {
-  const SALTS = `${DATA}salts = @series("KCl", "KBr")\n`
+  const SALTS = `${DATA}salts = ["KCl", "KBr"]\n`
 
   it('go down the side in place of the row numbers, bold text, in LaTeX, Word and the Rendered tab', () => {
     const source = `${SALTS}@table(t, x; labels salts)`
@@ -185,14 +185,14 @@ describe('a table’s row labels', () => {
   })
 
   it('are text as a sheet’s is: a formula, maths, and a comma in a label', () => {
-    const source = `${DATA}salts = @series("{KCl}", "Potassium bromide, $x_1$")\n@table(t; labels salts)`
+    const source = `${DATA}salts = ["{KCl}", "Potassium bromide, $x_1$"]\n@table(t; labels salts)`
     expect(tableOf(source)).toContain('\t\t\\textbf{\\boldmath $\\ce{KCl}$} & $0.10$ \\\\')
     expect(tableOf(source)).toContain('\t\t\\textbf{\\boldmath Potassium bromide, $x_1$} & $0.20$ \\\\')
   })
 
   it('can be any series: a value is its maths; a row it doesn’t have, blank', () => {
     expect(tableOf(`${DATA}@table(t; labels x)`)).toContain('\t\t\\textbf{\\boldmath $0.012\\,\\mathrm{m}$} & $0.10$ \\\\')
-    expect(tableOf(`${DATA}t3 = 0.30 s\nsalts = @series("KCl", "KBr")\n@table(t; labels salts)`)).toContain('\t\t & $0.30$ \\\\')
+    expect(tableOf(`t = [0.10 s, 0.20 s, 0.30 s]\nsalts = ["KCl", "KBr"]\n@table(t; labels salts)`)).toContain('\t\t & $0.30$ \\\\')
   })
 
   it('must be a series', () => {

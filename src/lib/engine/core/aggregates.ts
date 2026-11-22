@@ -1,17 +1,19 @@
 /**
  * Series aggregates, as the Calculator works them out: a series' members
- * (t_1, t_2, …, or a selection's), and the sum, mean, spread and count a line
- * names (t, t_avg, t_std, t_sem, t_count), defined from the members as they are
+ * (t[1], t[2], …, or a selection's), and the sum, mean, spread and count a line
+ * names (t.sum, t.avg, t.std, t.sem, t.count), defined from the members as they are
  * now, with their sig figs, uncertainty and working. (Reading an aggregate's
  * name is series.ts.)
  */
 import type { MathNode, MathType, Unit } from 'mathjs'
 import { EXACT, uncertaintySigFigs, lastPlace, sigFigsFromPlace } from '../../maths/sigfigs.ts'
 import { AGGREGATE_KIND, type Aggregate, type Contributions, type VariableFields } from '../../sheet/values.ts'
-import { isUncertaintyName, parseNumberedName, seriesMemberName } from '../../sheet/names.ts'
+import { isUncertaintyName, parseNumberedName, seriesMemberName, seriesStatName, typedName } from '../../sheet/names.ts'
+import { SERIES_STAT_SUFFIX } from '../../syntax.ts'
 import { math } from './math.ts'
-import { BUILTIN_CONSTANT_NAMES, NAME_IN_LINE } from './literals.ts'
-import { parseAggregateName, escapeRegExp } from './series.ts'
+import { BUILTIN_CONSTANT_NAMES } from './literals.ts'
+import { calleesIn, symbolsIn } from './memberAccess.ts'
+import { parseAggregateName } from './series.ts'
 import { symbolTex } from './tex.ts'
 import { normalise, magnitudeOf } from './normalise.ts'
 import type { Variables } from './scope.ts'
@@ -60,7 +62,7 @@ export class SeriesAggregates {
     this.host = host
   }
 
-  /** Variables named base1, base2, … or base_1, base_2, …, visible from here, in index order. */
+  /** Series `base`'s members, t__1, t__2, … (`t[1]`, `t[2]`, …), visible from here, in index order. */
   members(base: string): string[] {
     // A selection's series: its members are its numbers (each a lookup; see Views).
     const view = this.host.selection(base)
@@ -78,24 +80,24 @@ export class SeriesAggregates {
     return [...found.entries()].sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0])).map(([n]) => n)
   }
 
-  /** A series' values by number: t_1, t_2, … (or t1, t2, …) as 1 → "t_1", 2 → "t_2", …. */
+  /** A series' values by number: t[1], t[2], … as 1 → "t__1", 2 → "t__2", …. */
   rows(base: string): Map<number, string> {
-    const number = new RegExp(`^${escapeRegExp(base)}_?(\\d+)$`)
-    return new Map(this.members(base).map((m) => [Number(number.exec(m)![1]), m]))
+    return new Map(this.members(base).map((m) => [parseNumberedName(m)!.n, m]))
   }
 
   /**
-   * Define any series aggregates named on this line (a, a_avg, a_std, a_count)
-   * from the current members, so they are always up to date. A variable
-   * defined explicitly with the same name takes precedence.
+   * Define any series statistics named on this line (t.sum, t.avg, t.std,
+   * t.count) from the current members, so they are always up to date. A
+   * variable defined explicitly with the same name takes precedence.
    */
   defineNamedIn(line: string, skip?: string): string | undefined {
-    for (const m of line.matchAll(NAME_IN_LINE)) {
-      const name = m[1]
+    for (const name of new Set(symbolsIn(line))) {
       if (name === skip || (this.host.has(name) && !this.host.variables().get(name)?.agg)) continue
-      // e1, e2, … don't turn `e` into a sum: Euler's number (and pi, tau, …) win.
+      // (Euler's number, pi, tau, … are constants, whatever the sheet has made.)
       if (BUILTIN_CONSTANT_NAMES.has(name)) continue
-      const { base, kind } = parseAggregateName(name)
+      const stat = parseAggregateName(name)
+      if (!stat) continue
+      const { base, kind } = stat
       const members = this.members(base)
       if (!members.length) continue
       try {
@@ -103,6 +105,23 @@ export class SeriesAggregates {
       } catch (e) {
         return `${name}: ${(e as Error).message}`
       }
+    }
+    return undefined
+  }
+
+  /**
+   * A series' name in a line's maths, where a value is wanted, explained: the
+   * series isn't a value (seriesInMaths). Not when the line calls a function
+   * there's none of, whose error comes first. (Left to mathjs, `2 * t` would
+   * read t as tonnes.)
+   */
+  seriesAsValue(line: string, skip?: string): string | undefined {
+    const unknownCall = calleesIn(line).some((f) => !this.host.has(f) && typeof (math as unknown as Record<string, unknown>)[f] !== 'function')
+    if (unknownCall) return undefined
+    for (const name of new Set(symbolsIn(line))) {
+      if (name === skip || this.host.has(name)) continue
+      const count = this.members(name).length
+      if (count) return seriesInMaths(name, count)
     }
     return undefined
   }
@@ -213,11 +232,11 @@ export class SeriesAggregates {
     }
   }
 
-  /** σ/√n, then with σ and n substituted (for `a_sem` and `delta a_avg`). */
+  /** σ/√n, then with σ and n substituted (for `a.sem` and `delta a.avg`). */
   standardErrorWorking(agg: Aggregate): string[] {
     const n = agg.members.length
     if (n < 2) return []
-    const sigma = symbolTex(`${agg.base}_std`)
+    const sigma = symbolTex(seriesStatName(agg.base, SERIES_STAT_SUFFIX.std))
     const steps = [`\\frac{${sigma}}{\\sqrt{n}}`]
     if (this.host.showsSubstitution()) {
       const values = agg.members.map((m) => this.host.value(m))
@@ -229,6 +248,16 @@ export class SeriesAggregates {
     return steps
   }
 }
+
+/**
+ * What's said of a series' name in a line's maths, where a value is wanted:
+ * the series is its values, so one of them, or one of its statistics.
+ */
+export const seriesInMaths = (name: string, count: number) =>
+  `${typedName(name)} is a series of ${count} value${count === 1 ? '' : 's'}: use one of them, `
+  + `${typedName(seriesMemberName(name, 1))}, or a statistic of them, `
+  + `${typedName(seriesStatName(name, SERIES_STAT_SUFFIX.avg))} or ${typedName(seriesStatName(name, SERIES_STAT_SUFFIX.sum))}; `
+  + `or work out a series from it, [2 * ${typedName(name)}].`
 
 /** Sample standard deviation (n − 1), in the units of the first value. */
 function stdDev(values: unknown[]): unknown {

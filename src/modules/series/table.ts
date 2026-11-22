@@ -20,7 +20,7 @@ import { SERIES_BLOCK, TABLE_CELL, type TableData } from './tableData.ts'
 export const TABLE_ROWS = { max: 60, first: 50, last: 5 } as const
 
 /**
- * A table cell (or a value in an @series line): a variable's value as a number
+ * A table cell (or a value in a series' line): a variable's value as a number
  * (± its uncertainty, unless `uncertainty` is false: then the number alone, to
  * the digits its uncertainty gives it), and its unit, in its own notation.
  */
@@ -94,7 +94,7 @@ export class TableForm extends LineForm {
     // (unless they're turned off). Then the columns, each cell's brackets by nesting, as every equation's are.
     const labels = settings.labels === undefined ? undefined : host.seriesRows(settings.labels)
     if (labels && !labels.size) {
-      return { tex: '', error: `${settings.labels} isn't a series, so it can't label the rows: define ${settings.labels}_1, ${settings.labels}_2, … (or @series("…", "…")).` }
+      return { tex: '', error: `${settings.labels} isn't a series, so it can't label the rows: make it a series: ${settings.labels} = ["…", "…"].` }
     }
     const rowHeaders = labels !== undefined || settings.numbers
     const rowHeader = (n: number) => (labels ? [labelText(host, labels.get(n))] : settings.numbers ? [String(n)] : [])

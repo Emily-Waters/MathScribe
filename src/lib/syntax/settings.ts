@@ -62,10 +62,11 @@ export const UNCERTAINTY_WORDS = ['delta', 'Delta'] as const
 export type UncertaintyWord = typeof UNCERTAINTY_WORDS[number]
 
 /**
- * Names made from a numbered series (`t_1`, `t_2`, …): `t_avg`, `t_std`, … and
- * what each works out. (`t` on its own is the sum.)
+ * A series' statistics, each a member of it: `t.avg`, `t.std`, … and what each
+ * works out. (`t` on its own is the series.)
  */
 export const SERIES_SUFFIXES = {
+  sum: 'sum',
   avg: 'mean',
   mean: 'mean',
   std: 'std',
@@ -73,6 +74,10 @@ export const SERIES_SUFFIXES = {
   count: 'count',
 } as const
 export type SeriesSuffix = keyof typeof SERIES_SUFFIXES
+
+/** Each statistic's name, as code writes it: SERIES_STAT_SUFFIX.avg. */
+export const SERIES_STAT_SUFFIX = Object.fromEntries(Object.keys(SERIES_SUFFIXES).map((k) => [k, k])) as
+  { readonly [K in SeriesSuffix]: K }
 
 /** Each statistic of a series, as SERIES_SUFFIXES names them: the mean, σ, σ/√n, the count. */
 export const SERIES_STAT = { mean: 'mean', std: 'std', sem: 'sem', count: 'count' } as const satisfies

@@ -59,16 +59,16 @@ describe('uncertainty columns', () => {
 
   it('give each value its row’s uncertainty, as pm would', () => {
     const src = data('t (s), x (m), dx (m)', '0.10, 0.051, 0.004', '0.20, 0.098, 0.004', '0.30, 0.152,')
-    expect(value(`${src}a = x_1`)).toBe('(0.051 ± 0.004) m')
-    expect(value(`${src}a = delta x_2`)).toBe('0.004 m')
-    expect(value(`${src}a = x_3`)).toBe('0.152 m') // no uncertainty in its row
-    expect(lines(`${src}a = dx_1`).at(-1)!.error).toMatch(/Undefined symbol/) // the column isn't variables of its own
+    expect(value(`${src}a = x[1]`)).toBe('(0.051 ± 0.004) m')
+    expect(value(`${src}a = delta x[2]`)).toBe('0.004 m')
+    expect(value(`${src}a = x[3]`)).toBe('0.152 m') // no uncertainty in its row
+    expect(lines(`${src}a = dx[1]`).at(-1)!.error).toMatch(/Undefined symbol/) // the column isn't variables of its own
   })
 
   it('take x’s unit when they have none, convert one that differs, and read % as relative', () => {
-    expect(value(`${data('x (m), dx', '0.051, 0.004')}a = x_1`)).toBe('(0.051 ± 0.004) m')
-    expect(value(`${data('x (m), dx (mm)', '0.051, 4')}a = x_1`)).toBe('(0.051 ± 0.004) m')
-    expect(value(`${data('x (m), dx (%)', '0.050, 10')}a = x_1`)).toBe('(0.050 ± 0.005) m')
+    expect(value(`${data('x (m), dx', '0.051, 0.004')}a = x[1]`)).toBe('(0.051 ± 0.004) m')
+    expect(value(`${data('x (m), dx (mm)', '0.051, 4')}a = x[1]`)).toBe('(0.051 ± 0.004) m')
+    expect(value(`${data('x (m), dx (%)', '0.050, 10')}a = x[1]`)).toBe('(0.050 ± 0.005) m')
   })
 
   it('say what’s wrong with a unit that doesn’t fit', () => {
@@ -114,10 +114,10 @@ describe('withImportedData', () => {
 describe('importing into a sheet', () => {
   const src = '@import("run1.csv")\n    t (s), d (m)\n    1.21, 3.50\n    1.17, 3.48\n    1.24, 3.52\n'
 
-  it('makes a variable of each value, with its unit and sig figs', () => {
-    expect(value(`${src}x = t_2`)).toBe('1.17 s')
-    expect(value(`${src}t_avg`)).toBe('(1.21 ± 0.02) s')
-    expect(value(`${src}t_count`)).toBe('3')
+  it('makes a series of each column, each value with its unit and sig figs', () => {
+    expect(value(`${src}x = t[2]`)).toBe('1.17 s')
+    expect(value(`${src}t.avg`)).toBe('(1.21 ± 0.02) s')
+    expect(value(`${src}t.count`)).toBe('3')
   })
 
   it('shows a summary of the columns, not the rows', () => {
@@ -153,12 +153,10 @@ describe('importing into a sheet', () => {
     expect(lines(`${src}\n    y = 2`).at(-1)!.tex).toBe('y = 2')
   })
 
-  it('answers to t1 as well as t_1, as a typed series does', () => {
-    expect(value(`${src}y = t1`)).toBe('1.21 s')
-    expect(value(`${src}y = d2`)).toBe('3.48 m')
-    // And a series typed t1, t2 answers to t_1.
-    expect(value('t1 = 1.0 s\nt2 = 2.0 s\ny = t_2')).toBe('2.0 s')
-    // A name defined in both spellings keeps each.
+  it('answers to t[1], not t1 or t_1, which are names of their own', () => {
+    expect(value(`${src}y = d[2]`)).toBe('3.48 m')
+    expect(lines(`${src}y = t1`).at(-1)!.error).toMatch(/Undefined symbol t1/)
+    expect(lines(`${src}y = t_1`).at(-1)!.error).toMatch(/Undefined symbol t_1/)
     expect(value('a1 = 1.0\na_1 = 5.0\ny = a1')).toBe('1.0')
   })
 })

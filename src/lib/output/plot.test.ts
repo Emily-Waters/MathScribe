@@ -5,11 +5,11 @@ import { PLOT_PART, formatPlotSettings, parsePlotSettings, partColour } from '..
 import { NAMED_COLOURS, PRINT_PALETTE, axisTicks, linearFit, plotScales, plotSvg, tickLabelText } from './plot.ts'
 import { centredEquation, plotToLatex } from './latexKit.ts'
 
-const data = 't1 = 0.10 s\nt2 = 0.20 s\nt3 = 0.30 s\nt4 = 0.40 s\n'
-  + 'x1 = 0.051 m pm 0.004 m\nx2 = 0.098 m pm 0.004 m\nx3 = 0.152 m pm 0.004 m\nx4 = 0.199 m pm 0.004 m\n'
+const data = 't = [0.10 s, 0.20 s, 0.30 s, 0.40 s]\n'
+  + 'x = [0.051 m pm 0.004 m, 0.098 m pm 0.004 m, 0.152 m pm 0.004 m, 0.199 m pm 0.004 m]\n'
 
 /** A second series, y, to plot beside x. */
-const SECOND = 'y1 = 0.10 m\ny2 = 0.21 m\ny3 = 0.29 m\ny4 = 0.40 m\n'
+const SECOND = 'y = [0.10 m, 0.21 m, 0.29 m, 0.40 m]\n'
 
 describe('plot settings', () => {
   it('reads and writes them, leaving out the defaults', () => {
@@ -76,8 +76,8 @@ describe('linearFit', () => {
   })
 
   it('says so under a plot whose x values have uncertainties, and its slope is that fit’s', () => {
-    const sheet = 'm = @series(0.0285 kg pm 0.0003 kg, 0.0390 kg pm 0.0004 kg, 0.0497 kg pm 0.0003 kg, 0.0603 kg pm 0.0004 kg)\n'
-      + 'T2 = @series(0.16635 s^2 pm 0.00003 s^2, 0.22911 s^2 pm 0.00004 s^2, 0.29240 s^2 pm 0.00005 s^2, 0.35272 s^2 pm 0.00005 s^2)\n'
+    const sheet = 'm = [0.0285 kg pm 0.0003 kg, 0.0390 kg pm 0.0004 kg, 0.0497 kg pm 0.0003 kg, 0.0603 kg pm 0.0004 kg]\n'
+      + 'T2 = [0.16635 s^2 pm 0.00003 s^2, 0.22911 s^2 pm 0.00004 s^2, 0.29240 s^2 pm 0.00005 s^2, 0.35272 s^2 pm 0.00005 s^2]\n'
       + 'p = @plot(m, T2; fit linear)\n'
     expect(last(sheet).tex).toMatch(/weighted by \}\\delta T_\{2\}\\text\{ and \}\\delta m\\text\{\)\}/)
     // An uncertainty the masses allow (0.08 s²/kg), not the periods' alone (about 0.002).
@@ -114,8 +114,8 @@ describe('@plot()', () => {
     const r = last(`${data}@plot(t, x; fit linear)`)
     expect(r.plot?.series[0].fit?.slope).toBeCloseTo(0.494, 2)
     expect(r.tex).toContain('R^{2}')
-    expect(value(`${data}@plot(t, x; fit linear)\nv = x_slope`)).toBe('(0.498 ± 0.018) m/s')
-    expect(value(`${data}@plot(t, x; fit linear)\nx0 = x_intercept`)).toMatch(/ m$/)
+    expect(value(`${data}@plot(t, x; fit linear)\nv = x.slope`)).toBe('(0.498 ± 0.018) m/s')
+    expect(value(`${data}@plot(t, x; fit linear)\nx0 = x.intercept`)).toMatch(/ m$/)
   })
 
   it('keeps to the rows asked for', () => {
@@ -202,7 +202,7 @@ describe('@plot()', () => {
   })
 
   it('gives a fit’s slope in y’s unit over x’s, as the series give them', () => {
-    const src = 'x = @series(0.010 m, 0.020 m, 0.030 m)\nF = @series(0.066 N, 0.133 N, 0.199 N)\np = @plot(x, F; fit linear)\nk = p.slope'
+    const src = 'x = [0.010 m, 0.020 m, 0.030 m]\nF = [0.066 N, 0.133 N, 0.199 N]\np = @plot(x, F; fit linear)\nk = p.slope'
     expect(value(src)).toMatch(/N\/m$/)
     expect(last(src.split('\nk')[0]).tex).toContain('\\mathrm{N}/\\mathrm{m}')
   })
@@ -228,7 +228,7 @@ describe('@plot()', () => {
   })
 
   it('labels an axis’s ticks with one power of ten, said in its label, when they’d need one', () => {
-    const plot = last('t = @series(1 s, 2 s, 3 s, 4 s)\nd = @series(2e-4 m, 5e-4 m, 9e-4 m, 1.6e-3 m)\n@plot(t, d)').plot!
+    const plot = last('t = [1 s, 2 s, 3 s, 4 s]\nd = [2e-4 m, 5e-4 m, 9e-4 m, 1.6e-3 m]\n@plot(t, d)').plot!
     const ticks = axisTicks(plotScales(plot).y, false)
     expect(ticks.power).toBe(-3)
     expect(ticks.labels.map(tickLabelText)).toEqual(['0', '0.2', '0.4', '0.6', '0.8', '1', '1.2', '1.4', '1.6', '1.8'])

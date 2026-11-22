@@ -80,7 +80,7 @@ export const CREATE_KIND_INFO: Record<CreateKind, {
     task: 'a lab write-up with sample measurements and their analysis',
     options: [
       { id: 'uncertainty', label: 'Uncertainties carried through', ticked: true, instruction: 'Give measured values uncertainties with `pm`, and show the uncertainty of the main result with a `delta` line.' },
-      { id: 'repeats', label: 'Repeated measurements (mean and spread)', ticked: true, instruction: 'Include repeated measurements as a series (`T1`, `T2`, …) and use `T_avg` and `T_std`.' },
+      { id: 'repeats', label: 'Repeated measurements (mean and spread)', ticked: true, instruction: 'Include repeated measurements as a series (`T = [1.21 s, 1.17 s, …]`) and use `T.avg` and `T.std`.' },
       { id: 'graph', label: 'A graph with a best-fit line', ticked: false, instruction: 'Include a data series plotted with `p = @plot(x, y; fit linear)`, and use `p.slope`.' },
       { id: 'discussion', label: 'Discussion and conclusion', ticked: true, instruction: 'End with `@layout.text Discussion {` and `@layout.text Conclusion {` blocks of prose, each closed by `}`.' },
     ],

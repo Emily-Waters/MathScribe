@@ -271,7 +271,7 @@ function extensions(
       if (u.docChanged) handlers.change(u.state.doc.toString())
       if (u.docChanged || u.selectionSet) {
         const clicked = u.transactions.some((tr) => tr.isUserEvent('select.pointer'))
-        // (On a line carrying a statement on, a multiline `@series(…)`'s, the output is the statement's, linked to its first line.)
+        // (On a line carrying a statement on, a multiline series' `[…]`, the output is the statement's, linked to its first line.)
         handlers.cursor(statementStart(u.state.doc, u.state.doc.lineAt(u.state.selection.main.head).number), clicked)
       }
     }),

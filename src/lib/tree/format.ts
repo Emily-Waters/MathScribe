@@ -3,10 +3,10 @@
  * tree reads it (stream.ts), one level (INDENT) for each, and a line carried on
  * over several laid out as one is written:
  *
- *   val = @series(
+ *   val = [
  *       1234,
  *       5678
- *   )
+ *   ]
  *
  * A bracket that opens on one line and closes on another has what's in it one
  * to a line: a line break after it, before its closing bracket, and after each
@@ -321,7 +321,7 @@ function continuedChanges(
     const line = lines.findLastIndex((_, n) => starts[n] <= to)
     const text = lines[line].text
     // (And only where a bracket is open, so the line before it still carries the line on; and only
-    // in place of spaces: a #command between the two, `@series(  #val 1 N`, stays where it is.)
+    // in place of spaces: a #command between the two, `[  #val 1 N`, stays where it is.)
     if (open < 1 || text.slice(from - starts[line], to - starts[line]).trim() || isComment(text.slice(to - starts[line]))) return
     changes.push({ from, to, insert: eol + ' '.repeat(continuedIndent(opener, open, startsClosing)) })
   }

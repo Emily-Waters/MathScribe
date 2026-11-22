@@ -875,7 +875,7 @@
       }
     },
     "node.continuation": {
-      "description": "A line carrying on a line whose brackets are open: 5678, in val = @series( (core)",
+      "description": "A line carrying on a line whose brackets are open: 5678, in val = [ (core)",
       "type": "object",
       "required": [
         "kind",
@@ -956,7 +956,7 @@
       }
     },
     "node.openCall": {
-      "description": "A call whose closing bracket isn’t on its line: what’s called, its (, and its arguments to the end of the line, @series( (core)",
+      "description": "A call whose closing bracket isn’t on its line: what’s called, its (, and its arguments to the end of the line, @table( (core)",
       "type": "object",
       "required": [
         "kind",
@@ -1695,7 +1695,7 @@
       }
     },
     "token.settings": {
-      "description": "The settings after a ; in @table(…), @plot(…), @select(…) or @series(…): fit linear, x from 0 to 2 (SeriesModule)",
+      "description": "The settings after a ; in @table(…), @plot(…) or @select(…): fit linear, x from 0 to 2 (SeriesModule)",
       "type": "object",
       "required": [
         "t",

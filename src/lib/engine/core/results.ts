@@ -59,7 +59,7 @@ export interface EquationParts {
   expr: string
   steps: string[]
   result?: string
-  /** The expression is a single name (`t_avg`, `delta F`), so it reads as a left-hand side. */
+  /** The expression is a single name (`t.avg`, `delta F`), so it reads as a left-hand side. */
   bareSymbol?: boolean
   /** The result is rounded and follows ≈, not =. */
   approx?: boolean
@@ -147,6 +147,9 @@ export interface Definition {
   name: string
   members?: number
 }
+
+/** mathjs's message for a name there's nothing of (1: the name, as typed). */
+export const UNDEFINED_SYMBOL = /^Undefined symbol (\S+)$/
 
 /** mathjs's message for a call to a function there's none of (1: its name). */
 const UNDEFINED_FUNCTION = /^Undefined function (\S+)$/

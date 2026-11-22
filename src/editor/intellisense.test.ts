@@ -24,9 +24,9 @@ const SOURCE = [
   'z = y to per', // 12
   'w = 3 * @h', // 13
   'v = 2 * KE(1 kg, 2 m/s)   #mu', // 14
-  't_1 = 1.2 s', // 15
-  't_2 = 1.3 s', // 16
-  'q = t_', // 17
+  't = [1.2 s, 1.3 s]', // 15
+  'u = t.c', // 16
+  'q = t', // 17
   '# Heading ps', // 18
   '> prose ps', // 19
   'n = 1e5', // 20
@@ -45,7 +45,7 @@ const SOURCE = [
   '@layout.val.', // 33
   'M = @chem.m', // 34
   'u = 3.0 m/mi', // 35
-  'r = t_1 K', // 36
+  'r = a_0 K', // 36
 ].join('\n')
 
 /** The labels suggested at the end of line `n`, filtered by what's typed. */
@@ -102,16 +102,16 @@ describe('suggestions', () => {
     expect(suggestions(14)).toEqual(['#multiline'])
   })
 
-  it('offer series names once there are two members, and tₙ for its values rather than each one', () => {
-    expect(suggestions(17)).toEqual(['t_avg', 't_count', 't_std', 't_sem'])
-    const doc = 't_1 = 1.2 s\nt_2 = 1.3 s\nt_3 = 1.1 s\nq = t'
+  it('offer a series as itself and t[n] for its values rather than each one, and its statistics after a dot', () => {
+    expect(suggestions(16)).toEqual(['count'])
+    const doc = 't = [1.2 s, 1.3 s, 1.1 s]\nt_1 = 2 s\nq = t'
     let state = EditorState.create({ doc, extensions: [intellisense] })
     state = state.update({ effects: setSymbols.of(collectSymbols(sheet(doc), doc)) }).state
     const options = complete(new CompletionContext(state, doc.length, false))!.options
     const labels = options.map((o) => o.label)
-    expect(labels).toEqual(expect.arrayContaining(['t', 'tₙ', 't_avg']))
-    expect(labels).not.toContain('t_1')
-    expect(options.find((o) => o.label === 'tₙ')?.detail).toBe('series (3)')
+    expect(labels).toEqual(expect.arrayContaining(['t', 't[n]', 't_1']))
+    expect(labels).not.toContain('t__1')
+    expect(options.find((o) => o.label === 't[n]')?.detail).toBe('series (3)')
   })
 
   it('stay quiet in headings, prose, numbers and notes', () => {

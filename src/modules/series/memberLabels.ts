@@ -4,13 +4,13 @@
  * is after it (inline results), so which value is x₃ can be seen without
  * counting:
  *
- *   x = @series(
+ *   x = [
  *       x₁:  1.52 s,
  *       x₂:  1.48 s,
- *   )
+ *   ]
  *
  * The names are found from the sheet's statements (the tree's: sheetStatements),
- * as the ⚙ menus' calls are: a `name = @series(` whose bracket closes on a later
+ * as the ⚙ menus' calls are: a `name = [` whose bracket closes on a later
  * line, and the values directly in it, between its top-level commas. They show
  * while the editor shows its inline results (`inlineHintsShown`).
  */
@@ -18,16 +18,9 @@ import katex from 'katex'
 import { Decoration, EditorView, WidgetType, type DecorationSet } from '@codemirror/view'
 import type { EditorState, Extension, Range } from '@codemirror/state'
 import {
-  ASSIGN, ROUND_BRACKETS, SEPARATOR, SIGIL, TOKEN_KIND, closesBracket, encode, inlineHintsShown, opensBracket, seriesMemberName,
+  ASSIGN, MEMBER_INDEX, SEPARATOR, TOKEN_KIND, closesBracket, encode, inlineHintsShown, opensBracket, seriesMemberName,
   sheetStatements, symbolTex, type SheetStatement,
 } from '../../lib/plugin.ts'
-import { SERIES_CALL } from './syntax.ts'
-
-/** How a series is called, as written: `@series`. */
-const SERIES = `${SIGIL}${SERIES_CALL.series}`
-
-/** Between a series' values and its settings, if it has any (where the names stop). */
-const SETTINGS_START = ';'
 
 /** A token of a statement, and where it starts in the sheet's text. */
 interface Placed {
@@ -52,22 +45,21 @@ export interface MemberLabel {
 }
 
 /**
- * Each value's member in every series written over several lines (`x = @series(`
- * with its `)` on a later line): where the value starts, and its member's name,
+ * Each value's member in every series written over several lines (`x = [`
+ * with its `]` on a later line): where the value starts, and its member's name,
  * numbered from 1 in order.
  */
 export function memberLabels(text: string): MemberLabel[] {
   const labels: MemberLabel[] = []
   for (const statement of sheetStatements(encode(text).body)) {
     const tokens = placedTokens(statement)
-    // `name = @series(`: the name, then `=`, then the call (spaces between them).
+    // `name = [`: the name, then `=`, then the bracket (spaces between them).
     const said = tokens.map((t, i) => ({ t, i })).filter(({ t }) => !QUIET.has(t.t))
-    const call = said.findIndex(({ t }) => t.t === TOKEN_KIND.builtin && t.text === SERIES)
-    if (call !== 2 || !isDelimiter(said[1].t, ASSIGN) || said[0].t.t !== TOKEN_KIND.symbol) continue
-    if (!isDelimiter(said[call + 1]?.t, ROUND_BRACKETS.open)) continue
+    if (said.length < 3 || !isDelimiter(said[1].t, ASSIGN) || said[0].t.t !== TOKEN_KIND.symbol) continue
+    if (!isDelimiter(said[2].t, MEMBER_INDEX.open)) continue
     const name = said[0].t.text
-    const open = said[call + 1].i
-    // The values directly in the call: each starts at the first token said after `(` or a top-level comma.
+    const open = said[2].i
+    // The values directly in the brackets: each starts at the first token said after `[` or a top-level comma.
     const starts: number[] = []
     let depth = 0
     let waiting = true
@@ -77,7 +69,7 @@ export function memberLabels(text: string): MemberLabel[] {
       if (t.t === TOKEN_KIND.eol) multiline = true
       if (QUIET.has(t.t)) continue
       if (t.t === TOKEN_KIND.delimiter && depth === 0) {
-        if (closesBracket(t.text) || t.text === SETTINGS_START) break
+        if (closesBracket(t.text)) break
         if (t.text === SEPARATOR) {
           waiting = true
           continue

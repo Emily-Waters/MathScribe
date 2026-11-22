@@ -61,7 +61,7 @@ export interface ModuleHost {
   store(name: string, v: VariableFields): void
   /** Remove a variable, and everything kept about it. */
   forget(name: string): void
-  /** A series' values by number: t_1, t_2, … as 1 → "t_1", 2 → "t_2". */
+  /** A series' values by number: t[1], t[2], … as 1 → "t__1", 2 → "t__2". */
   seriesRows(base: string): Map<number, string>
   /** Make `base` a series that looks up these variables (a selection; see Views), or forget those under a namespace. */
   setView(base: string, names: (string | undefined)[]): void
@@ -122,7 +122,7 @@ export interface ModuleHost {
  *   shape       what's assigned: names to unpack into, a function, a display-name template
  *   settings    the assigned name's settings, `m:3:g`, taken off it, and its display name
  *   expand      what stands for something else written out: constants (`@c:4`),
- *               a series' statistics (`t_avg`), `delta F`, `(a pm b)`, `to percent`;
+ *               a series' statistics (`t.avg`), `delta F`, `(a pm b)`, `to percent`;
  *               and the numbers as typed
  *   expression  a line a module works out once it's read this far: `x = @solve(…)`
  *   check       a call that has to be a line of its own, inside an expression

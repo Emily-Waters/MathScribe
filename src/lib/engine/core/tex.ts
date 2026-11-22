@@ -3,7 +3,7 @@ import { isConstantNode, isFunctionNode, type FunctionNode, type MathNode } from
 import { AGGREGATE_KIND } from '../../sheet/values.ts'
 import { builtinConstant } from '../../builtins.ts'
 import { GREEK_BY_CHAR, GREEK_BY_NAME, GREEK_CHARS, SERIES_SUFFIXES } from '../../syntax.ts'
-import { FIT, JOIN, parseConstantRefName, parseMemberName, parseSeriesStatName, parseSolvedName, parseUncertaintyName } from '../../sheet/names.ts'
+import { FIT, JOIN, parseConstantRefName, parseMemberName, parseNumberedName, parseSeriesStatName, parseSliceName, typedSlice, parseSolvedName, parseUncertaintyName } from '../../sheet/names.ts'
 import { FN, UNIT_LOOKS } from '../../maths/mathjsNames.ts'
 import { math } from './math.ts'
 import { isLabelUnit, labelUnitTex, moduleNameSubscriptTex } from './module.ts'
@@ -49,7 +49,22 @@ export function symbolTex(name: string): string {
   if (constant) return builtinConstant(constant)?.tex ?? symbolTex(constant)
   const solved = parseSolvedName(name)
   if (solved) return symbolTex(solved)
-  // Statistics of a series: a_avg → ā, a_std → σ_a, a_sem → σ_ā, a_count → n_a
+  // A slice of a series, t[2:4] → t_{2:4}, after any subscript the series has (a.x[2:] → x_{a,2:}).
+  const slice = parseSliceName(name)
+  if (slice) {
+    const base = symbolTex(slice.of)
+    const part = typedSlice(slice.spec)
+    const sub = /^(.*?)_\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}$/.exec(base)
+    return sub ? `${sub[1]}_{${sub[2]},${part}}` : `${base}_{${part}}`
+  }
+  // A series' member, t[3] → t₃: its number after any subscript the series has (a.x[3] → x_{a,3}, v_0[2] → v_{0,2}).
+  const numbered = parseNumberedName(name)
+  if (numbered) {
+    const base = symbolTex(numbered.base)
+    const sub = /^(.*?)_\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}$/.exec(base)
+    return sub ? `${sub[1]}_{${sub[2]},${numbered.n}}` : `${base}_{${numbered.n}}`
+  }
+  // Statistics of a series: a.avg → ā, a.std → σ_a, a.sem → σ_ā, a.count → n_a, a.sum → Σa
   const stat = parseSeriesStatName(name)
   if (stat) {
     const base = symbolTex(stat.base)
@@ -57,9 +72,10 @@ export function symbolTex(name: string): string {
       case AGGREGATE_KIND.std: return `\\sigma_{${base}}`
       case AGGREGATE_KIND.sem: return `\\sigma_{\\bar{${base}}}`
       case AGGREGATE_KIND.count: return `n_{${base}}`
+      case AGGREGATE_KIND.sum: return `\\Sigma ${base}`
       case AGGREGATE_KIND.mean: {
-        // A namespace's series keeps its subscript outside the bar: a.x_avg → x̄_a.
-        const sub = parseMemberName(stat.base) ? /^(.*?)(_\{.*\})$/.exec(base) : null
+        // A series with a subscript keeps it outside the bar: t_down.avg → t̄_down, a.x.avg → x̄_a.
+        const sub = /^(.*?)(_\{.*\})$/.exec(base)
         return sub ? `\\bar{${sub[1]}}${sub[2]}` : `\\bar{${base}}`
       }
     }

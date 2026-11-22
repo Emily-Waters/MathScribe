@@ -142,8 +142,8 @@ export const CARRIED_JOIN = ' '
 /**
  * The lines a line is carried on over, each split, as one line: their bodies
  * joined, their notes joined, and of each sort of command the last (as on one
- * line). `val = @series(  # values`, `1234,`, `5678  #val`, `)` → body
- * `val = @series( 1234, 5678 )`, command `val`, note `values`.
+ * line). `val = [  # values`, `1234,`, `5678  #val`, `]` → body
+ * `val = [ 1234, 5678 ]`, command `val`, note `values`.
  */
 export function joinSplit(lines: readonly SplitLine[]): SplitLine {
   const joined = (texts: (string | undefined)[]) => texts.filter(Boolean).join(CARRIED_JOIN)

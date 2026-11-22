@@ -24,14 +24,11 @@ delta v_f =              # how the uncertainty in v_f is worked out
 delta v_f / v_f          # relative uncertainty
 
 ## Repeated measurements
-> Numbered variables form a series: t is their sum, t_avg the mean ± σ/√n.
-t_1 = 1.21 s
-t_2 = 1.17 s
-t_3 = 1.24 s
-t_4 = 1.19 s
-t_avg                    # mean time down the ramp
-t_count
-a_exp = 2 * d / t_avg^2  # measured acceleration, with uncertainty
+> A series is measurements under one name: t_down.avg is their mean ± σ/√n.
+t_down = [1.21 s, 1.17 s, 1.24 s, 1.19 s]
+t_down.avg                    # mean time down the ramp
+t_down.count
+a_exp = 2 * d / t_down.avg^2  # measured acceleration, with uncertainty
 
 ## Functions
 > A function is written the way it is in maths; values and uncertainties flow through it.

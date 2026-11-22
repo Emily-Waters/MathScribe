@@ -12,7 +12,7 @@ import { formatSheet } from '../tree/format.ts'
 import { languageTopics, moduleLanguageTopics, moduleSettingWords } from '../engine/index.ts'
 import { BUILTINS, ConstantMember, Namespace } from '../builtins.ts'
 import {
-  COMMAND_NAMES, EXACT_SETTING, KEYWORD, NOTATION, PERCENT, SERIES_SUFFIXES, SIGIL, SUBSCRIPT, UNCERTAINTY_WORDS,
+  COMMAND_NAMES, EXACT_SETTING, KEYWORD, NOTATION, PERCENT, SERIES_SUFFIXES, SIGIL, MEMBER_DOT, MEMBER_INDEX, UNCERTAINTY_WORDS,
 } from '../syntax.ts'
 import { TERM_KIND, entryMatches, languageTree, treeExamples, treeTerms, type LanguageTopic, type TermKind } from './tree.ts'
 import { searchWords } from '../search.ts'
@@ -46,9 +46,9 @@ describe('what the language has, each in the tree (so nothing’s left undescrib
     expect(names(TERM_KIND.setting)).toEqual(expect.arrayContaining([EXACT_SETTING, ...NOTATION.words, PERCENT]))
   })
 
-  it('every name a series makes is a term (`_mean` aside: `_avg` is the one suggested)', () => {
-    const suffixes = Object.keys(SERIES_SUFFIXES).filter((s) => s !== 'mean').map((s) => `${SUBSCRIPT}${s}`)
-    expect(names(TERM_KIND.seriesName)).toEqual(expect.arrayContaining(['', ...suffixes]))
+  it('every statistic of a series is a term (`.mean` aside: `.avg` is the one suggested), and the series and its members', () => {
+    const suffixes = Object.keys(SERIES_SUFFIXES).filter((s) => s !== 'mean').map((s) => `${MEMBER_DOT}${s}`)
+    expect(names(TERM_KIND.seriesName)).toEqual(expect.arrayContaining(['', `${MEMBER_INDEX.open}1${MEMBER_INDEX.close}`, ...suffixes]))
   })
 
   // (Each lists what's missing, not every example's text.)

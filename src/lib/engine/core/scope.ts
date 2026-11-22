@@ -1,8 +1,7 @@
 /** Scopes: the variables visible on a line, as the engine and mathjs see them. */
 import { EXACT } from '../../maths/sigfigs.ts'
 import { Variable } from '../../sheet/values.ts'
-import { GREEK_CHARS, SUBSCRIPT } from '../../syntax.ts'
-import { JOIN, parseMemberName, parseNumberedName, seriesMemberName } from '../../sheet/names.ts'
+import { JOIN, mayBeSlice, parseMemberName, parseNumberedName, parseSliceName, seriesMemberName, sliceOf } from '../../sheet/names.ts'
 
 // ---------------------------------------------------------------------------
 // Evaluation
@@ -15,10 +14,7 @@ import { JOIN, parseMemberName, parseNumberedName, seriesMemberName } from '../.
  * scope, and functions defined with `f(x) = ...` close over the scope they were
  * defined in.
  *
- * A numbered name answers to either spelling: when `t1` isn't defined, `t1`
- * finds `t_1`, and the other way round. So a series typed `t1, t2, …` and an
- * imported column (`t_1, t_2, …`) are written the same way. A name defined in
- * both spellings keeps each.
+ * Every name is itself: t1, t_1 and t[1] (a series' member, t__1) are three.
  */
 export class Scope<T = unknown> extends Map<string, T> {
   readonly parent: Scope<T> | undefined
@@ -39,14 +35,9 @@ export class Scope<T = unknown> extends Map<string, T> {
     return this.hasExactly(this.spelling(key))
   }
 
-  /**
-   * The name as defined: `key` itself, or its other spelling (t1 ↔ t_1) if only
-   * that is; or, for a selection's member (a.x_3), the variable it is.
-   */
+  /** The name as defined: `key` itself; or, for a selection's member (a.x[3]), the variable it is. */
   private spelling(key: string): string {
     if (this.hasExactly(key)) return key
-    const other = otherSpelling(key)
-    if (other !== undefined && this.hasExactly(other)) return other
     const target = this.views?.resolve(key)
     return target !== undefined ? this.spelling(target) : key
   }
@@ -60,7 +51,7 @@ export class Scope<T = unknown> extends Map<string, T> {
   }
 
   // -------------------------------------------------------------------------
-  // Series index: each series' members at this level (t → t_1, t2, …), so
+  // Series index: each series' members at this level (t → t__1, t__2, …), so
   // finding a series doesn't mean going through every name (imported data can
   // make tens of thousands). Made when first asked for, then kept up to date.
   // -------------------------------------------------------------------------
@@ -100,14 +91,22 @@ export class Scope<T = unknown> extends Map<string, T> {
 }
 
 /**
- * The series of selections and named plots (`a = @select(t, x; …)`), as lookups:
- * a.x is the list of variables it picks, [x_2, x_5, …], so a.x_1 is x_2 itself,
- * with its sig figs and uncertainty, and nothing is copied (a selection of
- * thousands of rows is redone on every edit). Scoped by `{ }` blocks, as
- * variables are.
+ * The series of selections and named plots (`a = @select(t, x; …)`), and of
+ * series made from another (`z = m[2:4]`), as lookups: a.x is the list of
+ * variables it picks, [x__2, x__5, …], so a.x[1] is x[2] itself, with its sig
+ * figs and uncertainty, and nothing is copied (a selection of thousands of rows
+ * is redone on every edit). Scoped by `{ }` blocks, as variables are. A slice,
+ * `m[2:4]` (m__slice_f2_t4), is one too, worked out when it's asked for from
+ * its series' members as they are then (`rowsOf`).
  */
 export class Views {
   private readonly levels: Map<string, (string | undefined)[]>[] = [new Map()]
+  /** A series' members by number, for slices of it (the Calculator's: its aggregates' rows). */
+  private readonly rowsOf: (base: string) => ReadonlyMap<number, string>
+
+  constructor(rowsOf: (base: string) => ReadonlyMap<number, string> = () => new Map()) {
+    this.rowsOf = rowsOf
+  }
 
   push(): void {
     this.levels.push(new Map())
@@ -117,12 +116,13 @@ export class Views {
     if (this.levels.length > 1) this.levels.pop()
   }
 
-  /** Make series `base` (a__x) the variables `names` picks, numbered from 1 (a gap: no member there). */
+  /** Make series `base` (a__x) the variables `names` picks, numbered from 1 (a gap: no member there); none: forget it. */
   set(base: string, names: (string | undefined)[]): void {
-    this.levels.at(-1)!.set(base, names)
+    if (names.length) this.levels.at(-1)!.set(base, names)
+    else for (const level of this.levels) level.delete(base)
   }
 
-  /** Each member of the series set at this level, and the variable it is: a__x_1 → x_2, …. */
+  /** Each member of the series set at this level, and the variable it is: a__x__1 → x__2, …. */
   *membersHere(): Generator<[member: string, variable: string]> {
     for (const [base, names] of this.levels.at(-1)!) {
       for (const [i, name] of names.entries()) if (name) yield [seriesMemberName(base, i + 1), name]
@@ -135,41 +135,24 @@ export class Views {
     for (const base of [...level.keys()]) if (parseMemberName(base)?.namespace === ns) level.delete(base)
   }
 
-  /** The variables series `base` picks, if it's a selection's. */
+  /** The variables series `base` picks, if it's a selection's (or a slice's). */
   get(base: string): (string | undefined)[] | undefined {
     for (let i = this.levels.length - 1; i >= 0; i--) {
       const names = this.levels[i].get(base)
       if (names) return names
     }
-    return undefined
+    const slice = mayBeSlice(base) ? parseSliceName(base) : null
+    if (!slice) return undefined
+    const of = [...this.rowsOf(slice.of)].sort((a, b) => a[0] - b[0])
+    return sliceOf(of, slice.spec)
   }
 
   /** The variable a selection's member is: a__x_3 → x_7 (undefined if it isn't one). */
   resolve(key: string): string | undefined {
-    if (!key.includes(JOIN) || this.levels.every((l) => !l.size)) return undefined
+    if (!key.includes(JOIN) || (this.levels.every((l) => !l.size) && !mayBeSlice(key))) return undefined
     const m = parseNumberedName(key)
     return m ? this.get(m.base)?.[m.n - 1] : undefined
   }
-}
-
-/** A numbered name written without an underscore, `t1`, `ω2` (1: the letters, 2: the number). */
-export const NUMBERED = new RegExp(String.raw`^([A-Za-z${GREEK_CHARS}]+)(\d+)$`)
-/** …and with one, `t_1` (1: the letters, 2: the number). */
-export const NUMBERED_SUBSCRIPT = new RegExp(String.raw`^([A-Za-z${GREEK_CHARS}]+)_(\d+)$`)
-
-/** A numbered name's other spelling: t1 → t_1, t_1 → t1 (undefined for other names). */
-export function otherSpelling(name: string): string | undefined {
-  // Inside a namespace too: a.t1 ↔ a.t_1. (Split at the join directly: this runs
-  // for every name looked up, so it skips parseMemberName's checks.)
-  const join = name.indexOf(JOIN)
-  if (join > 0) {
-    const other = otherSpelling(name.slice(join + JOIN.length))
-    return other === undefined ? undefined : name.slice(0, join + JOIN.length) + other
-  }
-  const plain = NUMBERED.exec(name)
-  if (plain) return `${plain[1]}${SUBSCRIPT}${plain[2]}`
-  const sub = NUMBERED_SUBSCRIPT.exec(name)
-  return sub ? `${sub[1]}${sub[2]}` : undefined
 }
 
 /**

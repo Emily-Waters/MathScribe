@@ -115,7 +115,7 @@ export const sheetLine = (doc: DocLines, n: number): SheetLine => sheetLines(doc
 
 /**
  * The line a statement that line n is part of starts on: n itself, or for a
- * line carrying a statement on (a multiline `@series(…)`'s values, its `)`),
+ * line carrying a statement on (a multiline series' values, its `]`),
  * the line it began on, where its output is linked to.
  */
 export function statementStart(doc: DocLines, n: number): number {

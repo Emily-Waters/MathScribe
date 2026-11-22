@@ -8,8 +8,8 @@
  *       0.20, 0.047
  *
  * The first row names the columns; a unit in brackets after a name, `t (s)` or
- * `t [s]`, goes with every value in that column. Each value becomes a variable,
- * numbered by its row: t_1, t_2, … (so t_avg, t_count and so on work too).
+ * `t [s]`, goes with every value in that column. Each column becomes a series,
+ * its values numbered by their rows: t[1], t[2], … (so t.avg, t.count and so on work too).
  * Values are kept as typed, so 0.10 keeps its two sig figs.
  *
  * A column named dx (or δx, σx, x_unc, x_err) holds x's uncertainties: each

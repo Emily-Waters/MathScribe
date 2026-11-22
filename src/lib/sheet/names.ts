@@ -10,13 +10,16 @@
  *   unpacked__column2_5   row 5 of a table's unnamed column 2
  *   argument__3       the uncertainty of an argument a function's body asks for (`delta A`)
  *   a__x_1            a namespace's member, `a.x_1` (a selection, named import or plot)
+ *   t__3              a series' member, `t[3]` (a.x[3]: a__x__3)
+ *   t__avg            a series' statistic, `t.avg` (as any member is)
  *
- * A series' members are its name, `_`, and a number (t_1), and its statistics
- * its name, `_`, and a suffix (t_avg); a named plot's fit is p.slope, p.intercept,
- * p.r2 and p.chi2.
+ * A series is made by name ([…], @import, a table's column, @select), never
+ * by numbering: t_1 and t1 are names like any other. Its members are its name
+ * and a number, t[3], and its statistics members of it, t.avg, t.sum; a
+ * named plot's fit is p.slope, p.intercept, p.r2 and p.chi2.
  */
 import {
-  CALL, EXACT_SETTING, IS_NAME, MEMBER_DOT, NAME, SERIES_SUFFIXES, SIGIL, SUBSCRIPT, UNCERTAINTY_WORDS,
+  CALL, EXACT_SETTING, IS_NAME, MEMBER_DOT, MEMBER_INDEX, NAME, SERIES_SUFFIXES, SIGIL, UNCERTAINTY_WORDS,
   type Precision, type SeriesSuffix, type UncertaintyWord,
 } from '../syntax.ts'
 
@@ -97,11 +100,56 @@ export const constantKey = (typed: string) => typed.replaceAll(MEMBER_DOT, JOIN)
 export const typedConstant = (key: string) => key.replaceAll(JOIN, MEMBER_DOT)
 
 
-/** Member `n` of a series: t, 3 → t_3. */
-export const seriesMemberName = (base: string, n: number) => `${base}${SUBSCRIPT}${n}`
+/** Member `n` of a series, `t[3]`: t, 3 → t__3. */
+export const seriesMemberName = (base: string, n: number) => `${base}${JOIN}${n}`
 
-/** A series' statistic: t, avg → t_avg. */
-export const seriesStatName = (base: string, suffix: SeriesSuffix) => `${base}${SUBSCRIPT}${suffix}`
+/** A series' statistic, `t.avg`: t, avg → t__avg. */
+export const seriesStatName = (base: string, suffix: SeriesSuffix) => memberName(base, suffix)
+
+/** Which of a series' members a slice takes, `t[2:10:2]`: from and to (by number, both kept), and every `step`th; any can be left out. */
+export interface SliceSpec {
+  readonly from?: number
+  readonly to?: number
+  readonly step?: number
+}
+
+/** A slice's inside name: the series, `slice`, and each part given, marked by its letter: t[2:10:2] → t__slice_f2_t10_s2. */
+const SLICE = { word: 'slice', from: 'f', to: 't', step: 's', between: '_' } as const
+
+/** A slice of a series, `t[2:10:2]`, as the series it stands for: t__slice_f2_t10_s2 (t[::2]: t__slice_s2). */
+export const sliceName = (base: string, spec: SliceSpec) =>
+  `${base}${JOIN}${SLICE.word}${([[SLICE.from, spec.from], [SLICE.to, spec.to], [SLICE.step, spec.step]] as const)
+    .map(([mark, n]) => (n === undefined ? '' : `${SLICE.between}${mark}${n}`)).join('')}`
+
+/** A slice's inside name (1: the series; 2, 3, 4: from, to and step, if given). */
+const SLICE_NAME = new RegExp(String.raw`^(.+)${JOIN}${SLICE.word}(?:${SLICE.between}${SLICE.from}(\d+))?(?:${SLICE.between}${SLICE.to}(\d+))?(?:${SLICE.between}${SLICE.step}(\d+))?$`)
+
+/** A slice's series and what it takes: t__slice_f2_t10 → t, { from: 2, to: 10 } (null if it isn't one). */
+export function parseSliceName(name: string): { of: string; spec: SliceSpec } | null {
+  const m = SLICE_NAME.exec(name)
+  if (!m) return null
+  const n = (s: string | undefined) => (s === undefined ? undefined : Number(s))
+  return { of: m[1], spec: { from: n(m[2]), to: n(m[3]), step: n(m[4]) } }
+}
+
+/** Whether a name might be a slice's, or one of its members' (a quick test, before parseSliceName). */
+export const mayBeSlice = (name: string) => name.includes(`${JOIN}${SLICE.word}`)
+
+/** A slice as typed: t[2:10:2], t[::2], t[3:]. */
+export const typedSlice = (spec: SliceSpec) =>
+  [spec.from, spec.to, ...(spec.step === undefined ? [] : [spec.step])].map((n) => (n === undefined ? '' : String(n))).join(SLICE_COLON)
+
+/** Between a slice's from, to and step, as typed: t[2:10:2]. */
+export const SLICE_COLON = ':'
+
+/**
+ * The members a slice takes, of a series' members in order of their numbers
+ * (each with its number): those from `from` to `to`, then every `step`th of them.
+ */
+export function sliceOf<T>(members: readonly (readonly [number, T])[], spec: SliceSpec): T[] {
+  const kept = members.filter(([n]) => (spec.from === undefined || n >= spec.from) && (spec.to === undefined || n <= spec.to))
+  return kept.filter((_, i) => i % (spec.step ?? 1) === 0).map(([, m]) => m)
+}
 
 // ---------------------------------------------------------------------------
 // Reading
@@ -112,13 +160,13 @@ const CONSTANT_NAME = new RegExp(String.raw`^${HIDDEN_PREFIX.constant}${JOIN}(.+
 const SOLVED_NAME = new RegExp(`^${HIDDEN_PREFIX.solved}${JOIN}(.+)$`)
 const UNPACKED_START = `${HIDDEN_PREFIX.unpacked}${JOIN}`
 
-/** A series' statistic, `t_avg` (1: the series, 2: the suffix). */
-export const SERIES_STAT_NAME = new RegExp(`^(.+?)${SUBSCRIPT}(${Object.keys(SERIES_SUFFIXES).join('|')})$`)
+/** A series' statistic, `t.avg` as t__avg (1: the series, 2: the statistic). */
+export const SERIES_STAT_NAME = new RegExp(`^(.+)${JOIN}(${Object.keys(SERIES_SUFFIXES).join('|')})$`)
 
-/** A series' member, `t_1` or `t1` (1: the series, 2: the number: all the digits at the end). */
-const NUMBERED_NAME = new RegExp(String.raw`^(.+?)${SUBSCRIPT}?(\d+)$`)
+/** A series' member, `t[1]` as t__1 (1: the series, 2: its number). */
+const NUMBERED_NAME = new RegExp(String.raw`^(.+)${JOIN}(\d+)$`)
 
-/** A series' member's series and number: t_1 and t1 → t, 1; run1__x_12 → run1__x, 12 (null if it isn't numbered). */
+/** A series' member's series and number: t__1 → t, 1; run1__x__12 → run1__x, 12 (null if it isn't one). */
 export function parseNumberedName(name: string): { base: string; n: number } | null {
   const m = NUMBERED_NAME.exec(name)
   return m ? { base: m[1], n: Number(m[2]) } : null
@@ -171,8 +219,15 @@ export function parseMemberName(name: string): { namespace: string; member: stri
 /** A built-in function as typed: builtin__tuple → @tuple. */
 const BUILTIN_FUNCTION_NAME = new RegExp(String.raw`^${HIDDEN_PREFIX.builtin}${JOIN}(${NAME})$`)
 
-/** A member as typed: a__x_1 → a.x_1, builtin__tuple → @tuple (other names as they are). */
+/** A member as typed: a__x_1 → a.x_1, t__3 → t[3], builtin__tuple → @tuple (other names as they are). */
 export function typedName(name: string): string {
+  const slice = parseSliceName(name)
+  if (slice) return `${typedName(slice.of)}${MEMBER_INDEX.open}${typedSlice(slice.spec)}${MEMBER_INDEX.close}`
+  const numbered = parseNumberedName(name)
+  if (numbered) return `${typedName(numbered.base)}${MEMBER_INDEX.open}${numbered.n}${MEMBER_INDEX.close}`
+  // (A slice's statistic, t[2:4].avg.)
+  const stat = mayBeSlice(name) ? parseSeriesStatName(name) : null
+  if (stat && parseSliceName(stat.base)) return `${typedName(stat.base)}${MEMBER_DOT}${stat.suffix}`
   const builtin = BUILTIN_FUNCTION_NAME.exec(name)
   if (builtin) return `${SIGIL}${builtin[1]}`
   const m = parseMemberName(name)

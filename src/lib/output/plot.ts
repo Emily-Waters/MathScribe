@@ -50,6 +50,12 @@ export interface PlotName {
 export interface PlotSeries extends PlotName {
   points: PlotPoint[]
   fit?: LinearFit
+  /**
+   * A function's curve, not data: its points are where it was worked out, across
+   * the x axis, drawn as a smooth line (no marks, error bars or fit), and they
+   * don't widen the x axis.
+   */
+  curve?: boolean
 }
 
 export interface PlotAxis extends PlotName {
@@ -214,9 +220,13 @@ function scaleFor(values: number[], set: { from?: number; to?: number }, log: bo
 export function plotScales(plot: PlotData): { x: Scale; y: Scale } {
   const { settings } = plot
   const bars = settings.uncertainty !== false
-  const all = plot.series.flatMap((s) => s.points)
+  // (The x axis is the data's; a curve is drawn across it. With no data, it's the curves'.)
+  const data = plot.series.filter((s) => !s.curve && s.points.length)
+  const all = (data.length ? data : plot.series).flatMap((s) => s.points)
   const xs = all.flatMap((p) => (bars && p.dx ? [p.x - p.dx, p.x + p.dx] : [p.x]))
   const ys = all.flatMap((p) => (bars && p.dy ? [p.y - p.dy, p.y + p.dy] : [p.y]))
+  // A curve counts towards the y range.
+  if (data.length) for (const s of plot.series) if (s.curve) for (const p of s.points) ys.push(p.y)
   // A fit's line counts towards the y range where it crosses the x range.
   for (const s of plot.series) {
     if (!s.fit) continue
@@ -433,10 +443,11 @@ function legendEntries(plot: PlotData, colours: { point: string; line: string; f
   const textOf = (s: PlotSeries) => (s.name ? typedName(s.name) : s.expr ?? '')
   return plot.series.flatMap((s, i) => {
     const c = colours[i]
+    // (A curve is a line, whatever the plot's style.)
     const series: LegendEntry = {
       label: nameSvg(s), length: textOf(s).length,
-      ...(style !== PLOT_STYLE.lines ? { point: c.point } : {}),
-      ...(style !== PLOT_STYLE.points ? { line: c.line } : {}),
+      ...(style !== PLOT_STYLE.lines && !s.curve ? { point: c.point } : {}),
+      ...(style !== PLOT_STYLE.points || s.curve ? { line: c.line } : {}),
     }
     if (!s.fit) return [series]
     const fitLabel = several ? `${FIT_LEGEND}, ` : FIT_LEGEND
@@ -515,6 +526,13 @@ export function plotSvg(plot: PlotData, palette: PlotPalette): string {
   plot.series.forEach((s, i) => {
     const colour = colours[i]
     const points = s.points.filter((p) => onX(p.x) && onY(p.y)).sort((a, b) => a.x - b.x)
+    // A function's curve: a smooth line through where it was worked out.
+    if (s.curve) {
+      if (points.length > 1) {
+        out.push(`<polyline points="${points.map((p) => `${f(X(p.x))},${f(Y(p.y))}`).join(' ')}" fill="none" stroke="${colour.line}" stroke-width="${MARK.line}" stroke-linejoin="round"/>`)
+      }
+      return
+    }
     if (s.fit) {
       // Enough short pieces to follow the line on a log scale too.
       const pieces = settings.x.log || settings.y.log ? 60 : 1

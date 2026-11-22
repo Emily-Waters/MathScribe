@@ -34,6 +34,6 @@ export const BUILTIN_FUNCTIONS: { name: string; signature: string; description: 
 /** Constants that are built into mathjs (no @), shown as symbols. */
 export const MATH_CONSTANTS: Described[] = described(TERM_KIND.constant)
 
-/** The names a series makes (t, t_avg, t_count, …), as suffixes of its name. */
+/** What a series has (t, t[1], t.avg, t.count, …), as what follows its name. */
 export const SERIES_SUFFIXES: { suffix: string; description: string }[] =
   treeTerms(languageTopics(), TERM_KIND.seriesName).map((t) => ({ suffix: t.name, description: t.summary }))

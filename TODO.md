@@ -42,8 +42,15 @@ what's here better.
       with settings after `;`, `t = @series(0 s to 2.0 s; step 0.1 s)` (or
       `count 21`), and each value's sig figs from the decimal places of the
       inputs (exact when they're whole numbers without units).
+      Progress (2026-11-22): ranges are done, as `[start:stop:step]` (Emily's
+      choice over words): see "A series in square brackets" in section 3.
+      Sums and products of a function over a range (`sum(f(n), n, 1, 10)`)
+      are still to do.
 - [ ] **Matrices typeset**: matrices and vectors shown as matrices, with
       determinant, inverse, transpose and solving A·x = b shown as working.
+      Note (2026-11-22): square brackets are a series' now, so mathjs's
+      `[1, 2; 3, 4]` is an error (Emily: losing matrices is fine for now);
+      matrices would come back written some other way, `@matrix(…)`.
 - [ ] **Differential equations**: a numerical ODE solver (`odesolve`) whose result
       is a series to plot.
 - [ ] **Optimisation and root finding over a range**: `minimise`, `maximise`, and
@@ -76,7 +83,84 @@ what's here better.
 
 ## 3. Plots and data
 
-- [ ] **Plot functions**, not just data: `@plot(t, x, f(t))`, or a curve over a range.
+- [x] **A series only by name, its members t[1], its statistics t.avg**
+      (2026-11-22, Emily: "make a distinction between something like V1 and
+      V_1"; the gotcha: `V_0 = 9.00 V` made V a series of one, so `9.00 V` in
+      `V = @series(…)` read V as it). Numbered names made series, `t_1`
+      and `t1` were one name, and a series' statistics were suffixes, t_avg.
+      Resolved (2026-11-22), no backwards compatibility (still a prototype):
+      a name is itself, `_` and digits and all (t1, t_1, V_0 are three names,
+      none a series); a series is made by name (@series, @import, a table's
+      column, @select, a named plot's p.x), and has its members as `t[3]`
+      (mathjs's own indexing, from 1; inside name t__3, `seriesMemberName`;
+      a.x[3] → a__x__3, read with the dots in `expandDots`) and its
+      statistics as members, `t.avg`, `t.count`, `t.std`, `t.sem`, `t.sum`
+      (t__avg, `seriesStatName`, read as any member is). `t` on a line of its
+      own lists its values (`SeriesShownForm`); in a line's maths it's an
+      error saying what to write instead (`seriesAsValue`, at the check
+      stage, so a stray @table or a missing function's error comes first;
+      left to mathjs, `2 * t` would have been tonnes). An unnamed plot's fit
+      is x.slope, a named plot's with several series p.x.slope. The two
+      spellings' lookup (`otherSpelling`) is gone. Names a line's maths uses
+      are read from the tree's tokens (`symbolsIn`), so a unit after a
+      number, `5.52 V`, is never a series. The editor offers a series as
+      itself and as t[n], and its statistics after `t.`. The language tree,
+      sample sheet, template and tests moved to the new names; the golden
+      snapshots changed only where an example's text did.
+- [x] **A series in square brackets, with slices and ranges** (2026-11-22,
+      Emily): `m = [F / g]` in place of `m = @series(F / g)`, `z = m[2:4]` for
+      some of a series, and `[start:stop:step]` to make one, any part left
+      out where it can be (`m[::2]`).
+      Resolved (2026-11-22): `@series` is gone; a value wholly in square
+      brackets is a series (SeriesForm, series.ts): values listed, a rule
+      using other series, or a range, `[0 s:2.0 s:0.1 s]` (from and to kept,
+      step 1 if left out, each in the from's unit or converted to it, the
+      values to as many decimal places as the three; a negative step counts
+      down; from and to must be given). A slice, `m[2:4]`, `m[3:]`, `m[:2]`,
+      `m[::2]`, `m[1:5:2]`, takes members by their numbers, both ends kept
+      (mathjs's convention, and `rows 2-4`'s), then every step-th; it's read
+      as a series of its own (`sliceName`, m__slice_f2_t4) and worked out
+      when asked for from its series as it is (Views, given the series' rows),
+      so it works wherever a series does: `m[2:4].avg`, `@table(m[2:4])`,
+      `@plot(t[2:], x[2:])`, a rule's `[d[2:3] / t[2:3]]`. `z = m[2:4]` (or
+      `z = m`) makes z a lookup of those values, renumbered from 1, as a
+      selection is: nothing copied, so z[1] − m[2] is exactly 0. `@series`'s
+      `; rows …` gave way to slicing. Matrices go: `[1, 2; 3, 4]` and a list
+      in a list are errors, and so are square brackets elsewhere in a line's
+      maths (`2 * [1, 2]`). The editor's member names (x₁:) follow a series
+      over several lines in its brackets, as they did @series'.
+- [x] **Plot functions**, not just data: `@plot(t, x, f(t))`, or a curve over a range.
+      Resolved (2026-11-22): a function of the sheet's, by its name, is a
+      curve, `@plot(L, T, T_model)` with `T_model(L) = 2 * pi * sqrt(L / @g)`:
+      worked out at 200 points across the x axis the data make (evenly on a
+      log axis; `plotScales`, now in the module API, so the curve spans the
+      axis as drawn), in x's unit, and converted to y's (an error says so if
+      its units don't). It's a `PlotSeries` with `curve`: a smooth line in the
+      drawing and in LaTeX (coordinates, `no markers`), in the legend as a
+      line, coloured as a series' line is; it widens the y axis but not the
+      x, and has no points, bars or fit. With no data, `@plot(t, f)` draws f
+      from t's least value to its greatest. (`f(t)`, with brackets, already
+      worked: a column worked out row by row, as in `@table`; tables and
+      `@series(f(t))` take a function that way too.) In the language tree,
+      with an example. Not yet: a curve over a range of its own with no x
+      series (`@plot(f; x from 0 to 2)`), which waits on ranges (see Ranges
+      and sums).
+- [x] **Datasets with x values of their own on one plot** (2026-11-22, Emily:
+      "the ability to plot multiple datasets on a single plot"). Several
+      series against one x already worked (`@plot(t, x, y)`); two runs timed
+      at different moments didn't.
+      Resolved (2026-11-22), with Emily's choice of how it's written: each
+      dataset in brackets, `@plot((t1, x1), (t2, x2); fit linear)`; what
+      follows a bracketed dataset goes with it (`(t2, x2), y2` is y2 against
+      t2 too), and `@plot(t, x, (t2, x2))` mixes the two (`plotDatasets`,
+      series/plot.ts; a bracket that's only an expression, `(x1 + x2) / 2`,
+      is still a column). Every dataset's columns are worked out together;
+      each series is drawn against its own x, the axes in the first x's and
+      first y's units; the x axis is named for its x if they all share one,
+      else by its unit. A named plot keeps each dataset's rows (p.t1, p.x2),
+      and fits are named by their series, the whole name when two share a
+      short one (p.run1_x_slope). Curves span every dataset. In the language
+      tree, with an example.
 - [ ] **Non-linear fits**: quadratic, exponential and power-law fits, alongside the
       linear one, and a fit over part of the data.
 - [ ] **More plots**: bar charts and histograms, two y axes, residuals under a fit.

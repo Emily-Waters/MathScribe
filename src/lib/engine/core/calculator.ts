@@ -9,12 +9,12 @@ import { AGGREGATE_KIND, Variable, type Contributions, type VariableFields, type
 import { BUILTINS, isReservedConstantName } from '../../builtins.ts'
 import { EXACT_SETTING, IS_NAME, MEMBER_DOT, PERCENT, DISPLAY_MODE, CONSTANTS_BLOCK, LABEL_WORDS, SIGIL, UNCERTAINTY_WORDS, type DisplayMode, type Notation, type Precision } from '../../syntax.ts'
 import { INLINE_VALUE_NAME, INV_FUNCTION, JOIN, TUPLE_FUNCTION, RESERVED_NAMESPACES, isHiddenName, memberName, parseUncertaintyName, readableMembers, unpackedName, uncertaintyName } from '../../sheet/names.ts'
-import { expandDots } from './memberAccess.ts'
+import { expandDots, hasBracketList } from './memberAccess.ts'
 import { SheetConstants } from './sheetConstants.ts'
 import { DisplayNames } from './displayNames.ts'
 import { SigFigs } from './sigFigs.ts'
 import { Propagation } from './propagation.ts'
-import { SeriesAggregates } from './aggregates.ts'
+import { SeriesAggregates, seriesInMaths } from './aggregates.ts'
 import { SheetFunctions } from './sheetFunctions.ts'
 import { FN, OP, OP_SYMBOL, UNIT, isOp } from '../../maths/mathjsNames.ts'
 
@@ -29,7 +29,7 @@ import {
 import { strayLineFormCall } from './builtinCalls.ts'
 import { BUILTIN_CONSTANT_NAMES } from './literals.ts'
 import { preprocess, typedNumbers } from './writer.ts'
-import { AUTO_PRECISION, UNCERTAINTY_WORKING, ExplainedError, builtinCallHint, FIXED_UNCERTAINTY_SIG_FIGS, type CalcOptions, type EquationParts, layoutEquation, type TraceLine, type CalcResult, unexpectedError, fitHint, type DataColumn, type LineNotation, type LineResult, type ParsedLine, TO_PERCENT, RAW, rawNode, readableUnitError } from './results.ts'
+import { AUTO_PRECISION, UNCERTAINTY_WORKING, ExplainedError, builtinCallHint, FIXED_UNCERTAINTY_SIG_FIGS, type CalcOptions, type EquationParts, layoutEquation, type TraceLine, type CalcResult, unexpectedError, fitHint, type DataColumn, type LineNotation, type LineResult, type ParsedLine, TO_PERCENT, RAW, rawNode, readableUnitError, UNDEFINED_SYMBOL } from './results.ts'
 import { NAME_THEN_SETTINGS, expandParenPm, splitPm } from './uncertainty.ts'
 import { symbolTex, numberTex, unitTex, attachUnit, isUnitCall, unitCallText, isLitCall, CASE_WORDS, caseTex, splitUnit } from './tex.ts'
 import { unwrap, isLiteral, isTupleLiteral, isConversion } from './nodes.ts'
@@ -76,8 +76,8 @@ class CoreStep extends LineStep {
 }
 
 export class Calculator {
-  /** Selections' and named plots' series, as lookups (before the scopes, which share them). */
-  private readonly views = new Views()
+  /** Selections', named plots' and slices' series, as lookups (before the scopes, which share them; a slice is of a series' rows). */
+  private readonly views = new Views((base) => this.aggregates.rows(base))
   /** The sheet's variables, each with everything kept about it (a Variable: see values.ts). */
   private readonly rootVars: Variables = new Scope(undefined, this.views)
   /** The variables in scope here: the sheet's, or a `{ }` block's or function call's inside them. */
@@ -624,10 +624,10 @@ export class Calculator {
   }
 
   /**
-   * Imported data (`@import("run1.csv")`): each value becomes a variable named
-   * for its column and row, t_1, t_2, …, with the column's unit and its sig
+   * Imported data (`@import("run1.csv")`): each column becomes a series named
+   * for it, its values t[1], t[2], …, with the column's unit and their sig
    * figs as typed (a whole number without a unit is exact, as when typed).
-   * A named import (`run1 = @import(…)`) puts them under its name: run1.t_1.
+   * A named import (`run1 = @import(…)`) puts them under its name: run1.t[1].
    * Returns what each column made, for the import's summary.
    */
   defineData(columns: CsvColumn[], namespace?: string): { columns: DataColumn[]; error?: string } {
@@ -804,6 +804,14 @@ export class Calculator {
    * return-line command. `notation`: `#sci` or `#dec` on the line, or on a
    * block around it.
    */
+  /** mathjs's message for a name that's a series, not a value (`2 * t`), explained: what to write instead (seriesInMaths). */
+  private seriesHint(message: string): string {
+    const typed = UNDEFINED_SYMBOL.exec(message)?.[1]
+    if (!typed) return message
+    const count = this.aggregates.members(expandDots(typed)).length
+    return count ? seriesInMaths(expandDots(typed), count) : message
+  }
+
   evaluate(input: string, mode: DisplayMode = DISPLAY_MODE.full, explicit = false, multiline = false, notation: LineNotation = {}): CalcResult {
     this.multiline = multiline
     this.lineNotation = notation
@@ -814,8 +822,9 @@ export class Calculator {
       if (internal) return { tex: '', error: internal }
       const { tex, error, warning, info, trace, plot, block, defines, parts } = this.evaluateLine(this.rewriteLine(input), mode, explicit)
       // Messages name a namespace's members as typed, a.x_1 (not a__x_1), and a module's inside names as the sheet does.
-      // (And one of MathScribe's functions written without its @ is explained.)
-      const readable = (s: string | undefined) => (s === undefined ? s : builtinCallHint(moduleReadableMessage(s.includes(JOIN) ? fitHint(readableMembers(s)) : s)))
+      // (And one of MathScribe's functions written without its @ is explained, and a series where a value was wanted.)
+      const readable = (s: string | undefined) => (s === undefined ? s
+        : builtinCallHint(moduleReadableMessage(this.seriesHint(s.includes(JOIN) ? fitHint(readableMembers(s)) : s))))
       // Brackets by nesting, ( ) inside [ ] inside { }, once each equation is finished.
       return {
         tex: nestBrackets(tex), error: readable(error), warning: readable(warning), info: readable(info), plot, block, defines,
@@ -970,6 +979,17 @@ export class Calculator {
         const stray = strayLineFormCall(line.text)
         return stray ? { tex: '', error: stray } : undefined
       }),
+      // Square brackets that aren't a series' or a member's: `x = 2 * [1, 2]` (a series is a line of its own).
+      step(LINE_STAGE.check, (line) => (hasBracketList(line.text)
+        ? { tex: '', error: `Square brackets make a series, on a line that names it: t = [1.0 s, 2.0 s]. In a formula, use one of its values, t[2], or a statistic of them, t.avg.` }
+        : undefined)),
+      // A series where a value is wanted: `w = 2 * t`.
+      step(LINE_STAGE.check, (line) => {
+        const shape = line.shape
+        const assigned = shape?.target?.kind === NODE_KIND.assigned ? shape.target.name : undefined
+        const series = this.aggregates.seriesAsValue(line.text, assigned)
+        return series ? { tex: '', error: series } : undefined
+      }),
       step(LINE_STAGE.work, (line) => this.work(line)),
     ]
   }
@@ -1020,7 +1040,7 @@ export class Calculator {
 
   /**
    * What stands for something else, written out: constants (`@c:4`), a
-   * series' statistics (`t_avg`), `to percent`, `delta F`, `(a pm b)`; and the
+   * series' statistics (`t.avg`), `to percent`, `delta F`, `(a pm b)`; and the
    * line's numbers as typed, so `2.0 kg` keeps its trailing zero.
    */
   private expand(line: CoreLine): LineResult | undefined {
@@ -1179,7 +1199,7 @@ export class Calculator {
         ? this.aggregates.standardErrorWorking(meanOf)
         : this.uncertainty.deltaWorking(uncRef.of, uncRef.letter)))
     }
-    // `a`, `a_avg`, …: show how the series is combined.
+    // `a.sum`, `a.avg`, …: show how the series is combined.
     const agg = isSymbolNode(bare) ? this.vars.get(bare.name)?.agg : undefined
     if (agg) steps.push(...this.aggregates.working(agg))
 

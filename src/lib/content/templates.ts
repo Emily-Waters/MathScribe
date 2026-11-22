@@ -32,17 +32,13 @@ const LAB_REPORT = `@layout.titlepage {
 
 # Data
 > Each measurement, with its uncertainty (pm).
-t_1 = 0.50 s pm 0.02 s
-t_2 = 1.00 s pm 0.02 s
-t_3 = 1.50 s pm 0.02 s
-x_1 = 0.61 m pm 0.01 m
-x_2 = 1.24 m pm 0.01 m
-x_3 = 1.83 m pm 0.01 m
+t = [0.50 s pm 0.02 s, 1.00 s pm 0.02 s, 1.50 s pm 0.02 s]
+x = [0.61 m pm 0.01 m, 1.24 m pm 0.01 m, 1.83 m pm 0.01 m]
 @table(t, x; title "Measurements")
 
 # Calculations
 @table(t, x, v = x / t; title "Speeds")
-v_avg                    # mean speed
+v.avg                    # mean speed
 
 # Results
 p = @plot(t, x; fit linear, title "Distance against time")

@@ -1,9 +1,9 @@
 /**
- * Series as an engine module: series made on one line (`t = @series(1.52 s, 1.48 s)`,
- * `m = @series(F / g)`), shown in a table (`@table(t, x)`), plotted
+ * Series as an engine module: series made on one line (`t = [1.52 s, 1.48 s]`,
+ * `m = [F / g]`, `t = [0 s:2 s:0.1 s]`, `z = m[2:4]`), shown in a table (`@table(t, x)`), plotted
  * with best-fit lines (`@plot(t, x; fit linear)`), and selected by condition
- * (`a = @select(t, x; t from 0.2 to 0.8)`). Series themselves (t_1, t_2, …,
- * t_avg) and imported data are the core's; this builds on them through the
+ * (`a = @select(t, x; t from 0.2 to 0.8)`), and shown on a line of their own
+ * (`t`). Series themselves (t[1], t[2], …, t.avg) and imported data are the core's; this builds on them through the
  * ModuleHost.
  */
 import {
@@ -16,7 +16,7 @@ import { TableView } from './tableView.tsx'
 import { SERIES_CALL } from './syntax.ts'
 import { PlotForm } from './plot.ts'
 import { SelectForm } from './select.ts'
-import { SeriesForm } from './series.ts'
+import { SeriesForm, SeriesShownForm } from './series.ts'
 import { TableForm } from './table.ts'
 import { tableMenu } from './tableMenu.ts'
 import { memberLabelsExtension } from './memberLabels.ts'
@@ -39,7 +39,7 @@ export class SeriesModule extends EngineModule {
     return SERIES_TOPICS
   }
 
-  override readonly lineForms: readonly LineForm[] = [new TableForm(), new PlotForm(), new SelectForm(), new SeriesForm()]
+  override readonly lineForms: readonly LineForm[] = [new TableForm(), new PlotForm(), new SelectForm(), new SeriesForm(), new SeriesShownForm()]
 
   /** Its part of a sheet's tree: a call's settings after its `;`, as one token. */
   override grammar(): ModuleGrammar {
@@ -70,8 +70,6 @@ export class SeriesModule extends EngineModule {
         'Graph series against another, with error bars; fit linear adds a best-fit line (p.slope, p.intercept)', 'p = @plot(t, x; fit linear)'),
       new LineFormMember(SERIES_CALL.select, 't, x; t from 0.2 to 0.8',
         'The rows where conditions hold, as new series a.t, a.x numbered from 1', 'a = @select(t, x; t from 0.2 to 0.8)'),
-      new LineFormMember(SERIES_CALL.series, 'F / g; rows 5-20',
-        'A series on one line: its values listed (t_1, t_2, …), or worked out row by row from other series', 'm = @series(F / g)'),
     ]
   }
 }

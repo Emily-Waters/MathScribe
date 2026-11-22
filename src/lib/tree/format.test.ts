@@ -51,7 +51,7 @@ function worksOutTheSame(source: string): string {
 }
 
 /** Characters that tend to break things, brackets and commas among them. */
-const TRICKY = ['\n', '\r\n', '\t', ' ', '    ', '{', '}', '(', ')', '[', ']', ',', '#', '//', '@', 'x', '=', '"', '> ', '@series', '@latex {', '@import("a.csv")', '1']
+const TRICKY = ['\n', '\r\n', '\t', ' ', '    ', '{', '}', '(', ')', '[', ']', ',', '#', '//', '@', 'x', '=', '"', '> ', '@table', '@latex {', '@import("a.csv")', '1']
 
 /** A small seeded random number generator (mulberry32), so a failing case can be found again. */
 function random(seed: number): () => number {
@@ -66,29 +66,29 @@ function random(seed: number): () => number {
 
 describe('formatting a sheet', () => {
   it('lays out a call over several lines: its lines a level in, its bracket under its first, no trailing comma', () => {
-    expect(keepsMeaning('val = @series(\n  1234,\n  5678,\n  )')).toBe('val = @series(\n    1234,\n    5678\n)')
-    expect(keepsMeaning('Box {\n  val = @series(\n      1,\n      2,  # two\n  )\n}')).toBe(
-      'Box {\n    val = @series(\n        1,\n        2  # two\n    )\n}',
+    expect(keepsMeaning('val = [\n  1234,\n  5678,\n  ]')).toBe('val = [\n    1234,\n    5678\n]')
+    expect(keepsMeaning('Box {\n  val = [\n      1,\n      2,  # two\n  ]\n}')).toBe(
+      'Box {\n    val = [\n        1,\n        2  # two\n    ]\n}',
     )
   })
 
   it('puts every line of a call at the same level, whatever it was', () => {
     const values = ['0.23100 N pm 0.00410 N', '0.30000 N pm 0.00280 N', '0.36900 N pm 0.00390 N']
-    expect(keepsMeaning(`Fs = @series(\n    ${values[0]},\n        ${values[1]},\n    ${values[2]}\n)`))
-      .toBe(`Fs = @series(\n    ${values[0]},\n    ${values[1]},\n    ${values[2]}\n)`)
+    expect(keepsMeaning(`Fs = [\n    ${values[0]},\n        ${values[1]},\n    ${values[2]}\n]`))
+      .toBe(`Fs = [\n    ${values[0]},\n    ${values[1]},\n    ${values[2]}\n]`)
   })
 
   it('puts everything in a call over several lines on a line of its own, if any of it is on another line', () => {
     const values = ['0.23100 N pm 0.00410 N', '0.30000 N pm 0.00280 N', '0.83300 N pm 0.00250 N']
-    expect(worksOutTheSame(`Fs = @series( ${values[0]},\n     ${values[1]},\n     ${values[2]})\nF = Fs_avg`))
-      .toBe(`Fs = @series(\n    ${values[0]},\n    ${values[1]},\n    ${values[2]}\n)\nF = Fs_avg`)
+    expect(worksOutTheSame(`Fs = [ ${values[0]},\n     ${values[1]},\n     ${values[2]}]\nF = Fs.avg`))
+      .toBe(`Fs = [\n    ${values[0]},\n    ${values[1]},\n    ${values[2]}\n]\nF = Fs.avg`)
     expect(worksOutTheSame('y = max(1,\n  2)')).toBe('y = max(\n    1,\n    2\n)')
     expect(worksOutTheSame('y = max(1, 2,\n  3)  #val  # the most')).toBe('y = max(\n    1,\n    2,\n    3\n)  #val  # the most')
   })
 
   it('brings a value at the wrong indentation back into its call', () => {
     const values = ['0.23100 N pm 0.00410 N', '0.30000 N pm 0.00280 N', '0.83300 N pm 0.00250 N']
-    const call = (first: string) => `Box {\n    Fs = @series(\n${first}${values[0]},\n        ${values[1]},\n        ${values[2]}\n    )\n    F = Fs_avg\n}`
+    const call = (first: string) => `Box {\n    Fs = [\n${first}${values[0]},\n        ${values[1]},\n        ${values[2]}\n    ]\n    F = Fs.avg\n}`
     expect(worksOutTheSame(call(''))).toBe(call('        '))
     expect(worksOutTheSame(call('    '))).toBe(call('        '))
   })
@@ -96,7 +96,7 @@ describe('formatting a sheet', () => {
   it('keeps its settings together, and a note with what it’s after', () => {
     const DATA = 't1 = 0.10 s\nt2 = 0.20 s\nx1 = 0.012 m\nx2 = 0.047 m\n'
     expect(worksOutTheSame(`${DATA}@table(t, x;\n  rows 1-2, lines grid)`)).toBe(`${DATA}@table(\n    t,\n    x;\n    rows 1-2, lines grid\n)`)
-    expect(worksOutTheSame('v = @series(1,  # first\n  2)')).toBe('v = @series(\n    1,  # first\n    2\n)')
+    expect(worksOutTheSame('v = [1,  # first\n  2]')).toBe('v = [\n    1,  # first\n    2\n]')
   })
 
   it('leaves a bracket on one line as it is, and lays out one over several in it', () => {
@@ -137,7 +137,7 @@ describe('formatting a sheet', () => {
     expect(keepsMeaning('f(a,,\n)')).toBe('f(\n    a,,\n)')
     expect(keepsMeaning('f(\n  a,#val\n)')).toBe('f(\n    a #val\n)')
     // (A line break only ever takes the place of spaces: a #command between two things stays.)
-    expect(keepsMeaning('v = @series(  #val 1 N,\n  2 N)')).toBe('v = @series(  #val 1 N,\n    2 N\n)')
+    expect(keepsMeaning('v = [  #val 1 N,\n  2 N]')).toBe('v = [  #val 1 N,\n    2 N\n]')
   })
 
   it('indents each line by the blocks it’s in, closing braces under their openers', () => {

@@ -309,6 +309,13 @@ export function plotToLatex(plot: PlotData): string {
     const chosen = chosenColours(plot, s)
     const of = (c: PlotColour | undefined) => (c ? rgbColour(NAMED_COLOURS[c]) : own)
     const [point, line, fit] = [of(chosen.points), of(chosen.line), of(chosen.fit)]
+    // A function's curve: a line through where it was worked out.
+    if (s.curve) {
+      const coordinates = s.points.map((p) => `(${plotNumber(p.x)}, ${plotNumber(p.y)})`)
+      lines.push(`\\addplot[color=${line}, no markers, thick${legend ? '' : ', forget plot'}] coordinates {${coordinates.join(' ')}};`)
+      if (legend) lines.push(`\\addlegendentry{${plotLabel(s)}}`)
+      return
+    }
     // (Error bars only if the plot's settings show uncertainties.)
     const errors = settings.uncertainty !== false && s.points.some((p) => p.dx || p.dy)
     const marks = settings.style !== PLOT_STYLE.lines

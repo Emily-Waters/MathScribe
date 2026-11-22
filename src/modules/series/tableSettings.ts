@@ -10,7 +10,7 @@
  */
 
 import {
-  ChoiceSetting, FlagSetting, NameSetting, RowsSetting, SettingsSpec, SwitchSetting, TitleSetting,
+  ChoiceSetting, FlagSetting, INDENT, NameSetting, RowsSetting, SettingsSpec, SwitchSetting, TitleSetting,
 } from '../../lib/plugin.ts'
 
 // (The settings text's own pieces are the language's: lib/language/settings.ts.)
@@ -71,6 +71,9 @@ export const SETTING = {
 
 /** Between the columns and the settings, in a call's brackets. */
 export const SETTINGS_START = ';'
+
+/** Between a call's lines, when it's over several. */
+const LINE_BREAK = '\n'
 /**
  * What's between a table's or plot's brackets, split at its first semicolon
  * (outside any brackets or quotes) into the columns and the settings.
@@ -94,13 +97,19 @@ export function splitCallArgs(inner: string): { columns: string; settings?: stri
  * in its brackets (or taken out, if `text` is empty). `inner`: where what's
  * between the brackets is, in the line. Whatever's between the last of it and
  * the closing bracket stays (a call over several lines keeps its `)` on a line
- * of its own).
+ * of its own). In a call over several lines, the settings go on a line of
+ * their own after the `;`, a level in from the `)`, as the formatter lays it
+ * out, so the ⚙ never leaves the sheet as the formatter wouldn't.
  */
 export function withSettingsText(line: string, inner: { from: number; to: number }, text: string): string {
   const inside = line.slice(inner.from, inner.to)
   const { columns } = splitCallArgs(inside)
   const before = inside.slice(inside.trimEnd().length)
-  return `${line.slice(0, inner.from)}${columns.trimEnd()}${text ? `${SETTINGS_START} ${text}` : ''}${before}${line.slice(inner.to)}`
+  const closeIndent = before.slice(before.lastIndexOf(LINE_BREAK) + 1)
+  const settings = !text ? ''
+    : before.includes(LINE_BREAK) ? `${SETTINGS_START}${LINE_BREAK}${closeIndent}${INDENT}${text}`
+      : `${SETTINGS_START} ${text}`
+  return `${line.slice(0, inner.from)}${columns.trimEnd()}${settings}${before}${line.slice(inner.to)}`
 }
 
 /** A table's settings from their text, or what's wrong with them (as declared: TABLE_SETTINGS). */
@@ -138,4 +147,8 @@ export const TABLE_SETTINGS = new SettingsSpec<TableSettings>('table', () => ({ 
   new SwitchSetting(SETTING.uncertainty, 'uncertainty', { label: 'Show uncertainty', summary: 'Each value with ± its uncertainty; uncertainty off shows the values alone.' }),
   new FlagSetting(SETTING.allRows, 'allRows', { label: 'Show every row', summary: 'Every row, even in a long table (one is normally shortened).' }),
   new TitleSetting({ label: 'Title', summary: 'Its caption, quoted so it can hold commas: title "Reactivity of the halogens".' }),
+], [
+  // (The ⚙ menu's order: what the table is, then which rows and what's down their side; in each, boxes and menus, then checkboxes.)
+  { title: 'Table', labels: ['Title', 'Lines', 'Show uncertainty'] },
+  { title: 'Rows', labels: ['Rows', 'Row labels', 'Row numbers', 'Show every row'] },
 ])

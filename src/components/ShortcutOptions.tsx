@@ -7,7 +7,7 @@ const ON_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(naviga
 export function ShortcutOptions() {
   return (
     <>
-      <p className="options__help options__shortcuts-title">Keyboard shortcuts</p>
+      <div className="options__section">Keyboard shortcuts</div>
       <dl className="options__shortcuts">
         {SHORTCUTS.map((s) => (
           <div key={s.does}>

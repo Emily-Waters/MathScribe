@@ -12,7 +12,7 @@ export function ThemeMenu({ theme, onChange }: ThemeMenuProps) {
     <Dropdown label="Theme" icon="theme" panelLabel="App theme">
       <div role="radiogroup" aria-label="App theme">
         {APP_THEMES.map((t) => (
-          <label key={t.id} className="theme-choice">
+          <label key={t.id} className="theme-choice" title={t.description}>
             <input
               type="radio"
               name="app-theme"
@@ -28,7 +28,6 @@ export function ThemeMenu({ theme, onChange }: ThemeMenuProps) {
             />
             <span className="theme-choice__text">
               <span className="theme-choice__name">{t.name}</span>
-              <span className="options__help">{t.description}</span>
             </span>
           </label>
         ))}

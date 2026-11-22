@@ -28,17 +28,19 @@ export function SyntaxOptions({ theme, onThemeChange, custom, palette, mode, onC
 
   return (
     <>
-      <label className="options__row">
+      <label className="options__row" title={`${SYNTAX_THEMES.find((t) => t.id === theme)?.description}.`}>
         <span>Colours</span>
         <select value={theme} onChange={(e) => onThemeChange(e.target.value as SyntaxThemeId)}>
           {SYNTAX_THEMES.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
         </select>
       </label>
-      <p className="options__help">{SYNTAX_THEMES.find((t) => t.id === theme)?.description}.</p>
 
       {theme === 'custom' && custom && palette && (
         <div className="syntax-custom">
-          <label className="options__row">
+          <label
+            className="options__row"
+            title={`Colours you haven’t changed follow this theme. You’re editing the ${mode} colours; light and dark are kept separately, so switch the app theme to edit the other set.`}
+          >
             <span>Start from</span>
             <select
               value={custom.base}
@@ -47,11 +49,6 @@ export function SyntaxOptions({ theme, onThemeChange, custom, palette, mode, onC
               {PRESET_THEMES.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           </label>
-          <p className="options__help">
-            Colours you haven’t changed follow this theme. You’re editing the
-            {' '}<strong>{mode}</strong> colours; light and dark are kept separately, so
-            switch the app theme to edit the other set.
-          </p>
 
           <div className="syntax-custom__list">
             {SYNTAX_TOKENS.map((t) => (

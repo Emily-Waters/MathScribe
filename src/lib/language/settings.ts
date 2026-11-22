@@ -110,6 +110,8 @@ export interface SettingAbout {
  * number and text boxes (empty for none), and a tooltip on a row.
  */
 export interface SettingsPanel<C> {
+  /** A heading over the rows of a group of settings (SettingsSpec's `groups`). */
+  section(title: string): C
   row(label: string, ...controls: (C | string)[]): C
   checkBox(value: boolean, set: (on: boolean) => void): C
   choice(options: readonly { readonly value: string; readonly label: string }[], value: string, set: (value: string) => void): C
@@ -397,18 +399,28 @@ export interface SettingsDescription {
   readonly settings: readonly SettingDescription[]
 }
 
+/** A group of settings in the ⚙ menu, under a heading: its settings by their labels, in the menu's order. */
+export interface SettingsGroup {
+  readonly title: string
+  readonly labels: readonly string[]
+}
+
 /**
  * A call's settings, declared: what they're for (`plot`, in their error), their
- * defaults, and each setting, in the order they're written back.
+ * defaults, and each setting, in the order they're written back; and, for the
+ * ⚙ menu, the groups they're shown in (each setting in one: a test checks), in
+ * the order that reads best there, which needn't be the order they're written.
  */
 export class SettingsSpec<S> {
   readonly what: string
   readonly defaults: () => S
   readonly settings: readonly Setting<S>[]
-  constructor(what: string, defaults: () => S, settings: readonly Setting<S>[]) {
+  readonly groups: readonly SettingsGroup[]
+  constructor(what: string, defaults: () => S, settings: readonly Setting<S>[], groups: readonly SettingsGroup[] = []) {
     this.what = what
     this.defaults = defaults
     this.settings = settings
+    this.groups = groups
   }
 
   /** Settings from their text (a call's, after its semicolon), or what's wrong with them: the first that isn't a setting. */
@@ -428,7 +440,8 @@ export class SettingsSpec<S> {
 
   /**
    * The ⚙ menu's controls for these settings, read from their text: each
-   * setting's, in the order declared; `save` writes their text back as each changes.
+   * group's heading and its settings' controls (or, without groups, each
+   * setting's, in the order declared); `save` writes their text back as each changes.
    */
   controls<C>(panel: SettingsPanel<C>, text: string | undefined, save: (text: string) => void): C[] {
     let settings = this.parse(text).settings
@@ -440,7 +453,11 @@ export class SettingsSpec<S> {
       },
       defaults: this.defaults(),
     }
-    return this.settings.flatMap((s) => s.controls(panel, state))
+    if (!this.groups.length) return this.settings.flatMap((s) => s.controls(panel, state))
+    return this.groups.flatMap((g) => [
+      panel.section(g.title),
+      ...g.labels.flatMap((label) => this.settings.filter((s) => s.about.label === label).flatMap((s) => s.controls(panel, state))),
+    ])
   }
 
   /** These settings as they're described, for the reference and the AI primer (lib/language/reference.ts). */

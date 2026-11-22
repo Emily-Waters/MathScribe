@@ -852,6 +852,51 @@ try, as headless Chrome can't type with a phone's keyboard or touch.
 
 ## 7. Sheets and output
 
+- [x] **The ⚙ moved a multiline call's settings up a line** (2026-11-22,
+      Emily): changing a table's or plot's settings in its ⚙ wrote them after
+      the last column, `x; lines grid`, where the formatter puts them on a
+      line of their own.
+      Resolved (2026-11-22): `withSettingsText` (tableSettings.ts) writes them
+      as the formatter lays a call over several lines out, `x;` then the
+      settings on their own line, a level in from the `)`; taking them all
+      out takes the `;` and their line too. A test checks the formatter
+      leaves whatever it writes as it is, in a block too.
+- [x] **Clicks went through the options menus** (2026-11-22, Emily): a click
+      outside an open menu closed it and also did what it would have done
+      (moved the editor's cursor, chose a tab, pressed a button).
+      Resolved (2026-11-22): `closeOnPressOutside` (editor/popover.ts, in the
+      module API) closes a panel on a press outside it and swallows that press
+      and its click, in the capturing phase, before the editor or a button
+      sees them; the Output, editor and template/theme menus (Dropdown) and a
+      table's and plot's ⚙ panel use it. A second click does what it says.
+- [x] **The options menus: controls lined up, settings grouped** (2026-11-22,
+      Emily).
+      Resolved (2026-11-22): every options row (Output, editor, Export's
+      document options, a table's and plot's ⚙) is one grid, its name on the
+      left and its control in a column of one width on the right
+      (`--options-control`), every box and menu the same height, a checkbox
+      at the column's end; a row of several controls (rows from–to, an axis)
+      fills the column. Each menu is in groups under headings: Output's
+      Results (sig figs, ≈) and Working (uncertainty working, substitution,
+      ·); the editor's Appearance, Typing and Keyboard shortcuts;
+      Export's Page, Layout and Title; a table's Table and Rows; a plot's
+      Data, Axes, Labels and Colours. In each group, boxes and menus come
+      first and checkboxes last (a row with both, an axis's range and log,
+      after the plain boxes). The ⚙ panels' groups are declared with
+      their settings (SettingsSpec's `groups`, by label; a test checks each
+      setting is in one), so the menu's order needn't be the order settings
+      are written in a call.
+- [x] **Inline tips as tooltips** (2026-11-22, Emily: as the ⚙ menus' already
+      are, so the menus aren't busy).
+      Resolved (2026-11-22): the help under each setting in the Output options,
+      the editor's options (colours, suggestions, results in the editor), the
+      Export dialog's document options and the app theme's choices is now its
+      row's tooltip. The
+      Create dialog's note is the Copy prompt button's tooltip, the Library's
+      intro the Insert button's, and the template menu's intro line is gone.
+      Left as they are: descriptions that are what a choice is (Create's
+      kinds, Export's formats, the templates), the keyboard shortcuts' list,
+      and the Reference's and Library's own text.
 - [ ] **Rethink the Create prompt: too long to paste, and the AI's sheets lean
       on LaTeX** (2026-11-22, Emily). Two problems found with Gemini: the
       prompt (about 52,000 characters, nearly all the primer) didn't paste

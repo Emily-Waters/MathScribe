@@ -136,13 +136,16 @@ export function CreateDialog({ open, onClose, onCreate }: Props) {
               ))}
             </div>
             <div className="dialog__actions">
-              <button className="dialog__primary" onClick={() => void copy()} title="Copy the prompt (Ctrl+Enter)">Copy prompt</button>
+              <button
+                className="dialog__primary"
+                onClick={() => void copy()}
+                title={'Copy the prompt (Ctrl+Enter): your request and MathScribe’s rules, to paste into any AI '
+                  + '(ChatGPT, Claude, Gemini, …). Nothing is sent from MathScribe.'}
+              >
+                Copy prompt
+              </button>
               {flash && <span className="dialog__flash" role="status">{flash.message}</span>}
             </div>
-            <p className="options__help">
-              The prompt has your request and MathScribe’s rules. Paste it into any AI (ChatGPT, Claude,
-              Gemini, …). Nothing is sent from MathScribe.
-            </p>
             <details className="dialog__preview" ref={preview}>
               <summary>Show the whole prompt</summary>
               <pre>{prompt}</pre>

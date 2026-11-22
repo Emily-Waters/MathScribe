@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest'
 import { TABLE_SETTINGS, formatTableSettings, parseTableSettings, splitCallArgs, withSettingsText, withTableSettings } from './tableSettings.ts'
 import { PLOT_SETTINGS } from './plotSettings.ts'
+import { formatSheet } from '../../lib/tree/format.ts'
 
 describe('table settings', () => {
   it('splits the columns from the settings at the first semicolon outside brackets', () => {
@@ -9,11 +10,22 @@ describe('table settings', () => {
     expect(splitCallArgs('t, f(a; b)')).toEqual({ columns: 't, f(a; b)' })
   })
 
-  it('writes settings into a call over several lines, its closing bracket kept on its own line', () => {
+  it('writes settings into a call over several lines on a line of their own, as the formatter lays it out', () => {
     const write = (inside: string, text: string) => withSettingsText(inside, { from: 0, to: inside.length }, text)
-    expect(write('\n    t,\n    x;\n    rows 2-3\n', 'lines grid')).toBe('\n    t,\n    x; lines grid\n')
-    expect(write('\n    t,\n    x\n', 'lines grid')).toBe('\n    t,\n    x; lines grid\n')
+    expect(write('\n    t,\n    x;\n    rows 2-3\n', 'lines grid')).toBe('\n    t,\n    x;\n    lines grid\n')
+    expect(write('\n    t,\n    x\n', 'lines grid')).toBe('\n    t,\n    x;\n    lines grid\n')
     expect(write('\n    t,\n    x; rows 2-3\n', '')).toBe('\n    t,\n    x\n')
+    // In a block, a level in from its closing bracket.
+    expect(write('\n        t,\n        x\n    ', 'lines grid')).toBe('\n        t,\n        x;\n        lines grid\n    ')
+    // Whatever's written, the formatter leaves as it is.
+    for (const sheet of ['@table(\n    t,\n    x\n)', 'Box {\n    p = @plot(\n        t,\n        x;\n        fit linear\n    )\n}']) {
+      const open = sheet.indexOf('(') + 1
+      const close = sheet.lastIndexOf(')')
+      for (const text of ['lines grid', 'rows 2-3, title "A, b"', '']) {
+        const written = withSettingsText(sheet, { from: open, to: close }, text)
+        expect(formatSheet(written), written).toBe(written)
+      }
+    }
   })
 
   it('reads and writes them, leaving out the defaults', () => {
@@ -44,6 +56,13 @@ describe('the declared settings’ own examples', () => {
       const { settings, error } = (spec as typeof TABLE_SETTINGS).parse(example)
       expect(error, example).toBeUndefined()
       expect((spec as typeof TABLE_SETTINGS).format(settings), example).toBe(example)
+    }
+  })
+
+  it('show each setting in the ⚙ menu once, in one of its groups', () => {
+    for (const spec of [TABLE_SETTINGS, PLOT_SETTINGS] as const) {
+      const grouped = spec.groups.flatMap((g) => g.labels)
+      expect([...grouped].sort(), spec.what).toEqual(spec.settings.map((s) => s.about.label).sort())
     }
   })
 })

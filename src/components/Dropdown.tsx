@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { placeFixedPanel } from '../editor/popover.ts'
+import { closeOnPressOutside, placeFixedPanel } from '../editor/popover.ts'
 import { Icon, IconLabel, type IconName } from './icons.tsx'
 
 interface DropdownProps {
@@ -16,7 +16,7 @@ interface DropdownProps {
   closeOnChoose?: boolean
 }
 
-/** A button that opens a panel of settings (or a menu: closeOnChoose). Closes on Escape or a click outside. */
+/** A button that opens a panel of settings (or a menu: closeOnChoose). Closes on Escape or a click outside (which goes no further). */
 export function Dropdown({ label, icon, panelLabel, children, hidden, closeOnChoose = false }: DropdownProps) {
   const [open, setOpen] = useState(false)
   const root = useRef<HTMLDivElement>(null)
@@ -25,16 +25,14 @@ export function Dropdown({ label, icon, panelLabel, children, hidden, closeOnCho
 
   useEffect(() => {
     if (!open) return
-    const onPointer = (e: PointerEvent) => {
-      if (!root.current?.contains(e.target as Node) && !panel.current?.contains(e.target as Node)) setOpen(false)
-    }
+    // (A press outside only closes it: it doesn't go through to what's under it.)
+    const stop = closeOnPressOutside((t) => !!root.current?.contains(t) || !!panel.current?.contains(t), () => setOpen(false))
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setOpen(false)
     }
-    document.addEventListener('pointerdown', onPointer)
     document.addEventListener('keydown', onKey)
     return () => {
-      document.removeEventListener('pointerdown', onPointer)
+      stop()
       document.removeEventListener('keydown', onKey)
     }
   }, [open])

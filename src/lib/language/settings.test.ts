@@ -50,6 +50,7 @@ describe('a call’s declared settings', () => {
     // (A panel of text: each control as what it shows, with a way to use it.)
     const uses = new Map<string, (v: never) => void>()
     const panel: SettingsPanel<string> = {
+      section: (title) => `== ${title}`,
       row: (label, ...controls) => `${label}: ${controls.join(' ')}`,
       checkBox: (on, set) => (uses.set(`check ${uses.size}`, set as never), `[${on ? 'x' : ' '}]`),
       choice: (options, value, set) => (uses.set(`choice ${uses.size}`, set as never), `<${options.map((o) => (o.value === value ? `*${o.label}` : o.label)).join('|')}>`),

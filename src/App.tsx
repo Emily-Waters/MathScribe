@@ -310,6 +310,7 @@ export default function App() {
               onChooseImport={chooseImportFile}
               options={
                 <>
+                  <div className="options__section">Appearance</div>
                   <SyntaxOptions
                     theme={syntaxTheme}
                     onThemeChange={changeSyntaxTheme}
@@ -318,12 +319,15 @@ export default function App() {
                     mode={appearance.mode}
                     onCustomChange={changeCustomSyntax}
                   />
-                  <SuggestionOptions acceptKeys={acceptKeys} onAcceptKeysChange={changeAcceptKeys} />
-                  <label className="options__row">
-                    <input type="checkbox" checked={inlineShown} onChange={(e) => changeInlineShown(e.target.checked)} />
+                  <label
+                    className="options__row"
+                    title="Each line's result, faintly, at the end of the line, and a series' members' names (x₁, x₂, …) before its values when it's written over several lines."
+                  >
                     <span>Show results in the editor</span>
+                    <input type="checkbox" checked={inlineShown} onChange={(e) => changeInlineShown(e.target.checked)} />
                   </label>
-                  <p className="options__help">Each line's result, faintly, at the end of the line, and a series' members' names (x₁, x₂, …) before its values when it's written over several lines.</p>
+                  <div className="options__section">Typing</div>
+                  <SuggestionOptions acceptKeys={acceptKeys} onAcceptKeysChange={changeAcceptKeys} />
                   <ShortcutOptions />
                 </>
               }

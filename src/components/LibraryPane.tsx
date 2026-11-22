@@ -50,10 +50,6 @@ export function LibraryPane({ onInsert }: LibraryPaneProps) {
         placeholder="Search: ideal gas, momentum, half-life…"
         searchLabel="Search the equation library"
       />
-      <p className="ref__explain lib__intro">
-        Insert puts the function on the line with the cursor (or just below it), ready to call: rename it or
-        change it as you like. Its working shows in the output like any other line.
-      </p>
 
       {topics.map((t) => (
         <section key={t.id} id={`lib-${t.id}`} className="ref__section">
@@ -96,7 +92,8 @@ function Entry({ entry: e, message, onInsert, onCopy }: {
         <span className="lib__actions">
           {message && <span className="lib__done">{message}</span>}
           <button className="source__button" onClick={onCopy} title="Copy the function to the clipboard">Copy</button>
-          <button className="source__button lib__insert" onClick={onInsert} title="Insert the function at the cursor">
+          <button className="source__button lib__insert" onClick={onInsert} title={'Insert the function on the line with the cursor (or just below it), ready to call: rename it or '
+            + 'change it as you like. Its working shows in the output like any other line.'}>
             Insert
           </button>
         </span>

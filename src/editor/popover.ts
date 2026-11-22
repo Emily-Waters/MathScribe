@@ -74,3 +74,31 @@ export function placeFixedPanel(
     window.removeEventListener('scroll', place, true)
   }
 }
+
+/** How long after a press outside a panel its click can come (a slow tap's), and is still the panel's to swallow (ms). */
+const CLICK_AFTER_PRESS_MS = 600
+
+/**
+ * Close a panel (a menu, a ⚙ panel) on a press outside it, without the press
+ * going through to what's under it: a click outside an open menu only closes
+ * it, as a menu's should, rather than also moving the cursor, jumping to a
+ * line or pressing a button. `inside` says what's the panel's (its button too,
+ * whose own click opens and closes it). Returns how to stop listening.
+ */
+export function closeOnPressOutside(inside: (target: Node) => boolean, close: () => void): () => void {
+  const swallow = (e: Event) => {
+    e.preventDefault()
+    e.stopPropagation()
+  }
+  const onDown = (e: MouseEvent) => {
+    if (inside(e.target as Node)) return
+    swallow(e)
+    close()
+    // (The click that ends this press is the panel's too.)
+    document.addEventListener('click', swallow, { capture: true, once: true })
+    setTimeout(() => document.removeEventListener('click', swallow, true), CLICK_AFTER_PRESS_MS)
+  }
+  // (Before anything else sees it: in the capturing phase, on the press, as the editor moves its cursor on it.)
+  document.addEventListener('mousedown', onDown, true)
+  return () => document.removeEventListener('mousedown', onDown, true)
+}

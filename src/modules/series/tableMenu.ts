@@ -13,7 +13,7 @@ import { type EditorState, type Extension } from '@codemirror/state'
 import { Decoration, EditorView, WidgetType } from '@codemirror/view'
 import { CALLS_WITH_SETTINGS, PLOT_SETTINGS, SERIES_CALL, TABLE_SETTINGS, splitCallArgs, withSettingsText, type CallWithSettings as CallKind } from './public.ts'
 import {
-  ASSIGN, ROUND_BRACKETS, SIGIL, TOKEN_KIND, encode, placeFixedPanel, sheetStatements, type SettingsPanel, type SheetStatement,
+  ASSIGN, ROUND_BRACKETS, SIGIL, TOKEN_KIND, closeOnPressOutside, encode, placeFixedPanel, sheetStatements, type SettingsPanel, type SheetStatement,
 } from '../../lib/plugin.ts'
 
 /** ⚙, drawn as text rather than an emoji. */
@@ -135,6 +135,14 @@ function choice(options: readonly { readonly value: string; readonly label: stri
   return select
 }
 
+/** A group's heading. */
+function section(title: string): HTMLElement {
+  const el = document.createElement('div')
+  el.className = 'options__section'
+  el.textContent = title
+  return el
+}
+
 /** A row with a tooltip (a setting's help, on hover). */
 function withTip(row: HTMLElement, text: string) {
   row.title = text
@@ -145,7 +153,6 @@ function withTip(row: HTMLElement, text: string) {
 function textBox(value: string | undefined, placeholder: string, set: (text: string | undefined) => void): HTMLInputElement {
   const box = document.createElement('input')
   box.type = 'text'
-  box.className = 'cm-ms-table-menu__title'
   box.placeholder = placeholder
   box.value = value ?? ''
   box.addEventListener('change', () => set(box.value.trim() || undefined))
@@ -153,7 +160,7 @@ function textBox(value: string | undefined, placeholder: string, set: (text: str
 }
 
 /** The panel's controls, as the settings' declarations ask for them (SettingsPanel). */
-const DOM_PANEL: SettingsPanel<HTMLElement> = { row, checkBox, choice, numberBox, textBox, withTip }
+const DOM_PANEL: SettingsPanel<HTMLElement> = { section, row, checkBox, choice, numberBox, textBox, withTip }
 
 /** Each call's panel: its settings' controls, read from its settings text, each saving that text as it changes. */
 const PANELS: Record<CallKind, (text: string | undefined, save: (settingsText: string) => void) => HTMLElement[]> = {
@@ -195,9 +202,8 @@ function openSettings(view: EditorView, button: HTMLElement, place: number): voi
   document.body.append(panel)
   const keepPlaced = placeFixedPanel(panel, at)
 
-  const onDown = (e: MouseEvent) => {
-    if (!panel.contains(e.target as Node) && e.target !== button) close()
-  }
+  // (A press outside only closes it: it doesn't go through to the editor or what's under it.)
+  const stopOutside = closeOnPressOutside((t) => panel.contains(t) || button.contains(t), () => close())
   const onKey = (e: KeyboardEvent) => {
     if (e.key === 'Escape') {
       close()
@@ -207,11 +213,10 @@ function openSettings(view: EditorView, button: HTMLElement, place: number): voi
   const close = () => {
     keepPlaced()
     panel.remove()
-    document.removeEventListener('mousedown', onDown, true)
+    stopOutside()
     document.removeEventListener('keydown', onKey, true)
     if (openPanel?.element === panel) openPanel = null
   }
-  document.addEventListener('mousedown', onDown, true)
   document.addEventListener('keydown', onKey, true)
   openPanel = { element: panel, close }
 }

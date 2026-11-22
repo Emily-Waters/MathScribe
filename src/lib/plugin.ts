@@ -106,6 +106,6 @@ export { useCaptionNumber, useLineLink } from '../components/blocks/context.ts'
 
 // The editor.
 export type { Extension } from '@codemirror/state'
-export { fixedPanelPosition, placeFixedPanel, type PanelAnchor, type PanelAlignment } from '../editor/popover.ts'
+export { closeOnPressOutside, fixedPanelPosition, placeFixedPanel, type PanelAnchor, type PanelAlignment } from '../editor/popover.ts'
 // (inlineHintsShown: whether the editor shows its faint hints, a line's result after it and the like: a module's hints follow it.)
 export { inlineHintsShown } from '../editor/inlineResults.ts'

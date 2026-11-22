@@ -243,6 +243,12 @@ export const PLOT_SETTINGS = new SettingsSpec<PlotSettings>('plot', defaultPlotS
     help: 'Auto: each series its own colour. These are every series’; one series’ own is typed: colour F_2 points green.',
   }),
   new TitleSetting({ label: 'Title', summary: 'A title over the plot, quoted so it can hold commas: title "Run 1".' }),
+], [
+  // (The ⚙ menu's order: what's plotted, its axes, what's written on it, its colours; in each, boxes and menus, then checkboxes.)
+  { title: 'Data', labels: ['Rows', 'Style', 'Fit', 'Show uncertainty'] },
+  { title: 'Axes', labels: ['X label', 'Y label', 'X axis', 'Y axis'] },
+  { title: 'Labels', labels: ['Title', 'Legend', 'Show fit equation'] },
+  { title: 'Colours', labels: ['Colours'] },
 ])
 
 /** A plot's settings from their text, or what's wrong with them (as declared: PLOT_SETTINGS). */

@@ -38,7 +38,7 @@ export function fixedPanelPosition(
   return { left, top }
 }
 
-/** Keep a fixed panel wholly inside the viewport, including at resize or scroll. */
+/** Keep a fixed panel wholly inside the viewport, including at resize or scroll, and as it grows or shrinks. */
 export function placeFixedPanel(
   panel: HTMLElement,
   anchor: PanelAnchor,
@@ -53,6 +53,9 @@ export function placeFixedPanel(
     const maxHeight = Math.max(80, viewportHeight - padding * 2)
     panel.style.maxHeight = `${maxHeight}px`
     panel.style.overflowY = 'auto'
+    // (Measured at the left edge, so its width is its own, not what's left of the window beside where it was.)
+    panel.style.position = 'fixed'
+    panel.style.left = '0px'
 
     const measuredWidth = panel.offsetWidth
     const measuredHeight = panel.offsetHeight
@@ -69,9 +72,13 @@ export function placeFixedPanel(
   place()
   window.addEventListener('resize', place)
   window.addEventListener('scroll', place, true)
+  // (And when what's in it changes size: a menu showing more of itself.)
+  const resized = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(place)
+  resized?.observe(panel)
   return () => {
     window.removeEventListener('resize', place)
     window.removeEventListener('scroll', place, true)
+    resized?.disconnect()
   }
 }
 

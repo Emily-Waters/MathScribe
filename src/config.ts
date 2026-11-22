@@ -138,6 +138,14 @@ export const SPLIT = {
  */
 export const NARROW_SCREEN = '(max-width: 800px)'
 
+/**
+ * What the Output pane shows: the sheet (its own header has the output's
+ * options), or the Library or the Reference, which the top bar's buttons open
+ * in its place.
+ */
+export const OUTPUT_VIEW = { sheet: 'sheet', library: 'library', reference: 'reference' } as const
+export type OutputView = (typeof OUTPUT_VIEW)[keyof typeof OUTPUT_VIEW]
+
 /** The two panes, as a narrow screen shows one of them. */
 export const PANE = { input: 'input', output: 'output' } as const
 export type Pane = (typeof PANE)[keyof typeof PANE]

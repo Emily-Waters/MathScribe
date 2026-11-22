@@ -4,14 +4,12 @@ import { Dropdown } from './Dropdown.tsx'
 interface OptionsMenuProps {
   options: CalcOptions
   onChange: (options: CalcOptions) => void
-  /** Hidden (but keeping its space, so the tabs beside it don't shift). */
-  hidden?: boolean
 }
 
 /** The output's display settings: how results are rounded, then how their working is written (in each, menus, then checkboxes). */
-export function OptionsMenu({ options, onChange, hidden }: OptionsMenuProps) {
+export function OptionsMenu({ options, onChange }: OptionsMenuProps) {
   return (
-    <Dropdown label="Output options" icon="options" panelLabel="Output options" hidden={hidden}>
+    <Dropdown label="Output options" icon="options" panelLabel="Output options">
       <div className="options__section">Results</div>
       <label className="options__row" title="Auto works out each result’s sig figs from the values used to compute it.">
         <span>Sig figs</span>

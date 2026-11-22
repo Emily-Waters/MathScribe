@@ -197,6 +197,36 @@ body {
   border-color: var(--accent);
 }
 
+/* The Library and Reference buttons: a group of their own, beside the theme's; lit while their view is on. */
+.filebar--views {
+  margin-left: 0;
+  flex: none;
+}
+
+.filebar button[aria-pressed='true'] {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface-2));
+}
+
+/* The × that takes the Output pane back to the sheet, from the Library or the Reference. */
+.pane__close {
+  font: inherit;
+  font-size: 16px;
+  line-height: 1;
+  padding: 3px 8px;
+  color: var(--muted);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.pane__close:hover {
+  color: var(--text);
+  border-color: var(--border);
+}
+
 /* Share's "Link copied", for a moment after a click */
 .filebar__flash {
   font-size: 12px;
@@ -1164,6 +1194,8 @@ body {
 
 .options__toggle[aria-expanded='true'] {
   border-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface-2));
 }
 
 .options__panel {
@@ -1285,34 +1317,6 @@ body {
   border-top: 0;
 }
 
-/* The keyboard shortcuts, in the editor's Options menu: keys on the left, what each does on the right. */
-.options__shortcuts {
-  margin: 0;
-  font-size: 12px;
-}
-
-.options__shortcuts > div {
-  display: grid;
-  grid-template-columns: minmax(120px, 42%) 1fr;
-  gap: 8px;
-  padding: 2px 0;
-}
-
-.options__shortcuts dt {
-  font-family: var(--mono);
-  color: var(--text);
-}
-
-.options__shortcuts dd {
-  margin: 0;
-  color: var(--muted);
-}
-
-.options__shortcuts-also {
-  font-family: var(--sans);
-  color: var(--muted);
-}
-
 /* A table's or plot's settings panel (its ⚙ in the editor), built on the options panel above */
 .cm-ms-table-menu {
   width: min(320px, calc(100vw - 32px));
@@ -1416,6 +1420,56 @@ body {
   margin: 0.3em 0;
 }
 
+/* ---------- The top bar's New and Save menus (FileMenus.tsx) ---------- */
+
+/* Their panel: a small bar of icons under the button, as wide as they are. */
+.options__panel--row {
+  width: auto;
+  max-width: calc(100vw - 16px);
+  padding: 6px;
+}
+
+.icon-bar {
+  display: flex;
+  gap: 4px;
+}
+
+.icon-bar button {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-width: 32px;
+  min-height: 30px;
+  padding: 5px 7px;
+  font: inherit;
+  font-size: 11px;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.icon-bar button:hover {
+  border-color: var(--accent);
+}
+
+/* A button in the bar that shows more of the menu (Templates), while it's showing it. */
+.icon-bar button[aria-pressed='true'] {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* What it shows: under the bar, the templates to start from. */
+.icon-bar__more {
+  width: min(280px, calc(100vw - 32px));
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+}
+
 /* ---------- Theme menu (top bar) ---------- */
 
 /* A template in the Template menu: its name, and what it's for under it. */
@@ -1447,43 +1501,84 @@ body {
   color: var(--muted);
 }
 
-.theme-choice {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 6px 4px;
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.theme-choice:hover {
-  background: var(--surface-2);
-}
-
-.theme-choice input {
-  margin: 0;
-  accent-color: var(--accent);
-}
-
 .theme-choice__swatch {
   flex-shrink: 0;
-  width: 28px;
-  height: 20px;
+  width: 24px;
+  height: 16px;
   border: 2px solid var(--border);
   border-radius: 4px;
   /* "System": half light, half dark */
   background: linear-gradient(135deg, #ffffff 50%, #1a1e26 50%);
 }
 
-.theme-choice__text {
-  display: flex;
-  flex-direction: column;
+/* The app theme's menu (ThemeMenu.tsx): a select's look, with each theme's swatch. */
+.swatch-select {
+  position: relative;
   min-width: 0;
 }
 
-.theme-choice__name {
-  font-size: 13px;
+.swatch-select__button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-sizing: border-box;
+  width: 100%;
+  height: var(--options-control-height);
+  padding: 0 6px;
+  font: inherit;
   color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.swatch-select__button:focus-visible,
+.swatch-select__button[aria-expanded='true'] {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.swatch-select__name {
+  flex: 1;
+  text-align: left;
+}
+
+.swatch-select__caret {
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.swatch-select__list {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  right: 0;
+  z-index: 1;
+  margin: 0;
+  padding: 3px;
+  list-style: none;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.16);
+}
+
+.swatch-select__option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.swatch-select__option--active {
+  background: var(--surface-2);
+}
+
+.swatch-select__option[aria-selected='true'] {
+  font-weight: 600;
 }
 
 /* ---------- Custom syntax colours (Input → Options → Colours → Custom) ---------- */
@@ -1909,37 +2004,6 @@ body {
   border-bottom-color: var(--accent);
 }
 
-/* The top bar's file buttons, in its File menu on a narrow screen: their words beside their icons */
-.file-menu .icon-label {
-  position: static;
-  width: auto;
-  height: auto;
-  overflow: visible;
-  clip-path: none;
-}
-
-.file-menu {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.file-menu button {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 40px;
-  padding: 6px 10px;
-  font: inherit;
-  font-size: 14px;
-  text-align: left;
-  color: var(--text);
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  cursor: pointer;
-}
-
 @media (max-width: 800px) {
   .app__bar {
     gap: 8px;
@@ -1971,6 +2035,20 @@ body {
   .calc__note {
     flex: 1 0 100%;
     margin-top: -4px;
+  }
+
+  /* No hover for a tooltip: the bars' icons have their words under them. */
+  .icon-bar .icon-label {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip-path: none;
+  }
+
+  .icon-bar button {
+    min-width: 56px;
+    min-height: 48px;
   }
 
   /* Big enough for a finger */

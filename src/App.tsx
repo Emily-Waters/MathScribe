@@ -20,17 +20,15 @@ import {
 } from './editor/themes.ts'
 import { SyntaxOptions } from './components/SyntaxOptions.tsx'
 import { SuggestionOptions } from './components/SuggestionOptions.tsx'
-import { ShortcutOptions } from './components/ShortcutOptions.tsx'
-import { TemplateMenu } from './components/TemplateMenu.tsx'
+import { NewMenu, SaveMenu } from './components/FileMenus.tsx'
 import { loadAcceptKeys, saveAcceptKeys, type AcceptKeys } from './editor/intellisense.ts'
 import { applyAppTheme, loadAppTheme, saveAppTheme, useAppearance, watchSystemTheme, type AppThemeId } from './appTheme.ts'
 import { ThemeMenu } from './components/ThemeMenu.tsx'
 import { CreateDialog } from './components/CreateDialog.tsx'
 import { ExportDialog } from './components/ExportDialog.tsx'
 import { ErrorBoundary } from './components/ErrorBoundary.tsx'
-import { EVALUATION, PANE, loadCalcOptions, saveCalcOptions, type Pane } from './config.ts'
+import { EVALUATION, OUTPUT_VIEW, PANE, loadCalcOptions, saveCalcOptions, type OutputView, type Pane } from './config.ts'
 import { useNarrow } from './useNarrow.ts'
-import { Dropdown } from './components/Dropdown.tsx'
 import { Icon, IconLabel } from './components/icons.tsx'
 import { useSettled } from './useSettled.ts'
 import { copyText, useFlash } from './useFlash.ts'
@@ -199,42 +197,18 @@ export default function App() {
     setPane(PANE.output)
     setCenterOutput((n) => n + 1)
   }
+  // The Library or the Reference, in the Output pane's place: its button turns it on, and off again (back to
+  // the sheet). On a narrow screen, it shows the Output pane too.
+  const [outputView, setOutputView] = useState<OutputView>(OUTPUT_VIEW.sheet)
+  const showView = (view: OutputView) => {
+    setOutputView((now) => (now === view ? OUTPUT_VIEW.sheet : view))
+    setPane(PANE.output)
+  }
   const jumpTo = useCallback((line: number) => {
     setActiveLine(line)
     setJump((j) => ({ line, n: (j?.n ?? 0) + 1 }))
     setPane(PANE.input)
   }, [])
-
-  // The file buttons, as icons: in the top bar, or on a narrow screen in its menu (where their words show too).
-  // Each one's words are its tooltip's first line and what a screen reader reads.
-  const fileButtons = (
-    <>
-      <button onClick={() => file.newSheet()} title={'New\nA new, empty sheet in its own tab'}>
-        <Icon name="newSheet" /><IconLabel>New</IconLabel>
-      </button>
-      <button onClick={() => setCreating(true)} title={'Create\nHave an AI write a test, assignment, worked examples or a lab write-up'}>
-        <Icon name="create" /><IconLabel>Create</IconLabel>
-      </button>
-      <button onClick={() => void file.open()} title={'Open (Ctrl+O)\nOne or more sheets, each in its own tab'}>
-        <Icon name="open" /><IconLabel>Open</IconLabel>
-      </button>
-      <button onClick={() => void file.save()} title={canLinkFiles ? 'Save (Ctrl+S)' : 'Save (Ctrl+S)\nDownloads the sheet'}>
-        <Icon name="save" /><IconLabel>Save</IconLabel>
-      </button>
-      <button onClick={() => void file.saveAs()} title={'Save as (Ctrl+Shift+S)\nTo a new file'}>
-        <Icon name="saveAs" /><IconLabel>Save as</IconLabel>
-      </button>
-      <button onClick={() => setExporting(true)} title={'Export\nDownload the sheet as a Word or LaTeX document'}>
-        <Icon name="exportDocument" /><IconLabel>Export</IconLabel>
-      </button>
-      <button
-        onClick={() => void share()}
-        title={"Share\nCopy a link that opens this sheet: it's all in the link, so nothing is uploaded"}
-      >
-        <Icon name={shareFlash ? 'done' : 'share'} /><IconLabel>Share</IconLabel>
-      </button>
-    </>
-  )
 
   return (
     <div className="app">
@@ -257,12 +231,61 @@ export default function App() {
           </span>
           {/* (Share's "Link copied", which its icon only hints at with a tick.) */}
           {shareFlash && <span className="filebar__flash" role="status">{shareFlash.message}</span>}
-          <TemplateMenu onNew={file.newSheet} />
-          {narrow
-            ? <Dropdown label="File" icon="menu" panelLabel="File" closeOnChoose><div className="file-menu">{fileButtons}</div></Dropdown>
-            : fileButtons}
+          {/* The file buttons: New's and Save's in menus of their own, each a bar of icons under its button (FileMenus.tsx). */}
+          <NewMenu onNew={file.newSheet} onCreate={() => setCreating(true)} />
+          <button onClick={() => void file.open()} title={'Open (Ctrl+O)\nOne or more sheets, each in its own tab'}>
+            <Icon name="open" /><IconLabel>Open</IconLabel>
+          </button>
+          <SaveMenu
+            onSave={() => void file.save()}
+            onSaveAs={() => void file.saveAs()}
+            onExport={() => setExporting(true)}
+            onShare={() => void share()}
+            saveTitle={canLinkFiles ? 'Save (Ctrl+S)' : 'Save (Ctrl+S)\nDownloads the sheet'}
+            shared={!!shareFlash}
+          />
         </div>
-        <ThemeMenu theme={appTheme} onChange={changeAppTheme} />
+        {/* The Library and the Reference: shown in the Output pane's place while on (OUTPUT_VIEW). */}
+        <div className="filebar filebar--views">
+          <button
+            aria-pressed={outputView === OUTPUT_VIEW.library}
+            onClick={() => showView(OUTPUT_VIEW.library)}
+            title={'Library\nEquations and constants to put into the sheet'}
+          >
+            <Icon name="library" /><IconLabel>Library</IconLabel>
+          </button>
+          <button
+            aria-pressed={outputView === OUTPUT_VIEW.reference}
+            onClick={() => showView(OUTPUT_VIEW.reference)}
+            title={'Reference\nHow to write a sheet, with examples, and the keyboard shortcuts'}
+          >
+            <Icon name="reference" /><IconLabel>Reference</IconLabel>
+          </button>
+        </div>
+        <ThemeMenu
+          theme={appTheme}
+          onChange={changeAppTheme}
+          editor={
+            <>
+              <SyntaxOptions
+                theme={syntaxTheme}
+                onThemeChange={changeSyntaxTheme}
+                custom={activeCustom}
+                palette={syntaxPalette}
+                mode={appearance.mode}
+                onCustomChange={changeCustomSyntax}
+              />
+              <SuggestionOptions acceptKeys={acceptKeys} onAcceptKeysChange={changeAcceptKeys} />
+              <label
+                className="options__row"
+                title="Each line's result, faintly, at the end of the line, and a series' members' names (x₁, x₂, …) before its values when it's written over several lines."
+              >
+                <span>Show results in the editor</span>
+                <input type="checkbox" checked={inlineShown} onChange={(e) => changeInlineShown(e.target.checked)} />
+              </label>
+            </>
+          }
+        />
       </header>
       <CreateDialog open={creating} onClose={() => setCreating(false)} onCreate={file.newSheet} />
       <ExportDialog open={exporting} onClose={() => setExporting(false)} blocks={sheet.blocks} fileName={file.active.name} />
@@ -308,35 +331,14 @@ export default function App() {
               customPalette={syntaxPalette}
               acceptKeys={acceptKeys}
               onChooseImport={chooseImportFile}
-              options={
-                <>
-                  <div className="options__section">Appearance</div>
-                  <SyntaxOptions
-                    theme={syntaxTheme}
-                    onThemeChange={changeSyntaxTheme}
-                    custom={activeCustom}
-                    palette={syntaxPalette}
-                    mode={appearance.mode}
-                    onCustomChange={changeCustomSyntax}
-                  />
-                  <label
-                    className="options__row"
-                    title="Each line's result, faintly, at the end of the line, and a series' members' names (x₁, x₂, …) before its values when it's written over several lines."
-                  >
-                    <span>Show results in the editor</span>
-                    <input type="checkbox" checked={inlineShown} onChange={(e) => changeInlineShown(e.target.checked)} />
-                  </label>
-                  <div className="options__section">Typing</div>
-                  <SuggestionOptions acceptKeys={acceptKeys} onAcceptKeysChange={changeAcceptKeys} />
-                  <ShortcutOptions />
-                </>
-              }
             />
           }
           right={
             <ErrorBoundary name="The output" resetKey={sheet}>
             <PreviewPane
               sheet={sheet}
+              view={outputView}
+              onCloseView={() => setOutputView(OUTPUT_VIEW.sheet)}
               options={options}
               onOptionsChange={setOptions}
               activeLine={activeLine}

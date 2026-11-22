@@ -852,6 +852,29 @@ try, as headless Chrome can't type with a phone's keyboard or touch.
 
 ## 7. Sheets and output
 
+- [x] **The Input and Output panes' buttons, tidied** (2026-11-22, Emily: the
+      editor's options are the theme's, its shortcuts the Reference's, and
+      the Library and Reference tabs belong somewhere else).
+      Resolved (2026-11-22): the Input pane has no menu now. Its settings are
+      the top bar's theme menu's, renamed Theme and editor: the app's theme
+      (a menu like a select's, each theme with its swatch: ThemeChoice), then
+      the editor's colours, accept suggestions and results in the
+      editor. The keyboard shortcuts are a topic of the Reference, beside the
+      built-in constants, searchable. The Library and Reference are top-bar
+      buttons (lit while on) that show them in the Output pane's place
+      (OUTPUT_VIEW, config.ts), with a × to go back to the sheet; the Output
+      pane keeps only its options menu.
+- [x] **The top bar's buttons in menus** (2026-11-22, Emily: too many
+      buttons; a button like New opening a small bar of its own below it).
+      Resolved (2026-11-22): three buttons, New, Open and Save (FileMenus.tsx).
+      New opens a bar of New, Template and Create; Template lists the
+      templates under the bar (the old Template menu); Save opens a bar of
+      Save, Save as, Export and Share. A menu's button is lit while it's open
+      (every Dropdown's: an accent tint), and a bar's button that shows more
+      (Template) while it shows it. On a narrow screen the bars' icons have
+      their words under them (no hover there), so the File menu (☰) is gone.
+      Panels now keep on screen as they grow (placeFixedPanel watches their
+      size).
 - [x] **The ⚙ moved a multiline call's settings up a line** (2026-11-22,
       Emily): changing a table's or plot's settings in its ⚙ wrote them after
       the last column, `x; lines grid`, where the formatter puts them on a

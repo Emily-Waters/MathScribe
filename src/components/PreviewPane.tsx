@@ -1,8 +1,10 @@
 /**
- * The Output pane: the Rendered tab (each block drawn by its kind's view,
- * blocks/), the Library and the Reference.
+ * The Output pane: the sheet (each block drawn by its kind's view, blocks/),
+ * or, in its place while the top bar's button for it is on, the Library or the
+ * Reference (OUTPUT_VIEW).
  */
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
+import { OUTPUT_VIEW, type OutputView } from '../config.ts'
 import type { Sheet } from '../lib/sheet/document.ts'
 import { lineNumbering } from '../lib/sheet/sheetIndex.ts'
 import type { CalcOptions } from '../lib/engine/index.ts'
@@ -12,13 +14,19 @@ import { captionNumbers } from './blocks/captions.ts'
 import { ReferencePane } from './ReferencePane.tsx'
 import { OptionsMenu } from './OptionsMenu.tsx'
 import { LibraryPane } from './LibraryPane.tsx'
-import { Icon, IconLabel } from './icons.tsx'
 
-/** The Output pane’s tabs. */
-type Tab = 'rendered' | 'library' | 'reference'
+/** What the pane's header says it's showing, for the Library and the Reference. */
+const VIEW_TITLE: Record<Exclude<OutputView, typeof OUTPUT_VIEW.sheet>, string> = {
+  [OUTPUT_VIEW.library]: 'Library',
+  [OUTPUT_VIEW.reference]: 'Reference',
+}
 
 interface PreviewPaneProps {
   sheet: Sheet
+  /** What it shows: the sheet, the Library or the Reference. */
+  view: OutputView
+  /** Back to the sheet, from the Library or the Reference. */
+  onCloseView: () => void
   options: CalcOptions
   onOptionsChange: (options: CalcOptions) => void
   /** The editor's cursor line; its output is highlighted. */
@@ -27,17 +35,16 @@ interface PreviewPaneProps {
   centerRequest: number
   /** Clicking output moves the editor cursor to that source line. */
   onJump: (line: number) => void
-  /** Put text into the sheet at the editor's cursor (from the Library tab). */
+  /** Put text into the sheet at the editor's cursor (from the Library). */
   onInsert: (text: string) => void
   /** Remove the `@import(…)` on a line, and its data. */
   onRemoveImport: (line: number) => void
 }
 
-/** The Output pane: the rendered sheet, the equation library and the reference. (Exports are the Export dialog's.) */
+/** The Output pane: the rendered sheet, or the equation library or the reference. (Exports are the Export dialog's.) */
 export function PreviewPane({
-  sheet, options, onOptionsChange, activeLine, centerRequest, onJump, onInsert, onRemoveImport,
+  sheet, view, onCloseView, options, onOptionsChange, activeLine, centerRequest, onJump, onInsert, onRemoveImport,
 }: PreviewPaneProps) {
-  const [tab, setTab] = useState<Tab>('rendered')
   const docRef = useRef<HTMLDivElement>(null)
   const link = useMemo(() => ({ activeLine, onJump }), [activeLine, onJump])
   const numbering = useMemo(() => lineNumbering(sheet.blocks), [sheet.blocks])
@@ -51,46 +58,26 @@ export function PreviewPane({
     const block: ScrollLogicalPosition = centered.current === centerRequest ? 'nearest' : 'center'
     centered.current = centerRequest
     docRef.current?.querySelector('[data-active="true"]')?.scrollIntoView({ block })
-  }, [activeLine, centerRequest, tab])
+  }, [activeLine, centerRequest, view])
 
   return (
     <section className="pane">
       <header className="pane__header">
-        <h2>Output</h2>
-        <div className="toolbar">
-          {/* The Reference tab uses fixed settings, so the options don't apply there. */}
-          <OptionsMenu options={options} onChange={onOptionsChange} hidden={tab === 'reference' || tab === 'library'} />
-          <div className="tabs" role="tablist">
-            <button
-              role="tab"
-              aria-selected={tab === 'rendered'}
-              onClick={() => setTab('rendered')}
-              title={'Rendered\nThe sheet, typeset'}
-            >
-              <Icon name="rendered" /><IconLabel>Rendered</IconLabel>
-            </button>
-            <button
-              role="tab"
-              aria-selected={tab === 'library'}
-              onClick={() => setTab('library')}
-              title={'Library\nEquations and constants to put into the sheet'}
-            >
-              <Icon name="library" /><IconLabel>Library</IconLabel>
-            </button>
-            <button
-              role="tab"
-              aria-selected={tab === 'reference'}
-              onClick={() => setTab('reference')}
-              title={'Reference\nHow to write a sheet, with examples'}
-            >
-              <Icon name="reference" /><IconLabel>Reference</IconLabel>
-            </button>
-          </div>
-        </div>
+        {view === OUTPUT_VIEW.sheet ? (
+          <>
+            <h2>Output</h2>
+            <OptionsMenu options={options} onChange={onOptionsChange} />
+          </>
+        ) : (
+          <>
+            <h2>{VIEW_TITLE[view]}</h2>
+            <button className="pane__close" onClick={onCloseView} title="Back to the output" aria-label="Back to the output">×</button>
+          </>
+        )}
       </header>
-      {tab === 'reference' ? (
+      {view === OUTPUT_VIEW.reference ? (
         <ReferencePane />
-      ) : tab === 'library' ? (
+      ) : view === OUTPUT_VIEW.library ? (
         <LibraryPane onInsert={onInsert} />
       ) : (
         <div className="doc" ref={docRef}>

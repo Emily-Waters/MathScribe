@@ -45,15 +45,16 @@ Built on [mathjs](https://mathjs.org) (parsing, evaluation, units),
 at a time, with a switch between them under the sheet tabs. Tapping a line of the
 output goes to it in the input; switching to the output scrolls it to the line the
 cursor is on. Long lines wrap in the editor, a line's note goes under its equation,
-and the file buttons (New, Create, Open, Save, Save as, Export, Share) are in a
-**File** menu (☰), with their names beside their icons.
+and the New and Save menus show each button's name under its icon.
 
-**Theme** (top bar, the half-dark circle): **System** (Light or Dark, following your computer's
-setting), **Light**, **Dark** (blue-grey slate), **Charcoal** (neutral greys, like
-a code editor's dark theme) or **Black** (true black). The choice is remembered in
+**Theme and editor** (top bar, the half-dark circle): the app's theme, **System**
+(Light or Dark, following your computer's setting), **Light**, **Dark** (blue-grey
+slate), **Charcoal** (neutral greys, like a code editor's dark theme) or **Black**
+(true black); and the editor's settings: its syntax colours, which keys accept a
+suggestion, and whether results show in the editor. The choices are remembered in
 the browser.
 
-**Export** (top bar, the arrow into a tray) opens a dialog to download the sheet as a document:
+**Export** (in the top bar's Save menu, the arrow into a tray) opens a dialog to download the sheet as a document:
 
 - **Word** (`.docx`): real Word equations you can edit (not pictures). Notes sit
   at the right margin beside their equation (under it, when the equation is too
@@ -75,10 +76,10 @@ margins and an optional title, author and date. The format and the options are
 remembered in the browser.
 
 - **Input** (left): the sheet, in a code editor with MathScribe syntax colours.
-  Its options menu (the sliders) picks the colour theme.
-- **Output** (right), in tabs:
-  - **Rendered** (the eye): the typeset sheet.
-  - **Library** (the books): common equations from first-year physics (kinematics, forces,
+- **Output** (right): the typeset sheet. The top bar's **Library** (the books) and
+  **Reference** (the question mark) buttons show those in its place while they're
+  on (lit); the × in the pane's header, or the button again, goes back to the sheet.
+  - **Library**: common equations from first-year physics (kinematics, forces,
     energy and momentum, oscillation, waves and optics, electricity, heat, modern
     physics) and general chemistry (moles and solutions, gases, thermochemistry,
     kinetics), searchable. Each is a one-line function with a worked example;
@@ -87,13 +88,14 @@ remembered in the browser.
     change. Temperatures are converted to kelvin on the way in (`T to K`), so
     25.0 degC works. As in the Reference, a menu picks the topic (or all of
     them), and the search box narrows it to the equations with every word you type.
-  - **Reference** (the question mark): every feature as an example you can copy, shown with its real
+  - **Reference**: every feature as an example you can copy, shown with its real
     output (each example is evaluated live, so the reference always matches what
-    MathScribe actually does), plus the list of built-in constants. A menu picks
+    MathScribe actually does), plus the built-in constants and the keyboard
+    shortcuts. A menu picks
     the topic (or all of them; it's remembered), and a search box narrows it to
     the entries with every word you type.
 
-  Its options menu (the sliders) holds the output settings:
+  The Output pane's options menu (the sliders) holds the output settings:
 
   | Setting | Does |
   | --- | --- |
@@ -140,8 +142,8 @@ waits for it; the output catches up a moment after you stop.
 
 **Suggestions as you type** (Tab accepts, Esc closes, Ctrl+Space asks). Enter always
 starts a new line, so a unit suggested at the end of a line doesn't get in the way;
-to have Enter accept a suggestion too, choose *Tab or Enter* under Input → Options →
-Accept suggestions with.
+to have Enter accept a suggestion too, choose *Tab or Enter* under Theme and editor →
+Accept suggestions.
 
 | Typing | Suggests |
 | --- | --- |
@@ -164,16 +166,16 @@ a command or keyword does.
 faintly, at its end (`F = m * a      = 19.6 N`), so you can check a value without
 looking across at the output. A series written over several lines shows each
 value's member name before it, faintly (`x₁: 1.0 s`, `x₂: 2.0 s`), so you can see
-which value is which without counting. Turn them off under Input → Options.
+which value is which without counting. Turn them off under Theme and editor.
 
 **Parameter hints:** inside a call's brackets, what the function takes appears
 above the cursor, the parameter being typed in bold: `E_k(1, ` shows `E_k(n, m
 to kg)` with `m to kg` bold. It works for your own functions, MathScribe's `@`
 functions and mathjs's.
 
-**Keyboard shortcuts** are listed under Input → Options.
+**Keyboard shortcuts** are listed in the Reference (its Keyboard shortcuts topic).
 
-**Syntax colours** (Input → Options → Colours): **Default**, **Vivid**,
+**Syntax colours** (Theme and editor → Colours): **Default**, **Vivid**,
 **Classic** (familiar code-editor colours, a good match for the Charcoal theme),
 **High contrast** and **Minimal**, each with a light and a dark version that
 follows the app theme. The choice is remembered in the browser.
@@ -206,17 +208,20 @@ sheet. A dot on a tab means it has changes not yet saved to a file; closing such
 tab asks first. Each tab keeps its own undo history, cursor and scroll position,
 and the output always shows the active tab.
 
-The buttons in the top bar act on the active tab. They're icons; hovering over one
-shows its name and what it does:
+The buttons in the top bar act on the active tab. There are three: **New** (a page
+with a plus), **Open** (a folder) and **Save** (a floppy disk). New and Save each open a
+small bar of buttons under them, the menu's button lit while it's open: New has New,
+Template and Create; Save has Save, Save as, Export and Share. They're icons; hovering
+over one shows its name and what it does:
 
 | Button | Icon | Shortcut | Does |
 | --- | --- | --- | --- |
-| New | page with a plus | | Opens an empty sheet in a new tab |
-| Template | page in panels | | Opens a new sheet started from a template: a lab report (title page, purpose, method, data, calculations, results, discussion, conclusion) or a problem set, each with a little of every section filled in to write over |
+| New → New | page with a plus | | Opens an empty sheet in a new tab |
+| New → Template | page in panels | | Lists the templates under the bar; choosing one opens a new sheet started from a template: a lab report (title page, purpose, method, data, calculations, results, discussion, conclusion) or a problem set, each with a little of every section filled in to write over |
 | Open | folder | Ctrl/⌘ + O | Opens one or more sheets (select several in the dialog), each in its own tab; a file that's already open is switched to instead |
-| Save | floppy disk | Ctrl/⌘ + S | Formats the sheet and saves it to the current file, or asks where the first time |
-| Save as | floppy disk and pen | Ctrl/⌘ + Shift + S | Formats the sheet and saves it to a new file |
-| Share | chain link (a tick once copied) | | Copies a link that opens the sheet: the sheet is in the link itself (compressed), so nothing is uploaded. Opening the link opens it in a new tab. A very long sheet (a big import) is too long for a link: send its file |
+| Save → Save | floppy disk | Ctrl/⌘ + S | Formats the sheet and saves it to the current file, or asks where the first time |
+| Save → Save as | floppy disk and pen | Ctrl/⌘ + Shift + S | Formats the sheet and saves it to a new file |
+| Save → Share | chain link (a tick once copied) | | Copies a link that opens the sheet: the sheet is in the link itself (compressed), so nothing is uploaded. Opening the link opens it in a new tab. A very long sheet (a big import) is too long for a link: send its file |
 
 Auto-saving happens at two levels:
 
@@ -238,7 +243,7 @@ your browser and your own files.
 
 ## Create with AI
 
-**Create** (in the top bar) has an AI model write a sheet for you: a test, an
+**Create** (in the top bar's New menu) has an AI model write a sheet for you: a test, an
 assignment, worked examples or a lab write-up.
 
 1. Choose what to make, describe it ("A midterm for PHYS 1100 covering work, energy

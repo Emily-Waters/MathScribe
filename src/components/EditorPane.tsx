@@ -1,4 +1,4 @@
-import { useEffect, useRef, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useRef, type CSSProperties } from 'react'
 import { Compartment, EditorSelection, EditorState, StateEffect, StateField, type ChangeSpec, type Extension, type Text } from '@codemirror/state'
 import {
   EditorView, GutterMarker, drawSelection, gutter, highlightActiveLine, highlightActiveLineGutter,
@@ -14,7 +14,6 @@ import { INDENT } from '../lib/syntax.ts'
 import { moduleEditorExtensions } from '../lib/engine/index.ts'
 import { mathscribeFolding, mathscribeIndent, mathscribeLanguage } from '../editor/language.ts'
 import { SYNTAX_TOKENS, mathscribeHighlight, type Palette, type SyntaxThemeId } from '../editor/themes.ts'
-import { Dropdown } from './Dropdown.tsx'
 import { gotoDefinition, setDefinitions, setNavigationSymbols } from '../editor/gotoDefinition.ts'
 import {
   acceptKeysSetting, acceptOnTab, intellisense, reconfigureAcceptKeys, setSymbols, type AcceptKeys,
@@ -64,8 +63,6 @@ interface EditorPaneProps {
   acceptKeys: AcceptKeys
   /** Choose the file for the `@import(…)` on a line (its button between the brackets). */
   onChooseImport: (line: number) => void
-  /** The contents of the editor's Options menu. */
-  options: ReactNode
 }
 
 // ---------------------------------------------------------------------------
@@ -287,7 +284,7 @@ function extensions(
  */
 export function EditorPane({
   value, onChange, docId, openIds, jump, insert, onCursorLine, diagnostics, results, hintsShown, wrap, definitions, symbols, theme, dark, customPalette,
-  acceptKeys, onChooseImport, options,
+  acceptKeys, onChooseImport,
 }: EditorPaneProps) {
   const host = useRef<HTMLDivElement>(null)
   const view = useRef<EditorView | null>(null)
@@ -428,7 +425,6 @@ export function EditorPane({
     <section className="pane">
       <header className="pane__header">
         <h2>Input</h2>
-        <Dropdown label="Editor options" icon="options" panelLabel="Editor options">{options}</Dropdown>
       </header>
       <div
         className="editor-wrap"

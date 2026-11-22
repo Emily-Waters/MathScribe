@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react'
 import { EXAMPLE_CALC_OPTIONS, STORAGE_KEYS } from '../config.ts'
 import { evaluateSheetSafely } from '../lib/sheet/document.ts'
 import { BUILTIN_CONSTANTS } from '../lib/constants.ts'
+import { SHORTCUTS, keyLabel, type Shortcut } from '../editor/shortcuts.ts'
 import { languageTopics } from '../lib/engine/index.ts'
 import { entryMatches, termShown } from '../lib/language/tree.ts'
 import { matchesWords, searchWords } from '../lib/search.ts'
@@ -15,6 +16,16 @@ const BUILTINS_ID = 'builtins'
 
 /** The built-in constants' list, as the topic menu names it. */
 const BUILTINS_TITLE = 'Built-in constants'
+
+/** The topic menu's choice of the editor's keyboard shortcuts, and its title. */
+const SHORTCUTS_ID = 'shortcuts'
+const SHORTCUTS_TITLE = 'Keyboard shortcuts'
+
+/** Whether the app is on a Mac, where Ctrl is ⌘ (and the keys are shown so). */
+const ON_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
+
+/** A shortcut's keys as shown: each key or pair named for this computer, with what goes with them (Ctrl+Click). */
+const keysShown = (s: Shortcut) => `${s.keys.map((k) => keyLabel(k, ON_MAC)).join(' / ')}${s.also ? ` · ${s.also}` : ''}`
 
 /**
  * Each example's output, worked out the first time it's shown and kept (with
@@ -38,7 +49,7 @@ const blocksOf = (source: string) => {
 export function ReferencePane() {
   const topics = useMemo(() => languageTopics(), [])
   const scroller = useRef<HTMLDivElement>(null)
-  const ids = useMemo(() => [...topics.map((t) => t.id), BUILTINS_ID], [topics])
+  const ids = useMemo(() => [...topics.map((t) => t.id), BUILTINS_ID, SHORTCUTS_ID], [topics])
   const [shown, setShown] = useShownTopic(STORAGE_KEYS.referenceTopic, ids, scroller)
   const [query, setQuery] = useState('')
   const words = useMemo(() => searchWords(query), [query])
@@ -53,8 +64,10 @@ export function ReferencePane() {
   const constants = Object.entries(BUILTIN_CONSTANTS)
     .filter(([name, c]) => matchesWords([BUILTINS_TITLE, `@${name}`, c.description], words))
   const showsConstants = inShown(BUILTINS_ID) && constants.length > 0
+  const shortcuts = SHORTCUTS.filter((sc) => matchesWords([SHORTCUTS_TITLE, keysShown(sc), sc.does], words))
+  const showsShortcuts = inShown(SHORTCUTS_ID) && shortcuts.length > 0
   const elsewhere = matching.reduce((n, t) => n + (inShown(t.id) ? 0 : t.entries.length), 0)
-    + (inShown(BUILTINS_ID) ? 0 : constants.length)
+    + (inShown(BUILTINS_ID) ? 0 : constants.length) + (inShown(SHORTCUTS_ID) ? 0 : shortcuts.length)
 
   const [flash, showFlash] = useFlash<string>()
 
@@ -65,7 +78,7 @@ export function ReferencePane() {
   return (
     <div className="ref" ref={scroller}>
       <TopicBar
-        groups={[{ topics }, { topics: [{ id: BUILTINS_ID, title: BUILTINS_TITLE }] }]}
+        groups={[{ topics }, { topics: [{ id: BUILTINS_ID, title: BUILTINS_TITLE }, { id: SHORTCUTS_ID, title: SHORTCUTS_TITLE }] }]}
         shown={shown}
         onShow={setShown}
         query={query}
@@ -139,9 +152,26 @@ export function ReferencePane() {
       </section>
       )}
 
+      {showsShortcuts && (
+      <section className="ref__section">
+        <h3 className="doc__heading doc__heading--section">{SHORTCUTS_TITLE}</h3>
+        <p className="ref__explain">In the editor, as it binds them (Ctrl is ⌘ on a Mac).</p>
+        <table className="ref__table ref__shortcuts">
+          <tbody>
+            {shortcuts.map((sc) => (
+              <tr key={sc.does}>
+                <td><code>{keysShown(sc)}</code></td>
+                <td>{sc.does}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+      )}
+
       <OtherMatches
         query={query}
-        foundHere={visible.length > 0 || showsConstants}
+        foundHere={visible.length > 0 || showsConstants || showsShortcuts}
         elsewhere={elsewhere}
         onShowAll={() => setShown(ALL_TOPICS)}
       />

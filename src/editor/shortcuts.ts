@@ -1,7 +1,7 @@
 /**
  * MathScribe's keyboard shortcuts: the keys, named once (as CodeMirror names
- * them: `Mod` is Ctrl, or ⌘ on a Mac), which the editor binds and the Options
- * menu lists (ShortcutOptions), so the list is the keys as they're bound.
+ * them: `Mod` is Ctrl, or ⌘ on a Mac), which the editor binds and the
+ * Reference lists (its Keyboard shortcuts), so the list is the keys as they're bound.
  */
 import { FORMAT_KEY } from './format.ts'
 

@@ -642,15 +642,49 @@ Plot ideas, to investigate (suggested 2026-11-21, after legends and colours):
       tabs and wide equations scroll sideways, dialogs and panels fit the
       screen, the Reference stacks its examples. Checked at phone width
       (390px) with headless Chrome: input, output, File menu, Reference.
-- [ ] **Mobile, level 2: comfortable editing on a phone.** A row of symbol keys
-      above the keyboard (`*`, `^`, `_`, `@`, `{`, `#`, `(`, `)`); tap or
-      long-press for what hovering shows (values, units, tooltips); menu entries
-      for what only shortcuts do (rename, go to definition, format); bigger tap
-      targets for fold arrows, ⚙ and the import's buttons; suggestions kept
-      above the keyboard. Needs a real phone to try.
+### Mobile view
+
+Level 1 (one pane at a time below 800px) is done: see "Narrow screens" above.
+Level 2 is comfortable editing on a phone; most of these need a real phone to
+try, as headless Chrome can't type with a phone's keyboard or touch.
+
+- [ ] **A row of symbol keys above the keyboard**: `*`, `^`, `_`, `@`, `{`, `}`,
+      `(`, `)`, `#`, `=`, `/`, and Tab (which a phone's keyboard hasn't, for
+      accepting a suggestion and for indenting), shown while the editor has
+      focus on a touch screen. The single most useful thing for typing maths
+      on a phone, where these are a keyboard page or two away.
+- [ ] **Tap for what hovering shows**: a name's value, a unit's meaning, an `@`
+      member's description and a ⚙ row's help, by a long press (or a tap, in
+      the output), as a touch screen has no hover.
+- [ ] **Menu entries for what only shortcuts do**: rename (F2), go to definition
+      (Ctrl+Click, F12), format (Ctrl+Shift+F), comment (Ctrl+/), find; in a
+      long-press menu on a name, or the Input pane's Options.
+- [ ] **Bigger tap targets in the editor**: the fold arrows in the gutter, a
+      table's or plot's ⚙, an import's ▼ ▲ × and Choose a CSV file… button,
+      at least 40px for a finger.
+- [ ] **Suggestions and hints above the keyboard**: the suggestion list,
+      parameter hints and the rename panel kept in the part of the screen the
+      keyboard doesn't cover (the visual viewport), and the cursor's line
+      scrolled into view as the keyboard opens.
 - [ ] **Equations narrower on a phone**: a long line of working scrolls sideways
       in the output; laid out one `=` a row when it's wider than the pane, as
       the LaTeX export already does (`fitted`), it wouldn't need to.
+- [ ] **Plots on a phone**: tick labels and the legend sized for a small
+      drawing (the drawing scales down whole, so its text gets small), and a
+      tap on a plot to see it full screen.
+- [ ] **A notch and rounded corners**: the top bar and the Input/Output switch
+      clear of a phone's notch and home bar (`env(safe-area-inset-*)`, with
+      `viewport-fit=cover`).
+- [ ] **Landscape and tablets**: a phone turned sideways is often wider than
+      800px, so it gets the side-by-side panes; check they're usable there, and
+      that the divider drags by touch on a tablet (it's pointer events, so it
+      should).
+- [ ] **Swipe between Input and Output**, as well as the switch.
+- [ ] **Open a sheet from the phone's share sheet** (a web share target, once
+      the app is installable) and **Share through it** (the Web Share API, in
+      place of copying the link, where the phone offers it).
+- [ ] **The Create, Export and Template dialogs on a phone**: full screen, with
+      their buttons in reach at the bottom.
 - [ ] **Evaluate in a web worker**, if very long sheets still lag once typing pauses.
 
 ## 7. Sheets and output

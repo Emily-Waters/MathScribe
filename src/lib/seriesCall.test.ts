@@ -132,6 +132,30 @@ describe('a series in square brackets', () => {
     expect(unpacked('[a, b] = [1, 2]').error).toMatch(/What's taken apart is a series/)
   })
 
+  it('keeps the rows where a condition holds, matched by number, renumbered from 1', () => {
+    const source = 't = [0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s]\nx = [0.05 m, 0.10 m, 0.16 m, 0.20 m, 0.26 m]\n'
+    const listed = (line: string) => shown(`${source}z = ${line}`).replace(/^z = .* = \(/, '(')
+    expect(listed('x[t >= 0.2 s and t <= 0.4 s]')).toMatch(/^\(0\.10, 0\.16, 0\.20\) m\s+3 values$/)
+    expect(listed('x[0.2 s <= t <= 0.4 s]')).toMatch(/^\(0\.10, 0\.16, 0\.20\) m/)
+    expect(listed('x[x > 0.15 m]')).toMatch(/^\(0\.16, 0\.20, 0\.26\) m/)
+    expect(value(`${source}z = x[t > 0.3 s]\nw = z[1]`)).toBe('0.20 m')
+    expect(value(`${source}w = x[t > 0.3 s].count`)).toBe('2')
+    expect(value(`${source}keep = [t > 0.25 s]\nw = x[keep].count`)).toBe('3')
+    expect(value(`${source}n = 2\nw = x[n + 1]`)).toBe('0.16 m')
+    expect(value(`${source}[first, ...others] = x[t > 0.2 s]\nw = first`)).toBe('0.16 m')
+    expect(lines(`${source}@plot(t[t > 0.1 s], x[t > 0.1 s])`).at(-1)!.plot?.series[0].points).toHaveLength(4)
+    // The same values: a picked value minus its series' is exactly 0.
+    expect(value('t = [1 s, 2 s]\nx = [1.0 m pm 0.1 m, 2.0 m pm 0.1 m]\nw = x[t > 1 s][1] - x[2]')).toBe('0 m')
+  })
+
+  it('explains a condition it can’t use', () => {
+    const source = 't = [0.10 s, 0.20 s]\nx = [0.05 m, 0.10 m]\n'
+    const error = (line: string) => lines(`${source}${line}`).at(-1)!.error
+    expect(error('q = x[t > 9 s]')).toBe('No row of x has t > 9 s, so x[t > 9 s] has no values.')
+    expect(error('q = x[t + 1 s]')).toMatch(/not true or false/)
+    expect(error('q = x[foo > 1]')).toMatch(/^In x\[foo > 1\]: Undefined symbol foo/)
+  })
+
   it('counts a range of whole numbers with a unit to its ones: 10. s (2 sig figs), not 1 × 10¹ s', () => {
     expect(shown('x = [1 s:10 s:1 s]')).toMatch(/, 9, 10\.\) s\s+10 values$/)
     expect(shown('n = [10:30:10]')).toMatch(/^n = \(10, 20, 30\)/)

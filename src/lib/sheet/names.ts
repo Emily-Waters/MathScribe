@@ -106,6 +106,37 @@ export const seriesMemberName = (base: string, n: number) => `${base}${JOIN}${n}
 /** A series' statistic, `t.avg`: t, avg → t__avg. */
 export const seriesStatName = (base: string, suffix: SeriesSuffix) => memberName(base, suffix)
 
+/**
+ * The rows of a series where a condition holds, `x[t > 0.2 s]`, as a series of
+ * its own: x__where3 (its number, one per series and condition: see the series
+ * module's where.ts, which says how it's written and shown, describeName).
+ */
+export const whereName = (base: string, id: number) => `${base}${JOIN}${WHERE}${id}`
+
+/** What marks the rows where a condition holds, in their inside name: x__where3. */
+const WHERE = 'where'
+
+/** The rows where a condition holds (1: the series): x__where3 → x. */
+const WHERE_NAME = new RegExp(String.raw`^(.+)${JOIN}${WHERE}\d+$`)
+
+/** The series a name of the rows where a condition holds is of: x__where3 → x (undefined if it isn't one). */
+export const whereOf = (name: string): string | undefined => WHERE_NAME.exec(name)?.[1]
+
+/**
+ * Names made for something written in a way a name can't hold (a condition,
+ * `x[t > 0.2 s]`), with how each is written and typeset; declared as they're
+ * made (describeName), so messages and the output name them as written.
+ */
+const described = new Map<string, { readonly typed: string; readonly tex: string }>()
+
+/** Say how a made name is written (`x[t > 0.2 s]`) and typeset. */
+export const describeName = (name: string, typed: string, tex: string) => {
+  described.set(name, { typed, tex })
+}
+
+/** How a made name is written and typeset, if it was described (describeName). */
+export const describedName = (name: string) => described.get(name)
+
 /** Which of a series' members a slice takes, `t[2:10:2]`: from and to (by number, both kept), and every `step`th; any can be left out. */
 export interface SliceSpec {
   readonly from?: number
@@ -221,6 +252,8 @@ const BUILTIN_FUNCTION_NAME = new RegExp(String.raw`^${HIDDEN_PREFIX.builtin}${J
 
 /** A member as typed: a__x_1 → a.x_1, t__3 → t[3], builtin__tuple → @tuple (other names as they are). */
 export function typedName(name: string): string {
+  const said = described.get(name)
+  if (said) return said.typed
   const slice = parseSliceName(name)
   if (slice) return `${typedName(slice.of)}${MEMBER_INDEX.open}${typedSlice(slice.spec)}${MEMBER_INDEX.close}`
   const numbered = parseNumberedName(name)

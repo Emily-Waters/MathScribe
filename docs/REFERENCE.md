@@ -524,6 +524,23 @@ m[::2]
 m[3:].avg
 ```
 
+A condition in a series' brackets keeps the rows where it holds: x\[t \> 0.2 s\] is x's values in the rows where t is over 0.2 s, renumbered from 1. Rows are matched by their numbers, so the condition can be on another series than the one it picks from.
+
+- Comparisons (\<, \<=, \>, \>=, ==, !=) chain and combine: x\[0.2 s \<= t \<= 0.4 s\], x\[t \> 0.2 s and x \< 0.3 m\].
+- A series of true and false is a condition too: keep = \[t \> 0.2 s\], then x\[keep\] and t\[keep\] stay paired.
+- It works wherever a series does: x\[t \> 0.2 s\].avg, @plot(t\[t \> 0.1 s\], x\[t \> 0.1 s\]), \[first, ...rest\] = x\[t \> 0.2 s\].
+- Something in the brackets that uses no series is worked out once: a whole number is a member, x\[n + 1\].
+- A condition no row meets is an error: the series would have no values.
+
+```
+t = [0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s]
+x = [0.05 m, 0.10 m, 0.16 m, 0.20 m, 0.26 m]
+b = x[0.2 s <= t <= 0.4 s]
+x[t > 0.3 s].avg
+keep = [t > 0.25 s]
+@plot(t[keep], x[keep]; fit linear)
+```
+
 ...x spreads a series' values in place, among values of its own: y = \[...x, 11 s\] is x's values, then 11 s.
 
 - A slice spreads too: \[...x\[2:\], 0 s\]. Several can go in one series, anywhere in it.

@@ -25,7 +25,7 @@
 import {
   type Definition, DISPLAY_MODE, type FormLine, IS_NAME, LineForm, type LineResult, MEMBER_INDEX, type ModuleHost, NODE_KIND,
   SEPARATOR, SETTING_MARK, SLICE_COLON, SUBSCRIPT, TOKEN_KIND, attachUnit, closesBracket, lexExpression, lineShape, lineTokens, math,
-  opensBracket, parseSliceName, seriesMemberName, symbolTex, typedName, unitTex,
+  opensBracket, parseSliceName, seriesMemberName, whereOf, symbolTex, typedName, unitTex,
 } from '../../lib/plugin.ts'
 import { rowErrors, seriesUsedIn, sharedRows, withRowValues } from './columns.ts'
 import { cellParts } from './table.ts'
@@ -330,8 +330,8 @@ export class SeriesForm extends LineForm {
           + `${counts[0].id}${MEMBER_INDEX.open}1${SLICE_COLON}${rows.length}${MEMBER_INDEX.close}.`
       }
       for (const n of rows) work(n, withRowValues(expr, used, n), `Row ${n}`)
-      // The rule, with each series as its member in row i: m_i = F_i / g. (A slice, F[2:4], as its series: F_i.)
-      const symbolic = new Map([...used.keys()].map((id) => [id, new Map([[0, `${parseSliceName(id)?.of ?? id}${SUBSCRIPT}${ROW_INDEX}`]])]))
+      // The rule, with each series as its member in row i: m_i = F_i / g. (A slice or condition's rows, F[2:4], as its series: F_i.)
+      const symbolic = new Map([...used.keys()].map((id) => [id, new Map([[0, `${parseSliceName(id)?.of ?? whereOf(id) ?? id}${SUBSCRIPT}${ROW_INDEX}`]])]))
       // (Its constants as their values' names, @g as g, as a line shows them.)
       const ruleText = withRowValues(expr, symbolic, 0)
       rule = host.expressionTex(host.expandConstants(ruleText).text)

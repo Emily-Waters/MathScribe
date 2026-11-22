@@ -7,7 +7,7 @@
  * ModuleHost.
  */
 import {
-  CAPTION_KIND, EngineModule, type Extension, type LineForm, LineFormMember, type Member, type ModuleBlockKind, type ModuleGrammar,
+  CAPTION_KIND, EngineModule, type Extension, type LineForm, type LineStep, LineFormMember, type Member, type ModuleBlockKind, type ModuleGrammar,
 } from '../../lib/plugin.ts'
 import { SERIES_GRAMMAR } from './grammar.ts'
 import { TABLE_PREAMBLE, TableConstruct, usesTables } from './tableBlock.ts'
@@ -18,6 +18,7 @@ import { PlotForm } from './plot.ts'
 import { SelectForm } from './select.ts'
 import { SeriesForm, SeriesShownForm, UnpackedSeriesForm } from './series.ts'
 import { TableForm } from './table.ts'
+import { WhereStep } from './where.ts'
 import { tableMenu } from './tableMenu.ts'
 import { memberLabelsExtension } from './memberLabels.ts'
 import { SERIES_TOPICS } from './language.ts'
@@ -38,6 +39,9 @@ export class SeriesModule extends EngineModule {
   override languageTopics(): readonly PlacedTopic[] {
     return SERIES_TOPICS
   }
+
+  /** The rows of a series where a condition holds, `x[t > 0.2 s]`, read as the series they make (where.ts). */
+  override readonly lineSteps: readonly LineStep[] = [new WhereStep()]
 
   override readonly lineForms: readonly LineForm[] = [new TableForm(), new PlotForm(), new SelectForm(), new SeriesForm(), new UnpackedSeriesForm(), new SeriesShownForm()]
 

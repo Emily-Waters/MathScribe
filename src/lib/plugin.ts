@@ -48,7 +48,7 @@ export { BlockMember, ConstantMember, FunctionMember, LineFormMember, Namespace,
 export { isNamespaceConstant, type BuiltinConstant, type NamespaceConstant } from './constants.ts'
 export {
   FIT, JOIN, RESERVED_NAMESPACES, builtinFunctionName, memberName, parseMemberName, parseNumberedName, readableMembers,
-  SLICE_COLON, parseSliceName, seriesMemberName, seriesStatName, solvedName, typedName,
+  SLICE_COLON, describeName, parseSliceName, seriesMemberName, seriesStatName, solvedName, typedName, whereName, whereOf,
   unpackedColumnName,
 } from './sheet/names.ts'
 

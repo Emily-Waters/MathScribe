@@ -625,6 +625,15 @@ exports[`the Reference tab’s examples > Repeated measurements: t = [0 s:2.0 s:
 3: k = (10,\\ 8,\\ 6,\\ 4,\\ 2,\\ 0)\\quad \\text6 values"
 `;
 
+exports[`the Reference tab’s examples > Repeated measurements: t = [0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s] 1`] = `
+"1: t = (0.10,\\ 0.20,\\ 0.30,\\ 0.40,\\ 0.50) s\\quad \\text5 values
+2: x = (0.05,\\ 0.10,\\ 0.16,\\ 0.20,\\ 0.26) m\\quad \\text5 values
+3: b = x_0.2 s\\leq t\\leq 0.4 s = (0.10,\\ 0.16,\\ 0.20) m\\quad \\text3 values
+4: \\barx_t> 0.3 s = \\frac12\\sum_i=1^2 (x_t> 0.3 s)_i = \\fracx_t> 0.3 s,1 + x_t> 0.3 s,22 = \\frac0.20 m + 0.26 m2 = (0.23 ± 0.03) m
+5: keep_i = t_i> 0.25 s = (\\textfalse,\\ \\textfalse,\\ \\texttrue,\\ \\texttrue,\\ \\texttrue)\\quad \\text5 values
+6: x_keep = [(0.50 ± 0.06) m/s] t_keep + (0.01 ± 0.02) m,\\quad R^2 = 0.9868"
+`;
+
 exports[`the Reference tab’s examples > Repeated measurements: t = [0.10 s, 0.20 s, 0.30 s, 0.40 s] 1`] = `
 "1: t = (0.10,\\ 0.20,\\ 0.30,\\ 0.40) s\\quad \\text4 values
 2: x = (0.051 ± 0.004,\\ 0.098 ± 0.004,\\ 0.152 ± 0.004,\\ 0.199 ± 0.004) m\\quad \\text4 values

@@ -141,6 +141,24 @@ what's here better.
       last, can be the only name, and without one the counts must match.
       Also: a range's whole numbers with a unit ending in 0 keep every digit
       (10. s, 2 sig figs, not 1 × 10¹ s); without a unit they're exact.
+- [x] **A condition in a series' brackets**, `x[t > 0.2 s]` (2026-11-22,
+      Emily), so a series can be picked by value, as @select does, without it.
+      Resolved (2026-11-22): `WhereStep` (series/where.ts), a step at the
+      `names` stage after the core's: each `x[…]` whose brackets aren't a
+      number or a slice is worked out row by row, as a rule is, and the rows
+      where it's true kept, matched by number (so `x[t > 0.2 s]` picks x by
+      t), renumbered from 1 as a lookup (x__where3, `whereName`; one number
+      per series and condition, so the same one is the same series). It works
+      wherever a series does (`.avg`, tables, plots, rules, taking apart). A
+      series of true and false is a condition too (`keep = [t > 0.2 s]`,
+      `x[keep]`); something using no series is worked out once, a whole number
+      being a member (`x[n + 1]`). A condition no row meets is an error. Such
+      a name says how it's written and typeset (`describeName`, names.ts:
+      x with its condition below), for messages and the output.
+- [ ] **Take @select out**, now that a condition in brackets does what it
+      does: rewrite its Reference examples and tests with `x[…]`, then remove
+      select.ts and its member. (Its named namespace, a.t and a.x together,
+      goes with it: `keep = […]` then `t[keep]`, `x[keep]` is the way.)
 - [x] **Plot functions**, not just data: `@plot(t, x, f(t))`, or a curve over a range.
       Resolved (2026-11-22): a function of the sheet's, by its name, is a
       curve, `@plot(L, T, T_model)` with `T_model(L) = 2 * pi * sqrt(L / @g)`:

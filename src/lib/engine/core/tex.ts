@@ -3,7 +3,7 @@ import { isConstantNode, isFunctionNode, type FunctionNode, type MathNode } from
 import { AGGREGATE_KIND } from '../../sheet/values.ts'
 import { builtinConstant } from '../../builtins.ts'
 import { GREEK_BY_CHAR, GREEK_BY_NAME, GREEK_CHARS, SERIES_SUFFIXES } from '../../syntax.ts'
-import { FIT, JOIN, parseConstantRefName, parseMemberName, parseNumberedName, parseSeriesStatName, parseSliceName, typedSlice, parseSolvedName, parseUncertaintyName } from '../../sheet/names.ts'
+import { FIT, JOIN, parseConstantRefName, parseMemberName, parseNumberedName, parseSeriesStatName, parseSliceName, typedSlice, describedName, parseSolvedName, parseUncertaintyName } from '../../sheet/names.ts'
 import { FN, UNIT_LOOKS } from '../../maths/mathjsNames.ts'
 import { math } from './math.ts'
 import { isLabelUnit, labelUnitTex, moduleNameSubscriptTex } from './module.ts'
@@ -49,6 +49,9 @@ export function symbolTex(name: string): string {
   if (constant) return builtinConstant(constant)?.tex ?? symbolTex(constant)
   const solved = parseSolvedName(name)
   if (solved) return symbolTex(solved)
+  // A name made for something written another way (the rows where a condition holds), as it said it's typeset.
+  const said = describedName(name)
+  if (said) return said.tex
   // A slice of a series, t[2:4] → t_{2:4}, after any subscript the series has (a.x[2:] → x_{a,2:}).
   const slice = parseSliceName(name)
   if (slice) {

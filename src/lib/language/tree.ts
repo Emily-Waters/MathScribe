@@ -21,12 +21,52 @@ export interface LanguageExample {
   readonly warns?: boolean
 }
 
+/** The kinds of word the editor suggests and describes, each a term of an entry. */
+export const TERM_KIND = {
+  /** A display command, `#sym`. */
+  command: 'command',
+  /** A word with a meaning of its own in an expression, `to`, `pm`, `delta`. */
+  keyword: 'keyword',
+  /** A setting after a name's `:`, `exact`, `sci`, `percent`. */
+  setting: 'setting',
+  /** One of mathjs's functions people use, `sqrt(x)`. */
+  function: 'function',
+  /** One of mathjs's constants, `pi`. */
+  constant: 'constant',
+  /** A name a series makes, as a suffix of the series' name: `_avg` (and the sum, the name itself: ``). */
+  seriesName: 'seriesName',
+} as const
+export type TermKind = (typeof TERM_KIND)[keyof typeof TERM_KIND]
+
+/** A word the editor suggests and describes (its completion's detail, its hover), as an entry says it. */
+export interface LanguageTerm {
+  readonly kind: TermKind
+  /** As it's written: `#sym`, `to`, `sqrt`, `_avg`. */
+  readonly name: string
+  /** What it does, in a phrase. */
+  readonly summary: string
+  /** How a function is called: `nthRoot(x, n)`. */
+  readonly signature?: string
+}
+
+/** A term as it's shown: a function by how it's called (`nthRoot(x, n)`), a series' name with a series' (`t_avg`), anything else as written. */
+export const termShown = (t: LanguageTerm): string =>
+  t.signature ?? (t.kind === TERM_KIND.seriesName ? `${SAMPLE_SERIES}${t.name}` : t.name)
+
+/** The series a series' names are shown on: `t_avg`. */
+const SAMPLE_SERIES = 't'
+
+/** A display command as a term: `#sym`. */
+export const commandTerm = (name: string, summary: string): LanguageTerm => ({ kind: TERM_KIND.command, name: `#${name}`, summary })
+
 /** One feature: how it's written, what's said about it, the rules for writing it, and examples of it. */
 export interface LanguageEntry {
   /** How it's written, if it's one thing to write (a setting: `legend top right`, `log x`). */
   readonly syntax?: readonly string[]
   /** What it is and does, as the Reference says it. */
   readonly explain: string
+  /** The words it brings, which the editor suggests and describes: `#sym`, `to`, `sqrt`. */
+  readonly terms?: readonly LanguageTerm[]
   /** Do and don't for whoever writes it, people or AI models: shown in the Reference and in the AI primer. */
   readonly rules?: readonly string[]
   /** Whole sheets showing it. */
@@ -66,3 +106,7 @@ export function languageTree(core: readonly LanguageTopic[], modules: readonly P
 /** Every example in the tree, with where it is (its topic, and the entry's number in it, from 1). */
 export const treeExamples = (tree: readonly LanguageTopic[]) =>
   tree.flatMap((topic) => topic.entries.flatMap((entry, i) => entry.examples.map((example) => ({ topic, entry: i + 1, example }))))
+
+/** Every term of a kind in the tree, in its order. */
+export const treeTerms = (tree: readonly LanguageTopic[], kind: TermKind): LanguageTerm[] =>
+  tree.flatMap((topic) => topic.entries.flatMap((entry) => (entry.terms ?? []).filter((t) => t.kind === kind)))

@@ -3,6 +3,7 @@ import { EXAMPLE_CALC_OPTIONS } from '../config.ts'
 import { evaluateSheetSafely } from '../lib/sheet/document.ts'
 import { BUILTIN_CONSTANTS } from '../lib/constants.ts'
 import { languageTopics } from '../lib/engine/index.ts'
+import { termShown } from '../lib/language/tree.ts'
 import { copyText, useFlash } from '../useFlash.ts'
 import { RenderedBlock, Tex } from './blocks/index.tsx'
 
@@ -46,6 +47,18 @@ export function ReferencePane() {
                 {entry.syntax?.map((written) => <code key={written} className="ref__syntax">{written}</code>)}
                 {entry.explain}
               </p>
+              {entry.terms && (
+                <table className="ref__table ref__terms">
+                  <tbody>
+                    {entry.terms.map((t) => (
+                      <tr key={t.name}>
+                        <td><code>{termShown(t)}</code></td>
+                        <td>{t.summary}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
               {entry.rules && (
                 <ul className="ref__rules">
                   {entry.rules.map((rule) => <li key={rule}>{rule}</li>)}

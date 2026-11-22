@@ -4,7 +4,10 @@
  * Reference tab shows live and the tests check. A module's topics are its own
  * (EngineModule.languageTopics), placed among these.
  */
-import type { LanguageTopic } from './tree.ts'
+import {
+  EXACT_SETTING, KEYWORD, LINE_COMMAND, LINE_LAYOUT, MULTILINE, NOTATION, PERCENT, UNCERTAINTY_WORDS,
+} from '../syntax.ts'
+import { TERM_KIND, commandTerm, type LanguageTopic } from './tree.ts'
 
 /** The core's topics, in order. */
 export const CORE_TOPICS: readonly LanguageTopic[] = [
@@ -66,6 +69,39 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
       {
         explain: 'Powers are ^. The functions of maths: sqrt, sin, cos, tan, asin, acos, atan, atan2, exp, log '
           + '(natural), log10, abs, min, max, round; and pi and e.',
+        terms: [
+          { kind: TERM_KIND.function, name: 'sqrt', summary: 'Square root', signature: 'sqrt(x)' },
+          { kind: TERM_KIND.function, name: 'cbrt', summary: 'Cube root', signature: 'cbrt(x)' },
+          { kind: TERM_KIND.function, name: 'nthRoot', summary: 'The nth root', signature: 'nthRoot(x, n)' },
+          { kind: TERM_KIND.function, name: 'abs', summary: 'Absolute value', signature: 'abs(x)' },
+          { kind: TERM_KIND.function, name: 'exp', summary: 'e to the power x', signature: 'exp(x)' },
+          { kind: TERM_KIND.function, name: 'log', summary: 'Natural logarithm (or log(x, base))', signature: 'log(x)' },
+          { kind: TERM_KIND.function, name: 'log10', summary: 'Base-10 logarithm', signature: 'log10(x)' },
+          { kind: TERM_KIND.function, name: 'log2', summary: 'Base-2 logarithm', signature: 'log2(x)' },
+          { kind: TERM_KIND.function, name: 'sin', summary: 'Sine; angles in rad, or with deg', signature: 'sin(θ)' },
+          { kind: TERM_KIND.function, name: 'cos', summary: 'Cosine; angles in rad, or with deg', signature: 'cos(θ)' },
+          { kind: TERM_KIND.function, name: 'tan', summary: 'Tangent; angles in rad, or with deg', signature: 'tan(θ)' },
+          { kind: TERM_KIND.function, name: 'asin', summary: 'Inverse sine, in rad (add to deg)', signature: 'asin(x)' },
+          { kind: TERM_KIND.function, name: 'acos', summary: 'Inverse cosine, in rad (add to deg)', signature: 'acos(x)' },
+          { kind: TERM_KIND.function, name: 'atan', summary: 'Inverse tangent, in rad (add to deg)', signature: 'atan(x)' },
+          { kind: TERM_KIND.function, name: 'atan2', summary: 'Angle of the point (x, y), in rad', signature: 'atan2(y, x)' },
+          { kind: TERM_KIND.function, name: 'sinh', summary: 'Hyperbolic sine', signature: 'sinh(x)' },
+          { kind: TERM_KIND.function, name: 'cosh', summary: 'Hyperbolic cosine', signature: 'cosh(x)' },
+          { kind: TERM_KIND.function, name: 'tanh', summary: 'Hyperbolic tangent', signature: 'tanh(x)' },
+          { kind: TERM_KIND.function, name: 'round', summary: 'Round to n decimal places', signature: 'round(x, n)' },
+          { kind: TERM_KIND.function, name: 'floor', summary: 'Round down', signature: 'floor(x)' },
+          { kind: TERM_KIND.function, name: 'ceil', summary: 'Round up', signature: 'ceil(x)' },
+          { kind: TERM_KIND.function, name: 'min', summary: 'Smallest value', signature: 'min(a, b, …)' },
+          { kind: TERM_KIND.function, name: 'max', summary: 'Largest value', signature: 'max(a, b, …)' },
+          { kind: TERM_KIND.function, name: 'factorial', summary: 'n!', signature: 'factorial(n)' },
+          { kind: TERM_KIND.function, name: 'norm', summary: 'Length of a vector or tuple: norm(<3, 4>) = 5', signature: 'norm(r)' },
+          { kind: TERM_KIND.function, name: 'dot', summary: 'Dot product of two vectors', signature: 'dot(a, b)' },
+          { kind: TERM_KIND.function, name: 'cross', summary: 'Cross product of two 3D vectors', signature: 'cross(a, b)' },
+          { kind: TERM_KIND.constant, name: 'pi', summary: 'π ≈ 3.14159' },
+          { kind: TERM_KIND.constant, name: 'e', summary: 'Euler’s number ≈ 2.71828' },
+          { kind: TERM_KIND.constant, name: 'tau', summary: 'τ = 2π' },
+          { kind: TERM_KIND.constant, name: 'phi', summary: 'The golden ratio ≈ 1.61803' },
+        ],
         examples: [{
           source: [
             'r = 2.00 m',
@@ -161,6 +197,9 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
       },
       {
         explain: 'to converts to another unit.',
+        terms: [
+          { kind: TERM_KIND.keyword, name: KEYWORD.to, summary: 'Convert to a unit: v to km/h, or to percent' },
+        ],
         examples: [{
           source: [
             'v = 25.0 m/s',
@@ -186,6 +225,9 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
       },
       {
         explain: 'to percent shows a unitless result ×100 (stored as the fraction). Values with units are refused.',
+        terms: [
+          { kind: TERM_KIND.setting, name: PERCENT, summary: 'a unitless result ×100, with %' },
+        ],
         examples: [{
           source: [
             'P = 0.950 angstrom^-1',
@@ -234,11 +276,18 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
       },
       {
         explain: ':exact shows full precision.',
+        terms: [
+          { kind: TERM_KIND.setting, name: EXACT_SETTING, summary: 'full precision; never limits a result' },
+        ],
         examples: [{ source: 'third:exact = 1/3' }],
       },
       {
         explain: ':sci always shows scientific notation, :dec always plain digits. A variable keeps its notation '
           + 'wherever its value appears; combine with sig figs and units, like E:3:sci:eV.',
+        terms: [
+          { kind: TERM_KIND.setting, name: NOTATION.sci, summary: 'always scientific notation' },
+          { kind: TERM_KIND.setting, name: NOTATION.dec, summary: 'always decimal notation, no powers of ten' },
+        ],
         examples: [{
           source: [
             'N:sci = 1500. * 12.0',
@@ -268,6 +317,9 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
     entries: [
       {
         explain: 'pm (or ±) gives a value an uncertainty.',
+        terms: [
+          { kind: TERM_KIND.keyword, name: KEYWORD.pm, summary: 'An uncertainty: 2.0 kg pm 0.1 kg (also ± or +-)' },
+        ],
         rules: [
           'Write pm only where a value is defined, never inside a function\'s brackets: it propagates by itself.',
         ],
@@ -280,6 +332,9 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
       {
         explain: 'Results combine uncertainties in quadrature. delta v = shows how; delta v / v is the relative '
           + 'uncertainty.',
+        terms: [
+          { kind: TERM_KIND.keyword, name: UNCERTAINTY_WORDS[0], summary: 'The uncertainty of a variable: delta F' },
+        ],
         rules: [
           'delta F (shown δF) is F\'s uncertainty; on its own line it shows the working of its propagation.',
         ],
@@ -448,15 +503,25 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
     entries: [
       {
         explain: '#sym shows the equation only.',
+        terms: [
+          commandTerm(LINE_COMMAND.sym, 'Show the equation only'),
+        ],
         examples: [{ source: 'F = 2.00 kg * 9.81 m/s^2   #sym' }],
       },
       {
         explain: '#val shows the result only.',
+        terms: [
+          commandTerm(LINE_COMMAND.val, 'Show the result only'),
+        ],
         examples: [{ source: 'F = 2.00 kg * 9.81 m/s^2   #val' }],
       },
       {
         explain: '#sci shows the result in scientific notation, #dec in plain digits: for a line with no name to put '
           + ':sci on, or a whole block.',
+        terms: [
+          commandTerm(NOTATION.sci, 'Results in scientific notation (on a line, or every line in a block)'),
+          commandTerm(NOTATION.dec, 'Results in plain decimal digits, no powers of ten (on a line, or every line in a block)'),
+        ],
         examples: [{
           source: [
             'p = 0.0707',
@@ -466,6 +531,9 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
       },
       {
         explain: '#hide calculates the line but doesn’t show it.',
+        terms: [
+          commandTerm(LINE_COMMAND.hide, 'Calculate, but don’t show the line or block'),
+        ],
         examples: [{
           source: [
             'm = 2.00 kg   #hide',
@@ -476,6 +544,9 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
       {
         explain: '#multiline puts each = on its own row, lined up. It combines with the others (#sym #multiline), and '
           + 'works on a block.',
+        terms: [
+          commandTerm(MULTILINE, 'Each = on its own row, lined up'),
+        ],
         examples: [{
           source: [
             'm = 2.00 kg',
@@ -495,6 +566,9 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
       },
       {
         explain: 'On a block, a command applies to every line inside; a line’s own command (#full) wins.',
+        terms: [
+          commandTerm(LINE_COMMAND.full, 'Show everything (the default; overrides a block’s command)'),
+        ],
         examples: [{
           source: [
             'Results only {   #val',
@@ -580,10 +654,28 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
             '    p = 2.00 kg * 3.00 m/s   #full',
             '}',
           ].join('\n'),
+        }, {
+          source: [
+            'm = 2.00 kg',
+            '@layout.sym.multiline Formulas {',
+            '    F = m * 9.81 m/s^2',
+            '}',
+            '@layout.full.sci Results {',
+            '    N = 6.02e23 * 2.00',
+            '}',
+            '@layout.dec {',
+            '    lambda = 5.32e-7 m',
+            '}',
+          ].join('\n'),
         }],
       },
       {
         explain: 'On a single line, #center centers just that line (#list and #numbered work too).',
+        terms: [
+          commandTerm(LINE_LAYOUT.center, 'Center the line (for a block of lines: @layout.center { })'),
+          commandTerm(LINE_LAYOUT.list, 'The line as a bullet (for a block of lines: @layout.list { })'),
+          commandTerm(LINE_LAYOUT.numbered, 'The line as a numbered item (for a block of lines: @layout.numbered { })'),
+        ],
         examples: [{ source: 'F = 2.00 kg * 9.81 m/s^2   #center' }],
       },
       {
@@ -596,6 +688,23 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
             '    the ramp isn’t frictionless: $\\mu_k \\approx 0.05$ would explain it.',
             '',
             '    A blank line starts a new paragraph.',
+            '}',
+          ].join('\n'),
+        }],
+      },
+      {
+        explain: '@layout.column sets the lines inside side by side in columns: a blank line starts the next '
+          + 'column, and each block inside is a column of its own. A row has up to 4; @layout.column(n) sets n a '
+          + 'row (2 to 4). With no breaks, the lines are shared out evenly. It combines with a layout, which then '
+          + 'applies within each column: @layout.column(3).numbered.',
+        examples: [{
+          source: [
+            '@layout.column Givens {',
+            '    m = 2.00 kg',
+            '    g_0 = 9.81 m/s^2',
+            '',
+            '    theta = 30.0 deg',
+            '    d = 3.50 m',
             '}',
           ].join('\n'),
         }],

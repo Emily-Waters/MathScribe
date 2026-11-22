@@ -15,11 +15,19 @@ export const VECTOR_TOPICS: readonly PlacedTopic[] = [
       {
         explain: '<…> is a vector, shown ⟨…⟩. A unit after the > applies to every component. Vectors scale and add, '
           + 'and norm, dot and cross work on them.',
+        rules: [
+          '@vector(3.0, 4.0) is the same vector as <3.0, 4.0>, written as a call.',
+        ],
         examples: [{
           source: [
             'F = <3.0, 4.0> N',
             'F_2 = 2 * F + <1.0, -1.0> N',
             'mag = norm(F)',
+          ].join('\n'),
+        }, {
+          source: [
+            'v = @vector(3.0 m/s, 4.0 m/s)',
+            'speed = norm(v)',
           ].join('\n'),
         }],
       },

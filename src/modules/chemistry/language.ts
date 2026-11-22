@@ -71,6 +71,12 @@ export const CHEMISTRY_TOPICS: readonly PlacedTopic[] = [
             'm = 5.00 g {dietzeite}',
             'n = m / D.M',
           ].join('\n'),
+        }, {
+          source: [
+            '@chem.species dietzeite = {7Ca(IO3)2*8CaCrO4}',
+            'm:formula = 5.00 g {dietzeite}',
+            'n:name = 0.0100 mol {dietzeite}',
+          ].join('\n'),
         }],
       },
       {

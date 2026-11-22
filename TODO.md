@@ -1373,10 +1373,25 @@ into its own file (`docs/REFERENCE.md`), not into the README.
          runs). So is step 2's path for settings (`EngineModule.settingsDescriptions`,
          `settingsMarkdown`): the primer lists them from the tree, as the
          Reference does.
-   - [ ] **Part 4: editor hovers and completions from the tree** (`#`
+   - [x] **Part 4: editor hovers and completions from the tree** (`#`
          commands, keywords, settings words), in place of `vocabulary.ts`'s
          copies; and a test that every declared command, setting and `@`
          member has an entry.
+         Resolved (2026-11-21): an entry can name the words it brings, its
+         `terms` (a display command, a keyword, a setting after a name, one of
+         mathjs's functions or constants, a series' name), each with what it
+         does; the editor's suggestions and hovers (vocabulary.ts) are the
+         tree's terms now, and its hand-written descriptions are gone. The
+         Reference shows an entry's terms as a small table under it, and the
+         primer lists them. New tests check nothing is left undescribed: every
+         display command, keyword, setting word and series name is a term;
+         every module's setting after a name, and everything built in under @
+         a sheet can type, is written in an example. They found what no example
+         showed: @layout.column (now an entry of Layout), the layouts' .sym,
+         .full, .sci, .dec and .multiline, chemistry's :formula and :name, and
+         @vector (each now in an example: 4 new golden snapshots). The commands
+         are suggested in the tree's order now (#sym, #val, … #full), not the
+         syntax's.
 - [ ] **Step 4: `docs/REFERENCE.md`**, generated, with a test that fails when
       the checked-in file is out of date.
 

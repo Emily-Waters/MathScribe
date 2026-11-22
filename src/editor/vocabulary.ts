@@ -1,103 +1,39 @@
 /**
- * Fixed words of the sheet language, with one-line descriptions, for
- * completions and hover information in the editor. (The words themselves
- * come from lib/syntax.ts, which the engine uses too. What's built in under
- * `@` describes itself: lib/builtins.ts.)
+ * Fixed words of the sheet language, with what each does, for completions and
+ * hover information in the editor: the language tree's terms (lib/language:
+ * each entry says the words it brings, so the Reference, the AI primer and the
+ * editor say the same of them), and the modules' settings after a name. (What's
+ * built in under `@` describes itself: lib/builtins.ts.)
  */
-import {
-  COMMAND_NAMES, EXACT_SETTING, KEYWORD, NOTATION, PERCENT, UNCERTAINTY_WORDS, type CommandName, type Notation, type SeriesSuffix,
-} from '../lib/syntax.ts'
-import { moduleSettingWords } from '../lib/engine/index.ts'
+import { languageTopics, moduleSettingWords } from '../lib/engine/index.ts'
+import { TERM_KIND, treeTerms, type TermKind } from '../lib/language/tree.ts'
 
-/** What each display command does. */
-const COMMAND_DESCRIPTIONS: Record<CommandName, string> = {
-  full: 'Show everything (the default; overrides a block’s command)',
-  sym: 'Show the equation only',
-  val: 'Show the result only',
-  hide: 'Calculate, but don’t show the line or block',
-  multiline: 'Each = on its own row, lined up',
-  sci: 'Results in scientific notation (on a line, or every line in a block)',
-  dec: 'Results in plain decimal digits, no powers of ten (on a line, or every line in a block)',
-  center: 'Center the line (for a block of lines: @layout.center { })',
-  list: 'The line as a bullet (for a block of lines: @layout.list { })',
-  numbered: 'The line as a numbered item (for a block of lines: @layout.numbered { })',
+/** A word and what it does. */
+interface Described {
+  name: string
+  description: string
 }
+
+/** The tree's terms of a kind, as the editor lists them. */
+const described = (kind: TermKind): Described[] =>
+  treeTerms(languageTopics(), kind).map((t) => ({ name: t.name, description: t.summary }))
 
 /** Every display command, `#` and all, in the order they're suggested. */
-export const COMMANDS: { name: string; description: string }[] =
-  COMMAND_NAMES.map((name) => ({ name: `#${name}`, description: COMMAND_DESCRIPTIONS[name] }))
+export const COMMANDS: Described[] = described(TERM_KIND.command)
 
-/** What each notation setting does. */
-const NOTATION_DESCRIPTIONS: Record<Notation, string> = {
-  sci: 'always scientific notation',
-  dec: 'always decimal notation, no powers of ten',
-}
-
-/** Words that can follow a `:` on a name (besides sig figs and units). */
-export const SETTING_WORDS: { name: string; description: string }[] = [
-  { name: EXACT_SETTING, description: 'full precision; never limits a result' },
-  ...NOTATION.words.map((n) => ({ name: n, description: NOTATION_DESCRIPTIONS[n] })),
-  { name: PERCENT, description: 'a unitless result ×100, with %' },
-  // (And the modules': a vector's `:ijk`, chemistry's `:formula`, ….)
-  ...moduleSettingWords(),
-]
+/** Words that can follow a `:` on a name (besides sig figs and units), the modules' too (a vector's `:ijk`, chemistry's `:formula`). */
+export const SETTING_WORDS: Described[] = [...described(TERM_KIND.setting), ...moduleSettingWords()]
 
 /** Words of the sheet language, with what they do. */
-export const KEYWORDS: { name: string; description: string }[] = [
-  { name: KEYWORD.to, description: 'Convert to a unit: v to km/h, or to percent' },
-  { name: KEYWORD.pm, description: 'An uncertainty: 2.0 kg pm 0.1 kg (also ± or +-)' },
-  { name: UNCERTAINTY_WORDS[0], description: 'The uncertainty of a variable: delta F' },
-]
+export const KEYWORDS: Described[] = described(TERM_KIND.keyword)
 
 /** Built-in functions people use in sheets (mathjs has many more; all of them work). */
-export const BUILTIN_FUNCTIONS: { name: string; signature: string; description: string }[] = [
-  { name: 'sqrt', signature: 'sqrt(x)', description: 'Square root' },
-  { name: 'cbrt', signature: 'cbrt(x)', description: 'Cube root' },
-  { name: 'nthRoot', signature: 'nthRoot(x, n)', description: 'The nth root' },
-  { name: 'abs', signature: 'abs(x)', description: 'Absolute value' },
-  { name: 'exp', signature: 'exp(x)', description: 'e to the power x' },
-  { name: 'log', signature: 'log(x)', description: 'Natural logarithm (or log(x, base))' },
-  { name: 'log10', signature: 'log10(x)', description: 'Base-10 logarithm' },
-  { name: 'log2', signature: 'log2(x)', description: 'Base-2 logarithm' },
-  { name: 'sin', signature: 'sin(θ)', description: 'Sine; angles in rad, or with deg' },
-  { name: 'cos', signature: 'cos(θ)', description: 'Cosine; angles in rad, or with deg' },
-  { name: 'tan', signature: 'tan(θ)', description: 'Tangent; angles in rad, or with deg' },
-  { name: 'asin', signature: 'asin(x)', description: 'Inverse sine, in rad (add to deg)' },
-  { name: 'acos', signature: 'acos(x)', description: 'Inverse cosine, in rad (add to deg)' },
-  { name: 'atan', signature: 'atan(x)', description: 'Inverse tangent, in rad (add to deg)' },
-  { name: 'atan2', signature: 'atan2(y, x)', description: 'Angle of the point (x, y), in rad' },
-  { name: 'sinh', signature: 'sinh(x)', description: 'Hyperbolic sine' },
-  { name: 'cosh', signature: 'cosh(x)', description: 'Hyperbolic cosine' },
-  { name: 'tanh', signature: 'tanh(x)', description: 'Hyperbolic tangent' },
-  { name: 'round', signature: 'round(x, n)', description: 'Round to n decimal places' },
-  { name: 'floor', signature: 'floor(x)', description: 'Round down' },
-  { name: 'ceil', signature: 'ceil(x)', description: 'Round up' },
-  { name: 'min', signature: 'min(a, b, …)', description: 'Smallest value' },
-  { name: 'max', signature: 'max(a, b, …)', description: 'Largest value' },
-  { name: 'factorial', signature: 'factorial(n)', description: 'n!' },
-  { name: 'norm', signature: 'norm(r)', description: 'Length of a vector or tuple: norm(<3, 4>) = 5' },
-  { name: 'dot', signature: 'dot(a, b)', description: 'Dot product of two vectors' },
-  { name: 'cross', signature: 'cross(a, b)', description: 'Cross product of two 3D vectors' },
-]
+export const BUILTIN_FUNCTIONS: { name: string; signature: string; description: string }[] =
+  treeTerms(languageTopics(), TERM_KIND.function).map((t) => ({ name: t.name, signature: t.signature ?? `${t.name}(…)`, description: t.summary }))
 
 /** Constants that are built into mathjs (no @), shown as symbols. */
-export const MATH_CONSTANTS: { name: string; description: string }[] = [
-  { name: 'pi', description: 'π ≈ 3.14159' },
-  { name: 'e', description: 'Euler’s number ≈ 2.71828' },
-  { name: 'tau', description: 'τ = 2π' },
-  { name: 'phi', description: 'The golden ratio ≈ 1.61803' },
-]
-
-/** What each series name means. (`_mean` works too, but only `_avg` is suggested.) */
-const SERIES_DESCRIPTIONS: Record<Exclude<SeriesSuffix, 'mean'>, string> = {
-  avg: 'Mean, ± the standard error',
-  count: 'Number of values',
-  std: 'Sample standard deviation',
-  sem: 'Standard error of the mean',
-}
+export const MATH_CONSTANTS: Described[] = described(TERM_KIND.constant)
 
 /** The names a series makes (t, t_avg, t_count, …), as suffixes of its name. */
-export const SERIES_SUFFIXES: { suffix: string; description: string }[] = [
-  { suffix: '', description: 'Sum of the series' },
-  ...Object.entries(SERIES_DESCRIPTIONS).map(([s, description]) => ({ suffix: `_${s}`, description })),
-]
+export const SERIES_SUFFIXES: { suffix: string; description: string }[] =
+  treeTerms(languageTopics(), TERM_KIND.seriesName).map((t) => ({ suffix: t.name, description: t.summary }))

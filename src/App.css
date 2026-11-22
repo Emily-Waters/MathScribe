@@ -1014,6 +1014,12 @@ body {
   color: var(--muted);
 }
 
+/* An entry's terms (the words it brings) in the Reference, under what's said of it */
+.ref__terms {
+  margin: 0 0 6px;
+  width: auto;
+}
+
 /* An entry's rules for writing it, in the Reference */
 .ref__rules {
   margin: 0 0 6px;

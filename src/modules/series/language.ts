@@ -3,7 +3,10 @@
  * feature, what's said about it, and whole sheets showing it, which the
  * Reference tab shows live and the tests check.
  */
-import { settingsTopic, type PlacedTopic } from '../../lib/plugin.ts'
+import { SUBSCRIPT, TERM_KIND, settingsTopic, type PlacedTopic, type SeriesSuffix } from '../../lib/plugin.ts'
+
+/** A series' statistics, as their names' suffixes are written: `t_avg`. (`_mean` works too, but `_avg` is the one suggested.) */
+const SERIES_STAT = { avg: 'avg', count: 'count', std: 'std', sem: 'sem' } as const satisfies Record<string, SeriesSuffix>
 import { TABLE_SETTINGS } from './tableSettings.ts'
 import { PLOT_SETTINGS } from './plotSettings.ts'
 
@@ -33,6 +36,13 @@ export const SERIES_TOPICS: readonly PlacedTopic[] = [
     entries: [
       {
         explain: 'Numbered variables form a series: t_avg is the mean ± standard error, t_count the count, t the sum.',
+        terms: [
+          { kind: TERM_KIND.seriesName, name: '', summary: 'Sum of the series' },
+          { kind: TERM_KIND.seriesName, name: `${SUBSCRIPT}${SERIES_STAT.avg}`, summary: 'Mean, ± the standard error' },
+          { kind: TERM_KIND.seriesName, name: `${SUBSCRIPT}${SERIES_STAT.count}`, summary: 'Number of values' },
+          { kind: TERM_KIND.seriesName, name: `${SUBSCRIPT}${SERIES_STAT.std}`, summary: 'Sample standard deviation' },
+          { kind: TERM_KIND.seriesName, name: `${SUBSCRIPT}${SERIES_STAT.sem}`, summary: 'Standard error of the mean' },
+        ],
         rules: [
           'T1, T2, … (or T_1, T_2) form a series T: T_avg, T_std, T_sem, T_count and T each show their working '
             + 'on a line of their own.',

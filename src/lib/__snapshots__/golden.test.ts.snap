@@ -283,6 +283,11 @@ exports[`the Reference tab’s examples > Chemistry: @chem.species dietzeite = {
 4: n = \\fracmM_D = \\frac5.00 g dietzeite3977.7 \\fracg dietzeitemol dietzeite = 0.00126 mol dietzeite"
 `;
 
+exports[`the Reference tab’s examples > Chemistry: @chem.species dietzeite = {7Ca(IO3)2*8CaCrO4} 2`] = `
+"2: m = 5.00 g 7Ca(IO3)2*8CaCrO4
+3: n = 0.0100 mol dietzeite"
+`;
+
 exports[`the Reference tab’s examples > Chemistry: CuSO4 = @chem.substance({CuSO4*5H2O}) 1`] = `
 "1: CuSO4*5H2O:\\quad M_CuSO4 = M_Cu+ M_S+ 9 M_O+ 10 M_H = 63.546 g/mol+ 32.06 g/mol+ 9\\times 15.999 g/mol+ 10\\times 1.008 g/mol = 249.68 \\fracg CuSO4*5H2Omol CuSO4*5H2O
      INFO CuSO4 is 1 mol of CuSO4*5H2O until its amount is set (CuSO4.n = …, or CuSO4.m = …). Its members: CuSO4.M, .n, .m, and each element's, as CuSO4.Cu.n, .m, .M and .w (its mass fraction).
@@ -424,6 +429,13 @@ exports[`the Reference tab’s examples > Functions: ramp(x) = x > 0 ? x : 0 1`]
 
 exports[`the Reference tab’s examples > Layout: @layout.center Key result { 1`] = `"2: E = 2.00 kg\\times (3.00e8 m/s)^2 = 1.80e17 J"`;
 
+exports[`the Reference tab’s examples > Layout: @layout.column Givens { 1`] = `
+"2: m = 2.00 kg
+3: g_0 = 9.81 m/s^2
+5: \\theta = 30.0°
+6: d = 3.50 m"
+`;
+
 exports[`the Reference tab’s examples > Layout: @layout.hidden { 1`] = `
 "2: m = 2.00 kg
 3: g_0 = 9.81 m/s^2
@@ -447,6 +459,13 @@ exports[`the Reference tab’s examples > Layout: @layout.val.multiline Results 
 `;
 
 exports[`the Reference tab’s examples > Layout: F = 2.00 kg * 9.81 m/s^2   #center 1`] = `"1: F = 2.00 kg\\times 9.81 m/s^2 = 19.6 N"`;
+
+exports[`the Reference tab’s examples > Layout: m = 2.00 kg 1`] = `
+"1: m = 2.00 kg
+3: F = m\\times 9.81 m/s^2
+6: N = (6.02e23)\\times 2.00 = 1.20e24
+9: \\lambda = 0.000000532 m"
+`;
 
 exports[`the Reference tab’s examples > Plot settings: t = @series(0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s) 1`] = `
 "1: t = (0.10,\\ 0.20,\\ 0.30,\\ 0.40,\\ 0.50,\\ 0.60) s\\quad \\text6 values
@@ -728,6 +747,11 @@ exports[`the Reference tab’s examples > Vectors: a:xyz = <0.50, -9.81> m/s^2 1
 "1: a = ⟨0.50, -9.81⟩ m/s^2 a_x = 0.50 m/s^2 a_y = -9.81 m/s^2
 2: t = 2.0 s
 3: d_y = \\frac12 a_y t^2 = \\frac12\\times (-9.81 m/s^2)\\times (2.0 s)^2 = -20. m"
+`;
+
+exports[`the Reference tab’s examples > Vectors: v = @vector(3.0 m/s, 4.0 m/s) 1`] = `
+"1: v = ⟨3.0 m/s, 4.0 m/s⟩ = ⟨3.0, 4.0⟩ m/s
+2: speed = \\left\\| v\\right\\| = \\left\\| ⟨3.0, 4.0⟩ m/s\\right\\| = 5.0 m/s"
 `;
 
 exports[`the Reference tab’s examples > Vectors: v:ijk = <2.0, -1.5, 4.0> m/s 1`] = `

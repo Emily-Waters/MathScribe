@@ -1,12 +1,12 @@
 /**
  * The language, described from its declarations: what the Reference, the AI
  * primer and (to come) docs/REFERENCE.md say about it is made here, from the
- * language tree and the declarations the core and the modules make, so none of it is written by hand or can be
- * out of date with what's read. (See "One source for the language" in TODO.md.)
+ * language tree and the declarations the core and the modules make, so none
+ * of it is written by hand or can be out of date with what's read. (See "One source for the language" in TODO.md.)
  */
 import { SIGIL } from '../syntax.ts'
 import type { SettingDescription, SettingsDescription } from './settings.ts'
-import type { LanguageEntry, LanguageTopic, PlacedTopic } from './tree.ts'
+import { termShown, type LanguageEntry, type LanguageTopic, type PlacedTopic } from './tree.ts'
 
 /** Code, in Markdown. */
 const md = (text: string) => `\`${text}\``
@@ -62,17 +62,18 @@ const fenced = (text: string) => ['```', text, '```'].join('\n')
 /**
  * The language tree as the AI primer says it, in Markdown: each topic under
  * its title, each entry as how it's written (if it's one thing) and what it
- * does, its rules under it, and its first example (an entry with a syntax, a
- * setting, is said in a line, without one). `extras`: more to say after a
- * topic, by its id (the constants' names, after Constants).
+ * does, its terms (the words it brings) and rules under it, and its first
+ * example (an entry with a syntax, a setting, is said in a line, without one).
+ * `extras`: more to say after a topic, by its id (the constants' names, after Constants).
  */
 export function primerMarkdown(tree: readonly LanguageTopic[], extras: Readonly<Record<string, string>> = {}): string {
   return tree.map((topic) => {
     const entries = topic.entries.map((entry) => {
       const written = entry.syntax ? `${entry.syntax.map(md).join(', ')}: ` : ''
+      const terms = (entry.terms ?? []).map((t) => `  - ${md(termShown(t))}: ${t.summary}`)
       const rules = (entry.rules ?? []).map((rule) => `  - ${rule}`)
       const example = entry.syntax ? [] : [fenced(entry.examples[0].source)]
-      return [`- ${written}${entry.explain}`, ...rules, ...example].join('\n')
+      return [`- ${written}${entry.explain}`, ...terms, ...rules, ...example].join('\n')
     })
     return [`## ${topic.title}`, ...entries, ...(extras[topic.id] ? [extras[topic.id]] : [])].join('\n')
   }).join('\n\n')

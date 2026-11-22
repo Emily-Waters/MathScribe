@@ -9,8 +9,12 @@ import { describe, expect, it } from 'vitest'
 import { sheet } from '../../test/helpers.ts'
 import { collectDiagnostics } from '../sheet/sheetIndex.ts'
 import { formatSheet } from '../tree/format.ts'
-import { languageTopics, moduleLanguageTopics } from '../engine/index.ts'
-import { languageTree, treeExamples, type LanguageTopic } from './tree.ts'
+import { languageTopics, moduleLanguageTopics, moduleSettingWords } from '../engine/index.ts'
+import { BUILTINS, ConstantMember, Namespace } from '../builtins.ts'
+import {
+  COMMAND_NAMES, EXACT_SETTING, KEYWORD, NOTATION, PERCENT, SERIES_SUFFIXES, SIGIL, SUBSCRIPT, UNCERTAINTY_WORDS,
+} from '../syntax.ts'
+import { TERM_KIND, languageTree, treeExamples, treeTerms, type LanguageTopic, type TermKind } from './tree.ts'
 import { CORE_TOPICS } from './topics.ts'
 
 const TREE = languageTopics()
@@ -27,6 +31,40 @@ describe('every example in the language tree', () => {
 
   it.each(treeExamples(TREE).map((e) => [where(e.topic, e.entry, e.example.source), e.example.source] as const))('%s is written as it’s formatted', (_, source) => {
     expect(formatSheet(source)).toBe(source)
+  })
+})
+
+describe('what the language has, each in the tree (so nothing’s left undescribed)', () => {
+  const names = (kind: TermKind) => treeTerms(TREE, kind).map((t) => t.name)
+  /** Every example's text, to find what's written in one. */
+  const written = treeExamples(TREE).map((e) => e.example.source).join('\n')
+
+  it('every display command, keyword and setting word is a term of an entry', () => {
+    expect(names(TERM_KIND.command)).toEqual(expect.arrayContaining(COMMAND_NAMES.map((c) => `#${c}`)))
+    expect(names(TERM_KIND.keyword)).toEqual(expect.arrayContaining([...KEYWORD.words, UNCERTAINTY_WORDS[0]]))
+    expect(names(TERM_KIND.setting)).toEqual(expect.arrayContaining([EXACT_SETTING, ...NOTATION.words, PERCENT]))
+  })
+
+  it('every name a series makes is a term (`_mean` aside: `_avg` is the one suggested)', () => {
+    const suffixes = Object.keys(SERIES_SUFFIXES).filter((s) => s !== 'mean').map((s) => `${SUBSCRIPT}${s}`)
+    expect(names(TERM_KIND.seriesName)).toEqual(expect.arrayContaining(['', ...suffixes]))
+  })
+
+  // (Each lists what's missing, not every example's text.)
+  it('every module’s setting after a name is written in an example', () => {
+    expect(moduleSettingWords().map((s) => `:${s.name}`).filter((s) => !written.includes(s))).toEqual([])
+  })
+
+  it('everything built in under @ that a sheet can type is written in an example', () => {
+    const missing: string[] = []
+    for (const member of BUILTINS.walk()) {
+      if (member.internal !== undefined || member instanceof ConstantMember || member instanceof Namespace) continue
+      // (A chained namespace's members are written after any others of it: @layout.numbered.val.)
+      const path = member.path
+      const chain = new RegExp(String.raw`${SIGIL}${path[0]}(\.\w+(\(\d+\))?)*\.${path.at(-1)}\b`)
+      if (!(path.length > 1 ? chain.test(written) : written.includes(`${SIGIL}${path[0]}`))) missing.push(`${SIGIL}${path.join('.')}`)
+    }
+    expect(missing).toEqual([])
   })
 })
 

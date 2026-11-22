@@ -24,7 +24,7 @@ const LAB_REPORT = `@layout.titlepage {
 > What the experiment sets out to find, in a sentence or two.
 
 # Method
-@layout.numbered Procedure {
+@layout.list(1) Procedure {
     > Set up the apparatus.
     > Take each reading three times.
     > Record each with its uncertainty.

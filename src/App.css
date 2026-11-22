@@ -1343,7 +1343,7 @@ body {
   margin-left: 4px;
 }
 
-/* ---------- Layout blocks (@layout.center / .list / .numbered / .titlepage) ---------- */
+/* ---------- Layout blocks (@layout.center / .list / .titlepage) ---------- */
 
 .layout {
   margin: 8px 0;

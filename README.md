@@ -59,7 +59,7 @@ the browser.
 - **Word** (`.docx`): real Word equations you can edit (not pictures). Notes sit
   at the right margin beside their equation (under it, when the equation is too
   wide to share the line), blocks are cards with a shaded title,
-  `@layout.list` / `@layout.numbered` blocks are Word lists, and headings use
+  `@layout.list` / `@layout.list(1)` blocks are Word lists, and headings use
   Word's Heading styles, so they appear in the navigation pane. For Google Docs,
   upload the file to Drive and open it with Google Docs; its equations become
   Google Docs equations.
@@ -150,7 +150,7 @@ Accept suggestions.
 | a name | variables defined above and in scope (not another block's locals), with their value; a function's parameters inside its body; your functions with their parameters (accepting one puts the cursor between the brackets); a series itself (`t`), `t[n]` for one of its values, and after `t.` its statistics (`avg`, `count`, …); built-in functions, `pi`/`e`, and keywords |
 | `@` | constants with their description and value, including your own `@constants`; `@chem`; and, at the start of a line, `@layout` and `@constants { }` |
 | `@chem.` | its elements, with their molar masses, and its functions `mm` and `total` |
-| `@layout.`, at the start of a line | the layouts (`text`, `list`, `numbered`, `center`, `titlepage`), `column` and display settings (`hidden`, `sym`, `val`, …); after another dot, the ones not chosen yet |
+| `@layout.`, at the start of a line | the layouts (`text`, `list`, `center`, `titlepage`), `column` and display settings (`hidden`, `sym`, `val`, …); after another dot, the ones not chosen yet |
 | a unit, after a number or `to` | units, with what they are in SI (`angstrom = 1e-10 m`); `percent` after `to` |
 | `#` after a line's text | display commands, with what each does |
 | `\` and a Greek letter's name | the letter: `\Delta` gives Δ (see Greek letters) |

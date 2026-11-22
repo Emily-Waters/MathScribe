@@ -79,7 +79,7 @@ export const TOKEN_KIND = {
   maths: 'maths',
   /** A block's `@` name, at the start of its opener: `@layout.list.val`, `@constants`, `@chem.species`, `@latex`. */
   blockName: 'blockName',
-  /** A block's title, in its opener: `Steps` in `@layout.numbered Steps {`. */
+  /** A block's title, in its opener: `Steps` in `@layout.list(1) Steps {`. */
   title: 'title',
   /** A block's opening brace, ending its opener. */
   blockOpen: 'blockOpen',

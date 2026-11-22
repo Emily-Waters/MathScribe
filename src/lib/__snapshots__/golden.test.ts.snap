@@ -487,10 +487,12 @@ exports[`the Reference tab’s examples > Layout: @layout.hidden { 1`] = `
 
 exports[`the Reference tab’s examples > Layout: @layout.list Assumptions { 1`] = `""`;
 
-exports[`the Reference tab’s examples > Layout: @layout.numbered Steps { 1`] = `
+exports[`the Reference tab’s examples > Layout: @layout.list(1) Steps { 1`] = `
 "2: m = 2.00 kg
 3: F = m\\times 9.81 m/s^2 = 2.00 kg\\times 9.81 m/s^2 = 19.6 N"
 `;
+
+exports[`the Reference tab’s examples > Layout: @layout.list(a) Parts { 1`] = `""`;
 
 exports[`the Reference tab’s examples > Layout: @layout.text Discussion { 1`] = `""`;
 
@@ -502,6 +504,8 @@ exports[`the Reference tab’s examples > Layout: @layout.val.multiline Results 
 `;
 
 exports[`the Reference tab’s examples > Layout: F = 2.00 kg * 9.81 m/s^2   #center 1`] = `"1: F = 2.00 kg\\times 9.81 m/s^2 = 19.6 N"`;
+
+exports[`the Reference tab’s examples > Layout: F = 2.00 kg * 9.81 m/s^2   #list(a) 1`] = `"1: F = 2.00 kg\\times 9.81 m/s^2 = 19.6 N"`;
 
 exports[`the Reference tab’s examples > Layout: m = 2.00 kg 1`] = `
 "1: m = 2.00 kg

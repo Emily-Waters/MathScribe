@@ -108,7 +108,7 @@ describe('the Word export', () => {
   })
 
   it('in a list, keeps the note on the item’s line with a tab', () => {
-    const doc = exportOf('@layout.numbered Steps {\n    F = 2.0 N   # weight\n}')['word/document.xml']
+    const doc = exportOf('@layout.list(1) Steps {\n    F = 2.0 N   # weight\n}')['word/document.xml']
     expect(doc).not.toContain('<w:tbl>')
     expect(doc).toMatch(/<w:numId w:val="1"\/>.*<w:tab w:val="right"/)
   })
@@ -133,11 +133,20 @@ describe('the Word export', () => {
   })
 
   it('makes lists Word lists, each numbered list starting at 1', () => {
-    const parts = exportOf('@layout.numbered A {\n    > one\n    > two\n}\n@layout.list B {\n    > three\n        > four\n}')
+    const parts = exportOf('@layout.list(1) A {\n    > one\n    > two\n}\n@layout.list B {\n    > three\n        > four\n}')
     expect(parts['word/document.xml'].match(/<w:numId w:val="1"\/>/g)).toHaveLength(2)
     expect(parts['word/document.xml']).toContain('<w:ilvl w:val="1"/><w:numId w:val="3"/>')
     expect(parts['word/numbering.xml']).toContain('<w:num w:numId="3"><w:abstractNumId w:val="0"/>')
     expect(parts['word/numbering.xml']).toContain('<w:startOverride w:val="1"/>')
+  })
+
+  it('numbers each list with its marker, every level of it', () => {
+    const parts = exportOf('@layout.list(A) A {\n    > one\n        > two\n}')
+    expect(parts['word/numbering.xml']).toMatch(/<w:abstractNum w:abstractNumId="3">.*?<w:numFmt w:val="upperLetter"\/>/)
+    expect(parts['word/numbering.xml']).toContain('<w:num w:numId="1"><w:abstractNumId w:val="3"/>')
+    // (Its sub-list is numbered i, ii, iii.)
+    expect(parts['word/numbering.xml']).toContain('<w:num w:numId="2"><w:abstractNumId w:val="4"/>')
+    expect(parts['word/numbering.xml']).toMatch(/<w:abstractNum w:abstractNumId="4">.*?<w:numFmt w:val="lowerRoman"\/>/)
   })
 
   it('makes a title page: the title bold and larger, the lines centered, then a new page', () => {

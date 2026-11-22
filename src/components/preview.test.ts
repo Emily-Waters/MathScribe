@@ -24,7 +24,7 @@ const SOURCE = [
   'Block {',
   '    y = 1',
   '}',
-  '@layout.numbered Steps {',
+  '@layout.list(1) Steps {',
   '    z = 3',
   '        > a sub-item',
   '}',
@@ -53,7 +53,8 @@ describe('the Rendered tab', () => {
     expect(html).toContain('group--card')
     expect(html).toContain('Species')
     expect(html).toContain('group--import')
-    expect(html).toContain('<ol class="layout__list">')
+    expect(html).toContain('<ol class="layout__list" type="1">')
+    expect(html).toContain('<ol class="layout__list" type="a">')
     expect(html).toContain('calc__note')
     expect(html).toContain('katex')
   })

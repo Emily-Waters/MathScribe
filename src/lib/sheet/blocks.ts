@@ -15,7 +15,7 @@
  */
 import type { DataColumn, Definition, LineValue, TraceLine } from '../engine/index.ts'
 import type { VariableSummary } from './values.ts'
-import { LINE_COMMAND, type LayoutStyle, type LineCommand, type Notation } from '../syntax.ts'
+import { LINE_COMMAND, type LayoutStyle, type LineCommand, type ListMarker, type Notation } from '../syntax.ts'
 import { words, type WordOf } from '../syntax.ts'
 import type { PlotData } from '../output/plot.ts'
 
@@ -161,7 +161,7 @@ export interface SectionTitle {
 }
 
 /**
- * `@layout.numbered Title { … }`: a block that only arranges its lines (centered,
+ * `@layout.list(1) Title { … }`: a block that only arranges its lines (centered,
  * as a list, as prose, as a title page) or sets how they're shown (`@layout.val`,
  * `@layout.hidden`). Unlike `{ }` blocks, it doesn't scope variables. Indenting
  * further inside a list makes a sub-list.
@@ -170,6 +170,8 @@ export interface LayoutBlock extends ContainerBlock {
   kind: typeof BLOCK_KIND.layout
   /** No style: the lines as they are, with only display settings (`@layout.val {`). */
   style?: LayoutStyle
+  /** A list's marker, `@layout.list(a)` (a sub-list's, from the list it's in); none: bulleted. */
+  marker?: ListMarker
   /** Its members as written, `val`, `multiline` in `@layout.val.multiline` (for messages). */
   members?: readonly string[]
   /** Members that clash, such as .sym with .val. */

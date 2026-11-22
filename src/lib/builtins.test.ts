@@ -35,7 +35,7 @@ describe('the tree', () => {
   })
 
   it('reads a chained namespace’s members in any order', () => {
-    expect(builtinAt(['layout', 'numbered', 'val'])?.name).toBe('val')
+    expect(builtinAt(['layout', 'list', 'val'])?.name).toBe('val')
     expect(builtinAt(['layout', 'val', 'nope'])).toBeUndefined()
   })
 

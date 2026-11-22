@@ -60,7 +60,7 @@ describe('what the language has, each in the tree (so nothing’s left undescrib
     const missing: string[] = []
     for (const member of BUILTINS.walk()) {
       if (member.internal !== undefined || member instanceof ConstantMember || member instanceof Namespace) continue
-      // (A chained namespace's members are written after any others of it: @layout.numbered.val.)
+      // (A chained namespace's members are written after any others of it: @layout.list(1).val.)
       const path = member.path
       const chain = new RegExp(String.raw`${SIGIL}${path[0]}(\.\w+(\(\d+\))?)*\.${path.at(-1)}\b`)
       if (!(path.length > 1 ? chain.test(written) : written.includes(`${SIGIL}${path[0]}`))) missing.push(`${SIGIL}${path.join('.')}`)

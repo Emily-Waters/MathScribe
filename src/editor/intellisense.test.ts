@@ -32,7 +32,7 @@ const SOURCE = [
   'n = 1e5', // 20
   'k = 2.0 kg   # mass in kil', // 21
   'X = @chem.s', // 22
-  '@layout.nu', // 23
+  '@layout.ti', // 23
   'phi:3:de', // 24
   'Steps:', // 25
   '@tuple(r:3, theta:de', // 26
@@ -80,8 +80,8 @@ describe('suggestions', () => {
   })
 
   it('offer the layouts and display settings after @layout. at the start of a line (not ones already chosen), and not @layout after it', () => {
-    expect(suggestions(23)).toEqual(['numbered'])
-    expect(suggestions(33)).toEqual(['text', 'list', 'numbered', 'center', 'titlepage', 'column', 'hidden', 'full', 'sym', 'multiline', 'sci', 'dec'])
+    expect(suggestions(23)).toEqual(['titlepage'])
+    expect(suggestions(33)).toEqual(['text', 'list', 'center', 'titlepage', 'column', 'hidden', 'full', 'sym', 'multiline', 'sci', 'dec'])
     expect(suggestions(32)).toEqual(['@N_A'])
   })
 

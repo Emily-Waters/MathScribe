@@ -103,8 +103,8 @@ describe('highlighting', () => {
     expect(tokens('## Forces')).toEqual(['## Forces:head'])
     expect(tokens('> Prose with $E = mc^2$ inline')).toEqual(
       ['>:quote', 'Prose with :text', '$E = mc^2$:latex', 'inline:text'])
-    expect(tokens('@layout.numbered Steps {  # the 1s orbital')).toEqual(
-      ['@layout.numbered:kw', 'Steps:title', '{:brace', '# the 1s orbital:note'])
+    expect(tokens('@layout.list(1) Steps {  # the 1s orbital')).toEqual(
+      ['@layout.list(1):kw', 'Steps:title', '{:brace', '# the 1s orbital:note'])
     expect(tokens('@constants {')).toEqual(['@constants:kw', '{:brace'])
     expect(tokens('What if {')).toEqual(['What if:title', '{:brace'])
     // A block titled as a section: its `#`s as a heading's, then its title.
@@ -174,7 +174,7 @@ describe('text blocks', () => {
   })
 
   it('are recognised for the editor’s suggestions', () => {
-    const doc = EditorState.create({ doc: '@layout.text Notes {\n    prose\n\n    more\n}\nx = 1\n@layout.numbered Steps {\n    a = 1\n}' }).doc
+    const doc = EditorState.create({ doc: '@layout.text Notes {\n    prose\n\n    more\n}\nx = 1\n@layout.list(1) Steps {\n    a = 1\n}' }).doc
     expect([1, 2, 4, 5, 6, 8].map((n) => inTextBlock(doc, n))).toEqual([false, true, true, false, false, false])
   })
 })
@@ -187,7 +187,7 @@ describe('indentation', () => {
   }
 
   it('goes one level deeper after a block opener', () => {
-    expect(indentAfter('@layout.numbered Steps {')).toBe(4)
+    expect(indentAfter('@layout.list(1) Steps {')).toBe(4)
     expect(indentAfter('Steps:')).toBe(0)
     expect(indentAfter('What if {')).toBe(4)
     expect(indentAfter('    x = 1')).toBe(4)
@@ -208,7 +208,7 @@ describe('indentation', () => {
   }
 
   it('indents when Enter is pressed after a block opener, and not after a line or an import’s rows', () => {
-    expect(enter('@layout.numbered Steps {  # note')).toBe('\n    ')
+    expect(enter('@layout.list(1) Steps {  # note')).toBe('\n    ')
     expect(enter('a = 1\nBlock {')).toBe('\n    ')
     expect(enter('Block {\n    x = 1')).toBe('\n    ')
     expect(enter('x = 1')).toBe('\n')

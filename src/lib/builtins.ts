@@ -6,7 +6,7 @@
  *   ├─ c, h, e, …         physics constants (constants.ts)
  *   ├─ tuple              values in order, @tuple(1.0, 2.0) m; and unpacked, @tuple(a, b) = …
  *   ├─ import             imported data, @import("run1.csv"), a line of its own
- *   ├─ layout             layout blocks, @layout.list { }, whose members chain: @layout.numbered.val
+ *   ├─ layout             layout blocks, @layout.list { }, whose members chain: @layout.list(1).val
  *   │  ├─ text, list, …   the layouts
  *   │  └─ hidden, sym, …  the display settings
  *   ├─ constants          the @constants { } block
@@ -176,7 +176,7 @@ interface NamespaceOptions {
   call?: FunctionMember
   /** Its members are only written at the start of a line (they open blocks). */
   atLineStart?: boolean
-  /** Its members chain, each after another dot, in any order: `@layout.numbered.val`. */
+  /** Its members chain, each after another dot, in any order: `@layout.list(1).val`. */
   chained?: boolean
   /** It's a module's own (see Member.internal): what to write instead, said when it's typed. */
   internal?: string
@@ -315,8 +315,8 @@ class InvFunction extends FunctionMember {
 /** What each layout does, `@layout.list Title { … }`. */
 const LAYOUT_DESCRIPTIONS: Record<LayoutStyle, string> = {
   text: 'Prose: lines join into paragraphs, nothing is calculated',
-  list: 'The lines inside as a bulleted list (indent further for a sub-list)',
-  numbered: 'The lines inside as a numbered list (indent further for a sub-list)',
+  list: 'The lines inside as a list: bulleted, or numbered as its brackets say, list(1), list(a), list(A), list(i) or list(I) '
+    + '(indent further for a sub-list)',
   center: 'The lines inside, centered',
   titlepage: 'A title page of prose: the first line is the title, bold and larger; each line after it centered, then a new page',
 }
@@ -347,7 +347,7 @@ export const BUILTINS = new Namespace('', 'Built in', [
   new InvFunction(),
   new LineFormMember(CALL.import, '"file.csv"', 'Import a CSV file: each column becomes a series, x, its values x[1], x[2], …',
     '@import("run1.csv"), or run1 = @import("run1.csv"), with the file’s rows indented under it'),
-  new Namespace(NAMESPACE.layout, 'Blocks that arrange lines (text, list, numbered, center, titlepage) or set how they’re shown (hidden, sym, val, multiline, …)', [
+  new Namespace(NAMESPACE.layout, 'Blocks that arrange lines (text, list, center, titlepage) or set how they’re shown (hidden, sym, val, multiline, …)', [
     ...LAYOUT_STYLE.words.map((style) => new LayoutMember(style, LAYOUT_DESCRIPTIONS[style])),
     new ArrangementMember(LAYOUT_ARRANGEMENT.column, COLUMN_DESCRIPTION),
     ...LAYOUT_MODIFIER.words.map((modifier) => new ModifierMember(modifier, LAYOUT_MODIFIER_DESCRIPTIONS[modifier])),

@@ -73,7 +73,7 @@ describe('layout blocks', () => {
     '        > nested b', // 5
     '    > three', // 6
     '}', // 7
-    '@layout.numbered Steps {  # the 1s orbital', // 8
+    '@layout.list(1) Steps {  # the 1s orbital', // 8
     '    Z = 1', // 9
     '    sigma = Z * 2', // 10
     '}', // 11
@@ -93,7 +93,7 @@ describe('layout blocks', () => {
       '    text 4',
       '    text 5',
       '  text 6',
-      'layout numbered "Steps"',
+      'layout list "Steps"',
       '  calc 9',
       '  calc 10',
       'calc 12',
@@ -116,8 +116,8 @@ describe('layout blocks', () => {
   })
 
   it('say when one is missing its closing brace', () => {
-    expect(sheet('@layout.numbered Steps {\n    a = 1').blocks[0])
-      .toMatchObject({ kind: BLOCK_KIND.layout, error: '@layout.numbered Steps { on line 1 is missing its closing }.' })
+    expect(sheet('@layout.list(1) Steps {\n    a = 1').blocks[0])
+      .toMatchObject({ kind: BLOCK_KIND.layout, error: '@layout.list(1) Steps { on line 1 is missing its closing }.' })
   })
 
   it('don’t scope their variables', () => {
@@ -135,7 +135,7 @@ describe('layout blocks', () => {
   })
 
   it('leave hidden lines out of lists', () => {
-    const s = sheet('@layout.numbered Results {  #val\n    F = 2.00 kg * 9.81 m/s^2\n    h = 5   #hide\n}')
+    const s = sheet('@layout.list(1) Results {  #val\n    F = 2.00 kg * 9.81 m/s^2\n    h = 5   #hide\n}')
     const tex = toLatexDocument(s.blocks)
     expect(tex.match(/\\item/g)).toHaveLength(1)
     expect((s.blocks[0] as LayoutBlock).command).toBe('val')
@@ -240,8 +240,29 @@ describe('@layout display settings', () => {
 
   it('combine with each other and with a layout', () => {
     expect(layoutOf('@layout.val.multiline {\n    x = 1\n}')).toMatchObject({ style: undefined, command: 'val', multiline: true })
-    expect(layoutOf('@layout.numbered.sym.sci Steps {\n    x = 1\n}')).toMatchObject({ style: 'numbered', command: 'sym', notation: 'sci', title: 'Steps' })
+    expect(layoutOf('@layout.list(1).sym.sci Steps {\n    x = 1\n}')).toMatchObject({ style: 'list', marker: '1', command: 'sym', notation: 'sci', title: 'Steps' })
     expect(layoutOf('@layout.hidden.val {\n    x = 1\n}')).toMatchObject({ command: 'hide' })
+  })
+
+  it('number a list as its brackets say, its sub-lists 1, a, i in turn; or say what’s wrong with them', () => {
+    expect(layoutOf('@layout.list {\n    > one\n}')).toMatchObject({ style: 'list', marker: undefined })
+    expect(layoutOf('@layout.list(I) {\n    > one\n}')).toMatchObject({ style: 'list', marker: 'I' })
+    expect(layoutOf('@layout.column.list(A) {\n    > one\n}')).toMatchObject({ marker: 'A', columns: { breaks: [] } })
+    const nested = layoutOf('@layout.list(A) {\n    > one\n        > two\n            > three\n}')!
+    const sub = nested.children[1] as LayoutBlock
+    expect(sub).toMatchObject({ nested: true, marker: 'i' })
+    expect((sub.children[1] as LayoutBlock).marker).toBe('1')
+    expect(layoutOf('@layout.list(b) {\n    > one\n}')!.error).toContain('.list(…) takes how its items are numbered')
+    expect(layoutOf('@layout.center(1) {\n    > one\n}')!.error).toContain('.center takes nothing in brackets')
+  })
+
+  it('lay out a single line as a list item, numbered as #list’s brackets say', () => {
+    expect(sheet('x = 1  #list(a)').blocks[0]).toMatchObject({ kind: BLOCK_KIND.layout, style: 'list', marker: 'a' })
+    expect(sheet('x = 1  #list').blocks[0]).toMatchObject({ style: 'list', marker: undefined })
+    expect((sheet('x = 1  #list(7)').blocks[0] as LayoutBlock).error).toContain('#list(…) takes')
+    expect((sheet('x = 1  #center(1)').blocks[0] as LayoutBlock).error).toContain('#center takes nothing in brackets')
+    // (Only a layout takes brackets: anything else like it is the note's.)
+    expect(sheet('x = 1  #val(2)').blocks[0]).toMatchObject({ kind: BLOCK_KIND.calc, note: 'val(2)' })
   })
 
   it('win over the #commands on the opener', () => {
@@ -345,7 +366,7 @@ describe('constant declarations', () => {
 describe('editor information', () => {
   const src = [
     'f(x) = x^2', // 1
-    '@layout.numbered S {', // 2
+    '@layout.list(1) S {', // 2
     '    g(t) = 2*t', // 3
     '}', // 4
     'W {', // 5

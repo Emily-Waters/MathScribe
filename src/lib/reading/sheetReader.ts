@@ -6,7 +6,7 @@
  */
 import { Calculator, markupText, outsideMaths, sheetModules, type CalcOptions, type EngineModule } from '../engine/index.ts'
 import type { VariableSummary } from '../sheet/values.ts'
-import { BLOCK_CLOSE, EXACT_SETTING, LAYOUT_STYLE, LAYOUT_SYNTAX, LINE_COMMAND, SIGIL, VALUE_IN_TEXT, closesBlock, type Notation } from '../syntax.ts'
+import { BLOCK_CLOSE, EXACT_SETTING, LAYOUT_STYLE, LAYOUT_SYNTAX, LINE_COMMAND, SIGIL, SUB_LIST_MARKER, VALUE_IN_TEXT, closesBlock, type Notation } from '../syntax.ts'
 import { BLOCK_KIND, type Block, type Command, type GroupBlock, type LayoutBlock } from '../sheet/blocks.ts'
 import { NODE_KIND, TOKEN_KIND, encode, isBlockKind, isToken, splitLines, statementOf, type SyntaxNode } from '../tree/index.ts'
 import { parseConstantDeclaration } from './lineSyntax.ts'
@@ -115,6 +115,7 @@ export class SheetReader {
       if (line.indent > top.itemIndent && isList(top) && top.children.length) {
         const sub: LayoutBlock = {
           kind: BLOCK_KIND.layout, line: line.number, title: '', style: top.style, children: [], nested: true,
+          marker: top.marker && SUB_LIST_MARKER[top.marker],
           indent: top.itemIndent, itemIndent: line.indent,
         }
         this.add(sub)
@@ -293,4 +294,4 @@ function itemsOf(nodes: readonly SyntaxNode[], cursor: { at: number }): TreeItem
 const lastLine = (b: Block): number => ('endLine' in b && b.endLine) || b.line
 
 /** Whether a layout block is a list (bulleted or numbered), whose items can have sub-lists. */
-const isList = (b: LayoutBlock) => b.style === LAYOUT_STYLE.list || b.style === LAYOUT_STYLE.numbered
+const isList = (b: LayoutBlock) => b.style === LAYOUT_STYLE.list

@@ -729,7 +729,7 @@ Plot ideas, to investigate (suggested 2026-11-21, after legends and colours):
       Resolved (2026-11-17): Ctrl+Click and F12 navigate the name under the
       cursor to the nearest variable or function definition, or a constant
       declaration.
-- [ ] **Snippets**: `def`, `@layout.numbered { }` blocks, `@constants { }`.
+- [ ] **Snippets**: `def`, `@layout.list(1) { }` blocks, `@constants { }`.
       (`def` functions were removed on 2026-11-16: a function is one line now, so
       the snippet would be `f(x) = …`.)
 
@@ -852,6 +852,24 @@ try, as headless Chrome can't type with a phone's keyboard or touch.
 
 ## 7. Sheets and output
 
+- [x] **`@layout.list` and `@layout.numbered` as one, with a choice of
+      marker** (2026-11-22, Emily: consolidate them, and choose bullets,
+      numbers or letters).
+      Resolved (2026-11-22): `@layout.numbered` and `#numbered` are gone.
+      `@layout.list` is bulleted; its brackets say how a numbered one's first
+      item is marked, as `@layout.column(n)` takes its count: `list(1)`,
+      `(a)`, `(A)`, `(i)`, `(I)` (LIST_MARKER, layout.ts). `#list(1)`,
+      `#list(a)` do the same for a single line (the command's brackets are
+      read with it, commands.ts; only a layout takes them, so `#val(2)` stays
+      in the note). A marker that isn't one of those, or brackets on another
+      layout, is an error that says which. A numbered list's sub-lists are
+      numbered 1, a, i in turn (SUB_LIST_MARKER), as LaTeX's enumerate does,
+      so `@layout.list(1)` exports exactly as `@layout.numbered` did. The
+      Rendered tab uses HTML's own list types (`<ol type="a">`); LaTeX's
+      enumerate sets `\labelenumi` (and the deeper levels') only where the
+      marker isn't LaTeX's own for that level; Word has a numbering style per
+      marker. Checked in the visual check (the showcase sheet has lists in
+      each).
 - [x] **The Input and Output panes' buttons, tidied** (2026-11-22, Emily: the
       editor's options are the theme's, its shortcuts the Reference's, and
       the Library and Reference tabs belong somewhere else).

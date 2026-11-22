@@ -296,7 +296,7 @@ class ProseLayoutReader extends NodeReader {
 }
 
 /**
- * `@layout.numbered Title {`, `@layout.val.multiline {`: the lines up to its `}` are
+ * `@layout.list(1) Title {`, `@layout.val.multiline {`: the lines up to its `}` are
  * laid out together, shown as its members say (and stay in scope after it).
  * Its members' settings win over the #commands on its opener.
  */
@@ -309,7 +309,7 @@ class LayoutReader extends NodeReader {
     const opener = LAYOUT_SYNTAX.read(body)!
     const title = sheet.withValues(opener.title)
     const block: LayoutBlock = {
-      kind: BLOCK_KIND.layout, line: line.number, title: title.text, note, style: opener.style, members: opener.members, children: [], indent: line.indent,
+      kind: BLOCK_KIND.layout, line: line.number, title: title.text, note, style: opener.style, marker: opener.marker, members: opener.members, children: [], indent: line.indent,
       columns: opener.columns,
       command: opener.command ?? command ?? sheet.inheritedHide,
       multiline: opener.multiline || multiline || undefined,
@@ -374,7 +374,7 @@ class CalcReader extends NodeReader {
   readonly kinds = [NODE_KIND.calc]
 
   read({ line, last }: TreeItem, sheet: SheetReader): void {
-    const { body, note, command, multiline, notation, layout } = line.parts
+    const { body, note, command, multiline, notation, layout, layoutArgument } = line.parts
     // A line's own command wins; otherwise the nearest enclosing block's.
     const inherited = sheet.inheritedCommand
     const effective = command ?? inherited ?? DISPLAY_MODE.full
@@ -382,9 +382,13 @@ class CalcReader extends NodeReader {
     const result = sheet.calc.evaluate(body, mode, (command ?? inherited) !== undefined, multiline || sheet.inheritedMultiline, {
       own: notation, block: sheet.inheritedNotation,
     })
-    // `#center` (or another layout) on a single line: lay out just that line.
+    // `#center` (or another layout, `#list(a)`) on a single line: lay out just that line.
+    const marked = layout && LAYOUT_SYNTAX.lineMarker(layout, layoutArgument)
     const own: LayoutBlock | undefined = layout
-      ? { kind: BLOCK_KIND.layout, line: line.number, endLine: line.number, title: '', style: layout, children: [], indent: line.indent }
+      ? {
+        kind: BLOCK_KIND.layout, line: line.number, endLine: line.number, title: '', style: layout, marker: marked?.marker,
+        error: marked?.error, children: [], indent: line.indent,
+      }
       : undefined
     if (own) sheet.add(own)
     const into = own?.children ?? sheet.open.at(-1)?.children ?? sheet.root

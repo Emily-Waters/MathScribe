@@ -12,6 +12,18 @@ const exportOf = (source: string, options: Partial<LatexOptions> = {}) =>
 /** The document body, between \begin{document} and \end{document}. */
 const body = (tex: string) => tex.slice(tex.indexOf('\\begin{document}'), tex.indexOf('\\end{document}'))
 
+describe('lists', () => {
+  it('are itemize, or enumerate labelled with their marker where it isn’t the one LaTeX would use', () => {
+    expect(body(exportOf('@layout.list {\n    > one\n}'))).toContain('\\begin{itemize}\n\\item')
+    const numbered = body(exportOf('@layout.list(1) {\n    > one\n        > two\n}'))
+    expect(numbered).toContain('\\begin{enumerate}\n\\item')
+    expect(numbered).not.toContain('\\renewcommand')
+    const lettered = body(exportOf('@layout.list(A) {\n    > one\n        > two\n}'))
+    expect(lettered).toContain('\\begin{enumerate}\n\\renewcommand{\\labelenumi}{\\Alph{enumi}.}\n\\item')
+    expect(lettered).toContain('\\begin{enumerate}\n\\renewcommand{\\labelenumii}{(\\roman{enumii})}\n\\item')
+  })
+})
+
 describe('equations', () => {
   it('are flush left by default, centered on request', () => {
     expect(exportOf('x = 1')).toMatch(/^\\documentclass\[11pt,a4paper,fleqn\]\{article\}$/m)

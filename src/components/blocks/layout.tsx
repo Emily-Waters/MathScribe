@@ -3,6 +3,7 @@
  * columns, or the lines arranged as the layout says (the app's side of
  * lib/output/constructs/layout.ts).
  */
+import type { ReactNode } from 'react'
 import { hasError, listItems, type LayoutBlock } from '../../lib/sheet/blocks.ts'
 import { LAYOUT_STYLE, LINE_COMMAND } from '../../lib/syntax.ts'
 import { columnParts } from '../../lib/output/constructs/columns.ts'
@@ -34,8 +35,11 @@ export function LayoutView({ block }: { block: LayoutBlock }) {
       </div>
     )
   }
-  if (block.style === LAYOUT_STYLE.list || block.style === LAYOUT_STYLE.numbered) {
-    const List = block.style === LAYOUT_STYLE.numbered ? 'ol' : 'ul'
+  if (block.style === LAYOUT_STYLE.list) {
+    // (A numbered list's marker is just what HTML's own list types are named: 1, a, A, i, I.)
+    const list = (children: ReactNode, start?: number) => block.marker
+      ? <ol className="layout__list" type={block.marker} start={start}>{children}</ol>
+      : <ul className="layout__list">{children}</ul>
     const items = listItems(block.children).map(({ item, subs }) => (
       <li key={`${item.line}-${item.kind}`}>
         <RenderedBlock block={item} />
@@ -43,9 +47,9 @@ export function LayoutView({ block }: { block: LayoutBlock }) {
       </li>
     ))
     // A sub-list is just the list, inside its parent's item.
-    if (block.nested) return <List className="layout__list">{items}</List>
+    if (block.nested) return list(items)
     // (A column of a numbered list carries on from the one before it.)
-    return <div className="layout">{title}<List className="layout__list" start={block.firstNumber}>{items}</List>{messages}</div>
+    return <div className="layout">{title}{list(items, block.firstNumber)}{messages}</div>
   }
   return (
     <div className={`layout layout--${block.style ?? 'plain'}`}>

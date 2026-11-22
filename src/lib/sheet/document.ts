@@ -25,13 +25,13 @@ export type { Sheet }
  * has its own.
  *
  * Layout blocks are in @layout, and hold the lines up to their `}`:
- *   @layout.numbered Steps {   → numbered list (list: bullets, center: centered)
+ *   @layout.list(1) Steps {   → numbered list (list: bullets, center: centered)
  *       a = …                     each line is an item; indent further for a sub-list
  *   }
  *   @layout.text Discussion {  → prose: lines run into paragraphs, nothing is worked out
  *   @layout.titlepage Lab 3 {  → a title page: the title, with the lines inside centered under it
  * They only arrange lines: variables assigned inside stay available afterwards.
- * `#center` (or #list/#numbered) on a single calculation lays out just that line.
+ * `#center` (or #list(1)) on a single calculation lays out just that line.
  *
  * Blocks scope variables like a programming language: inside a block you can
  * read everything defined above it, but anything assigned inside is local and

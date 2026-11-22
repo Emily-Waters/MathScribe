@@ -14,6 +14,7 @@ export { ALIGN, type Align }
 import type { LatexOptions } from './latex.ts'
 import { PLOT_SIZE, type PlotData } from './plot.ts'
 import { texToMath, texToOmml, xmlEscape } from './omml.ts'
+import type { ListMarker } from '../syntax.ts'
 
 // ---------------------------------------------------------------------------
 // The document's look
@@ -200,8 +201,8 @@ export interface Ctx {
   noteWidth: number
   /** Inside a bulleted or numbered list. */
   inList?: boolean
-  /** List numbering instances made so far: each list restarts its count. */
-  nums: { abstract: 0 | 1; start?: number }[]
+  /** List numbering instances made so far, each with its list's marker (none: bulleted): each list restarts its count. */
+  nums: { marker?: ListMarker; start?: number }[]
   /** Plots' pictures, drawn beforehand (by plotPng, in the browser). */
   images: PlotImages
   /** The pictures placed so far: each is a file in word/media. */

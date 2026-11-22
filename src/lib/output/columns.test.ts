@@ -31,7 +31,7 @@ describe('the opener', () => {
 
   it('says what’s wrong with a count that isn’t a number, or brackets on another member', () => {
     expect(LAYOUT_SYNTAX.read('@layout.column(two) {')!.error).toContain('isn\'t a number')
-    expect(LAYOUT_SYNTAX.read('@layout.list(2) {')!.error).toContain('.list takes nothing in brackets')
+    expect(LAYOUT_SYNTAX.read('@layout.center(2) {')!.error).toContain('.center takes nothing in brackets')
   })
 })
 
@@ -73,7 +73,7 @@ describe('columns', () => {
   })
 
   it('lay each column out as the block says, a numbered list’s count carrying on', () => {
-    const src = '@layout.column.numbered Steps {\n  a = 1\n  b = 2\n\n  c = 3\n}'
+    const src = '@layout.column.list(1) Steps {\n  a = 1\n  b = 2\n\n  c = 3\n}'
     expect(columnParts(columnsOf(src)).rows[0].map((p) => p.firstNumber)).toEqual([1, 3])
     const tex = toLatexDocument(sheet(src).blocks, DEFAULT_LATEX_OPTIONS)
     expect(tex.match(/\\begin\{enumerate\}/g)).toHaveLength(2)

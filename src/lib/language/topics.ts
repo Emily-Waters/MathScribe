@@ -883,13 +883,26 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
         }],
       },
       {
-        explain: '@layout.numbered makes a numbered list. Variables assigned inside stay available afterwards (unlike '
-          + 'Title { } blocks).',
+        explain: '@layout.list(1) numbers the list instead: its brackets hold how the first item is marked. (1) '
+          + 'numbers it 1, 2, 3; (a) and (A) letter it a, b, c or A, B, C; (i) and (I) use roman numerals.',
+        rules: [
+          'A numbered list\'s sub-lists are numbered too: under 1 they\'re a; under a or A, i; under i or I, 1.',
+          'Without brackets the list is bulleted, and so are its sub-lists.',
+          'Variables assigned inside stay available afterwards (unlike Title { } blocks).',
+        ],
         examples: [{
           source: [
-            '@layout.numbered Steps {',
+            '@layout.list(1) Steps {',
             '    m = 2.00 kg',
             '    F = m * 9.81 m/s^2',
+            '        > the weight, pulling down',
+            '}',
+          ].join('\n'),
+        }, {
+          source: [
+            '@layout.list(a) Parts {',
+            '    > Find the mass',
+            '    > Find the weight',
             '}',
           ].join('\n'),
         }],
@@ -938,9 +951,9 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
       },
       {
         explain: '.sym, .val, .full, .multiline, .sci and .dec set how every line inside is shown, as their #commands '
-          + 'do on a line. Members combine (@layout.numbered.val); a line’s own command still wins.',
+          + 'do on a line. Members combine (@layout.list(1).val); a line’s own command still wins.',
         rules: [
-          'Members combine in any order: a layout with display settings (@layout.numbered.val), or display '
+          'Members combine in any order: a layout with display settings (@layout.list(1).val), or display '
             + 'settings alone (@layout.val.multiline).',
           'Some can\'t both apply, and are warned of: of two layouts the first is used; of two of .sym, .val '
             + 'and .full (or .sci and .dec) the last; on prose only .hidden does anything.',
@@ -969,13 +982,13 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
         }],
       },
       {
-        explain: 'On a single line, #center centers just that line (#list and #numbered work too).',
+        explain: 'On a single line, #center centers just that line; #list makes it a bullet, and #list(1), #list(a) '
+          + 'and so on a numbered item, marked as @layout.list(1) marks them.',
         terms: [
           commandTerm(LINE_LAYOUT.center, 'Center the line (for a block of lines: @layout.center { })'),
-          commandTerm(LINE_LAYOUT.list, 'The line as a bullet (for a block of lines: @layout.list { })'),
-          commandTerm(LINE_LAYOUT.numbered, 'The line as a numbered item (for a block of lines: @layout.numbered { })'),
+          commandTerm(LINE_LAYOUT.list, 'The line as a bullet, or #list(1), #list(a) a numbered item (for a block of lines: @layout.list { })'),
         ],
-        examples: [{ source: 'F = 2.00 kg * 9.81 m/s^2   #center' }],
+        examples: [{ source: 'F = 2.00 kg * 9.81 m/s^2   #center' }, { source: 'F = 2.00 kg * 9.81 m/s^2   #list(a)' }],
       },
       {
         explain: '@layout.text makes a block of prose: lines join into paragraphs (a blank line starts a new one), $…$ '
@@ -998,7 +1011,7 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
         explain: '@layout.column sets the lines inside side by side in columns: a blank line starts the next '
           + 'column, and each block inside is a column of its own. A row has up to 4; @layout.column(n) sets n a '
           + 'row (2 to 4). With no breaks, the lines are shared out evenly. It combines with a layout, which then '
-          + 'applies within each column: @layout.column(3).numbered.',
+          + 'applies within each column: @layout.column(3).list(1).',
         rules: [
           'Each block inside (a Title { } block, another layout block, @constants) is a column of its own, '
             + 'whatever blank lines are in it.',

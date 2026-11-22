@@ -3,7 +3,7 @@
  * line or a block's opener, and the note after them: `F = m * a  #val  # weight`.
  */
 import { NOTATION, type Notation } from './settings.ts'
-import { named, regex, src, words, type WordOf } from './patterns.ts'
+import { named, optional, regex, src, words, type WordOf } from './patterns.ts'
 
 /**
  * How much of a calculation to show:
@@ -23,9 +23,10 @@ export const MULTILINE = 'multiline'
 
 /**
  * The layouts a single line can take as a command: `F = m * a  #center`. (Each
- * is one of @layout's layouts, as layout.ts checks; prose and title pages are blocks only.)
+ * is one of @layout's layouts, as layout.ts checks; prose and title pages are
+ * blocks only.) `#list` takes a marker in brackets, as `@layout.list` does: `#list(1)`.
  */
-export const LINE_LAYOUT = words({ center: 'center', list: 'list', numbered: 'numbered' })
+export const LINE_LAYOUT = words({ center: 'center', list: 'list' })
 export type LineLayout = WordOf<typeof LINE_LAYOUT>
 
 /** Every display command, in the order the editor lists them. (`#sci` and `#dec` are the notations.) */
@@ -33,11 +34,12 @@ export const COMMAND_NAMES = [...LINE_COMMAND.words, MULTILINE, ...NOTATION.word
 export type CommandName = LineCommand | typeof MULTILINE | Notation | LineLayout
 
 /**
- * One of `names` written as a command: `#name` on its own, not inside a word
- * (its groups: before, the space or start before it, and name).
+ * One of `names` written as a command: `#name` on its own, not inside a word,
+ * with what's in its brackets if it has them, `#list(a)` (its groups: before,
+ * the space or start before it, name, and argument).
  */
 export const commandPattern = (names: readonly string[], flags = '') =>
-  regex(src`${named('before', '^|\\s')}#${named('name', names.join('|'))}(?=\s|$)`, flags)
+  regex(src`${named('before', '^|\\s')}#${named('name', names.join('|'))}${optional(src`\(${named('argument', '[^()\\s]*')}\)`)}(?=\s|$)`, flags)
 
 // ---------------------------------------------------------------------------
 // A line split into its body, #commands and note
@@ -57,6 +59,8 @@ export interface SplitLine {
   multiline: boolean
   notation?: Notation
   layout?: LineLayout
+  /** What's in a layout command's brackets, as written: `1` in `#list(1)`. */
+  layoutArgument?: string
 }
 
 /** What each piece of a noted line is: its body, a #command, or its note. */
@@ -87,11 +91,16 @@ export interface NotedLine extends SplitLine {
 export function readNoted(text: string): NotedLine {
   const out: Omit<NotedLine, 'body' | 'pieces'> = { multiline: false }
   // The commands, each without the space before it.
-  const commands = [...text.matchAll(ANY_COMMAND)].map((m) => {
+  // (Only a layout takes something in brackets: `#val(2)` isn't a command, so it stays in the note.)
+  const found = [...text.matchAll(ANY_COMMAND)]
+    .filter((m) => m.groups!.argument === undefined || LINE_LAYOUT.has(m.groups!.name.toLowerCase()))
+  const commands = found.map((m) => {
     const start = m.index + m.groups!.before.length
     const name = m.groups!.name.toLowerCase()
-    if (LINE_LAYOUT.has(name)) out.layout = name
-    else if (LINE_COMMAND.has(name)) out.command = name
+    if (LINE_LAYOUT.has(name)) {
+      out.layout = name
+      out.layoutArgument = m.groups!.argument
+    } else if (LINE_COMMAND.has(name)) out.command = name
     else if (NOTATION.has(name)) out.notation = name
     else out.multiline = true
     return { start, end: m.index + m[0].length }

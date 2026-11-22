@@ -72,10 +72,24 @@ y = [n^2]
         > the block is small and slow
 }
 
-@layout.numbered Steps {
+@layout.list(1) Steps {
     m_2 = 1.50 kg
     W = m_2 * g
+        > its weight
+            > pulling down
 }
+
+@layout.list(A) Parts {
+    > Find the mass
+    > Find the weight
+        > in newtons
+}
+
+@layout.list(I) Questions {
+    > Why is it slower?
+}
+
+F_W = m_2 * g   #list(a)
 
 @layout.center Key result {
     v_bottom = sqrt(2 * g * 1.20 m)

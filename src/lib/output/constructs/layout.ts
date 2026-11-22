@@ -5,7 +5,7 @@
  */
 import { BLOCK_KIND, listItems, type Block, type LayoutBlock } from '../../sheet/blocks.ts'
 import { columnParts } from './columns.ts'
-import { LAYOUT_STYLE, LAYOUT_SYNTAX, LINE_COMMAND, type LayoutStyle } from '../../syntax.ts'
+import { LAYOUT_STYLE, LAYOUT_SYNTAX, LINE_COMMAND, LIST_MARKER, type LayoutStyle, type ListMarker } from '../../syntax.ts'
 import { ALIGN } from '../alignment.ts'
 import { errorComment, heading as latexHeading, titleToLatex } from '../latexKit.ts'
 import {
@@ -49,31 +49,56 @@ class CenterLayout extends Layout {
   }
 }
 
-/** `@layout.list`, `@layout.numbered`: each line an item, with sub-lists indented under them. */
+/**
+ * `@layout.list`: each line an item, with sub-lists indented under them;
+ * bulleted, or numbered as its marker says (`@layout.list(a)`, see LIST_MARKER).
+ */
 class ListLayout extends Layout {
   /** The deepest level of sub-list Word's numbering has (0, 1, 2). */
   private static readonly DEEPEST = 2
 
   /** LaTeX's environments for it. */
   private static readonly ENVIRONMENT = { numbered: 'enumerate', bulleted: 'itemize' } as const
-  /** LaTeX's counter for a numbered list's items (at the top level). */
-  private static readonly COUNTER = 'enumi'
 
-  /** Numbered (`@layout.numbered`), or bulleted (`@layout.list`). */
-  private readonly numbered: boolean
+  /**
+   * LaTeX's enumerate, level by level (0 the top): each level's counter, the
+   * marker it numbers with unless told otherwise, and its label around the
+   * number (`(a)` at the second level, `1.` at the others).
+   */
+  private static readonly ENUMERATE = [
+    { counter: 'enumi', marker: LIST_MARKER.number, label: (n: string) => `${n}.` },
+    { counter: 'enumii', marker: LIST_MARKER.lowerLetter, label: (n: string) => `(${n})` },
+    { counter: 'enumiii', marker: LIST_MARKER.lowerRoman, label: (n: string) => `${n}.` },
+    { counter: 'enumiv', marker: LIST_MARKER.upperLetter, label: (n: string) => `${n}.` },
+  ] as const
 
-  constructor(numbered: boolean) {
-    super()
-    this.numbered = numbered
+  /** How LaTeX writes a counter's value with each marker. */
+  private static readonly LATEX_NUMBERING: Readonly<Record<ListMarker, string>> = {
+    [LIST_MARKER.number]: 'arabic',
+    [LIST_MARKER.lowerLetter]: 'alph',
+    [LIST_MARKER.upperLetter]: 'Alph',
+    [LIST_MARKER.lowerRoman]: 'roman',
+    [LIST_MARKER.upperRoman]: 'Roman',
   }
 
   latex(b: LayoutBlock, title: string, out: LatexOut): string {
-    const env = this.numbered ? ListLayout.ENVIRONMENT.numbered : ListLayout.ENVIRONMENT.bulleted
+    return [paragraph(title), this.list(b, 0, out)].filter(Boolean).join('\n')
+  }
+
+  /** A list as LaTeX's itemize or enumerate (and its sub-lists inside it, a level deeper). */
+  private list(b: LayoutBlock, level: number, out: LatexOut): string {
+    const env = b.marker ? ListLayout.ENVIRONMENT.numbered : ListLayout.ENVIRONMENT.bulleted
     const body = listItems(b.children).map(({ item, subs }) =>
-      [`\\item ${out.item(item)}`, ...subs.map((s) => out.block(s))].filter(Boolean).join('\n')).join('\n')
+      [`\\item ${out.item(item)}`, ...subs.map((s) => listLayoutOf(s)?.list(s as LayoutBlock, level + 1, out) ?? out.block(s))]
+        .filter(Boolean).join('\n')).join('\n')
+    const enumerate = ListLayout.ENUMERATE[Math.min(level, ListLayout.ENUMERATE.length - 1)]
+    // Its marker, if it isn't the one LaTeX numbers this level with anyway.
+    const label = b.marker && b.marker !== enumerate.marker
+      ? `\\renewcommand{\\label${enumerate.counter}}{${enumerate.label(`\\${ListLayout.LATEX_NUMBERING[b.marker]}{${enumerate.counter}}`)}}`
+      : ''
     // (A column of a numbered list carries on from the one before it.)
-    const carryOn = this.numbered && b.firstNumber && b.firstNumber > 1 ? `\\setcounter{${ListLayout.COUNTER}}{${b.firstNumber - 1}}` : ''
-    return [paragraph(title), `\\begin{${env}}`, carryOn, body, `\\end{${env}}`].filter(Boolean).join('\n')
+    const carryOn = b.marker && b.firstNumber && b.firstNumber > 1 ? `\\setcounter{${enumerate.counter}}{${b.firstNumber - 1}}` : ''
+    return [`\\begin{${env}}`, label, carryOn, body, `\\end{${env}}`].filter(Boolean).join('\n')
   }
 
   docx(b: LayoutBlock, ctx: Ctx, title: Item[], out: DocxOut): Item[] {
@@ -83,7 +108,7 @@ class ListLayout extends Layout {
   /** A list's items as Word list paragraphs (and the sub-lists indented under them, a level deeper). */
   private items(b: LayoutBlock, ctx: Ctx, level: number, out: DocxOut): Item[] {
     // (A column of a numbered list carries on from the one before it.)
-    ctx.nums.push({ abstract: this.numbered ? 1 : 0, start: level === 0 ? b.firstNumber : undefined })
+    ctx.nums.push({ marker: b.marker, start: level === 0 ? b.firstNumber : undefined })
     const id = ctx.nums.length
     // List text starts at the numbering's indent; equations' notes still reach the margin.
     const itemCtx: Ctx = { ...ctx, indent: 0, inList: true }
@@ -142,8 +167,7 @@ class TitlePageLayout extends Layout {
 /** Each layout's class; a block with none (`@layout.val`) keeps its lines as they are. */
 const LAYOUTS: Record<LayoutStyle, Layout> = {
   text: new PlainLayout(),
-  list: new ListLayout(false),
-  numbered: new ListLayout(true),
+  list: new ListLayout(),
   center: new CenterLayout(),
   titlepage: new TitlePageLayout(),
 }
@@ -214,7 +238,7 @@ const listLayoutOf = (b: Block): ListLayout | undefined => {
   return layout instanceof ListLayout ? layout : undefined
 }
 
-/** `@layout.numbered Title { … }` and the other layouts: lines arranged, shown as its display settings say. */
+/** `@layout.list(1) Title { … }` and the other layouts: lines arranged, shown as its display settings say. */
 export class LayoutConstruct extends Construct<LayoutBlock> {
   readonly kind = BLOCK_KIND.layout
 

@@ -14,6 +14,7 @@ import { BLOCK_KIND, type Block } from '../sheet/blocks.ts'
 import { ALIGN } from './alignment.ts'
 import { MARGIN_CM, type LatexOptions } from './latex.ts'
 import { xmlEscape } from './omml.ts'
+import { LIST_MARKER, type ListMarker } from '../syntax.ts'
 import {
   CAPTION_STYLE, FONTS, HEADING_SIZE_STEP, LANGUAGE, LIST_INDENT, MATH_WRAP_INDENT, NOTE_CHAR_EMS, NOTE_COLUMN, NOTE_PADDING, PAPER, SPACING,
   TITLE_SIZE_STEP, TITLE_STYLE, TWIPS_PER_CM, TWIPS_PER_EM_PER_HALF_POINT, WORKING_SIZE_STEP, fontSizeOf, imageRel, itemXml, run,
@@ -72,21 +73,37 @@ function stylesXml(o: LatexOptions): string {
     + '</w:styles>'
 }
 
-/** Bullets and numbering: one bulleted and one numbered style, and an instance for each list. */
+/** How Word numbers a list with each marker (LIST_MARKER). */
+const WORD_NUMBERING: Readonly<Record<ListMarker, string>> = {
+  [LIST_MARKER.number]: 'decimal',
+  [LIST_MARKER.lowerLetter]: 'lowerLetter',
+  [LIST_MARKER.upperLetter]: 'upperLetter',
+  [LIST_MARKER.lowerRoman]: 'lowerRoman',
+  [LIST_MARKER.upperRoman]: 'upperRoman',
+}
+
+/**
+ * Bullets and numbering: a style for bullets and one for each marker (every
+ * level of it with that marker: a sub-list is a list of its own, with its own
+ * marker), and an instance for each list.
+ */
 function numberingXml(nums: Ctx['nums']): string {
   const BULLETS = ['•', '◦', '▪']
-  const lvl = (i: number, numbered: boolean) =>
-    `<w:lvl w:ilvl="${i}"><w:start w:val="1"/><w:numFmt w:val="${numbered ? (i === 1 ? 'lowerLetter' : i === 2 ? 'lowerRoman' : 'decimal') : 'bullet'}"/>`
-    + `<w:lvlText w:val="${numbered ? `%${i + 1}${i === 0 ? '.' : ')'}` : BULLETS[i]}"/><w:lvlJc w:val="left"/>`
+  const lvl = (i: number, marker: ListMarker | undefined) =>
+    `<w:lvl w:ilvl="${i}"><w:start w:val="1"/><w:numFmt w:val="${marker ? WORD_NUMBERING[marker] : 'bullet'}"/>`
+    + `<w:lvlText w:val="${marker ? `%${i + 1}${i === 0 ? '.' : ')'}` : BULLETS[i]}"/><w:lvlJc w:val="left"/>`
     + `<w:pPr><w:ind w:left="${LIST_INDENT.hanging * (i + 1) + LIST_INDENT.gap}" w:hanging="${LIST_INDENT.hanging}"/></w:pPr></w:lvl>`
-  const abstract = (id: number, numbered: boolean) =>
-    `<w:abstractNum w:abstractNumId="${id}"><w:multiLevelType w:val="hybridMultilevel"/>${[0, 1, 2].map((i) => lvl(i, numbered)).join('')}</w:abstractNum>`
+  // (Bullets are style 0; each marker the style after.)
+  const styles = [undefined, ...LIST_MARKER.words]
+  const styleOf = (marker: ListMarker | undefined) => styles.indexOf(marker)
+  const abstract = (marker: ListMarker | undefined) =>
+    `<w:abstractNum w:abstractNumId="${styleOf(marker)}"><w:multiLevelType w:val="hybridMultilevel"/>${[0, 1, 2].map((i) => lvl(i, marker)).join('')}</w:abstractNum>`
   // Every list is its own instance, restarting at 1 (or where the column before it left off).
   const instances = nums.map((n, i) =>
-    `<w:num w:numId="${i + 1}"><w:abstractNumId w:val="${n.abstract}"/>`
+    `<w:num w:numId="${i + 1}"><w:abstractNumId w:val="${styleOf(n.marker)}"/>`
     + [0, 1, 2].map((l) => `<w:lvlOverride w:ilvl="${l}"><w:startOverride w:val="${l === 0 ? n.start ?? 1 : 1}"/></w:lvlOverride>`).join('')
     + '</w:num>').join('')
-  return `${HEAD}<w:numbering ${W}>${abstract(0, false)}${abstract(1, true)}${instances}</w:numbering>`
+  return `${HEAD}<w:numbering ${W}>${styles.map(abstract).join('')}${instances}</w:numbering>`
 }
 
 /** How Word sets equations: the font, alignment (from the Document options), and line breaking. */

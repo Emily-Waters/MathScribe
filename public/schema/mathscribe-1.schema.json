@@ -1457,7 +1457,7 @@
       }
     },
     "token.title": {
-      "description": "A block’s title, in its opener: Steps in @layout.numbered Steps { (core)",
+      "description": "A block’s title, in its opener: Steps in @layout.list(1) Steps { (core)",
       "type": "object",
       "required": [
         "t",

@@ -62,11 +62,19 @@ what's here better.
 - [ ] **Lab and data tables**: quantities as rows and trials as columns, row labels,
       a spanning header with the unit, shaded empty cells, and numbered captions
       ("Table 1: …").
+      Progress (noted in the sweep of 2026-11-22): `@table` has row labels and
+      numbered captions ("Table 2: Runs", its `title`). Still to do: a literal
+      table of observations typed as a table (text, a spanning header with
+      the unit, shaded empty cells).
 - [ ] **Conversion-factor working**: show a calculation as a chain of fractions
       (2.755 × 10â»Â² L × 0.01000 mol EDTA / 1 L), the factor-label method chemistry
       courses ask for.
 - [ ] **Title page and page breaks**: labelled fields (author, course, instructor,
       date) on a page of their own, and `#pagebreak`.
+      Progress (noted in the sweep of 2026-11-22): `@layout.titlepage` makes a
+      title page of its own (the title, then each line centred, then a new
+      page) in the Rendered tab and both exports. Still to do: labelled fields,
+      and a page break anywhere (`#pagebreak`).
 - [ ] **Text formatting**: bold, italic, underline and links in prose; unnumbered
       and "1)"-style headings; figure and table references.
 - [ ] **Images**: a picture or diagram in the sheet, with a caption.
@@ -198,9 +206,19 @@ what's here better.
       and fits are named by their series, the whole name when two share a
       short one (p.run1_x_slope). Curves span every dataset. In the language
       tree, with an example.
-- [ ] **Non-linear fits**: quadratic, exponential and power-law fits, alongside the
+- [x] **Non-linear fits**: quadratic, exponential and power-law fits, alongside the
       linear one, and a fit over part of the data.
-- [ ] **More plots**: bar charts and histograms, two y axes, residuals under a fit.
+      Resolved (2026-11-22, the to-dos' sweep): a duplicate, closed in favour
+      of the plot ideas of 2026-11-21 in section 5, which have each part:
+      **Other fits** (quadratic, exponential, power law), **A fit through the
+      origin**, and **A fit only across the data**. (Plotting only part of the
+      data, fitted, is already written with a condition or a slice:
+      `@plot(t[t > 0.2 s], x[t > 0.2 s]; fit linear)`.)
+- [x] **More plots**: bar charts and histograms, two y axes, residuals under a fit.
+      Resolved (2026-11-22, the to-dos' sweep): a duplicate, closed in favour
+      of the plot ideas of 2026-11-21 in section 5: **A residuals plot** was
+      there already, and **Bar charts, histograms and two y axes** is there
+      now.
 - [x] **A fit's uncertainty with x uncertainties** (2026-11-17, Emily, from a
       Hooke's law lab exported to Word): T² against m = F/g, fitted with
       `@plot(m, Tsquared; fit linear)`, gave a slope of 5.8353 ± 0.0015 s²/kg and
@@ -597,6 +615,8 @@ Plot ideas, to investigate (suggested 2026-11-21, after legends and colours):
 - [ ] **A plot's size** (width, aspect) in the exports.
 - [ ] **A residuals plot** under a fitted one: each point's distance from the line.
 - [ ] **Copying a plot as an image** (PNG or SVG) from the Rendered tab.
+- [ ] **Bar charts, histograms and two y axes** (moved here from section 3's
+      More plots, 2026-11-22).
 - [x] **Uncertainty working written relatively**, asked for by Emily (her
       physics teacher's form: Y = AB/C, δY = Y √((δA/A)² + (δB/B)² + (δC/C)²)).
       Resolved (2026-11-21): an Output option, *Uncertainty working*
@@ -848,6 +868,10 @@ try, as headless Chrome can't type with a phone's keyboard or touch.
       place of copying the link, where the phone offers it).
 - [ ] **The Create, Export and Template dialogs on a phone**: full screen, with
       their buttons in reach at the bottom.
+      Note (2026-11-22, the to-dos' sweep): Template is no longer a dialog
+      but a list in the top bar's New menu (FileMenus.tsx), so this is the
+      Create and Export dialogs, and the New and Save menus' bars on a
+      narrow screen.
 - [ ] **Evaluate in a web worker**, if very long sheets still lag once typing pauses.
 
 ## 7. Sheets and output
@@ -1231,9 +1255,16 @@ edit reads again only what it changed, and nodes are shared between trees.
       (`check.ts`) agrees with it: it now also rejects fields a tree doesn't have,
       and a schema newer than this MathScribe reads; a test checks both accept
       every example's tree and reject the same broken ones.
-- [ ] **Expressions as tokens**: names, numbers, units, `{species}`, `<…>`, so
+- [x] **Expressions as tokens**: names, numbers, units, `{species}`, `<…>`, so
       the modules' text-rewriting hooks (`expandSyntax`, `readAfterUnit`) become
       kinds of token they declare.
+      Resolved (2026-11-22, the to-dos' sweep): done by 5b, as the progress
+      notes below say: the hooks are gone and modules declare their kinds of
+      token, writers and unit rules. What 5c left was either removed (`def`,
+      `if` / `else` / `return` bodies, 2026-11-16) or is tracked elsewhere: the
+      editor's remaining patterns under **One harmonious structure** (step 5's
+      "Still read with patterns"), and the middle's text reading under
+      **MathScribe as a language**.
       Progress (5a, the tree reads them): `lexer.ts` reads an expression into
       tokens and nodes by rules, each declared with what it reads and whose. The
       core's follow mathjs's own grammar (its delimiters and named delimiters,
@@ -1306,7 +1337,7 @@ edit reads again only what it changed, and nodes are shared between trees.
       on a value inside it, and procedures without a value. The only body whose
       extent comes from indentation now is imported data's rows.
 
-- [ ] **Syntax tidy** (2026-11-16): `syntax.ts` and `document.ts` are grouped by
+- [x] **Syntax tidy** (2026-11-16): `syntax.ts` and `document.ts` are grouped by
       mechanism (patterns, words, helpers) rather than by concept, and several
       kinds of text are read again by regex wherever they're used. Steps, each
       checked in:
@@ -1401,6 +1432,8 @@ edit reads again only what it changed, and nodes are shared between trees.
            105 with constants, no difference.
       Then: a codebase-wide audit of which patterns are working, toward one
       harmonious structure.
+      Resolved (2026-11-22, the to-dos' sweep): every step is done (ticked
+      above); the audit it ends with became **One harmonious structure**, below.
 
 - [ ] **One harmonious structure** (2026-11-17, from the codebase-wide audit).
       Working, to spread: a base class per kind in a typed table (Construct,
@@ -1846,9 +1879,11 @@ Create prompt change with it):
       is a comment. Look at `//` as the only comment (and a calculation's note),
       `#` only for headings, and the display commands in one consistent form of
       their own (the review suggests `@`, like `@layout`'s members).
-- [ ] **How a value is shown, apart from its name.** `to` converts units in an
-      expression (`v to km/h`, `to percent`), a function's parameters on entry
-      (`m to kg`) and a constant's display (`@a_0:3 to angstrom`); and colons
+- [ ] **How a value is shown, apart from its name.** (See also `@format`,
+      section 7, set aside on 2026-11-16 until there was a clearer need: this
+      may be it.) `to` converts units in an expression (`v to km/h`,
+      `to percent`), a function's parameters on entry (`m to kg`) and a
+      constant's display (`@a_0:3 to angstrom`); and colons
       on a name chain sig figs, notation (`:sci`, `:dec`), units (`:deg`),
       vector display (`:ijk`), components (`:xyz`) and labels, with rules for
       which order and which combine. Look at keeping `name = expr` plain, with

@@ -238,6 +238,11 @@ block's first line to hide it. The dialog remembers your last choices.
 
 ## Syntax
 
+**The full reference is [docs/REFERENCE.md](docs/REFERENCE.md):** every topic, how
+each thing is written, what it does, its rules, and an example of each, made from the
+same source as the app's Reference tab (so it's always as MathScribe is). What
+follows here is a guide, with more on why and how.
+
 **In this section:** [Display commands](#display-commands) ·
 [Layout blocks](#layout-blocks) · [Functions](#functions) ·
 [Blocks and scope](#blocks-and-scope) · [Greek letters](#greek-letters) ·
@@ -1726,6 +1731,9 @@ renamed, change it there too.
   loads); `src/lib/constants.ts`: the physics constants' values
 - `src/lib/content/library.ts`: the equations in the Library tab (each tested with its
   example); `src/components/LibraryPane.tsx`: the tab
+- `docs/REFERENCE.md`: the language tree as one document, made from it
+  (`referenceMarkdown`, lib/language/reference.ts) and checked by a test;
+  `npx vitest run -u` writes it again after the tree changes
 - `src/lib/content/sample.ts`: the example sheet shown the first time
 - `*.test.ts` beside the code they test; `src/test/helpers.ts`: shared test
   helpers (evaluate a sheet, read a result as plain text)

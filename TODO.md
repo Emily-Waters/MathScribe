@@ -1392,8 +1392,20 @@ into its own file (`docs/REFERENCE.md`), not into the README.
          @vector (each now in an example: 4 new golden snapshots). The commands
          are suggested in the tree's order now (#sym, #val, … #full), not the
          syntax's.
-- [ ] **Step 4: `docs/REFERENCE.md`**, generated, with a test that fails when
+- [x] **Step 4: `docs/REFERENCE.md`**, generated, with a test that fails when
       the checked-in file is out of date.
+      Resolved (2026-11-21): `referenceMarkdown` (lib/language/reference.ts)
+      writes the whole tree as Markdown (a list of topics; each entry's syntax,
+      what it does, its terms as a table, its rules, every example; the
+      built-in constants), its plain text escaped so `*`, `#`, `$…$` and `<…>`
+      show as written; reference.test.ts checks docs/REFERENCE.md is it
+      (`toMatchFileSnapshot`: `npx vitest run -u` writes it again). The
+      README's Syntax section points to it.
+- [ ] **Step 5: the README's Syntax section into the tree.** It's ~1,270 lines
+      written by hand, with much the tree doesn't say yet (why and how, edge
+      cases, more examples). Each fact moved into an entry (its explain, a rule,
+      an example), section by section, then the section cut down to a short
+      guide that points to docs/REFERENCE.md, so nothing is said in two places.
 
 ## 9. Packaging: MathScribe in someone else's app
 

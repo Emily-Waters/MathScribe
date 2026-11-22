@@ -1,7 +1,9 @@
 /** The language, described from its declarations: a call's settings in Markdown, as the AI primer and the reference list them. */
 import { describe, expect, it } from 'vitest'
 import { ChoiceSetting, RowsSetting, SettingsSpec, SwitchSetting } from './settings.ts'
-import { settingsCallExample, settingsTopic, valuesText } from './reference.ts'
+import { referenceMarkdown, settingsCallExample, settingsTopic, valuesText } from './reference.ts'
+import { languageTopics } from '../engine/index.ts'
+import { BUILTIN_CONSTANTS } from '../constants.ts'
 
 interface Demo {
   from?: number
@@ -35,5 +37,13 @@ describe('a call’s settings, described', () => {
   it('list values that say what they mean as they are', () => {
     const colours = { label: 'Colour', summary: 'A colour.', examples: ['colour red'], values: [{ value: 'red', label: 'red', means: 'red' }, { value: 'blue', label: 'blue', means: 'blue' }] }
     expect(valuesText(colours)).toBe('One of `red`, `blue`')
+  })
+})
+
+describe('docs/REFERENCE.md', () => {
+  // (Written again by `npx vitest run -u` after the tree changes; a test fails until it is.)
+  it('is the language tree, as it is now', async () => {
+    const constants = Object.entries(BUILTIN_CONSTANTS).map(([name, c]) => ({ name, description: c.description }))
+    await expect(referenceMarkdown(languageTopics(), constants)).toMatchFileSnapshot('../../../docs/REFERENCE.md')
   })
 })

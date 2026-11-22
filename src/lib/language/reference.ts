@@ -78,3 +78,59 @@ export function primerMarkdown(tree: readonly LanguageTopic[], extras: Readonly<
     return [`## ${topic.title}`, ...entries, ...(extras[topic.id] ? [extras[topic.id]] : [])].join('\n')
   }).join('\n\n')
 }
+
+/** A heading's anchor, as GitHub makes it: `Significant figures` → `significant-figures`. */
+const anchor = (title: string) => title.toLowerCase().replace(/[^\p{L}\p{N}\s-]/gu, '').trim().replace(/\s+/g, '-')
+
+/** A table row, in Markdown (its cells written as they're to show: plain text through `plain`, code through `md`). */
+const row = (cells: readonly string[]) => `| ${cells.join(' | ')} |`
+
+/** What Markdown reads as markup in plain text: emphasis, headings, maths, tags, links, code. */
+const MARKUP = /[\\`*_{}[\]<>#$|~]/g
+
+/** Plain text as Markdown shows it as it is: `1/2 * m * v^2` not in italics, `#sym` not a heading, `$…$` not maths. */
+const plain = (text: string) => text.replace(MARKUP, (c) => `\\${c}`)
+
+/** What docs/REFERENCE.md says first: what it is, and that it's made, not written. */
+const REFERENCE_HEAD = [
+  '# MathScribe reference',
+  '',
+  'Everything a sheet can say, by topic: how each thing is written, what it does, the rules for',
+  'writing it, and examples, each a whole sheet you can paste in. The Reference tab in the app',
+  'shows the same, with each example worked out beside it.',
+  '',
+  '<!-- Made from the language tree (src/lib/language/), as the Reference tab and the AI primer are:',
+  'don\'t edit it by hand. `npx vitest run -u` writes it again after the tree changes. -->',
+].join('\n')
+
+/**
+ * The whole language tree as docs/REFERENCE.md: a list of its topics, then each
+ * topic, each entry with how it's written, what it does, its terms, its rules and
+ * every example; and the built-in constants. (A test checks the file is this.)
+ */
+export function referenceMarkdown(tree: readonly LanguageTopic[], constants: readonly { name: string; description: string }[]): string {
+  const constantsTitle = 'Built-in constants'
+  const contents = [...tree.map((t) => t.title), constantsTitle].map((title) => `[${title}](#${anchor(title)})`).join(' · ')
+  const topics = tree.map((topic) => [
+    `## ${topic.title}`,
+    ...topic.entries.map((entry) => {
+      const written = entry.syntax ? `${entry.syntax.map(md).join(', ')}: ` : ''
+      const terms = entry.terms?.length
+        ? ['', row(['Written', 'Does']), row(['---', '---']), ...entry.terms.map((t) => row([md(termShown(t)), plain(t.summary)]))]
+        : []
+      const rules = entry.rules?.length ? ['', ...entry.rules.map((rule) => `- ${plain(rule)}`)] : []
+      const examples = entry.examples.flatMap((e) => ['', fenced(e.source)])
+      return [`${written}${plain(entry.explain)}`, ...terms, ...rules, ...examples].join('\n')
+    }),
+  ].join('\n\n'))
+  const constantsTable = [
+    `## ${constantsTitle}`,
+    '',
+    'Write `@name` (3 sig figs), `@name:n`, or `@name:exact`.',
+    '',
+    row(['Constant', 'What it is']),
+    row(['---', '---']),
+    ...constants.map((c) => row([md(`${SIGIL}${c.name}`), plain(c.description)])),
+  ].join('\n')
+  return [REFERENCE_HEAD, `**Topics:** ${contents}`, ...topics, constantsTable].join('\n\n') + '\n'
+}

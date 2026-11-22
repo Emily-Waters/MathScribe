@@ -77,7 +77,7 @@ remembered in the browser.
 - **Input** (left): the sheet, in a code editor with MathScribe syntax colours.
   Its options menu (the sliders) picks the colour theme.
 - **Output** (right), in tabs:
-  - **Rendered**: the typeset sheet.
+  - **Rendered** (the eye): the typeset sheet.
   - **Library** (the books): common equations from first-year physics (kinematics, forces,
     energy and momentum, oscillation, waves and optics, electricity, heat, modern
     physics) and general chemistry (moles and solutions, gases, thermochemistry,

@@ -647,7 +647,7 @@ Plot ideas, to investigate (suggested 2026-11-21, after legends and colours):
       Resolved (2026-11-22): `Icon` (components/icons.tsx), one table of small
       line drawings in the text's colour, no icon library. The file buttons,
       Template, Theme, both panes' options (sliders) and the Library and
-      Reference tabs are icons; Rendered keeps its word, as the tab most used.
+      Reference tabs are icons, and then (on second thoughts) Rendered too, an eye.
       Each keeps its words as its tooltip and, hidden (`IconLabel`), for screen
       readers; the narrow screen's File menu (☰) shows them beside the icons.
       Share's icon turns to a tick for a moment, and "Link copied" shows

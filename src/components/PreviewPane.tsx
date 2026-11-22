@@ -61,9 +61,13 @@ export function PreviewPane({
           {/* The Reference tab uses fixed settings, so the options don't apply there. */}
           <OptionsMenu options={options} onChange={onOptionsChange} hidden={tab === 'reference' || tab === 'library'} />
           <div className="tabs" role="tablist">
-            {/* Rendered keeps its word (it's the tab most used); Library and Reference are icons. */}
-            <button role="tab" aria-selected={tab === 'rendered'} onClick={() => setTab('rendered')} title="The sheet, typeset">
-              Rendered
+            <button
+              role="tab"
+              aria-selected={tab === 'rendered'}
+              onClick={() => setTab('rendered')}
+              title={'Rendered\nThe sheet, typeset'}
+            >
+              <Icon name="rendered" /><IconLabel>Rendered</IconLabel>
             </button>
             <button
               role="tab"

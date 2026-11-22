@@ -1828,6 +1828,55 @@ into its own file (`docs/REFERENCE.md`), not into the README.
          paragraph and a list of the reference's topics (1,371 → 517 lines), so
          nothing is said in two places.
 
+### Making the language easier to write, for people and for AI
+
+A review of the language by an AI (Gemini, 2026-11-22), given the language
+reference, which Emily liked the direction of. What it found works well:
+calculation lines that read as plain text, with units, sig figs and uncertainty
+carried through; constants like `@g`; series, slices, conditions, `@table` and
+`@plot` as one workflow for data; scoped blocks and one-line functions; and
+`{{name}}` keeping prose in step with the values. Where it found friction, each
+an item to look into (each would change what's written, so each is a decision
+for Emily before any work, and the Reference, the tests' examples and the
+Create prompt change with it):
+
+- [ ] **One way to write a comment, and `#` only for headings.** `#` is now a
+      heading on a line of its own, a note after a calculation (`  # weight`)
+      and a display command (`#sym`, `#val`, `#hide`, `#list(a)`), while `//`
+      is a comment. Look at `//` as the only comment (and a calculation's note),
+      `#` only for headings, and the display commands in one consistent form of
+      their own (the review suggests `@`, like `@layout`'s members).
+- [ ] **How a value is shown, apart from its name.** `to` converts units in an
+      expression (`v to km/h`, `to percent`), a function's parameters on entry
+      (`m to kg`) and a constant's display (`@a_0:3 to angstrom`); and colons
+      on a name chain sig figs, notation (`:sci`, `:dec`), units (`:deg`),
+      vector display (`:ijk`), components (`:xyz`) and labels, with rules for
+      which order and which combine. Look at keeping `name = expr` plain, with
+      how it's shown said after the expression or as settings (the review's
+      examples: `as deg`, `3 sig`).
+- [ ] **Brackets that don't change meaning with what's around them.** `[…]` is
+      a series or a range; `(…)` groups or calls (pairs need `@tuple`); `<…>`
+      is a vector only where a value can start and there's a comma inside;
+      `{…}` is a block or a chemical formula. Look at an explicit form for
+      each kind of value where the brackets alone are ambiguous (`@vec(3, 4)`
+      beside `<3, 4>`), so nothing turns on spacing or what comes before.
+- [ ] **Clear errors for names that are taken.** `e`, `pi`, `tau` and `phi` are
+      maths' constants; `A` is amperes (not ångströms); `m` is a variable or
+      metres by where it is; `delta E` and `ΔE` aren't the same. Look at
+      saying so plainly when a sheet shadows or trips over one, rather than
+      quietly reading it one way.
+- [ ] **Where a calculation ends and a formula begins.** An expression with a
+      name that has no value (an `x` in a derivation) has no clear home but
+      `@latex`, so AI's sheets fall back to `@latex` for anything symbolic.
+      Look at an explicit symbolic form, or a clear rule for free and bound
+      names (it goes with the calculus items in section 1 and the Create
+      prompt's item in section 7).
+- [ ] **One canonical spelling for each thing.** `pm` and `±` both write an
+      uncertainty (the review names `+-` too, which isn't read); an import's uncertainty columns can be named several ways.
+      Pick one form to use in every example, the Reference and the Create
+      prompt, so the sheets people and AI write stay alike (the others still
+      read).
+
 ## 9. Packaging: MathScribe in someone else's app
 
 - [ ] **MathScribe as a package** (2026-11-17, Emily): bundled so someone can
@@ -1857,6 +1906,28 @@ into its own file (`docs/REFERENCE.md`), not into the README.
       change; not unless it's needed. (Meanwhile, nothing new is made
       page-wide that needn't be: a Calculator takes its line stages from the
       modules it's given.)
+
+## 10. Working on MathScribe
+
+- [ ] **Use fewer tokens while developing MathScribe** (2026-11-22, Emily).
+      An AI working on MathScribe reads TODO.md (about 2,000 lines and 140 KB,
+      118 of its 187 items done), CLAUDE.md and the files it works on, and
+      the same instructions are given again in conversation. Look at what
+      would cut that down without losing the paper trail. Possibly:
+      - moving done to-dos, with their Resolved notes, to a CHANGELOG.md (or
+        an archive like it), so TODO.md holds only what's open;
+      - writing the directives Emily keeps repeating into CLAUDE.md, so they
+        don't need saying each time (for example: the visual check after an
+        export change, editing with the editor tools, touching changed files,
+        committing only when asked);
+      - keeping CLAUDE.md short, pointing to where things are rather than
+        restating them.
+- [ ] **Triage the to-dos: high, medium and low priority** (2026-11-22, Emily).
+      Give each open to-do a priority (high, medium or low) in a form that's
+      quick to see and to search, so the next thing to work on is clear.
+      The groups are only roughly in priority order now. Decide the form (a
+      tag on each item, or a sub-list in each group) along with the item above,
+      since both change how TODO.md is laid out.
 
 ## Done
 

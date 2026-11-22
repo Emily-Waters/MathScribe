@@ -80,6 +80,8 @@ by the engine (`src/lib/engine/`), and the blocks drawn in the Rendered tab
   say how and why the code works, and point to the declaration
   (`{@link PLOT_SETTINGS}`) rather than restate what a user writes; a feature
   added or changed is described there, with an example, not in a comment or by hand.
+  After the tree changes, `npm run docs` writes `docs/REFERENCE.md` again (not
+  `vitest -u`, which would accept every other snapshot's change too).
 
 ## Checking work
 

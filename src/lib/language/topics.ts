@@ -26,6 +26,8 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
         explain: '// starts a comment, never shown. A blank line is spacing; two leave a gap in the output.',
         rules: [
           'Don\'t use # for a comment on its own line: it makes a heading.',
+          'A // line is never shown or worked out, wherever it is: in a block, a function, or an @layout.text '
+            + 'block (where it doesn\'t split a paragraph).',
         ],
         examples: [{
           source: [
@@ -111,10 +113,50 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
         }],
       },
       {
+        explain: '@ starts everything built in rather than written in the sheet: constants (@c), the @constants { } '
+          + 'block, MathScribe\'s own functions (@tuple, @series, @table, @plot, @solve, …) and namespaces, whose '
+          + 'members are written with a dot (@layout.text, @chem.substance). mathjs\'s maths isn\'t (sin, sqrt, '
+          + 'norm).',
+        rules: [
+          'The names of MathScribe\'s functions are free for your own: tuple(a, b) = … defines a function of '
+            + 'yours.',
+          'Your own constants are @name too, so they can\'t be called layout, chem, constants, or one of '
+            + 'MathScribe\'s functions.',
+        ],
+        examples: [{ source: 'E = @h * @c / 532 nm to eV' }],
+      },
+      {
+        explain: 'Products are written as in a textbook: 1/2 * m * v^2 shows ½mv², 2 * pi * r shows 2πr. Where a '
+          + 'number comes next, or a unit ends a factor, a × keeps them apart (2.00 kg × 9.81 m/s²); brackets go '
+          + 'only where they\'re needed: a value to a power, (2.0 s)², a negative after another factor, a sum, '
+          + 'm(v + u). The Output options can show · in every product.',
+        examples: [{
+          source: [
+            'm = 2.00 kg',
+            'v = 3.0 m/s',
+            'K = 1/2 * m * v^2',
+          ].join('\n'),
+        }],
+      },
+      {
+        explain: 'Brackets with others inside them change, as in textbooks: ( ) innermost, then [ ], then ( ) again, '
+          + 'so ((a + b) * c)^2 shows [(a + b)c]². A function\'s brackets stay round, and so do a tuple\'s. What '
+          + 'you type stays as you wrote it.',
+        examples: [{
+          source: [
+            'a = 1.0 m',
+            'b = 2.0 m',
+            'c = 3.0',
+            'd = ((a + b) * c)^2',
+          ].join('\n'),
+        }],
+      },
+      {
         explain: 'Headings. # and ## are numbered, like LaTeX sections. In headings and block titles, a_b is a '
           + 'subscript (write \\_ for a plain underscore) and $…$ is maths.',
         rules: [
           'A line starting with # is always a heading: write // for a comment.',
+          'x_{max} takes a subscript of more than one letter.',
         ],
         examples: [{
           source: [
@@ -136,6 +178,10 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
           + 'sig figs. Settings and to work in it: {{V:3 to L}}.',
         rules: [
           'Don\'t type a worked-out number into prose: write {{name}}, so it stays right.',
+          'Any expression works: {{2 * m}}, {{delta F}}, {{a.x_1}}; and settings ({{x:3}}, {{x:sci}}) and to.',
+          'A value is worked out where the text is, so it must be defined above it: one that isn\'t is marked '
+            + 'as an error, and left as typed.',
+          'Inside $…$, {{…}} is left alone. In the exports, each value is inline maths.',
         ],
         examples: [{
           source: [
@@ -260,6 +306,9 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
       {
         explain: 'A rounded result of exact inputs follows ≈. Measured results use =; Options can switch them to ≈ '
           + 'too.',
+        rules: [
+          'A value with a ± always uses =.',
+        ],
         examples: [{
           source: [
             'q = pi / 4',
@@ -506,6 +555,13 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
         terms: [
           commandTerm(LINE_COMMAND.sym, 'Show the equation only'),
         ],
+        rules: [
+          'A command goes before or after the note: F = m * a  #val  # weight is F = m * a  # weight  #val.',
+          'Commands combine: #sym #multiline.',
+          'On a line that\'s just a name (delta F, t_avg), #sym shows how it\'s worked out (δF = √(…)), and #val '
+            + 'its name and value.',
+          'Only these words are commands: any other #word (#3) stays part of the note.',
+        ],
         examples: [{ source: 'F = 2.00 kg * 9.81 m/s^2   #sym' }],
       },
       {
@@ -516,11 +572,32 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
         examples: [{ source: 'F = 2.00 kg * 9.81 m/s^2   #val' }],
       },
       {
+        explain: 'A variable defined with #sym stays a symbol in later lines\' substitution steps (F = k·x = k · 0.150 '
+          + 'm), though its value is used in every calculation; in a function\'s working too, and for a #sym '
+          + 'block\'s variables.',
+        rules: [
+          'Defining it again without #sym brings its value back into substitutions.',
+        ],
+        examples: [{
+          source: [
+            'k = 4.0 N/m * 2   #sym',
+            'x = 0.150 m',
+            'F = k * x',
+          ].join('\n'),
+        }],
+      },
+      {
         explain: '#sci shows the result in scientific notation, #dec in plain digits: for a line with no name to put '
           + ':sci on, or a whole block.',
         terms: [
           commandTerm(NOTATION.sci, 'Results in scientific notation (on a line, or every line in a block)'),
           commandTerm(NOTATION.dec, 'Results in plain decimal digits, no powers of ten (on a line, or every line in a block)'),
+        ],
+        rules: [
+          'They only change how the line is shown: the variable doesn\'t keep the notation (write x:sci = … for '
+            + 'that).',
+          'A name\'s own :sci or :dec beats the line\'s command, which beats a variable\'s own notation, which '
+            + 'beats the block\'s.',
         ],
         examples: [{
           source: [
@@ -534,6 +611,10 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
         terms: [
           commandTerm(LINE_COMMAND.hide, 'Calculate, but don’t show the line or block'),
         ],
+        rules: [
+          'Hidden lines and blocks are left out of the exports too, but their variables can still be used. A '
+            + 'hidden line with an error is shown anyway.',
+        ],
         examples: [{
           source: [
             'm = 2.00 kg   #hide',
@@ -546,6 +627,9 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
           + 'works on a block.',
         terms: [
           commandTerm(MULTILINE, 'Each = on its own row, lined up'),
+        ],
+        rules: [
+          'A line with only one = left to show stays on one line.',
         ],
         examples: [{
           source: [
@@ -568,6 +652,11 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
         explain: 'On a block, a command applies to every line inside; a line’s own command (#full) wins.',
         terms: [
           commandTerm(LINE_COMMAND.full, 'Show everything (the default; overrides a block’s command)'),
+        ],
+        rules: [
+          'It applies to the blocks inside too; #hide on a block hides all of it.',
+          'To give some lines a command without scoping their variables, use an @layout block: @layout.val {, '
+            + '@layout.hidden {.',
         ],
         examples: [{
           source: [

@@ -1399,13 +1399,27 @@ into its own file (`docs/REFERENCE.md`), not into the README.
       what it does, its terms as a table, its rules, every example; the
       built-in constants), its plain text escaped so `*`, `#`, `$…$` and `<…>`
       show as written; reference.test.ts checks docs/REFERENCE.md is it
-      (`toMatchFileSnapshot`: `npx vitest run -u` writes it again). The
+      (`toMatchFileSnapshot`: `npm run docs` writes it again, and nothing
+      else, unlike `vitest -u`). The
       README's Syntax section points to it.
 - [ ] **Step 5: the README's Syntax section into the tree.** It's ~1,270 lines
       written by hand, with much the tree doesn't say yet (why and how, edge
       cases, more examples). Each fact moved into an entry (its explain, a rule,
       an example), section by section, then the section cut down to a short
       guide that points to docs/REFERENCE.md, so nothing is said in two places.
+   - [x] **Batch 1: the overview, and Display commands.** Resolved
+         (2026-11-21): the overview's table and notes (`@` is MathScribe's own,
+         subscripts in headings, values in text, comments, spacing, = or ≈,
+         products, brackets by nesting) and Display commands, moved into the
+         tree: new Basics entries for `@`, products and brackets, and a Display
+         entry for a variable defined with #sym; the rest as rules of the
+         entries they're about. The README's part became a paragraph that
+         points to the reference's Basics and Display commands (1,750 → 1,617 lines).
+   - [ ] **Batch 2: Layout blocks, Functions, Blocks and scope.**
+   - [ ] **Batch 3: Greek letters, Built-in functions, Vectors, Tuples, Units.**
+   - [ ] **Batch 4: Significant figures, Uncertainty, Constants.**
+   - [ ] **Batch 5: Chemistry, Solving equations.**
+   - [ ] **Batch 6: Series, Tables, Plots, Selections, Importing data.**
 
 ## 9. Packaging: MathScribe in someone else's app
 

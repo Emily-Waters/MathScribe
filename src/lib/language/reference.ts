@@ -100,7 +100,7 @@ const REFERENCE_HEAD = [
   'shows the same, with each example worked out beside it.',
   '',
   '<!-- Made from the language tree (src/lib/language/), as the Reference tab and the AI primer are:',
-  'don\'t edit it by hand. `npx vitest run -u` writes it again after the tree changes. -->',
+  'don\'t edit it by hand. `npm run docs` writes it again after the tree changes. -->',
 ].join('\n')
 
 /**

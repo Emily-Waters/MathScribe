@@ -245,9 +245,18 @@ exports[`the Reference tab’s examples > Basics: @latex { \\int_0^\\infty e^{-x
 
 exports[`the Reference tab’s examples > Basics: @latex { 1`] = `""`;
 
+exports[`the Reference tab’s examples > Basics: E = @h * @c / 532 nm to eV 1`] = `"1: E = \\frach c532 nm = \\frac(6.63e-34 J· s)\\times (3.00e8 m/s)532 nm = 2.33 eV"`;
+
 exports[`the Reference tab’s examples > Basics: T1 = 1.21 s 1`] = `
 "1: T_1 = 1.21 s
 2: T_2 = 1.17 s"
+`;
+
+exports[`the Reference tab’s examples > Basics: a = 1.0 m 1`] = `
+"1: a = 1.0 m
+2: b = 2.0 m
+3: c = 3.0
+4: d = [(a+ b) c]^2 = [(1.0 m+ 2.0 m)\\times 3.0]^2 = 81 m^2"
 `;
 
 exports[`the Reference tab’s examples > Basics: g = 9.81 m/s^2 1`] = `
@@ -261,6 +270,12 @@ exports[`the Reference tab’s examples > Basics: m = 2.00 kg   # mass of the bl
 exports[`the Reference tab’s examples > Basics: m = 2.00 kg 1`] = `
 "1: m = 2.00 kg
 2: F = m\\times 9.81 m/s^2 = 2.00 kg\\times 9.81 m/s^2 = 19.6 N"
+`;
+
+exports[`the Reference tab’s examples > Basics: m = 2.00 kg 2`] = `
+"1: m = 2.00 kg
+2: v = 3.0 m/s
+3: K = \\frac12 m v^2 = \\frac12\\times 2.00 kg\\times (3.0 m/s)^2 = 9.0 J"
 `;
 
 exports[`the Reference tab’s examples > Basics: r = 2.00 m 1`] = `
@@ -376,6 +391,12 @@ exports[`the Reference tab’s examples > Display commands: area(r) = pi * r^2  
 "1: area(r) = \\pi r^2
 2: r_1 = 2.0 cm
 3: A = \\pi r_1^2 = \\pi\\times (2.0 cm)^2 = 13 cm^2"
+`;
+
+exports[`the Reference tab’s examples > Display commands: k = 4.0 N/m * 2   #sym 1`] = `
+"1: k = 4.0 N/m\\times 2
+2: x = 0.150 m
+3: F = k x = k\\times 0.150 m = 1.2 N"
 `;
 
 exports[`the Reference tab’s examples > Display commands: m = 2.00 kg   #hide 1`] = `

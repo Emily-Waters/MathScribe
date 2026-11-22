@@ -243,8 +243,7 @@ each thing is written, what it does, its rules, and an example of each, made fro
 same source as the app's Reference tab (so it's always as MathScribe is). What
 follows here is a guide, with more on why and how.
 
-**In this section:** [Display commands](#display-commands) ·
-[Layout blocks](#layout-blocks) · [Functions](#functions) ·
+**In this section:** [Layout blocks](#layout-blocks) · [Functions](#functions) ·
 [Blocks and scope](#blocks-and-scope) · [Greek letters](#greek-letters) ·
 [Built-in functions](#built-in-functions) · [Vectors](#vectors) ·
 [Tuples](#tuples-and-coordinates) · [Units](#units) ·
@@ -255,152 +254,12 @@ follows here is a guide, with more on why and how.
 [Selections](#selections-and-names-with-a-dot) ·
 [Importing data](#importing-data-csv)
 
-| Line | Meaning |
-| --- | --- |
-| `m = 2.0 kg` | define a variable (with a unit) |
-| `F = m * a` | compute from earlier variables |
-| `F to kN`, `v = d / t to km/h` | convert units |
-| `f = P * dr to percent` | show a unitless result as a percentage |
-| `f(x) = x^2 + 1`, then `f(3)` | define and call a function |
-| `E(n, m to kg) = …` | a function whose argument is converted to kg |
-| `phi:3:deg = atan(y/x)` | show a result to 3 sig figs, in degrees |
-| `N:sci = …`, `L:dec = …` | always scientific notation, or always plain digits |
-| `F = <3.0, 4.0> N` | a vector |
-| `F:ijk = …`, `F:xyz = …` | a vector with unit vectors, or broken into components F_x, F_y |
-| `r = @tuple(x, y, z)` | a tuple, such as coordinates |
-| `@tuple(a, b, c) = r` | unpack a tuple into variables |
-| `@inv(x)` | 1/x, written turned over: `@inv(m / V)` is V/m |
-| `x = 3  # note` | text after `#` becomes the line's description |
-| `x = 3  #val` | a display command (see below) |
-| `# Title` | `\section{Title}`, numbered 1, 2, … |
-| `## Title` | `\subsection{Title}`, numbered 1.1, 1.2, … |
-| `### Title` (or more `#`) | `\textbf{Title}` bold run-in heading |
-| `> Some text` | paragraph; `$...$` for inline LaTeX |
-| `> It took {{V_avg}}.` | a variable's value in text (see Values in text) |
-| `// a note to self` | a comment: never shown or worked out |
-| `@latex { \frac{a}{b} }` | raw LaTeX, displayed but not evaluated; over several lines, up to a `}` on its own |
-| `Title {` … `}` | a block that scopes its variables |
-| `@layout.numbered Title {` … `}` | a layout block: `@layout.center`, `@layout.list` or `@layout.numbered` |
-| `@layout.text Title {` … `}` | a block of prose: paragraphs, nothing calculated |
-| `@layout.titlepage {` … `}` | a title page of prose: the first line is the title, bold and larger |
-| `@layout.hidden {` … `}` | lines worked out but not shown |
-| `@layout.val.multiline {` … `}` | every line inside shown as `#val #multiline` would show it |
-| `@c`, `@a_0:3 to angstrom` | constants, and setting their precision and unit |
-| `H2O = @chem.substance({H2O})` | a substance: its molar mass, amount and mass, and its elements' (`H2O.M`, `H2O.n`, `H2O.H.m`) |
-
-**`@` is MathScribe's own:** everything built in rather than written in the sheet
-starts with `@`: constants (`@c`), the `@constants { }` block, MathScribe's own
-functions (`@tuple(…)`, `@inv(…)`, `@vector(…)`, `@import(…)`, `@series(…)`, `@table(…)`, `@plot(…)`,
-`@select(…)`, `@solve(…)`), and namespaces, whose members are written with a dot: `@layout`
-holds the layout blocks (`@layout.text`, `@layout.list`, `@layout.numbered`,
-`@layout.center`, `@layout.titlepage`) and `@chem` the chemistry (`@chem.substance(…)`,
-`@chem.reaction(…)`). mathjs's maths isn't (`sin`, `sqrt`, `norm`, `dot`, `cross`), and
-the names of MathScribe's functions are free for your own (`tuple(a, b) = …`
-defines a function of yours). Your own constants are `@name` too, so they can't
-be called `layout`, `chem`, `constants`, or one of MathScribe's functions.
-
-**Subscripts in headings and block titles:** as in variable names, `_` makes a
-subscript: `Hydrogen 2p_z orbital {` shows 2p with a subscript z, and `x_{max}`
-takes a longer one. Write `\_` for a plain underscore. `$…$` adds inline maths,
-as in `>` text: `## Energy $E_n = -13.6/n^2$ eV`. The LaTeX export uses
-`\textsubscript` and `$…$` to match.
-
-**Values in text:** `{{name}}` in a `>` line, an `@layout.text` block, a heading or a
-block's title puts in the variable's value, as it is at that point in the sheet,
-with its unit, sig figs and any uncertainty. Numbers in your discussion then stay
-right when the data changes.
-
-```
-V1 = 27.55 mL
-V2 = 27.10 mL
-> The average volume was {{V_avg}}, or {{V_avg to L}}.   → (27.3 ± 0.2) mL, or (0.0273 ± 0.0002) L
-## Moles in {{V1:3}} of solution                         → Moles in 27.6 mL of solution
-```
-
-- Settings go on the name as on any line (`{{x:3}}`, `{{x:sci}}`), and `to`
-  converts. Any expression works too: `{{2 * m}}`, `{{delta F}}`, `{{a.x_1}}`.
-- A value is worked out where the text is, so it must be defined above it. A name
-  that isn't (or a typo) is marked as an error on that line, and left as typed.
-- In the exports, each value is inline maths. Inside `$…$`, `{{…}}` is left alone.
-- Typing `{{` suggests names, as in a calculation.
-
-**Comments:** a line starting with `//` is never shown or worked out, wherever it
-is: between calculations, inside a block or function, or in an `@layout.text` block (where
-it doesn't split a paragraph).
-Ctrl+/ comments or uncomments the selected lines.
-
-**Spacing:** one blank line between lines is just for readability in the input and
-doesn't change the output. Two or more blank lines leave one empty line in the
-output (and `\vspace{\baselineskip}` in the LaTeX export).
-
-### Display commands
-
-Put a command after a calculation to control how it's shown. It can go before or
-after the note:
-
-| Command | Shows | Example |
-| --- | --- | --- |
-| *(none)* or `#full` | everything | F = ma = 2.0 kg × 9.81 m/s² = (20 ± 1) N |
-| `#sym` | the equation only | F = m·a |
-| `#val` | the result only | F = (20 ± 1) N |
-| `#hide` | nothing; the line is still calculated | |
-| `#multiline` | each `=` on its own row, lined up | F = ma ⏎ = 2.0 kg × 9.81 m/s² ⏎ = (20 ± 1) N |
-| `#sci`, `#dec` | the result in scientific notation, or plain digits | ψ² = 5.000 × 10⁻³ Å⁻¹ |
-| `#center`, `#list`, `#numbered` | the line centered, as a bullet, or numbered (for several lines, see Layout blocks) | |
-
-```
-F = m * a  #val  # weight
-F = m * a  # weight  #val      (same thing)
-F = m * a  #sym #multiline     (commands combine)
-```
-
-- `#multiline` is a layout, so it combines with `#sym`, `#val` and `#full`. A line
-  with only one `=` left to show stays on one line. On a function's definition
-  (`f(x) = …  #multiline`), every line that calls the function is shown multiline.
-- `#sci` and `#dec` combine with the others too. They're for lines without a name to
-  put `:sci` on (`psi_4^2  #sci`), and for whole blocks (`Q7 {  #sci`). They only
-  change how the line is shown: the variable doesn't keep the notation (use
-  `x:sci = …` for that). A name's own `:sci`/`:dec` beats the line's command, which
-  beats a variable's own notation (`x` after `x:dec = …`), which beats the block's.
-- A variable **defined** with `#sym` stays a symbol in later substitution steps:
-  after `k = 4.0 N/m * 2 #sym`, `F = k * x` shows `F = k·x = k · 0.150 m = 1.2 N`.
-  Its value is still used in every calculation;
-  only the substitution display keeps the name. This also applies inside a function's
-  working when it's passed as an argument, and to variables defined in a `#sym`
-  block. Defining it again without `#sym` brings its value back into substitutions.
-- On a line that's just a name (`delta F`, `t_avg`), `#sym` shows its defining
-  formula (δF = √(…), t̄ = (1/n) Σ tᵢ) and `#val` shows the name and value.
-- On a block opener (`Working { #val`), the command applies to every line inside,
-  including nested blocks, unless a line has its own (`#full` to show one in full).
-  `#hide` on a block hides the whole block. To set them for some lines without
-  scoping their variables, use an `@layout` block (`@layout.val {`, `@layout.hidden {`;
-  see Layout blocks).
-- Hidden lines and blocks are left out of the LaTeX export too, but their variables
-  can still be used. If a hidden line has an error, it's shown anyway.
-- Only these exact words are commands; any other `#word` (like `#3`) stays part of
-  the note.
-
-**= or ≈:** a result whose inputs are all exact (whole numbers, π, `:exact`
-constants) and that has been rounded for display follows ≈: `1/3 ≈ 0.333333`,
-`π/4 ≈ 0.785398`. Measured results use =, since their sig figs already say they're
-rounded; turn on *Use ≈ for every rounded result* in the Output options to use ≈
-for those too. Values with a `±` always use =.
-
-**Products:** type `*` between factors, and they're written as in a textbook:
-`1/2 * m * v^2` shows ½mv², `m * @g * cos(theta)` shows mg cos θ, and `2 * pi * r`
-shows 2πr. Where a number comes next, or a unit ends a factor, a × keeps them
-apart, the same sign as in scientific notation: a substitution step reads
-2.00 kg × 9.81 m/s², 2 × 1.50 m, 9.81 m/s² × (2.0 s)², and 2 × ½ (not the mixed
-number 2½). Brackets go only where they're needed: a value raised to a power,
-(2.0 s)², one in scientific notation, 8 × (9.11 × 10⁻³¹ kg), a negative after
-another factor, × (−1.5 m/s), and a sum, m(v + u). A word-like name gets a thin
-space (Fn m). Turn on *Show · in every product* in the Output options for m·g·cos θ.
-
-**Brackets by nesting:** in the output, brackets with others inside them change,
-as in textbooks: ( ) innermost, then [ ], then ( ) again (never { }, which read as
-a set): `((a + b) * c)^2` shows
-[(a + b)c]². A function call's brackets stay round, sin((a + b)c), and so do a
-tuple's. What you type in the editor stays as you wrote it.
+A sheet is lines, worked out from top to bottom: calculations (`F = m * a`),
+headings (`# Title`), prose (`> Some text`, with `{{name}}` for a value), comments
+(`// …`), and blocks (`Title {` … `}`). Display commands after a line (`#val`,
+`#multiline`) say how much of it to show. The reference has each, with the rules for
+writing it: [Basics](docs/REFERENCE.md#basics) and
+[Display commands](docs/REFERENCE.md#display-commands) first.
 
 ### Layout blocks
 
@@ -865,7 +724,7 @@ x:3:sci:km = 2500. m     # combines with sig figs and a unit, in any order
 - It works with uncertainties ((1.50 ± 0.02) × 10³ m), tuples and their unpacked
   names (`@tuple(a:sci, b) = …`), and a function's result (`f(x):sci = …`).
 - For a line with no name, such as `psi_4^2`, or a whole block, use the `#sci` and
-  `#dec` commands (see Display commands).
+  `#dec` commands (see [Display commands](docs/REFERENCE.md#display-commands)).
 
 ### Uncertainty
 
@@ -1733,7 +1592,7 @@ renamed, change it there too.
   example); `src/components/LibraryPane.tsx`: the tab
 - `docs/REFERENCE.md`: the language tree as one document, made from it
   (`referenceMarkdown`, lib/language/reference.ts) and checked by a test;
-  `npx vitest run -u` writes it again after the tree changes
+  `npm run docs` writes it again after the tree changes
 - `src/lib/content/sample.ts`: the example sheet shown the first time
 - `*.test.ts` beside the code they test; `src/test/helpers.ts`: shared test
   helpers (evaluate a sheet, read a result as plain text)

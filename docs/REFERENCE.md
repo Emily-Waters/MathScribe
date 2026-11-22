@@ -5,7 +5,7 @@ writing it, and examples, each a whole sheet you can paste in. The Reference tab
 shows the same, with each example worked out beside it.
 
 <!-- Made from the language tree (src/lib/language/), as the Reference tab and the AI primer are:
-don't edit it by hand. `npx vitest run -u` writes it again after the tree changes. -->
+don't edit it by hand. `npm run docs` writes it again after the tree changes. -->
 
 **Topics:** [Basics](#basics) · [Units](#units) · [Significant figures](#significant-figures) · [Uncertainty](#uncertainty) · [Repeated measurements](#repeated-measurements) · [Table settings](#table-settings) · [Plot settings](#plot-settings) · [Functions](#functions) · [Vectors](#vectors) · [Tuples and coordinates](#tuples-and-coordinates) · [Constants](#constants) · [Chemistry](#chemistry) · [Display commands](#display-commands) · [Layout](#layout) · [Solving](#solving) · [Built-in constants](#built-in-constants)
 
@@ -22,6 +22,7 @@ m = 2.00 kg   # mass of the block
 // starts a comment, never shown. A blank line is spacing; two leave a gap in the output.
 
 - Don't use \# for a comment on its own line: it makes a heading.
+- A // line is never shown or worked out, wherever it is: in a block, a function, or an @layout.text block (where it doesn't split a paragraph).
 
 ```
 // the block's mass
@@ -94,9 +95,36 @@ A = pi * r^2
 h = sqrt(2 * 9.81 m/s^2 * 1.20 m)
 ```
 
+@ starts everything built in rather than written in the sheet: constants (@c), the @constants \{ \} block, MathScribe's own functions (@tuple, @series, @table, @plot, @solve, …) and namespaces, whose members are written with a dot (@layout.text, @chem.substance). mathjs's maths isn't (sin, sqrt, norm).
+
+- The names of MathScribe's functions are free for your own: tuple(a, b) = … defines a function of yours.
+- Your own constants are @name too, so they can't be called layout, chem, constants, or one of MathScribe's functions.
+
+```
+E = @h * @c / 532 nm to eV
+```
+
+Products are written as in a textbook: 1/2 \* m \* v^2 shows ½mv², 2 \* pi \* r shows 2πr. Where a number comes next, or a unit ends a factor, a × keeps them apart (2.00 kg × 9.81 m/s²); brackets go only where they're needed: a value to a power, (2.0 s)², a negative after another factor, a sum, m(v + u). The Output options can show · in every product.
+
+```
+m = 2.00 kg
+v = 3.0 m/s
+K = 1/2 * m * v^2
+```
+
+Brackets with others inside them change, as in textbooks: ( ) innermost, then \[ \], then ( ) again, so ((a + b) \* c)^2 shows \[(a + b)c\]². A function's brackets stay round, and so do a tuple's. What you type stays as you wrote it.
+
+```
+a = 1.0 m
+b = 2.0 m
+c = 3.0
+d = ((a + b) * c)^2
+```
+
 Headings. \# and \#\# are numbered, like LaTeX sections. In headings and block titles, a\_b is a subscript (write \\\_ for a plain underscore) and \$…\$ is maths.
 
 - A line starting with \# is always a heading: write // for a comment.
+- x\_\{max\} takes a subscript of more than one letter.
 
 ```
 # Section
@@ -115,6 +143,9 @@ A line starting with \> is a paragraph of text.
 \{\{name\}\} in prose or a heading puts in a variable's value as worked out above it, with its unit and sig figs. Settings and to work in it: \{\{V:3 to L\}\}.
 
 - Don't type a worked-out number into prose: write \{\{name\}\}, so it stays right.
+- Any expression works: \{\{2 \* m\}\}, \{\{delta F\}\}, \{\{a.x\_1\}\}; and settings (\{\{x:3\}\}, \{\{x:sci\}\}) and to.
+- A value is worked out where the text is, so it must be defined above it: one that isn't is marked as an error, and left as typed.
+- Inside \$…\$, \{\{…\}\} is left alone. In the exports, each value is inline maths.
 
 ```
 T1 = 1.21 s
@@ -227,6 +258,8 @@ L = 300 m
 ```
 
 A rounded result of exact inputs follows ≈. Measured results use =; Options can switch them to ≈ too.
+
+- A value with a ± always uses =.
 
 ```
 q = pi / 4
@@ -802,6 +835,11 @@ m_s:massName(NaCl) = 5.85 g
 | --- | --- |
 | `#sym` | Show the equation only |
 
+- A command goes before or after the note: F = m \* a  \#val  \# weight is F = m \* a  \# weight  \#val.
+- Commands combine: \#sym \#multiline.
+- On a line that's just a name (delta F, t\_avg), \#sym shows how it's worked out (δF = √(…)), and \#val its name and value.
+- Only these words are commands: any other \#word (\#3) stays part of the note.
+
 ```
 F = 2.00 kg * 9.81 m/s^2   #sym
 ```
@@ -816,12 +854,25 @@ F = 2.00 kg * 9.81 m/s^2   #sym
 F = 2.00 kg * 9.81 m/s^2   #val
 ```
 
+A variable defined with \#sym stays a symbol in later lines' substitution steps (F = k·x = k · 0.150 m), though its value is used in every calculation; in a function's working too, and for a \#sym block's variables.
+
+- Defining it again without \#sym brings its value back into substitutions.
+
+```
+k = 4.0 N/m * 2   #sym
+x = 0.150 m
+F = k * x
+```
+
 \#sci shows the result in scientific notation, \#dec in plain digits: for a line with no name to put :sci on, or a whole block.
 
 | Written | Does |
 | --- | --- |
 | `#sci` | Results in scientific notation (on a line, or every line in a block) |
 | `#dec` | Results in plain decimal digits, no powers of ten (on a line, or every line in a block) |
+
+- They only change how the line is shown: the variable doesn't keep the notation (write x:sci = … for that).
+- A name's own :sci or :dec beats the line's command, which beats a variable's own notation, which beats the block's.
 
 ```
 p = 0.0707
@@ -834,6 +885,8 @@ p^2   #sci
 | --- | --- |
 | `#hide` | Calculate, but don’t show the line or block |
 
+- Hidden lines and blocks are left out of the exports too, but their variables can still be used. A hidden line with an error is shown anyway.
+
 ```
 m = 2.00 kg   #hide
 F = m * 9.81 m/s^2
@@ -844,6 +897,8 @@ F = m * 9.81 m/s^2
 | Written | Does |
 | --- | --- |
 | `#multiline` | Each = on its own row, lined up |
+
+- A line with only one = left to show stays on one line.
 
 ```
 m = 2.00 kg
@@ -863,6 +918,9 @@ On a block, a command applies to every line inside; a line’s own command (\#fu
 | Written | Does |
 | --- | --- |
 | `#full` | Show everything (the default; overrides a block’s command) |
+
+- It applies to the blocks inside too; \#hide on a block hides all of it.
+- To give some lines a command without scoping their variables, use an @layout block: @layout.val \{, @layout.hidden \{.
 
 ```
 Results only {   #val

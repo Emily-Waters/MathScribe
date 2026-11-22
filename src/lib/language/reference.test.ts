@@ -41,7 +41,7 @@ describe('a call’s settings, described', () => {
 })
 
 describe('docs/REFERENCE.md', () => {
-  // (Written again by `npx vitest run -u` after the tree changes; a test fails until it is.)
+  // (Written again by `npm run docs` after the tree changes, which updates nothing else; a test fails until it is.)
   it('is the language tree, as it is now', async () => {
     const constants = Object.entries(BUILTIN_CONSTANTS).map(([name, c]) => ({ name, description: c.description }))
     await expect(referenceMarkdown(languageTopics(), constants)).toMatchFileSnapshot('../../../docs/REFERENCE.md')

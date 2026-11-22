@@ -1415,7 +1415,16 @@ into its own file (`docs/REFERENCE.md`), not into the README.
          entry for a variable defined with #sym; the rest as rules of the
          entries they're about. The README's part became a paragraph that
          points to the reference's Basics and Display commands (1,750 → 1,617 lines).
-   - [ ] **Batch 2: Layout blocks, Functions, Blocks and scope.**
+   - [x] **Batch 2: Layout blocks, Functions, Blocks and scope.** Resolved
+         (2026-11-21): moved as rules of Layout's, Functions' and Basics' block
+         entries (sub-lists, layouts don't scope, a title page's lines, how
+         members combine and which wins, columns of blocks and in prose, what
+         a call shows, casts' limits, a result's settings, conditions' brace and
+         sig figs, scope and shadowing, a title as a heading), with examples of
+         a column of blocks and a block titled as a section, and a Functions
+         entry for @inv (turning a fraction over). The README's three sections
+         are gone; its guide paragraph points to Functions and Layout (1,617 →
+         1,371 lines).
    - [ ] **Batch 3: Greek letters, Built-in functions, Vectors, Tuples, Units.**
    - [ ] **Batch 4: Significant figures, Uncertainty, Constants.**
    - [ ] **Batch 5: Chemistry, Solving equations.**

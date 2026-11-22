@@ -175,12 +175,24 @@ Title \{ … \} is a block. Variables assigned inside are local to it.
 - Indent the lines inside 4 spaces.
 - Title \{  \#hide works the whole block out without showing it.
 - Don't end a line with : to start a block: write Title \{.
+- Inside a block you can read everything defined above it, in the blocks around it too.
+- What's assigned inside is gone at its \}; a name that's outside too is shadowed, and the outer value is as it was.
+- A block without a title has no title bar: just its lines, in a card.
+- A block's title can be a heading: \# Kinematics \{ titles it as a numbered section, \#\# Energy \{ as a subsection. Commands and a note go after the \{.
 
 ```
 g = 9.81 m/s^2
 Steeper ramp {
     theta = 45.0 deg
     a = g * sin(theta)
+}
+```
+
+```
+# Kinematics {
+    v = 2.0 m/s
+    t = 3.0 s
+    d = v * t
 }
 ```
 
@@ -605,6 +617,9 @@ x = @series(0.051 m pm 0.004 m, 0.098 m pm 0.004 m, 0.152 m pm 0.004 m, 0.199 m 
 A one-line function, written as in maths.
 
 - A function is one line, f(x) = …; it can use variables defined above it. There are no loops.
+- A function reads variables from where it's defined; one defined in a \{ \} block is only seen in that block.
+- Units, sig figs and uncertainties carry through a call. A variable the body reads from outside gives its value but not its uncertainty: pass it as a parameter if that matters.
+- Your function wins over a built-in of the same name: sum(a, b) = ….
 
 ```
 f(x) = 2 * x^2 + 1
@@ -614,6 +629,8 @@ y = f(3.0)
 condition ? a : b gives a if the condition holds and b otherwise; conditions nest, for more than two cases.
 
 - Conditions compare values: \<, \>, \<=, \>=, ==, and, or.
+- It's typeset with a brace, as piecewise functions are, and the result has the sig figs of the value it came to.
+- != and not work too. A comparison on a line of its own shows true or false: ok = sigma \< sigma\_allow.
 
 ```
 ramp(x) = x > 0 ? x : 0
@@ -624,6 +641,9 @@ F_f = friction(-1.5 m/s, 6.0 N)
 
 The working shows the variables you passed in (r₁), not the parameter names.
 
+- When the right-hand side is just the call, the line reads K = ½mv² = … (the function's expression); a call in a bigger expression is shown as usual.
+- \#sym on the calling line shows the equation without values, \#val just the result.
+
 ```
 area(r) = pi * r^2
 r_1 = 2.0 cm
@@ -632,6 +652,9 @@ A = area(r_1)
 
 name to unit converts that argument on the way in, so the working shows it in that unit. An argument in the wrong kind of unit, or with no unit, is an error.
 
+- The definition shows the casts: E(n, m \[kg\], L \[m\]).
+- A cast unit can't have spaces or brackets in it: write J/mol/K, not J/(mol\*K).
+
 ```
 E(n, m to kg, L to m) = n^2 * @h^2 / (8*m*L^2)
 m_e = 9.11e-31 kg
@@ -639,6 +662,9 @@ E_1 = E(1, m_e, 0.100 nm)
 ```
 
 Settings after the parameters, f(x):3:deg, apply to every call’s result: its sig figs and unit, as on a variable.
+
+- The definition says its unit after the equation (… in °); a tuple result takes it on each value.
+- Settings on the calling line still win: w:2 = ang(y, x).
 
 ```
 ang(y, x):3:deg = atan(y / x)
@@ -650,6 +676,15 @@ A function can return a tuple of values, such as coordinates.
 ```
 polar(x, y) = @tuple(sqrt(x^2 + y^2), atan2(y, x))
 P = polar(1.00 m, 1.00 m)
+```
+
+@inv(x) is 1/x, written as the fraction turned over rather than with ⁻¹: @inv(m / V) is V/m, and a value whose unit is a fraction is turned over whole, so a conversion factor reads flipped, as in factor-label working.
+
+- Units, species, sig figs and uncertainty follow as for any division. Zero, or a tuple, has nothing to turn over.
+
+```
+T = 2.0 s
+f = @inv(T)
 ```
 
 ## Vectors
@@ -933,6 +968,11 @@ Results only {   #val
 
 @layout.list makes the lines up to its \} bullets; indent further for a sub-list. The title is optional.
 
+- Indent further for a sub-list; anywhere else, indenting the lines inside is for reading only.
+- A layout block only arranges lines: what's assigned inside stays available after it (a Title \{ \} block scopes it).
+- Its title is optional. A note after the opener shows beside the title, and display commands on the opener apply to the lines inside.
+- In the LaTeX export, lists are itemize and enumerate (each calculation inline beside its marker), and centred blocks center.
+
 ```
 @layout.list Assumptions {
     > The box is one-dimensional
@@ -960,6 +1000,10 @@ Results only {   #val
 
 @layout.titlepage makes a title page of prose: the first line is the title, bold and larger; each line after it is centered on its own. The exports start a new page after it.
 
+- Its lines are prose (no \>, nothing worked out; \{\{values\}\} and \$…\$ work), each a line of its own; a blank line leaves a gap.
+- A title on the opener (@layout.titlepage Lab 3 \{) is the title instead, and every line inside goes under it.
+- In the exports it's a page of its own; in the Rendered tab a dashed line marks where the page ends.
+
 ```
 @layout.titlepage {
     Lab 3: Motion on a ramp
@@ -979,6 +1023,10 @@ F = m * g_0
 ```
 
 .sym, .val, .full, .multiline, .sci and .dec set how every line inside is shown, as their \#commands do on a line. Members combine (@layout.numbered.val); a line’s own command still wins.
+
+- Members combine in any order: a layout with display settings (@layout.numbered.val), or display settings alone (@layout.val.multiline).
+- Some can't both apply, and are warned of: of two layouts the first is used; of two of .sym, .val and .full (or .sci and .dec) the last; on prose only .hidden does anything.
+- The members win over \#commands on the opener.
 
 ```
 @layout.val.multiline Results {
@@ -1014,6 +1062,8 @@ F = 2.00 kg * 9.81 m/s^2   #center
 
 @layout.text makes a block of prose: lines join into paragraphs (a blank line starts a new one), \$…\$ is maths, and nothing is calculated.
 
+- Nothing in it is worked out: a line that looks like a calculation or a heading is just text.
+
 ```
 @layout.text Discussion {
     The measured acceleration is lower than g sin θ, because
@@ -1025,6 +1075,10 @@ F = 2.00 kg * 9.81 m/s^2   #center
 
 @layout.column sets the lines inside side by side in columns: a blank line starts the next column, and each block inside is a column of its own. A row has up to 4; @layout.column(n) sets n a row (2 to 4). With no breaks, the lines are shared out evenly. It combines with a layout, which then applies within each column: @layout.column(3).numbered.
 
+- Each block inside (a Title \{ \} block, another layout block, @constants) is a column of its own, whatever blank lines are in it.
+- A numbered list's count carries on from column to column. In .text prose, where a blank line starts a paragraph, two start a column.
+- In the exports each column is a minipage (LaTeX) or a borderless table's cell (Word), and a long equation goes one = per row sooner.
+
 ```
 @layout.column Givens {
     m = 2.00 kg
@@ -1032,6 +1086,20 @@ F = 2.00 kg * 9.81 m/s^2   #center
 
     theta = 30.0 deg
     d = 3.50 m
+}
+```
+
+```
+m = 2.00 kg
+g_0 = 9.81 m/s^2
+theta = 30.0 deg
+@layout.column {
+    Forces {
+        F_g = m * g_0
+    }
+    Motion {
+        a = g_0 * sin(theta)
+    }
 }
 ```
 

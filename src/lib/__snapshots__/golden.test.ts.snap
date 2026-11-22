@@ -235,6 +235,12 @@ Variables assigned inside a block are local to it, like a scoped block in code.
 "
 `;
 
+exports[`the Reference tab’s examples > Basics: # Kinematics { 1`] = `
+"2: v = 2.0 m/s
+3: t = 3.0 s
+4: d = v t = 2.0 m/s\\times 3.0 s = 6.0 m"
+`;
+
 exports[`the Reference tab’s examples > Basics: # Section 1`] = `""`;
 
 exports[`the Reference tab’s examples > Basics: // the block's mass 1`] = `"2: m = 2.00 kg"`;
@@ -420,6 +426,11 @@ exports[`the Reference tab’s examples > Functions: E(n, m to kg, L to m) = n^2
 3: E_1 = \\frac1^2 h^28 m_e\\times (0.100 nm)^2 = \\frac1^2\\times (6.63e-34 J· s)^28\\times (9.11e-31 kg)\\times (1.00e-10 m)^2 = 6.03e-18 J"
 `;
 
+exports[`the Reference tab’s examples > Functions: T = 2.0 s 1`] = `
+"1: T = 2.0 s
+2: f = \\frac1T = \\frac12.0 s = 0.50 Hz"
+`;
+
 exports[`the Reference tab’s examples > Functions: ang(y, x):3:deg = atan(y / x) 1`] = `
 "1: ang(y, x) = \\tan^-1(\\fracyx)\\quad\\textin °
 2: \\phi = \\tan^-1(\\frac1.02.0) = 26.6°"
@@ -486,6 +497,14 @@ exports[`the Reference tab’s examples > Layout: m = 2.00 kg 1`] = `
 3: F = m\\times 9.81 m/s^2
 6: N = (6.02e23)\\times 2.00 = 1.20e24
 9: \\lambda = 0.000000532 m"
+`;
+
+exports[`the Reference tab’s examples > Layout: m = 2.00 kg 2`] = `
+"1: m = 2.00 kg
+2: g_0 = 9.81 m/s^2
+3: \\theta = 30.0°
+6: F_g = m g_0 = 2.00 kg\\times 9.81 m/s^2 = 19.6 N
+9: a = g_0 \\sin(\\theta) = 9.81 m/s^2\\times \\sin(30.0°) = 4.91 m/s^2"
 `;
 
 exports[`the Reference tab’s examples > Plot settings: t = @series(0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s) 1`] = `

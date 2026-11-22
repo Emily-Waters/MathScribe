@@ -197,6 +197,51 @@ body {
   border-color: var(--accent);
 }
 
+/* Share's "Link copied", for a moment after a click */
+.filebar__flash {
+  font-size: 12px;
+  color: var(--fn);
+  white-space: nowrap;
+}
+
+/* ---------- Icons (components/icons.tsx) ---------- */
+
+.icon {
+  display: block;
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+/* An icon button's words: for screen readers only, except in a menu (below). */
+.icon-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* A button that is an icon: square-ish, the icon centred. */
+.filebar button,
+.options__toggle--icon,
+.tabs button:has(> .icon) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.filebar button:has(> .icon),
+.options__toggle--icon {
+  padding: 4px 7px;
+}
+
+.tabs button:has(> .icon) {
+  padding: 4px 8px;
+}
+
 .app__error {
   padding: 6px 16px;
   font-size: 12px;
@@ -1886,7 +1931,15 @@ body {
   border-bottom-color: var(--accent);
 }
 
-/* The top bar's file buttons, in its File menu on a narrow screen */
+/* The top bar's file buttons, in its File menu on a narrow screen: their words beside their icons */
+.file-menu .icon-label {
+  position: static;
+  width: auto;
+  height: auto;
+  overflow: visible;
+  clip-path: none;
+}
+
 .file-menu {
   display: flex;
   flex-direction: column;
@@ -1894,6 +1947,9 @@ body {
 }
 
 .file-menu button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   min-height: 40px;
   padding: 6px 10px;
   font: inherit;

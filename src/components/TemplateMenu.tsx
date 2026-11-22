@@ -9,7 +9,7 @@ interface TemplateMenuProps {
 /** "New from template": a menu of the templates beside New, each opening a new sheet started from it. */
 export function TemplateMenu({ onNew }: TemplateMenuProps) {
   return (
-    <Dropdown label="Template" panelLabel="New from template" closeOnChoose>
+    <Dropdown label="New from a template" icon="template" panelLabel="New from template" closeOnChoose>
       <p className="options__help">A new sheet, started from one of these:</p>
       {TEMPLATES.map((t) => (
         <button key={t.name} className="template-choice" onClick={() => onNew(t.name, t.source)}>

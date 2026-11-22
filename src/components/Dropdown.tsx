@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { placeFixedPanel } from '../editor/popover.ts'
+import { Icon, IconLabel, type IconName } from './icons.tsx'
 
 interface DropdownProps {
   label: string
+  /** Shown instead of the label (which becomes its tooltip, and what a screen reader reads). */
+  icon?: IconName
   /** Accessible name for the panel, e.g. "Editor options". */
   panelLabel: string
   children: ReactNode
@@ -14,7 +17,7 @@ interface DropdownProps {
 }
 
 /** A button that opens a panel of settings (or a menu: closeOnChoose). Closes on Escape or a click outside. */
-export function Dropdown({ label, panelLabel, children, hidden, closeOnChoose = false }: DropdownProps) {
+export function Dropdown({ label, icon, panelLabel, children, hidden, closeOnChoose = false }: DropdownProps) {
   const [open, setOpen] = useState(false)
   const root = useRef<HTMLDivElement>(null)
   const toggle = useRef<HTMLButtonElement>(null)
@@ -46,12 +49,15 @@ export function Dropdown({ label, panelLabel, children, hidden, closeOnChoose = 
     <div className="options" ref={root} style={hidden ? { visibility: 'hidden' } : undefined}>
       <button
         ref={toggle}
-        className="options__toggle"
+        className={icon ? 'options__toggle options__toggle--icon' : 'options__toggle'}
         aria-haspopup="true"
         aria-expanded={open && !hidden}
+        title={icon ? label : undefined}
         onClick={() => setOpen((o) => !o)}
       >
-        {label} <span aria-hidden="true">▾</span>
+        {icon
+          ? <><Icon name={icon} /><IconLabel>{label}</IconLabel></>
+          : <>{label} <span aria-hidden="true">▾</span></>}
       </button>
       {open && !hidden && createPortal(
         <div

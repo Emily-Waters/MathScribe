@@ -31,6 +31,7 @@ import { ErrorBoundary } from './components/ErrorBoundary.tsx'
 import { EVALUATION, PANE, loadCalcOptions, saveCalcOptions, type Pane } from './config.ts'
 import { useNarrow } from './useNarrow.ts'
 import { Dropdown } from './components/Dropdown.tsx'
+import { Icon, IconLabel } from './components/icons.tsx'
 import { useSettled } from './useSettled.ts'
 import { copyText, useFlash } from './useFlash.ts'
 import { MAX_SHARE_LINK, shareLink, sharedSheet } from './lib/data/share.ts'
@@ -204,24 +205,33 @@ export default function App() {
     setPane(PANE.input)
   }, [])
 
-  // The file buttons: in the top bar, or on a narrow screen in its menu.
+  // The file buttons, as icons: in the top bar, or on a narrow screen in its menu (where their words show too).
+  // Each one's words are its tooltip's first line and what a screen reader reads.
   const fileButtons = (
     <>
-      <button onClick={() => file.newSheet()} title="A new, empty sheet in its own tab">New</button>
-      <button onClick={() => setCreating(true)} title="Have an AI write a test, assignment, worked examples or a lab write-up">
-        Create
+      <button onClick={() => file.newSheet()} title={'New\nA new, empty sheet in its own tab'}>
+        <Icon name="newSheet" /><IconLabel>New</IconLabel>
       </button>
-      <button onClick={() => void file.open()} title="Open one or more sheets, each in its own tab (Ctrl+O)">Open</button>
-      <button onClick={() => void file.save()} title={canLinkFiles ? 'Save (Ctrl+S)' : 'Download the sheet (Ctrl+S)'}>
-        Save
+      <button onClick={() => setCreating(true)} title={'Create\nHave an AI write a test, assignment, worked examples or a lab write-up'}>
+        <Icon name="create" /><IconLabel>Create</IconLabel>
       </button>
-      <button onClick={() => void file.saveAs()} title="Save to a new file (Ctrl+Shift+S)">Save as</button>
-      <button onClick={() => setExporting(true)} title="Download the sheet as a Word or LaTeX document">Export</button>
+      <button onClick={() => void file.open()} title={'Open (Ctrl+O)\nOne or more sheets, each in its own tab'}>
+        <Icon name="open" /><IconLabel>Open</IconLabel>
+      </button>
+      <button onClick={() => void file.save()} title={canLinkFiles ? 'Save (Ctrl+S)' : 'Save (Ctrl+S)\nDownloads the sheet'}>
+        <Icon name="save" /><IconLabel>Save</IconLabel>
+      </button>
+      <button onClick={() => void file.saveAs()} title={'Save as (Ctrl+Shift+S)\nTo a new file'}>
+        <Icon name="saveAs" /><IconLabel>Save as</IconLabel>
+      </button>
+      <button onClick={() => setExporting(true)} title={'Export\nDownload the sheet as a Word or LaTeX document'}>
+        <Icon name="exportDocument" /><IconLabel>Export</IconLabel>
+      </button>
       <button
         onClick={() => void share()}
-        title="Copy a link that opens this sheet: it's all in the link, so nothing is uploaded"
+        title={"Share\nCopy a link that opens this sheet: it's all in the link, so nothing is uploaded"}
       >
-        {shareFlash?.message ?? 'Share'}
+        <Icon name={shareFlash ? 'done' : 'share'} /><IconLabel>Share</IconLabel>
       </button>
     </>
   )
@@ -245,9 +255,11 @@ export default function App() {
             {linked || file.state === 'saved' ? SAVE_LABELS[file.state] : 'in this browser'}
             {linked && file.state !== 'error' && <span className="filebar__auto"> (auto-save on)</span>}
           </span>
+          {/* (Share's "Link copied", which its icon only hints at with a tick.) */}
+          {shareFlash && <span className="filebar__flash" role="status">{shareFlash.message}</span>}
           <TemplateMenu onNew={file.newSheet} />
           {narrow
-            ? <Dropdown label={shareFlash?.message ?? 'File'} panelLabel="File" closeOnChoose><div className="file-menu">{fileButtons}</div></Dropdown>
+            ? <Dropdown label="File" icon="menu" panelLabel="File" closeOnChoose><div className="file-menu">{fileButtons}</div></Dropdown>
             : fileButtons}
         </div>
         <ThemeMenu theme={appTheme} onChange={changeAppTheme} />

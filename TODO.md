@@ -642,6 +642,17 @@ Plot ideas, to investigate (suggested 2026-11-21, after legends and colours):
       tabs and wide equations scroll sideways, dialogs and panels fit the
       screen, the Reference stacks its examples. Checked at phone width
       (390px) with headless Chrome: input, output, File menu, Reference.
+- [x] **Icons for the top bar's buttons and the Output tabs**, which were
+      getting busy with words.
+      Resolved (2026-11-22): `Icon` (components/icons.tsx), one table of small
+      line drawings in the text's colour, no icon library. The file buttons,
+      Template, Theme, both panes' options (sliders) and the Library and
+      Reference tabs are icons; Rendered keeps its word, as the tab most used.
+      Each keeps its words as its tooltip and, hidden (`IconLabel`), for screen
+      readers; the narrow screen's File menu (☰) shows them beside the icons.
+      Share's icon turns to a tick for a moment, and "Link copied" shows
+      beside the buttons (it used to replace the button's word). `Dropdown`
+      takes an `icon`.
 ### Mobile view
 
 Level 1 (one pane at a time below 800px) is done: see "Narrow screens" above.

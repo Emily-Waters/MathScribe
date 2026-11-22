@@ -11,7 +11,7 @@ interface OptionsMenuProps {
 /** The output's display settings. */
 export function OptionsMenu({ options, onChange, hidden }: OptionsMenuProps) {
   return (
-    <Dropdown label="Options" panelLabel="Output options" hidden={hidden}>
+    <Dropdown label="Output options" icon="options" panelLabel="Output options" hidden={hidden}>
       <label className="options__row">
         <span>Sig figs</span>
         <select

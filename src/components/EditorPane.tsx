@@ -428,7 +428,7 @@ export function EditorPane({
     <section className="pane">
       <header className="pane__header">
         <h2>Input</h2>
-        <Dropdown label="Options" panelLabel="Editor options">{options}</Dropdown>
+        <Dropdown label="Editor options" icon="options" panelLabel="Editor options">{options}</Dropdown>
       </header>
       <div
         className="editor-wrap"

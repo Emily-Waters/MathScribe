@@ -9,7 +9,7 @@ interface ThemeMenuProps {
 /** The app's colour theme, in the top bar: each choice shown with a small swatch. */
 export function ThemeMenu({ theme, onChange }: ThemeMenuProps) {
   return (
-    <Dropdown label="Theme" panelLabel="App theme">
+    <Dropdown label="Theme" icon="theme" panelLabel="App theme">
       <div role="radiogroup" aria-label="App theme">
         {APP_THEMES.map((t) => (
           <label key={t.id} className="theme-choice">

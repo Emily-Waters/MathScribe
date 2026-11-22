@@ -12,6 +12,7 @@ import { captionNumbers } from './blocks/captions.ts'
 import { ReferencePane } from './ReferencePane.tsx'
 import { OptionsMenu } from './OptionsMenu.tsx'
 import { LibraryPane } from './LibraryPane.tsx'
+import { Icon, IconLabel } from './icons.tsx'
 
 /** The Output pane’s tabs. */
 type Tab = 'rendered' | 'library' | 'reference'
@@ -60,14 +61,25 @@ export function PreviewPane({
           {/* The Reference tab uses fixed settings, so the options don't apply there. */}
           <OptionsMenu options={options} onChange={onOptionsChange} hidden={tab === 'reference' || tab === 'library'} />
           <div className="tabs" role="tablist">
-            <button role="tab" aria-selected={tab === 'rendered'} onClick={() => setTab('rendered')}>
+            {/* Rendered keeps its word (it's the tab most used); Library and Reference are icons. */}
+            <button role="tab" aria-selected={tab === 'rendered'} onClick={() => setTab('rendered')} title="The sheet, typeset">
               Rendered
             </button>
-            <button role="tab" aria-selected={tab === 'library'} onClick={() => setTab('library')}>
-              Library
+            <button
+              role="tab"
+              aria-selected={tab === 'library'}
+              onClick={() => setTab('library')}
+              title={'Library\nEquations and constants to put into the sheet'}
+            >
+              <Icon name="library" /><IconLabel>Library</IconLabel>
             </button>
-            <button role="tab" aria-selected={tab === 'reference'} onClick={() => setTab('reference')}>
-              Reference
+            <button
+              role="tab"
+              aria-selected={tab === 'reference'}
+              onClick={() => setTab('reference')}
+              title={'Reference\nHow to write a sheet, with examples'}
+            >
+              <Icon name="reference" /><IconLabel>Reference</IconLabel>
             </button>
           </div>
         </div>

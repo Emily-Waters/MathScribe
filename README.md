@@ -46,14 +46,14 @@ at a time, with a switch between them under the sheet tabs. Tapping a line of th
 output goes to it in the input; switching to the output scrolls it to the line the
 cursor is on. Long lines wrap in the editor, a line's note goes under its equation,
 and the file buttons (New, Create, Open, Save, Save as, Export, Share) are in a
-**File** menu.
+**File** menu (☰), with their names beside their icons.
 
-**Theme** (top bar): **System** (Light or Dark, following your computer's
+**Theme** (top bar, the half-dark circle): **System** (Light or Dark, following your computer's
 setting), **Light**, **Dark** (blue-grey slate), **Charcoal** (neutral greys, like
 a code editor's dark theme) or **Black** (true black). The choice is remembered in
 the browser.
 
-**Export** (top bar) opens a dialog to download the sheet as a document:
+**Export** (top bar, the arrow into a tray) opens a dialog to download the sheet as a document:
 
 - **Word** (`.docx`): real Word equations you can edit (not pictures). Notes sit
   at the right margin beside their equation (under it, when the equation is too
@@ -75,10 +75,10 @@ margins and an optional title, author and date. The format and the options are
 remembered in the browser.
 
 - **Input** (left): the sheet, in a code editor with MathScribe syntax colours.
-  Its **Options ▾** menu picks the colour theme.
+  Its options menu (the sliders) picks the colour theme.
 - **Output** (right), in tabs:
   - **Rendered**: the typeset sheet.
-  - **Library**: common equations from first-year physics (kinematics, forces,
+  - **Library** (the books): common equations from first-year physics (kinematics, forces,
     energy and momentum, oscillation, waves and optics, electricity, heat, modern
     physics) and general chemistry (moles and solutions, gases, thermochemistry,
     kinetics), searchable. Each is a one-line function with a worked example;
@@ -86,11 +86,11 @@ remembered in the browser.
     empty, otherwise just below it), where it's ordinary text you can rename or
     change. Temperatures are converted to kelvin on the way in (`T to K`), so
     25.0 degC works.
-  - **Reference**: every feature as an example you can copy, shown with its real
+  - **Reference** (the question mark): every feature as an example you can copy, shown with its real
     output (each example is evaluated live, so the reference always matches what
     MathScribe actually does), plus the list of built-in constants.
 
-  Its **Options ▾** menu holds the output settings:
+  Its options menu (the sliders) holds the output settings:
 
   | Setting | Does |
   | --- | --- |
@@ -203,16 +203,17 @@ sheet. A dot on a tab means it has changes not yet saved to a file; closing such
 tab asks first. Each tab keeps its own undo history, cursor and scroll position,
 and the output always shows the active tab.
 
-The buttons in the top bar act on the active tab:
+The buttons in the top bar act on the active tab. They're icons; hovering over one
+shows its name and what it does:
 
-| Button | Shortcut | Does |
-| --- | --- | --- |
-| New | | Opens an empty sheet in a new tab |
-| Template | | Opens a new sheet started from a template: a lab report (title page, purpose, method, data, calculations, results, discussion, conclusion) or a problem set, each with a little of every section filled in to write over |
-| Open | Ctrl/⌘ + O | Opens one or more sheets (select several in the dialog), each in its own tab; a file that's already open is switched to instead |
-| Save | Ctrl/⌘ + S | Formats the sheet and saves it to the current file, or asks where the first time |
-| Save as | Ctrl/⌘ + Shift + S | Formats the sheet and saves it to a new file |
-| Share | | Copies a link that opens the sheet: the sheet is in the link itself (compressed), so nothing is uploaded. Opening the link opens it in a new tab. A very long sheet (a big import) is too long for a link: send its file |
+| Button | Icon | Shortcut | Does |
+| --- | --- | --- | --- |
+| New | page with a plus | | Opens an empty sheet in a new tab |
+| Template | page in panels | | Opens a new sheet started from a template: a lab report (title page, purpose, method, data, calculations, results, discussion, conclusion) or a problem set, each with a little of every section filled in to write over |
+| Open | folder | Ctrl/⌘ + O | Opens one or more sheets (select several in the dialog), each in its own tab; a file that's already open is switched to instead |
+| Save | floppy disk | Ctrl/⌘ + S | Formats the sheet and saves it to the current file, or asks where the first time |
+| Save as | floppy disk and pen | Ctrl/⌘ + Shift + S | Formats the sheet and saves it to a new file |
+| Share | chain link (a tick once copied) | | Copies a link that opens the sheet: the sheet is in the link itself (compressed), so nothing is uploaded. Opening the link opens it in a new tab. A very long sheet (a big import) is too long for a link: send its file |
 
 Auto-saving happens at two levels:
 

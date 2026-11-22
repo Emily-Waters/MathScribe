@@ -852,6 +852,31 @@ try, as headless Chrome can't type with a phone's keyboard or touch.
 
 ## 7. Sheets and output
 
+- [ ] **Rethink the Create prompt: too long to paste, and the AI's sheets lean
+      on LaTeX** (2026-11-22, Emily). Two problems found with Gemini: the
+      prompt (about 52,000 characters, nearly all the primer) didn't paste
+      in whole, and the sheet it wrote used inline `$…$` and `@latex` for
+      what should have been calculation lines. A first attempt didn't work
+      well enough and was scrapped, to think about the approach first. What
+      it tried, for the record:
+      - Rules marked as details in the language tree (`detail(…)`: how
+        MathScribe shows or works something out, not what to write), said in
+        the Reference but left out of the primer: 62 rules, 52,000 → 45,000
+        characters.
+      - The rules as a file to attach (`mathscribe-rules.md`, a Download
+        button) with a short prompt of the request alone.
+      - "The most important rule" at the primer's head and the prompt's end
+        (every calculation a calculation line, never LaTeX), and rules on
+        what `$…$` and `@latex` are for.
+      - `#sym` for formulas: a #sym line whose names have no values yet shown
+        rather than an error, so a formula sheet is `@layout.sym { … }` of
+        calculation lines; the formula-sheet option and the example sheet
+        using it.
+      To think about: a much smaller primer (the syntax a sheet needs, not
+      everything the Reference says; examples over prose), whether the rules
+      should be by task (a test needs different things than a lab write-up),
+      a check of the answer on opening it (lines that are LaTeX but look like
+      calculations), and trying the prompt on several AIs before settling.
 - [x] **A visual check of the exports** (2026-11-22, Emily: a sheet compiled to
       Word and LaTeX and looked at, not run every time, but on asking or after
       a change to the exports).

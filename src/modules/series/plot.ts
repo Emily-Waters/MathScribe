@@ -15,7 +15,7 @@ import type { Unit } from 'mathjs'
 import {
   type Definition, EXACT, FIT, type FormLine, IS_NAME, JOIN, linearFit, type LinearFit, LineForm, type LineResult,
   magnitudeOf, math, memberName, type ModuleHost, normalise, parseMemberName, type PlotData, type PlotPoint,
-  plotScales, type PlotSeries, RESERVED_NAMESPACES, seriesDefinitions, splitArgs, SUBSCRIPT, symbolTex,
+  parseSliceName, plotScales, type PlotSeries, RESERVED_NAMESPACES, whereOf, seriesDefinitions, splitArgs, SUBSCRIPT, symbolTex,
 } from '../../lib/plugin.ts'
 import { splitCallArgs } from './tableSettings.ts'
 import { PLOT_FIT, parsePlotSettings } from './plotSettings.ts'
@@ -343,11 +343,13 @@ export class PlotForm extends LineForm {
         .filter((c) => c.name).map((c) => ({ c, drawn: drawnIn[i] })))
       // (A series in two datasets, the same x for both, is held once.)
       const once = named.filter((n, i) => named.findIndex((m) => m.c.name === n.c.name) === i)
-      const shorts = once.map(({ c }) => parseMemberName(c.name!)?.member ?? c.name!)
+      // (A slice's or condition's rows, x[2:4] or x[t > 0.2 s], are named for their series: p.x.)
+      const plain = once.map(({ c }) => parseSliceName(c.name!)?.of ?? whereOf(c.name!) ?? c.name!)
+      const shorts = plain.map((name) => parseMemberName(name)?.member ?? name)
       once.forEach(({ c, drawn }, i) => {
         // Two with the same name (run1.x, run2.x) keep their namespaces apart: p.run1_x, p.run2_x.
         const clash = shorts.filter((s) => s === shorts[i]).length > 1
-        const base = memberName(plotName, clash ? c.name!.replace(JOIN, SUBSCRIPT) : shorts[i])
+        const base = memberName(plotName, clash ? plain[i].replace(JOIN, SUBSCRIPT) : shorts[i])
         // A lookup into the variables drawn, not a copy (see Views).
         const picked = drawn.map((n) => c.rows.get(n))
         host.setView(base, picked)

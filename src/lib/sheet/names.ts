@@ -9,11 +9,11 @@
  *   unpacked__3       a tuple while `@tuple(a, b) = …` unpacks it
  *   unpacked__column2_5   row 5 of a table's unnamed column 2
  *   argument__3       the uncertainty of an argument a function's body asks for (`delta A`)
- *   a__x_1            a namespace's member, `a.x_1` (a selection, named import or plot)
+ *   a__x_1            a namespace's member, `a.x_1` (a named import or plot)
  *   t__3              a series' member, `t[3]` (a.x[3]: a__x__3)
  *   t__avg            a series' statistic, `t.avg` (as any member is)
  *
- * A series is made by name ([…], @import, a table's column, @select), never
+ * A series is made by name ([…], @import, a table's column, a condition), never
  * by numbering: t_1 and t1 are names like any other. Its members are its name
  * and a number, t[3], and its statistics members of it, t.avg, t.sum; a
  * named plot's fit is p.slope, p.intercept, p.r2 and p.chi2.

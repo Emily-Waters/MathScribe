@@ -14,7 +14,7 @@ const AWKWARD = [
   'f(x) = f(x)\ny = f(1)', 'f(x) =', 'f(a,) = a', 'f() = 1\ny = f()',
   'import(', '@import("x.csv")', '@import("x.csv")\n    a, a\n    1, 2', 'r = @import("x.csv")\n    t (zz)\n    1',
   '@table(', '@table()', '@table(;)', '@table(t; rows -)', '@plot()', '@plot(t)', '@plot(t, x; fit cubic)', 'p = @plot(;;)',
-  'a = @select()', 'a = @select(;)', 'a = @select(t; t from)', 'a.b', 'a.b.c = 1', '.x = 1', 'x. = 1',
+  'a = @select()', 'a = x[t >', 'a = x[]', 'a = t[t > 1 s][', 'a.b', 'a.b.c = 1', '.x = 1', 'x. = 1',
   'x = 1 mol {', 'x = 1 mol {}', 'x = 1 mol {Na^+} + 1 mol {Cl^-}', 'x = 1 M M', 'x = 2 to', 'x = 2 m to s', 'x = to m',
   'x = 1 pm', 'x = pm 1', 'x = 1 pm 1 pm 1', 'x = (1 pm) m', 'delta', 'delta x', 'x = 1/0', 'x = 0/0', 'x = sqrt(-1)',
   'x = <1, 2', 'x = <>', 'x = <1,>', '@tuple(a, b) = 3', '@tuple() = @tuple()', 'x = @solve()', 'x = @solve(x = x, x)',

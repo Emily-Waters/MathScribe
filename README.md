@@ -418,7 +418,7 @@ renamed, change it there too.
   `ChemistryModule`, where the engine's hooks meet them.
   `src/lib/output/katex.ts`: KaTeX with mhchem, which everything that draws maths imports
 - `src/modules/series/`: the series module: series in square brackets (`[…]`, ranges and slices), `@table(…)`, `@plot(…)`
-  and `@select(…)` as line forms (`series.ts`, `table.ts`, `plot.ts`, `select.ts`), and the
+  as line forms (`series.ts`, `table.ts`, `plot.ts`), conditions in a series' brackets (`where.ts`), and the
   columns they share (`columns.ts`: a column, or a series, worked out row by row)
 - `src/modules/solve/`: the solve module: `x = @solve(eq, x)`, by
   rearranging or numerically from a guess (`solve.ts`), and `@tuple(x, y) =

@@ -1,11 +1,10 @@
-/** The series module's syntax: `@table(…)`, `@plot(…)` and `@select(…)`, each a line of its own. (A series itself is in square brackets: series.ts.) */
+/** The series module's syntax: `@table(…)` and `@plot(…)`, each a line of its own. (A series itself is in square brackets: series.ts.) */
 import { builtinOpening, NAMED } from '../../lib/plugin.ts'
 
 /** The series module's functions, each written after @: `@table(t, x)`. */
 export const SERIES_CALL = {
   table: 'table',
   plot: 'plot',
-  select: 'select',
 } as const
 
 /** A table of series: `@table(t, x, v = x / t)` (1: what's between the brackets). */
@@ -17,8 +16,6 @@ export const TABLE_CALL = new RegExp(String.raw`^${builtinOpening(SERIES_CALL.ta
  */
 export const PLOT_CALL = new RegExp(String.raw`^${NAMED}?${builtinOpening(SERIES_CALL.plot)}(.*)\)$`)
 
-/** A slice of series: `a = @select(t, x; t from 0.2 to 0.8)` (1: its name, 2: what's between the brackets). */
-export const SELECT_CALL = new RegExp(String.raw`^${NAMED}${builtinOpening(SERIES_CALL.select)}(.*)\)$`)
 
 /** A series' values spread in place, `[...x, 11 s]`, or the rest of them gathered, `[a, ...rest] = x`. */
 export const SPREAD = '...'

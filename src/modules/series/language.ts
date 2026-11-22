@@ -39,7 +39,7 @@ export const SERIES_TOPICS: readonly PlacedTopic[] = [
     entries: [
       {
         explain: 'A series is measurements under one name, t = [1.21 s, 1.17 s, 1.24 s] (or a column of '
-          + '@import, @table or @select). t on its own is the series; t[2] is one of its values, and its statistics '
+          + '@import or @table). t on its own is the series; t[2] is one of its values, and its statistics '
           + 'are members of it: t.avg is the mean ± standard error, t.count the count, t.sum the sum.',
         terms: [
           { kind: TERM_KIND.seriesName, name: '', summary: 'The series: its values, listed' },
@@ -309,26 +309,22 @@ export const SERIES_TOPICS: readonly PlacedTopic[] = [
         }],
       },
       {
-        explain: '@select(…) keeps the rows where its conditions hold, as new series under a name: a.t, a.x, numbered '
-          + 'from 1. A named plot keeps its fit the same way: p.slope, p.intercept. Name an import too, run1 = '
-          + '@import(…), to keep two files apart.',
+        explain: 'A named plot keeps what it made under its name: its fit, p.slope, p.intercept, p.r2, and the series '
+          + 'it drew, p.t, p.x (the rows on its axes, numbered from 1). A named import keeps its columns the same way, '
+          + 'run1.t, so two files stay apart.',
         rules: [
-          'Its conditions all hold: t from 0.2 to 0.8 (either end can go), x to 0.16, rows 5-20. A bare number '
-            + 'is in the series\' unit, or give one: t from 250 ms.',
-          'In a condition a name means the selected series of that name first: @select(run1.t, run1.x; t from '
-            + '0.2).',
-          'A selection doesn\'t copy: a.x[1] is x[2], with its sig figs and uncertainty, so x[2] - a.x[1] is '
-            + 'exactly 0. a.x is shown x_a.',
-          'Names with a dot work alike wherever they\'re made: a selection, a named import (run1.x[3]), a named '
-            + 'plot (p.x, p.slope). Typing a name and a dot suggests what it holds.',
+          'A plot\'s series don\'t copy: p.x[1] is the value it drew first itself, with its sig figs and uncertainty. '
+            + 'p.x is shown x_p.',
+          'Names with a dot work alike wherever they\'re made: a named import (run1.x[3]), a named plot (p.x, '
+            + 'p.slope). Typing a name and a dot suggests what it holds.',
         ],
         examples: [{
           source: [
             't = [0.10 s, 0.20 s, 0.30 s, 0.40 s]',
             'x = [0.020 m, 0.098 m, 0.152 m, 0.199 m]',
-            'a = @select(t, x; t from 0.2)',
-            'p = @plot(a.t, a.x; fit linear)',
+            'p = @plot(t[t >= 0.2 s], x[t >= 0.2 s]; fit linear)',
             'v = p.slope',
+            'p.x.count',
           ].join('\n'),
         }],
       },

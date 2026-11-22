@@ -13,7 +13,7 @@ import {
   ChoiceSetting, FlagSetting, NameSetting, RowsSetting, SettingsSpec, SwitchSetting, TitleSetting,
 } from '../../lib/plugin.ts'
 
-// (The settings text's own pieces, which @select reads too, are the language's: lib/language/settings.ts.)
+// (The settings text's own pieces are the language's: lib/language/settings.ts.)
 export { formatRowRange, parseRowRange, settingParts } from '../../lib/plugin.ts'
 
 /** How a table's lines are drawn: under the header, around every cell (the default), or none. */
@@ -41,7 +41,7 @@ export interface TableSettings {
 export const DEFAULT_TABLE_SETTINGS: TableSettings = { lines: TABLE_LINE.grid, numbers: true, uncertainty: true, allRows: false }
 
 // ---------------------------------------------------------------------------
-// The words settings are written with (shared by table, plot and select)
+// The words settings are written with (shared by table and plot)
 // ---------------------------------------------------------------------------
 
 /** Each setting's word. */

@@ -155,10 +155,17 @@ what's here better.
       being a member (`x[n + 1]`). A condition no row meets is an error. Such
       a name says how it's written and typeset (`describeName`, names.ts:
       x with its condition below), for messages and the output.
-- [ ] **Take @select out**, now that a condition in brackets does what it
+- [x] **Take @select out**, now that a condition in brackets does what it
       does: rewrite its Reference examples and tests with `x[…]`, then remove
       select.ts and its member. (Its named namespace, a.t and a.x together,
       goes with it: `keep = […]` then `t[keep]`, `x[keep]` is the way.)
+      Resolved (2026-11-22): select.ts, `SELECT_CALL` and its @ member are
+      gone; its Reference entry is now one on what a named plot and a named
+      import keep under their names, its example a plot of `t[t >= 0.2 s]`
+      and `x[t >= 0.2 s]` (the same fit). Its tests became tests of a series
+      picked by a condition (a lookup, block-local, listed for hover). A named
+      plot of a slice or a condition's rows names them for their series
+      (p.x, not p.where3). Views stay, for named plots, slices and conditions.
 - [x] **Plot functions**, not just data: `@plot(t, x, f(t))`, or a curve over a range.
       Resolved (2026-11-22): a function of the sheet's, by its name, is a
       curve, `@plot(L, T, T_model)` with `T_model(L) = 2 * pi * sqrt(L / @g)`:

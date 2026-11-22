@@ -35,7 +35,7 @@ export class Scope<T = unknown> extends Map<string, T> {
     return this.hasExactly(this.spelling(key))
   }
 
-  /** The name as defined: `key` itself; or, for a selection's member (a.x[3]), the variable it is. */
+  /** The name as defined: `key` itself; or, for a lookup's member (p.x[3], m[2:4][1]), the variable it is. */
   private spelling(key: string): string {
     if (this.hasExactly(key)) return key
     const target = this.views?.resolve(key)
@@ -91,10 +91,10 @@ export class Scope<T = unknown> extends Map<string, T> {
 }
 
 /**
- * The series of selections and named plots (`a = @select(t, x; …)`), and of
+ * The series of named plots (`p = @plot(t, x; …)`) and conditions (`x[t > 0.2 s]`), and of
  * series made from another (`z = m[2:4]`), as lookups: a.x is the list of
- * variables it picks, [x__2, x__5, …], so a.x[1] is x[2] itself, with its sig
- * figs and uncertainty, and nothing is copied (a selection of thousands of rows
+ * variables it picks, [x__2, x__5, …], so p.x[1] is x[2] itself, with its sig
+ * figs and uncertainty, and nothing is copied (a lookup of thousands of rows
  * is redone on every edit). Scoped by `{ }` blocks, as variables are. A slice,
  * `m[2:4]` (m__slice_f2_t4), is one too, worked out when it's asked for from
  * its series' members as they are then (`rowsOf`).
@@ -129,13 +129,13 @@ export class Views {
     }
   }
 
-  /** Forget the series under namespace `ns` set at this level (a selection being redone). */
+  /** Forget the series under namespace `ns` set at this level (a named plot being redone). */
   clear(ns: string): void {
     const level = this.levels.at(-1)!
     for (const base of [...level.keys()]) if (parseMemberName(base)?.namespace === ns) level.delete(base)
   }
 
-  /** The variables series `base` picks, if it's a selection's (or a slice's). */
+  /** The variables series `base` picks, if it's a lookup's (a named plot's, a condition's, a slice's). */
   get(base: string): (string | undefined)[] | undefined {
     for (let i = this.levels.length - 1; i >= 0; i--) {
       const names = this.levels[i].get(base)
@@ -147,7 +147,7 @@ export class Views {
     return sliceOf(of, slice.spec)
   }
 
-  /** The variable a selection's member is: a__x_3 → x_7 (undefined if it isn't one). */
+  /** The variable a lookup's member is: a__x_3 → x_7 (undefined if it isn't one). */
   resolve(key: string): string | undefined {
     if (!key.includes(JOIN) || (this.levels.every((l) => !l.size) && !mayBeSlice(key))) return undefined
     const m = parseNumberedName(key)

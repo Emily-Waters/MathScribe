@@ -33,8 +33,8 @@ describe('a call over several lines', () => {
     )
   })
 
-  it('makes a selection', () => {
-    same(`${DATA}a = @select(t, x; t from 0.15 to 0.35)\nn = a.t.count`, `${DATA}a = @select(\n    t, x;\n    t from 0.15 to 0.35\n)\nn = a.t.count`)
+  it('picks rows by a condition', () => {
+    same(`${DATA}a = [...x[t >= 0.15 s and t <= 0.35 s], 0 m]\nn = a.count`, `${DATA}a = [\n    ...x[t >= 0.15 s and t <= 0.35 s],\n    0 m\n]\nn = a.count`)
   })
 
   it('works out any call, and brackets in brackets', () => {

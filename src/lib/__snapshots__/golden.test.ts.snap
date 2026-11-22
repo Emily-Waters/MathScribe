@@ -644,9 +644,9 @@ exports[`the Reference tab’s examples > Repeated measurements: t = [0.10 s, 0.
 exports[`the Reference tab’s examples > Repeated measurements: t = [0.10 s, 0.20 s, 0.30 s, 0.40 s] 2`] = `
 "1: t = (0.10,\\ 0.20,\\ 0.30,\\ 0.40) s\\quad \\text4 values
 2: x = (0.020,\\ 0.098,\\ 0.152,\\ 0.199) m\\quad \\text4 values
-3: t_a,\\ x_a\\quad (0.2 s \\le t):\\ 3 \\text of 4 \\text rows
-4: x_a = [(0.51 ± 0.02) m/s] t_a + (-0.002 ± 0.006) m,\\quad R^2 = 0.9984
-5: v = slope_p = (0.51 ± 0.02) m/s"
+3: x_t\\geq 0.2 s = [(0.51 ± 0.02) m/s] t_t\\geq 0.2 s + (-0.002 ± 0.006) m,\\quad R^2 = 0.9984
+4: v = slope_p = (0.51 ± 0.02) m/s
+5: n_x_p = 3"
 `;
 
 exports[`the Reference tab’s examples > Repeated measurements: t = [1.21 s, 1.17 s, 1.24 s] 1`] = `

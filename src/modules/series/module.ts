@@ -1,8 +1,8 @@
 /**
  * Series as an engine module: series made on one line (`t = [1.52 s, 1.48 s]`,
  * `m = [F / g]`, `t = [0 s:2 s:0.1 s]`, `z = m[2:4]`), shown in a table (`@table(t, x)`), plotted
- * with best-fit lines (`@plot(t, x; fit linear)`), and selected by condition
- * (`a = @select(t, x; t from 0.2 to 0.8)`), and shown on a line of their own
+ * with best-fit lines (`@plot(t, x; fit linear)`), picked by condition
+ * (`x[t > 0.2 s]`, where.ts), and shown on a line of their own
  * (`t`). Series themselves (t[1], t[2], …, t.avg) and imported data are the core's; this builds on them through the
  * ModuleHost.
  */
@@ -15,7 +15,6 @@ import { SERIES_BLOCK, type TableData } from './tableData.ts'
 import { TableView } from './tableView.tsx'
 import { SERIES_CALL } from './syntax.ts'
 import { PlotForm } from './plot.ts'
-import { SelectForm } from './select.ts'
 import { SeriesForm, SeriesShownForm, UnpackedSeriesForm } from './series.ts'
 import { TableForm } from './table.ts'
 import { WhereStep } from './where.ts'
@@ -43,7 +42,7 @@ export class SeriesModule extends EngineModule {
   /** The rows of a series where a condition holds, `x[t > 0.2 s]`, read as the series they make (where.ts). */
   override readonly lineSteps: readonly LineStep[] = [new WhereStep()]
 
-  override readonly lineForms: readonly LineForm[] = [new TableForm(), new PlotForm(), new SelectForm(), new SeriesForm(), new UnpackedSeriesForm(), new SeriesShownForm()]
+  override readonly lineForms: readonly LineForm[] = [new TableForm(), new PlotForm(), new SeriesForm(), new UnpackedSeriesForm(), new SeriesShownForm()]
 
   /** Its part of a sheet's tree: a call's settings after its `;`, as one token. */
   override grammar(): ModuleGrammar {
@@ -72,8 +71,6 @@ export class SeriesModule extends EngineModule {
         'Series side by side, one row per number; name = … works out a column row by row', '@table(t, x, v = x / t)'),
       new LineFormMember(SERIES_CALL.plot, 't, x; fit linear',
         'Graph series against another, with error bars; fit linear adds a best-fit line (p.slope, p.intercept)', 'p = @plot(t, x; fit linear)'),
-      new LineFormMember(SERIES_CALL.select, 't, x; t from 0.2 to 0.8',
-        'The rows where conditions hold, as new series a.t, a.x numbered from 1', 'a = @select(t, x; t from 0.2 to 0.8)'),
     ]
   }
 }

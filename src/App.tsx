@@ -30,6 +30,8 @@ import { ExportDialog } from './components/ExportDialog.tsx'
 import { ErrorBoundary } from './components/ErrorBoundary.tsx'
 import { EVALUATION, loadCalcOptions, saveCalcOptions } from './config.ts'
 import { useSettled } from './useSettled.ts'
+import { copyText, useFlash } from './useFlash.ts'
+import { MAX_SHARE_LINK, shareLink, sharedSheet } from './lib/data/share.ts'
 import './App.css'
 
 /** How the save state reads in the top bar. */
@@ -52,6 +54,34 @@ export default function App() {
   const source = file.active.text
   const linked = file.active.handle !== null
   const error = file.active.error
+
+  // Sharing by link: the sheet is all in the link's # part (lib/data/share.ts). Opening one opens its sheet in a
+  // new tab, then takes the # part off the address, so a reload doesn't open it again; on load, and when a link
+  // is pasted into this tab's address bar.
+  const newSheet = file.newSheet
+  /** The # part last opened (so one isn't opened twice, as React's strict mode runs the effect twice in development). */
+  const openedShare = useRef<string | null>(null)
+  useEffect(() => {
+    const openShared = () => {
+      const fragment = window.location.hash
+      if (!fragment || fragment === openedShare.current) return
+      openedShare.current = fragment
+      void sharedSheet(fragment).then((shared) => {
+        if (!shared) return
+        newSheet(shared.name || undefined, shared.text)
+        window.history.replaceState(null, '', window.location.pathname + window.location.search)
+      })
+    }
+    openShared()
+    window.addEventListener('hashchange', openShared)
+    return () => window.removeEventListener('hashchange', openShared)
+  }, [newSheet])
+  const [shareFlash, showShareFlash] = useFlash<'share'>()
+  const share = async () => {
+    const link = await shareLink(window.location.href, file.active.name, source)
+    if (link.length > MAX_SHARE_LINK) return showShareFlash('share', 'Too long for a link: send the file')
+    showShareFlash('share', (await copyText(link)) ? 'Link copied' : 'Couldn’t copy the link')
+  }
   const [syntaxTheme, setSyntaxTheme] = useState<SyntaxThemeId>(loadSyntaxTheme)
   const [appTheme, setAppTheme] = useState<AppThemeId>(loadAppTheme)
   useEffect(() => {
@@ -193,6 +223,12 @@ export default function App() {
           </button>
           <button onClick={() => void file.saveAs()} title="Save to a new file (Ctrl+Shift+S)">Save as</button>
           <button onClick={() => setExporting(true)} title="Download the sheet as a Word or LaTeX document">Export</button>
+          <button
+            onClick={() => void share()}
+            title="Copy a link that opens this sheet: it's all in the link, so nothing is uploaded"
+          >
+            {shareFlash?.message ?? 'Share'}
+          </button>
         </div>
         <ThemeMenu theme={appTheme} onChange={changeAppTheme} />
       </header>

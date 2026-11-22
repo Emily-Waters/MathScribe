@@ -70,9 +70,11 @@ describe('golden sheets', () => {
 })
 
 describe('the Reference tab’s examples', () => {
-  // (Every example in the language tree: lib/language/tree.ts.)
-  for (const { topic, example } of treeExamples(languageTopics())) {
-    it(`${topic.title}: ${example.source.split('\n')[0]}`, () => {
+  // (Every example in the language tree: lib/language/tree.ts. Each is named by its first line, or, for an entry
+  // that's one thing to write, a setting, by how it's written: its examples' first lines are all the same sample's.)
+  for (const { topic, entry, example } of treeExamples(languageTopics())) {
+    const syntax = topic.entries[entry - 1].syntax
+    it(`${topic.title}: ${syntax ? syntax.join(', ') : example.source.split('\n')[0]}`, () => {
       const out = render(example.source)
       expect(out).not.toMatch(/ERROR/)
       expect(out).toMatchSnapshot()

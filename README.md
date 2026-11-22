@@ -205,6 +205,7 @@ The buttons in the top bar act on the active tab:
 | Open | Ctrl/⌘ + O | Opens one or more sheets (select several in the dialog), each in its own tab; a file that's already open is switched to instead |
 | Save | Ctrl/⌘ + S | Formats the sheet and saves it to the current file, or asks where the first time |
 | Save as | Ctrl/⌘ + Shift + S | Formats the sheet and saves it to a new file |
+| Share | | Copies a link that opens the sheet: the sheet is in the link itself (compressed), so nothing is uploaded. Opening the link opens it in a new tab. A very long sheet (a big import) is too long for a link: send its file |
 
 Auto-saving happens at two levels:
 

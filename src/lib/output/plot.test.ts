@@ -207,6 +207,16 @@ describe('@plot()', () => {
     expect(last(src.split('\nk')[0]).tex).toContain('\\mathrm{N}/\\mathrm{m}')
   })
 
+  it('names an axis as its settings say, with its unit still added', () => {
+    const plot = last(`${data}@plot(t, x; xlabel "Time taken", ylabel "Distance, along the ramp")`).plot!
+    expect(plot.settings).toMatchObject({ xLabel: 'Time taken', yLabel: 'Distance, along the ramp' })
+    const svg = plotSvg(plot, PRINT_PALETTE)
+    expect(svg).toContain('Time taken [s]')
+    expect(svg).toContain('Distance, along the ramp [m]')
+    expect(plotToLatex(plot)).toContain('xlabel={$\\text{Time taken}\\,\\left[\\mathrm{s}\\right]$}')
+    expect(formatPlotSettings(plot.settings)).toBe('xlabel "Time taken", ylabel "Distance, along the ramp"')
+  })
+
   it('has the same axes in LaTeX as drawn, and a fit across the whole of x’s', () => {
     const plot = last(`${data}@plot(t, x; fit linear)`).plot!
     const { x } = plotScales(plot)

@@ -440,8 +440,16 @@ Plot ideas, to investigate (suggested 2026-11-21, after legends and colours):
       law, Ohm's law and the like, where the intercept should be 0.
 - [ ] **Other fits**: quadratic, exponential, power law (with their parameters
       as variables, as a linear fit's are).
-- [ ] **Axis labels of one's own**: `xlabel "Extension"`, `ylabel "Force"`, with
+- [x] **Axis labels of one's own**: `xlabel "Extension"`, `ylabel "Force"`, with
       the unit still added (`Extension [m]`).
+      Resolved (2026-11-21): two plot settings (`TextSetting`, a new kind in
+      lib/language/settings.ts: quoted words in a field), so the ⚙ menu, the
+      reference and the AI primer have them by themselves; the drawing and
+      LaTeX label each axis by them (`labelledAxes`), its unit still added.
+      (The golden test now names a setting's example by its syntax: they all
+      start with the same sample's line, so adding one shifted the others'
+      numbered names. Checked: every snapshot the commit had is still there,
+      with the same value.)
 - [ ] **Marker shapes per series** (circle, square, triangle, …), so a plot
       reads in black-and-white printing.
 - [ ] **The fit's equation in the legend**, as well as (or instead of) under
@@ -565,13 +573,16 @@ Plot ideas, to investigate (suggested 2026-11-21, after legends and colours):
       Resolved (2026-11-20): in the editor's Options (ShortcutOptions), from one
       list of the keys as they're bound (editor/shortcuts.ts, `EDITOR_KEY`,
       which the keymaps use too), shown as ⌘ on a Mac and Ctrl elsewhere.
-- [ ] **Quick fixes on warnings** (above), **literal tables** (Lab and data
+- [x] **Quick fixes on warnings** (above), **literal tables** (Lab and data
       tables, section 2), **images** (section 2) and **PDF in the app**
       (section 2): recommended 2026-11-20, after the quality-of-life round
       (templates, inline results, hover, shortcuts, parameter hints, output
       options, caption numbers), in roughly that order of value; literal
       tables first, as the last everyday thing a lab report needs LaTeX by hand
       for.
+      Resolved (2026-11-21): a note of what to do next, not a task of its own:
+      each is an item in its section. (2026-11-21's look at the to-dos put
+      plot polish, sharing by link and max/min slope lines first.)
 - [x] **Rename (F2)** a variable or function everywhere it's used, respecting scope.
       Resolved (2026-11-17): F2 opens a small in-editor panel beside the name
       and replaces uses that resolve to the same symbol, in scope. Ctrl+Click
@@ -587,8 +598,16 @@ Plot ideas, to investigate (suggested 2026-11-21, after legends and colours):
 
 ## 6. Sharing and the app
 
-- [ ] **Share by link**: the sheet compressed into the URL
+- [x] **Share by link**: the sheet compressed into the URL
       (`…/MathScribe/#sheet=…`), with no server and nothing uploaded.
+      Resolved (2026-11-21): a Share button copies a link with the sheet's name
+      and text in its `#` part, deflated by the browser's own
+      CompressionStream and written in base64url (`#sheet1=…&name=…`:
+      lib/data/share.ts). Opening one (on load, or pasted into the address bar)
+      opens the sheet in a new tab, and takes the `#` part off the address. A
+      link longer than 32,000 characters isn't offered (messaging apps and
+      email cut them): the button says to send the file. Checked in the
+      running app with headless Chrome.
 - [ ] **Installable and offline**: a progressive web app.
 - [x] **Templates**: "New from template" (a lab write-up, a problem set, a design
       calculation).
@@ -1322,11 +1341,12 @@ into its own file (`docs/REFERENCE.md`), not into the README.
       example named "rows, style, fit, axes and title", out of date since the
       legend, and now points to the section). Tests: the primer lists every
       declared setting's examples, and the Markdown is as expected.
-- [ ] **Step 3: the rest of the language, in one tree**, area by area:
+- [x] **Step 3: the rest of the language, in one tree**, area by area:
       commands, calculations, uncertainty, series, chemistry, layout. Agreed
       with Emily (2026-11-21): the references, tooltips and AI primer all from
       one tree, which the tests walk, so an example that's no longer valid is
       caught; an entry's rules shown in both the Reference and the primer.
+      Resolved (2026-11-21): in four parts, below.
    - [x] **Part 1: the tree, its tests, and the Reference's examples in it.**
          Resolved (2026-11-21): `lib/language/tree.ts`, the tree: topics, each
          a list of entries (what's said, rules, whole-sheet examples); the

@@ -60,6 +60,8 @@ export const SETTING = {
   title: 'title',
   equation: 'equation',
   legend: 'legend',
+  xlabel: 'xlabel',
+  ylabel: 'ylabel',
   colour: 'colour',
   /** `colour`, as it's spelt in American English too. */
   color: 'color',

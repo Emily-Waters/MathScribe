@@ -7,7 +7,7 @@
  * the editor writes them, so they don't need typing.
  */
 import {
-  ChoiceSetting, RowsSetting, Setting, SettingsSpec, SwitchSetting, TitleSetting, type SettingAbout, type SettingsPanel, type SettingsState,
+  ChoiceSetting, RowsSetting, Setting, SettingsSpec, SwitchSetting, TextSetting, TitleSetting, type SettingAbout, type SettingsPanel, type SettingsState,
 } from '../../lib/plugin.ts'
 import { SETTING } from './tableSettings.ts'
 
@@ -75,6 +75,10 @@ export interface PlotSettings {
   legend?: LegendPosition
   /** Colours chosen for parts of its series, in the order written (a later one for the same part wins). */
   colours: PartColour[]
+  /** The x axis's name of one's own, in place of its series' (`xlabel "Extension"`); its unit is still added. */
+  xLabel?: string
+  /** The y axis's, as xLabel. */
+  yLabel?: string
 }
 
 export const defaultPlotSettings = (): PlotSettings => ({
@@ -203,6 +207,14 @@ export const PLOT_SETTINGS = new SettingsSpec<PlotSettings>('plot', defaultPlotS
     label: 'Y axis',
     summary: 'The y axis\'s range and, with log y, a logarithmic scale.',
     help: 'Leave an axis box empty to fit it to the data. Points outside an axis’s range are left out: of the fit, and of a named plot’s series (p.x).',
+  }),
+  new TextSetting(SETTING.xlabel, 'xLabel', 'Extension', {
+    label: 'X label',
+    summary: 'The x axis’s name, in place of its series’ (its unit is still added: Extension [m]).',
+  }),
+  new TextSetting(SETTING.ylabel, 'yLabel', 'Force', {
+    label: 'Y label',
+    summary: 'The y axis’s name, in place of its series’ (its unit is still added: Force [N]).',
   }),
   new SwitchSetting(SETTING.uncertainty, 'uncertainty', {
     label: 'Show uncertainty',

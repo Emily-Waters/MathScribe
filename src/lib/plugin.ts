@@ -24,7 +24,7 @@
 // from which they're read, written back, and listed in their error. (First: it needs nothing, and a
 // module's settings, which the outputs' files reach through its public face, are declared with it as it loads.)
 export {
-  ChoiceSetting, FlagSetting, NameSetting, RowsSetting, Setting, SettingsSpec, SwitchSetting, TitleSetting, SETTING_WORD,
+  ChoiceSetting, FlagSetting, NameSetting, RowsSetting, Setting, SettingsSpec, SwitchSetting, TextSetting, TitleSetting, SETTING_WORD,
   formatRowRange, joinSettings, parseRowRange, parseTitle, settingParts, titleSetting, type KeysOf, type SettingAbout,
   type SettingDescription, type SettingsDescription, type SettingsPanel, type SettingsState, type SettingValue,
 } from './language/settings.ts'

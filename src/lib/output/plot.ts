@@ -225,6 +225,16 @@ export function plotScales(plot: PlotData): { x: Scale; y: Scale } {
   return { x: scaleFor(xs, settings.x, settings.x.log), y: scaleFor(ys, settings.y, settings.y.log) }
 }
 
+/**
+ * A plot's axes as they're labelled: each by its own name if its settings give
+ * one (`xlabel "Extension"`, written as it is, not as a variable's name), else
+ * by its series'; with its unit either way.
+ */
+export function labelledAxes(plot: PlotData): { x: PlotAxis; y: PlotAxis } {
+  const own = (axis: PlotAxis, label: string | undefined): PlotAxis => (label ? { unit: axis.unit, expr: label } : axis)
+  return { x: own(plot.x, plot.settings.xLabel), y: own(plot.y, plot.settings.yLabel) }
+}
+
 /** Below this, or at or above `large`, a value's written with a power of ten: 2×10⁻⁴, 10⁵. */
 const PLAIN_TICKS = { small: 1e-3, large: 1e5 } as const
 
@@ -496,8 +506,9 @@ export function plotSvg(plot: PlotData, palette: PlotPalette): string {
   out.push(`<rect x="${margin.left}" y="${margin.top}" width="${w}" height="${h}" fill="none" stroke="${palette.muted}" stroke-width="1"/>`)
 
   // Axis labels.
-  out.push(`<text x="${margin.left + w / 2}" y="${height - 12}" text-anchor="middle">${axisLabel(plot.x, xTicks.power)}</text>`)
-  out.push(`<text transform="translate(18 ${margin.top + h / 2}) rotate(-90)" text-anchor="middle">${axisLabel(plot.y, yTicks.power)}</text>`)
+  const axes = labelledAxes(plot)
+  out.push(`<text x="${margin.left + w / 2}" y="${height - 12}" text-anchor="middle">${axisLabel(axes.x, xTicks.power)}</text>`)
+  out.push(`<text transform="translate(18 ${margin.top + h / 2}) rotate(-90)" text-anchor="middle">${axisLabel(axes.y, yTicks.power)}</text>`)
 
   // The series: fit lines, error bars, lines, points.
   out.push(`<g clip-path="url(#${clip})">`)

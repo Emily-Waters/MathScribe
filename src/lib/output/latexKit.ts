@@ -8,7 +8,7 @@ import { TITLE_SEGMENT, titleSegments } from './textSegments.ts'
 import { GREEK_BY_CHAR } from '../syntax.ts'
 import { symbolTex, unitTex } from '../engine/index.ts'
 import {
-  FIT_LEGEND, NAMED_COLOURS, axisTicks, chosenColours, plotScales, tickLabelTex, type PlotData, type PlotName, type Scale,
+  FIT_LEGEND, NAMED_COLOURS, axisTicks, chosenColours, labelledAxes, plotScales, tickLabelTex, type PlotData, type PlotName, type Scale,
 } from './plot.ts'
 import { LEGEND_POSITION, PLOT_STYLE, showsLegend, type LegendPosition, type PlotColour } from '../../modules/series/public.ts'
 import type { LatexOptions } from './latex.ts'
@@ -286,13 +286,15 @@ export function plotToLatex(plot: PlotData): string {
   const scales = plotScales(plot)
   const ticks = { x: axisTicks(scales.x, settings.x.log), y: axisTicks(scales.y, settings.y.log) }
   const legend = showsLegend(settings, plot.series.length)
+  // (Each axis by its own name if the settings give one: xlabel "Extension".)
+  const axes = labelledAxes(plot)
   const axisOptions = (axis: 'x' | 'y', s: Scale) => [
     `${axis}min=${plotNumber(s.from)}`, `${axis}max=${plotNumber(s.to)}`,
     `${axis}tick={${s.ticks.map(plotNumber).join(',')}}`, `${axis}ticklabels={${ticks[axis].labels.map(tickLabelTex).join(',')}}`,
   ]
   const options = [
     'width=0.8\\linewidth', 'height=0.5\\linewidth', 'grid=major', 'scaled ticks=false',
-    `xlabel={${plotLabel(plot.x, ticks.x.power)}}`, `ylabel={${plotLabel(plot.y, ticks.y.power)}}`,
+    `xlabel={${plotLabel(axes.x, ticks.x.power)}}`, `ylabel={${plotLabel(axes.y, ticks.y.power)}}`,
     ...(settings.title ? [`title={${escapeTex(settings.title)}}`] : []),
     ...(settings.x.log ? ['xmode=log'] : []),
     ...(settings.y.log ? ['ymode=log'] : []),

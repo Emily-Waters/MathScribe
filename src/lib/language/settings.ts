@@ -347,6 +347,37 @@ export class TitleSetting<S extends { title?: string }> extends Setting<S> {
   }
 }
 
+/** Words, quoted so they can hold commas, `xlabel "Extension"`: a field holding text (in the menu, a text box; empty for none). */
+export class TextSetting<S> extends Setting<S> {
+  readonly word: string
+  readonly key: KeysOf<S, string>
+  readonly sample: string
+  constructor(word: string, key: KeysOf<S, string>, sample: string, about: SettingAbout) {
+    super(about)
+    this.word = word
+    this.key = key
+    this.sample = sample
+  }
+  get examples() {
+    return [`${this.word} ${QUOTE}${this.sample}${QUOTE}`]
+  }
+  read(part: string, into: S): boolean {
+    const m = new RegExp(`^${this.word}\\s+${QUOTE}([^${QUOTE}]*)${QUOTE}$`).exec(part)
+    if (!m) return false
+    put(into, this.key, m[1] || undefined)
+    return true
+  }
+  write(s: S): string[] {
+    const text = s[this.key] as string | undefined
+    // (Text can't hold a quote mark: it ends the text.)
+    return text ? [`${this.word} ${QUOTE}${text.replaceAll(QUOTE, '')}${QUOTE}`] : []
+  }
+  protected rows<C>(panel: SettingsPanel<C>, { current, set }: SettingsState<S>): C[] {
+    return [panel.row(this.about.label, panel.textBox(current()[this.key] as string | undefined, 'auto',
+      (text) => set(changed(current(), this.key, text))))]
+  }
+}
+
 // ---------------------------------------------------------------------------
 // A call's settings
 // ---------------------------------------------------------------------------

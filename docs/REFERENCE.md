@@ -669,6 +669,22 @@ x = @series(0.051 m pm 0.004 m, 0.098 m pm 0.004 m, 0.152 m pm 0.004 m, 0.199 m 
 @plot(t, x; fit linear, y from 0 to 10, log y)
 ```
 
+`xlabel "Extension"`: The x axis’s name, in place of its series’ (its unit is still added: Extension \[m\]).
+
+```
+t = @series(0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s)
+x = @series(0.051 m pm 0.004 m, 0.098 m pm 0.004 m, 0.152 m pm 0.004 m, 0.199 m pm 0.004 m, 0.248 m pm 0.004 m, 0.301 m pm 0.004 m)
+@plot(t, x; fit linear, xlabel "Extension")
+```
+
+`ylabel "Force"`: The y axis’s name, in place of its series’ (its unit is still added: Force \[N\]).
+
+```
+t = @series(0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s)
+x = @series(0.051 m pm 0.004 m, 0.098 m pm 0.004 m, 0.152 m pm 0.004 m, 0.199 m pm 0.004 m, 0.248 m pm 0.004 m, 0.301 m pm 0.004 m)
+@plot(t, x; fit linear, ylabel "Force")
+```
+
 `uncertainty off`: Error bars for the points' uncertainties; uncertainty off hides them.
 
 ```

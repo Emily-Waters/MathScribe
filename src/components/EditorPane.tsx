@@ -49,6 +49,8 @@ interface EditorPaneProps {
   results: ReadonlyMap<number, LineValue>
   /** Whether the editor's faint hints show: results, and what modules add of the kind (a series' members' names). */
   hintsShown: boolean
+  /** Wrap long lines (a narrow screen's: a phone has no room to scroll a line sideways). */
+  wrap: boolean
   /** Where each function is defined (for Ctrl+Click / F12). */
   definitions: Map<string, number[]>
   /** What the sheet defines, for completions and hover information. */
@@ -206,6 +208,8 @@ const baseTheme = EditorView.theme({
 const darkness = new Compartment()
 /** Whether the editor's faint hints show (inlineHintsShown); changed with the editor's Options. */
 const hints = new Compartment()
+/** Whether long lines wrap; changed as the screen gets narrow or wide. */
+const wrapping = new Compartment()
 
 /** Everything a sheet's editor is set up with; `on` reports edits and cursor moves to the app. */
 function extensions(
@@ -213,6 +217,7 @@ function extensions(
   dark: boolean,
   acceptKeys: AcceptKeys,
   hintsShown: boolean,
+  wrap: boolean,
 ): Extension[] {
   return [
     lineNumbers({ formatNumber: (n, state) => String(sheetLineNumber(state, n)) }),
@@ -246,6 +251,7 @@ function extensions(
     baseTheme,
     darkness.of(EditorView.darkTheme.of(dark)),
     hints.of(inlineHintsShown.of(hintsShown)),
+    wrapping.of(wrap ? EditorView.lineWrapping : []),
     placeholder('m = 2.0 kg'),
     EditorView.contentAttributes.of({ 'aria-label': 'Math input', spellcheck: 'false' }),
     // (Before the usual keys: moving, deleting and copying lines keep imported data whole.)
@@ -280,7 +286,7 @@ function extensions(
  * definition, and blocks fold from the gutter.
  */
 export function EditorPane({
-  value, onChange, docId, openIds, jump, insert, onCursorLine, diagnostics, results, hintsShown, definitions, symbols, theme, dark, customPalette,
+  value, onChange, docId, openIds, jump, insert, onCursorLine, diagnostics, results, hintsShown, wrap, definitions, symbols, theme, dark, customPalette,
   acceptKeys, onChooseImport, options,
 }: EditorPaneProps) {
   const host = useRef<HTMLDivElement>(null)
@@ -296,6 +302,7 @@ export function EditorPane({
   const darkNow = useRef(dark)
   const acceptKeysNow = useRef(acceptKeys)
   const hintsNow = useRef(hintsShown)
+  const wrapNow = useRef(wrap)
   /** A fresh editor state for a sheet's text. */
   const makeState = useRef((text: string) => EditorState.create({
     doc: text,
@@ -303,7 +310,7 @@ export function EditorPane({
       change: (s) => handlers.current.change(s),
       cursor: (l, clicked) => handlers.current.cursor(l, clicked),
       chooseImport: (l) => handlers.current.chooseImport(l),
-    }, darkNow.current, acceptKeysNow.current, hintsNow.current),
+    }, darkNow.current, acceptKeysNow.current, hintsNow.current, wrapNow.current),
   }))
 
   useEffect(() => {
@@ -374,6 +381,11 @@ export function EditorPane({
     hintsNow.current = hintsShown
     view.current?.dispatch({ effects: hints.reconfigure(inlineHintsShown.of(hintsShown)) })
   }, [hintsShown, docId])
+
+  useEffect(() => {
+    wrapNow.current = wrap
+    view.current?.dispatch({ effects: wrapping.reconfigure(wrap ? EditorView.lineWrapping : []) })
+  }, [wrap, docId])
 
   useEffect(() => {
     acceptKeysNow.current = acceptKeys

@@ -628,7 +628,29 @@ Plot ideas, to investigate (suggested 2026-11-21, after legends and colours):
       the Rendered tab numbers them in the sheet's order, hidden and wrong ones
       left out as the exports leave them (blocks/captions.ts); a view reads its
       number with `useCaptionNumber` (in the module API).
-- [ ] **Narrow screens**: a stacked layout, or an Input / Output switch.
+- [x] **Narrow screens**: a stacked layout, or an Input / Output switch.
+      Resolved (2026-11-21), level 1 of making MathScribe mobile friendly: below
+      800px wide (`NARROW_SCREEN`, config.ts, and App.css's media query),
+      Input and Output show one at a time, with a switch under the sheet tabs
+      (`useNarrow`; SplitPane's `only`, which keeps the other pane rendered but
+      hidden, so the editor keeps its text, cursor and history). Tapping a line
+      of the output goes to it in the input; switching to the output scrolls it
+      to the cursor's line. The editor wraps long lines (a compartment, as the
+      hints'), a line's note goes under its equation, the top bar's file
+      buttons are in a File menu (which shows Share's "Link copied"), and the
+      sheet's name shrinks with an ellipsis. Already fine: tables, the sheet
+      tabs and wide equations scroll sideways, dialogs and panels fit the
+      screen, the Reference stacks its examples. Checked at phone width
+      (390px) with headless Chrome: input, output, File menu, Reference.
+- [ ] **Mobile, level 2: comfortable editing on a phone.** A row of symbol keys
+      above the keyboard (`*`, `^`, `_`, `@`, `{`, `#`, `(`, `)`); tap or
+      long-press for what hovering shows (values, units, tooltips); menu entries
+      for what only shortcuts do (rename, go to definition, format); bigger tap
+      targets for fold arrows, ⚙ and the import's buttons; suggestions kept
+      above the keyboard. Needs a real phone to try.
+- [ ] **Equations narrower on a phone**: a long line of working scrolls sideways
+      in the output; laid out one `=` a row when it's wider than the pane, as
+      the LaTeX export already does (`fitted`), it wouldn't need to.
 - [ ] **Evaluate in a web worker**, if very long sheets still lag once typing pauses.
 
 ## 7. Sheets and output

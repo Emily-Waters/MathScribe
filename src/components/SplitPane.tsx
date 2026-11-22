@@ -14,13 +14,18 @@ function loadSplit(): number {
 interface SplitPaneProps {
   left: ReactNode
   right: ReactNode
+  /**
+   * One pane only, the whole width (a narrow screen's): the other stays
+   * rendered, hidden, so an editor keeps its text, cursor and history.
+   */
+  only?: 'left' | 'right'
 }
 
 /**
  * Two panes side by side with a draggable vertical divider.
  * Drag, use arrow keys when focused, or double-click to reset to 50/50.
  */
-export function SplitPane({ left, right }: SplitPaneProps) {
+export function SplitPane({ left, right, only }: SplitPaneProps) {
   const [percent, setPercent] = useState(loadSplit)
   const [dragging, setDragging] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -61,8 +66,8 @@ export function SplitPane({ left, right }: SplitPaneProps) {
   }
 
   return (
-    <div ref={containerRef} className={`split${dragging ? ' split--dragging' : ''}`}>
-      <div className="split__pane" style={{ flex: `0 0 ${percent}%` }}>
+    <div ref={containerRef} className={`split${dragging ? ' split--dragging' : ''}${only ? ` split--only-${only}` : ''}`}>
+      <div className="split__pane" style={only ? undefined : { flex: `0 0 ${percent}%` }}>
         {left}
       </div>
       <div

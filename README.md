@@ -41,6 +41,13 @@ Built on [mathjs](https://mathjs.org) (parsing, evaluation, units),
 
 ## The window
 
+**On a phone** (or any window narrower than 800px), Input and Output are shown one
+at a time, with a switch between them under the sheet tabs. Tapping a line of the
+output goes to it in the input; switching to the output scrolls it to the line the
+cursor is on. Long lines wrap in the editor, a line's note goes under its equation,
+and the file buttons (New, Create, Open, Save, Save as, Export, Share) are in a
+**File** menu.
+
 **Theme** (top bar): **System** (Light or Dark, following your computer's
 setting), **Light**, **Dark** (blue-grey slate), **Charcoal** (neutral greys, like
 a code editor's dark theme) or **Black** (true black). The choice is remembered in

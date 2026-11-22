@@ -126,3 +126,14 @@ export const SPLIT = {
   keyStep: 2,
   bigKeyStep: 10,
 } as const
+
+/**
+ * A narrow screen (a phone, or a narrow window): Input and Output one at a
+ * time, with a switch between them, and the top bar's buttons in a menu.
+ * (App.css's `@media (max-width: 800px)` is the same width: keep them alike.)
+ */
+export const NARROW_SCREEN = '(max-width: 800px)'
+
+/** The two panes, as a narrow screen shows one of them. */
+export const PANE = { input: 'input', output: 'output' } as const
+export type Pane = (typeof PANE)[keyof typeof PANE]

@@ -28,7 +28,9 @@ import { ThemeMenu } from './components/ThemeMenu.tsx'
 import { CreateDialog } from './components/CreateDialog.tsx'
 import { ExportDialog } from './components/ExportDialog.tsx'
 import { ErrorBoundary } from './components/ErrorBoundary.tsx'
-import { EVALUATION, loadCalcOptions, saveCalcOptions } from './config.ts'
+import { EVALUATION, PANE, loadCalcOptions, saveCalcOptions, type Pane } from './config.ts'
+import { useNarrow } from './useNarrow.ts'
+import { Dropdown } from './components/Dropdown.tsx'
 import { useSettled } from './useSettled.ts'
 import { copyText, useFlash } from './useFlash.ts'
 import { MAX_SHARE_LINK, shareLink, sharedSheet } from './lib/data/share.ts'
@@ -188,10 +190,41 @@ export default function App() {
   }, [setText])
   const chooseImportFile = useCallback((line: number) => void importFile(line), [importFile])
   const removeImport = useCallback((line: number) => setText(withoutImport(latestSource.current, line)), [setText])
+  // A narrow screen (a phone) shows Input or Output, with a switch between them; tapping the output goes to its
+  // line in the input, and switching to the output scrolls it to the cursor's line.
+  const narrow = useNarrow()
+  const [pane, setPane] = useState<Pane>(PANE.input)
+  const showOutput = () => {
+    setPane(PANE.output)
+    setCenterOutput((n) => n + 1)
+  }
   const jumpTo = useCallback((line: number) => {
     setActiveLine(line)
     setJump((j) => ({ line, n: (j?.n ?? 0) + 1 }))
+    setPane(PANE.input)
   }, [])
+
+  // The file buttons: in the top bar, or on a narrow screen in its menu.
+  const fileButtons = (
+    <>
+      <button onClick={() => file.newSheet()} title="A new, empty sheet in its own tab">New</button>
+      <button onClick={() => setCreating(true)} title="Have an AI write a test, assignment, worked examples or a lab write-up">
+        Create
+      </button>
+      <button onClick={() => void file.open()} title="Open one or more sheets, each in its own tab (Ctrl+O)">Open</button>
+      <button onClick={() => void file.save()} title={canLinkFiles ? 'Save (Ctrl+S)' : 'Download the sheet (Ctrl+S)'}>
+        Save
+      </button>
+      <button onClick={() => void file.saveAs()} title="Save to a new file (Ctrl+Shift+S)">Save as</button>
+      <button onClick={() => setExporting(true)} title="Download the sheet as a Word or LaTeX document">Export</button>
+      <button
+        onClick={() => void share()}
+        title="Copy a link that opens this sheet: it's all in the link, so nothing is uploaded"
+      >
+        {shareFlash?.message ?? 'Share'}
+      </button>
+    </>
+  )
 
   return (
     <div className="app">
@@ -212,23 +245,10 @@ export default function App() {
             {linked || file.state === 'saved' ? SAVE_LABELS[file.state] : 'in this browser'}
             {linked && file.state !== 'error' && <span className="filebar__auto"> (auto-save on)</span>}
           </span>
-          <button onClick={() => file.newSheet()} title="A new, empty sheet in its own tab">New</button>
           <TemplateMenu onNew={file.newSheet} />
-          <button onClick={() => setCreating(true)} title="Have an AI write a test, assignment, worked examples or a lab write-up">
-            Create
-          </button>
-          <button onClick={() => void file.open()} title="Open one or more sheets, each in its own tab (Ctrl+O)">Open</button>
-          <button onClick={() => void file.save()} title={canLinkFiles ? 'Save (Ctrl+S)' : 'Download the sheet (Ctrl+S)'}>
-            Save
-          </button>
-          <button onClick={() => void file.saveAs()} title="Save to a new file (Ctrl+Shift+S)">Save as</button>
-          <button onClick={() => setExporting(true)} title="Download the sheet as a Word or LaTeX document">Export</button>
-          <button
-            onClick={() => void share()}
-            title="Copy a link that opens this sheet: it's all in the link, so nothing is uploaded"
-          >
-            {shareFlash?.message ?? 'Share'}
-          </button>
+          {narrow
+            ? <Dropdown label={shareFlash?.message ?? 'File'} panelLabel="File" closeOnChoose><div className="file-menu">{fileButtons}</div></Dropdown>
+            : fileButtons}
         </div>
         <ThemeMenu theme={appTheme} onChange={changeAppTheme} />
       </header>
@@ -247,8 +267,15 @@ export default function App() {
         onClose={file.close}
         onNew={file.newSheet}
       />
+      {narrow && (
+        <div className="pane-switch" role="tablist" aria-label="Show">
+          <button role="tab" aria-selected={pane === PANE.input} onClick={() => setPane(PANE.input)}>Input</button>
+          <button role="tab" aria-selected={pane === PANE.output} onClick={showOutput}>Output</button>
+        </div>
+      )}
       <main className="app__main">
         <SplitPane
+          only={narrow ? (pane === PANE.input ? 'left' : 'right') : undefined}
           left={
             <EditorPane
               value={source}
@@ -261,6 +288,7 @@ export default function App() {
               diagnostics={diagnostics}
               results={results}
               hintsShown={inlineShown}
+              wrap={narrow}
               definitions={definitions}
               symbols={symbols}
               theme={syntaxTheme}

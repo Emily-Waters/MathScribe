@@ -852,6 +852,46 @@ try, as headless Chrome can't type with a phone's keyboard or touch.
 
 ## 7. Sheets and output
 
+- [x] **A visual check of the exports** (2026-11-22, Emily: a sheet compiled to
+      Word and LaTeX and looked at, not run every time, but on asking or after
+      a change to the exports).
+      Resolved (2026-11-22): `npm run visual` (visual/render.check.ts, its own
+      vitest config, so `npm test` leaves it out) exports visual/showcase.txt,
+      a sheet with every kind of block, as the app does: LaTeX compiled with
+      pdflatex, Word with each plot drawn by headless Chrome as the app's
+      canvas draws it and turned to a PDF by Word itself (PowerShell, COM);
+      every page to a PNG (pdftoppm) in visual/out, with report.txt. CLAUDE.md
+      says when to run it. First look found the four items below.
+- [x] **LaTeX: a long equation's substitution row runs off the page.** In the
+      showcase, `E = 1/2 * m * v_f^2 + m * g * d * sin(theta) - …` is set one
+      `=` per row, but its second row (the values substituted) is wider than
+      the line on its own, and runs past the right margin. Word breaks it
+      within the row; LaTeX should too (a break at a + or −, as `multline`
+      or `\allowbreak` in aligned rows would).
+      Resolved (2026-11-22): a row with several terms that might not fit
+      (`brokenRow`, latexKit.ts) goes to `\msfitrow{before}{row}{rows}`, which
+      LaTeX measures with what's before it and, if too wide, sets as its terms
+      packed onto rows of their own (`aligned[t]`), split before each top-level
+      + or − (`termsOf`: not in brackets, braces, or a number's own sign).
+- [x] **Word: chemical formulas have gaps before their subscripts**: H₂SO₄ is
+      drawn "H ₂SO ₄", in a substance's line, its molar mass's unit and a
+      reaction (the OMML of a subscript with no base, or a space before it).
+      Resolved (2026-11-22): mhchem gives a script an empty (phantom) base;
+      omml.ts's `scriptOnLast` makes the letters just before it (Na of Na⁺) its
+      base instead, so Word draws H₂SO₄ and Na⁺ with no gap.
+- [x] **LaTeX: a series of text shows its quotes as two closing quotes**,
+      `("KCl", "KBr")` as ”KCl”: `"` typed in maths. Show labels without
+      quotes, as a table does, or with proper ones.
+      Resolved (2026-11-22): a text value is shown in typographic quotes,
+      “KCl” (`stringTex`, text.ts), wherever a value is (every export, the
+      Rendered tab).
+- [x] **A series of labels in braces shows the braces' text**: `salts =
+      ["{KCl}", …]` lists "{KCl}" rather than KCl in formula style (the table
+      of it does it right), in both exports and the Rendered tab.
+      Resolved (2026-11-22), with the quotes: a text value's words go through
+      the modules' notation as a sheet's text does, so `"{KCl}"` is “KCl”
+      with KCl drawn as a formula.
+
 - [ ] **Equations wider than the output pane**: they scroll sideways (with a
       scrollbar), which is easy to miss. Break a very long line onto rows, one
       `=` each, as `#multiline` does, when it doesn't fit. (Found in a browser

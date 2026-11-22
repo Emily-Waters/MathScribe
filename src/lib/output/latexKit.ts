@@ -152,7 +152,14 @@ export const fitMacroDefinition = (flushLeft: boolean) => [
   `\\newcommand{\\${FIT_MACRO}}[2]{\\sbox{\\${FIT_BOX}}{$\\displaystyle #1$}%`,
   `  \\ifdim\\wd\\${FIT_BOX}>\\dimexpr\\linewidth${flushLeft ? '-\\mathindent' : ''}\\relax`,
   `  \\expandafter\\${FIT_SECOND}\\else\\expandafter\\${FIT_FIRST}\\fi{#1}{#2}}`,
+  '% A row of those too wide for the line, with what comes before it (#1), is set over several rows, at its + and −.',
+  `\\newcommand{\\${FIT_ROW_MACRO}}[3]{\\sbox{\\${FIT_BOX}}{$\\displaystyle #1 #2$}%`,
+  `  \\ifdim\\wd\\${FIT_BOX}>\\dimexpr\\linewidth${flushLeft ? '-\\mathindent' : ''}\\relax`,
+  `  \\expandafter\\${FIT_SECOND}\\else\\expandafter\\${FIT_FIRST}\\fi{#2}{#3}}`,
 ]
+
+/** The macro that sets one row of an equation's rows over several if it's too wide: `\msfitrow{before}{row}{rows}`. */
+const FIT_ROW_MACRO = 'msfitrow'
 
 /** The helpers that take one of two arguments, for the fitting macro. */
 const FIT_FIRST = 'msfitfirst'
@@ -221,8 +228,61 @@ export function fitted(tex: string, share = 1): string {
   if (drawnLength(tex) <= MIGHT_NOT_FIT * share || tex.includes('\\begin{aligned}')) return tex
   const { steps, relations } = stepsOf(tex)
   if (relations.length < 2) return tex
-  const rows = steps.slice(1).map((s, i) => `&${relations[i]} ${s}`)
+  const rows = steps.slice(1).map((s, i) => `&${relations[i]} ${brokenRow(`${steps[0]} ${relations[i]}`, s, share)}`)
   return `\\${FIT_MACRO}{${tex}}{\\begin{aligned}${steps[0]} ${rows.join(' \\\\ ')}\\end{aligned}}`
+}
+
+/** A + or − between terms, at a position (as the engine writes them: `a+ b`, `a- b`). */
+const TERM_SIGN_AT = /[+-]/y
+/** What a sign right after makes it a number's or a term's own sign, not one between terms. */
+const BEFORE_OWN_SIGN = /(?:^|[=(,+-]|\\times|\\cdot|\\pm)\s*$/
+
+/** A row's terms, split before each + or − at its top level (not in brackets, braces or a number's own sign). */
+function termsOf(tex: string): string[] {
+  const terms: string[] = []
+  let depth = 0
+  let start = 0
+  const at = (re: RegExp, i: number) => {
+    re.lastIndex = i
+    return re.exec(tex)
+  }
+  for (let i = 0; i < tex.length; i++) {
+    const c = tex[i]
+    if (c === '\\' && (tex[i + 1] === '{' || tex[i + 1] === '}')) {
+      i++
+      continue
+    }
+    if (at(OPENS, i) || c === '{') depth++
+    else if (at(CLOSES, i) || c === '}') depth--
+    else if (depth === 0 && at(TERM_SIGN_AT, i) && !BEFORE_OWN_SIGN.test(tex.slice(start, i)) && i > start) {
+      terms.push(tex.slice(start, i).trim())
+      start = i
+    }
+  }
+  terms.push(tex.slice(start).trim())
+  return terms.filter(Boolean)
+}
+
+/**
+ * One row of an equation's rows: as it is, or, if it has several terms and
+ * might be too wide even on a row of its own, as the row-fitting macro takes it
+ * (LaTeX measures it with what's before it, `before`), its terms packed onto
+ * rows of their own as many as fit, each after the first starting with its sign.
+ */
+function brokenRow(before: string, row: string, share: number): string {
+  const room = MIGHT_NOT_FIT * share - drawnLength(before)
+  if (drawnLength(row) <= room) return row
+  const terms = termsOf(row)
+  if (terms.length < 2) return row
+  const lines: string[] = []
+  for (const term of terms) {
+    const last = lines.at(-1)
+    if (last !== undefined && drawnLength(`${last}${term}`) <= room) lines[lines.length - 1] = `${last} ${term}`
+    else lines.push(term)
+  }
+  if (lines.length < 2) return row
+  const rows = lines.map((l, i) => (i ? `&\\quad ${l}` : `&${l}`)).join(' \\\\ ')
+  return `\\${FIT_ROW_MACRO}{${before}}{${row}}{\\begin{aligned}[t]${rows}\\end{aligned}}`
 }
 
 

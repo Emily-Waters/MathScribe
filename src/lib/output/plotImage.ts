@@ -10,8 +10,8 @@ import type { PlotImages } from './docx.ts'
 /** Pixels per drawing unit: twice the drawing's size, so the picture stays sharp in print. */
 const SCALE = 2.5
 
-/** The plots shown in the sheet, at any depth. */
-function plotsOf(blocks: Block[]): PlotData[] {
+/** The plots shown in the sheet, at any depth (the visual check draws them too: visual/render.check.ts). */
+export function plotsOf(blocks: Block[]): PlotData[] {
   return blocks.flatMap((b) => {
     if (b.kind === BLOCK_KIND.calc) return b.plot && !b.hidden && !b.error ? [b.plot] : []
     if (isContainer(b)) return b.command === LINE_COMMAND.hide ? [] : plotsOf(b.children)

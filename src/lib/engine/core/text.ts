@@ -1,5 +1,5 @@
 /** Words in display names and text, as LaTeX. */
-import { SUBSCRIPT_BASE, TEXT_SUBSCRIPT, outsideMaths, subscriptOf, unescapeUnderscores } from '../../syntax.ts'
+import { SUBSCRIPT_BASE, TEXT_SUBSCRIPT, outsideMaths, splitInlineMath, subscriptOf, unescapeUnderscores } from '../../syntax.ts'
 import { moduleSubscriptTex } from './module.ts'
 
 // (Where inline maths is in text is syntax's, the one definition: syntax/text.ts.)
@@ -38,6 +38,26 @@ export function wordsTex(text: string): string {
   }
   endSubs()
   return out + plainTextTex(text.slice(last))
+}
+
+/** The quotes a text value is shown in: “KCl” (typographic: LaTeX draws a typed `"` as a closing quote). */
+export const TEXT_QUOTES = { open: '“', close: '”' } as const
+
+/**
+ * A text value, `"KBr, solid"`, as LaTeX: its words in quotes, upright, with a
+ * module's notation in them as maths, as a sheet's text has it (`"{KCl}"` is
+ * KCl drawn as a formula); `markup` puts the notation in as inline maths.
+ */
+export function stringTex(value: string, markup: (text: string) => string): string {
+  const pieces = [{ math: false, value: TEXT_QUOTES.open }, ...splitInlineMath(markup(value)), { math: false, value: TEXT_QUOTES.close }]
+  // (Words next to each other in one \text, so a value with no notation in it is one: \text{“KCl”}.)
+  const merged: { math: boolean; value: string }[] = []
+  for (const p of pieces) {
+    const last = merged.at(-1)
+    if (last && !last.math && !p.math) last.value += p.value
+    else merged.push({ ...p })
+  }
+  return merged.map((p) => (p.math ? p.value : `\\text{${escapeText(p.value)}}`)).join('')
 }
 
 /** LaTeX's special characters, escaped for `\text{…}` (a display name's words). */

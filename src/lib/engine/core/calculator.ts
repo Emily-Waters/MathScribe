@@ -7,6 +7,7 @@ import { isAssignmentNode, isConditionalNode, isConstantNode, isFunctionAssignme
 import { EXACT, MAX_DIGITS, countSigFigs, formatExact, formatSigFigs, formatWithUncertainty } from '../../maths/sigfigs.ts'
 import { AGGREGATE_KIND, Variable, type Contributions, type VariableFields, type VariableSummary } from '../../sheet/values.ts'
 import { BUILTINS, isReservedConstantName } from '../../builtins.ts'
+import { stringTex } from './text.ts'
 import { EXACT_SETTING, IS_NAME, MEMBER_DOT, PERCENT, DISPLAY_MODE, CONSTANTS_BLOCK, LABEL_WORDS, SIGIL, UNCERTAINTY_WORDS, type DisplayMode, type Notation, type Precision } from '../../syntax.ts'
 import { INLINE_VALUE_NAME, INV_FUNCTION, JOIN, TUPLE_FUNCTION, RESERVED_NAMESPACES, isHiddenName, memberName, parseUncertaintyName, readableMembers, unpackedName, uncertaintyName } from '../../sheet/names.ts'
 import { expandDots, hasBracketList } from './memberAccess.ts'
@@ -425,6 +426,7 @@ export class Calculator {
     const parts = this.split(value, sf, forced)
     if (parts) return attachUnit(numberTex(parts.num), parts.unit ? unitTex(parts.unit) : '')
     if (typeof value === 'boolean') return `\\text{${value}}`
+    if (typeof value === 'string') return stringTex(value, (text) => this.modules.reduce((t, m) => m.markupText(t), text))
     if (isTuple(value)) return this.tupleTex(value, sf, forced)
     if (math.isMatrix(value) || Array.isArray(value)) {
       try {

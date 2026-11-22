@@ -199,10 +199,43 @@ function sequence(nodes: XmlNode[], ctx: Ctx): Piece[] {
       i++
       continue
     }
+    const lent = SCRIPTS[k.tag as keyof typeof SCRIPTS]
+    if (lent && out.length && arg(elements(k)[0], ctx) === '') {
+      out.push(...scriptOnLast(k, lent, out, ctx))
+      continue
+    }
     out.push(...convert(k, ctx))
   }
   return out
 }
+
+/** Each kind of script, as OMML: its element, and the names of its parts after the base. */
+const SCRIPTS = {
+  msub: { tag: 'm:sSub', parts: ['m:sub'] },
+  msup: { tag: 'm:sSup', parts: ['m:sup'] },
+  msubsup: { tag: 'm:sSubSup', parts: ['m:sub', 'm:sup'] },
+} as const
+
+/**
+ * A script with nothing to sit on: mhchem's H₂ is H, then a subscript on an
+ * empty (phantom) base, which Word draws with a gap, "H ₂". It takes what's
+ * just before it as its base instead (the element, Na in Na⁺, SO in SO₄: the
+ * script sits at its end all the same).
+ */
+function scriptOnLast(n: XmlNode, script: (typeof SCRIPTS)[keyof typeof SCRIPTS], before: Piece[], ctx: Ctx): Piece[] {
+  // (The letters before it, one piece each as KaTeX gives them, N and a, are one base, Na; anything else is a base alone.)
+  const base: Piece[] = [before.pop()!]
+  const letters = (p: Piece | undefined): p is { run: string; style: RunStyle } => p !== undefined && 'run' in p && LETTERS.test(p.run)
+  if (letters(base[0])) {
+    while (letters(before.at(-1)) && (before.at(-1) as { style: RunStyle }).style === (base[0] as { style: RunStyle }).style) base.unshift(before.pop()!)
+  }
+  const kids = elements(n)
+  const parts = script.parts.map((p, i) => `<${p}>${arg(kids[i + 1], ctx)}</${p}>`).join('')
+  return [{ xml: `<${script.tag}><m:e>${render(base, ctx)}</m:e>${parts}</${script.tag}>` }]
+}
+
+/** Letters only: an element's symbol, or part of one, as a base for a script (not a number or a sign). */
+const LETTERS = /^\p{L}+$/u
 
 /** A MathML node as OMML pieces. */
 function convert(n: XmlNode, ctx: Ctx): Piece[] {

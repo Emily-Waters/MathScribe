@@ -397,7 +397,7 @@ describe('functions', () => {
     const r = last(`${head}r = agreement(k1, k2)`)
     expect(r.error).toBeUndefined()
     expect(readable(r.tex)).toContain('\\delta k_1+ \\delta k_2')
-    expect(readable(r.tex)).toMatch(/= \\text"AGREE"$/)
+    expect(readable(r.tex)).toMatch(/= \\text“AGREE”$/)
     expect(value(`${head}far = agreement(k1, 2 * k2)`)).toContain('DOES NOT AGREE')
     // (An argument worked out from variables has theirs; what's built from an uncertainty carries none.)
     expect(value(`${head}rel(A) = delta A / A\nv = rel(2 * k1)`)).toBe('0.012')

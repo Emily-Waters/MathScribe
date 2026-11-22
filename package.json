@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "docs": "vitest run src/lib/language/reference.test.ts -u"
+    "docs": "vitest run src/lib/language/reference.test.ts -u",
+    "visual": "vitest run --config visual/vitest.config.ts"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.4",

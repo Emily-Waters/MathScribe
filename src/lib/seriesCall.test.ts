@@ -11,9 +11,11 @@ const shown = (source: string) => readable(made(source).tex)
 const FORCES = 'F = [2.00 N, 3.00 N, 10.0 N]\n'
 
 describe('a series in square brackets', () => {
-  it('keeps a comma in a label in quotes in its value', () => {
-    expect(value('s = ["KBr, solid", "KCl"]\nw = s[1]')).toContain('"KBr, solid"')
-    expect(value('s = ["KBr, solid", "KCl"]\nw = s[2]')).toContain('"KCl"')
+  it('keeps a comma in a label in quotes in its value, shown in typographic quotes', () => {
+    expect(value('s = ["KBr, solid", "KCl"]\nw = s[1]')).toContain('“KBr, solid”')
+    expect(value('s = ["KBr, solid", "KCl"]\nw = s[2]')).toContain('“KCl”')
+    // (A formula in braces in it is drawn as one, as in a sheet's text.)
+    expect(lines('s = ["{KCl}"]\nw = s[1]').at(-1)!.tex).toContain('\\ce{KCl}')
   })
 
   it('makes a series of the values listed, as typed', () => {

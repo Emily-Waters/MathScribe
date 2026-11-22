@@ -89,6 +89,14 @@ by the engine (`src/lib/engine/`), and the blocks drawn in the Rendered tab
 - Lint: `npx oxlint`.
 - Tests: `npx vitest run`, from `C:\…` (an uppercase drive letter: from `c:\` every
   test fails at "reading config").
+- Visual check of the exports: `npm run visual` (not part of `npm test`) exports
+  `visual/showcase.txt` to LaTeX and Word, compiles both to PDF (pdflatex; Word
+  through PowerShell) and their pages to `visual/out/latex-*.png` and
+  `word-*.png`, with `report.txt` saying what worked. Run it, and look at every
+  page, when Emily asks, and after a change that could change what the exports
+  look like (constructs, latexKit, docx, plot drawing, how names are typeset, a
+  new kind of block); add what a new feature needs to the showcase sheet. Type
+  check it with `npx tsc -p tsconfig.visual.json --noEmit`.
 - Make edits with the editor tools, not shell scripts, which mangle backslashes
   and backticks in TypeScript. After a batch of edits, touch the changed files so
   a running dev server reloads them all.

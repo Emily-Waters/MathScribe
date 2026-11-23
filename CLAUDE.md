@@ -21,12 +21,13 @@ Pipeline: sheet text → lossless tree (`src/lib/tree/`) → blocks (`src/lib/re
 - **What a user writes is described once, in the language tree** (`src/lib/language/`: `topics.ts`, a module's `language.ts`, settings declarations), with an example; the Reference tab, AI primer, tooltips and `docs/REFERENCE.md` come from it, and the tests run every example. After changing it, run `npm run docs` (not `vitest -u`).
 - **Comments** say what a thing is and why, in plain sentences, as the existing ones do; they point to the language tree (`{@link …}`) rather than restate what a user writes.
 - **Refactors are behaviour-neutral,** one step at a time, checked in with Emily between steps: the golden tests (`src/lib/golden.test.ts`) prove outputs unchanged, and a step swapping one way of reading for another runs both side by side over the whole suite first.
+- **Read lean:** Grep, then Read with `offset`/`limit`; never read whole `calculator.ts` (~76 KB), `CHANGELOG.md`, `README.md`, `topics.ts`, `docs/REFERENCE.md` or the golden snapshot (generated: Grep it). Don't re-read a file just edited, and use a subagent only when asked.
 - **`TODO.md` holds open to-dos only,** each tagged `[high]`, `[medium]` or `[low]`. A finished one moves to `CHANGELOG.md` with its original text, ticked, and a "Resolved:" note of how. Read only the part of either you need.
 - **Git and edits:** commit and push only when asked; end commit messages with the co-author line. Edit with the editor tools (shell scripts mangle backslashes and backticks); after a batch of edits, touch the changed files so a running dev server reloads them.
 
 ## Checking work
 
 - Type check: `npx tsc -p tsconfig.app.json --noEmit` (`tsc -p .` checks nothing).
-- Lint: `npx oxlint`.
+- Lint: `npx oxlint` (CI runs it; where Windows Application Control blocks its binding, leave it to CI rather than retrying).
 - Tests: the affected files while iterating (`npx vitest run <file>`), then the whole suite (`npx vitest run`), from `C:\…` (an uppercase drive letter: from `c:\` every test fails at "reading config").
 - Visual check of the exports: `npm run visual` (and `npx tsc -p tsconfig.visual.json --noEmit`) exports `visual/showcase.txt` to LaTeX and Word, compiled to PDF and pages in `visual/out/` with `report.txt`. Run it and look at every page when Emily asks, and after a change that could alter the exports (constructs, latexKit, docx, plots, how names are typeset, a new kind of block); add what a new feature needs to the showcase sheet.

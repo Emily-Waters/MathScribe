@@ -271,6 +271,9 @@ tests, or the Create prompt:
 
 ## 8. Architecture and polish
 
+- [ ] `[low]` **Split `src/lib/engine/core/calculator.ts`** (~76 KB, the
+      largest source file): any change to it means reading ~20k tokens. A file
+      per concern, behaviour-neutral, the golden tests proving it.
 - [ ] `[medium]` **One harmonious structure** (2026-11-17, from the
       codebase-wide audit). Remaining items:
       - Step 5 sub-items: hovers (`BUILTIN_BEFORE`, `UNIT_PLACE`, a namespace

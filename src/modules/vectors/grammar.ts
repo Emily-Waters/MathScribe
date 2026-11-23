@@ -7,7 +7,7 @@ import {
   TOKEN_KIND, withUnit,
 } from '../../lib/plugin.ts'
 import { VECTOR_CALL, VECTOR_FUNCTION } from './syntax.ts'
-import { vectorEnd } from './literals.ts'
+import { vectorEnd, vectorPending } from './literals.ts'
 
 /** The vectors module's kinds of node. */
 export const VECTOR_NODE = {
@@ -29,6 +29,8 @@ const VECTOR_RULE: LexRule = {
     ])
     return withUnit(vector, end + 1 - pos, pos, state)
   },
+  // (A `<` that a later line's `>` could still close into a vector.)
+  pending: (text, pos) => text[pos] === ANGLE.open && vectorPending(text, pos),
 }
 
 /** Whether parts hold a vector `<…>`, at any depth. */

@@ -12,7 +12,7 @@ import { BLOCK_CLOSE, CARRIED_JOIN, closesLatex, indentOf } from '../syntax.ts'
 import { BODY_END, CONTINUED, contextInfo, type Body, type BodyEnd } from './grammar.ts'
 import { LINE_CONTEXT, NODE_KIND, type SyntaxNode } from './nodes.ts'
 import { endsExpecting, notedOf, parseCloser, readLine, standsAlone, type SourceLine } from './lines.ts'
-import { startsByClosing } from './lexer.ts'
+import { carriedContext, startsByClosing } from './lexer.ts'
 
 /** A body being read: the node holding it, its context, how it ends, and the indentation of the line that opened it. */
 export interface Frame {
@@ -22,8 +22,14 @@ export interface Frame {
   readonly indent: number
   /** For a continued line (BODY_END.brackets): how many of its brackets are still open. */
   readonly open?: number
-  /** For a continued line: what it's said so far, its lines' bodies joined (the next is read as the rest of it). */
+  /** For a continued line: what it's said so far, its lines' bodies joined (for the editor's parameter hints). */
   readonly said?: string
+  /**
+   * For a continued line: what the next line is read after, as the rest of it.
+   * Not everything said (which made a long one slow to read: time growing with
+   * the square of its lines), but a short text that reads the same (carriedContext).
+   */
+  readonly carried?: string
   /** For a continued line: whether what it's said so far ends expecting more (`[`, `1234,`). */
   readonly expects?: boolean
 }
@@ -32,6 +38,12 @@ export interface Frame {
 const saying = (said: string | undefined, node: SyntaxNode): string | undefined => {
   const body = notedOf(node)?.body
   return !body ? said : said === undefined ? body : said + CARRIED_JOIN + body
+}
+
+/** What the line after a line of a continued line is read after: what's carried, with the line, made short again. */
+const carrying = (carried: string | undefined, node: SyntaxNode): string | undefined => {
+  const said = saying(carried, node)
+  return said === undefined ? undefined : carriedContext(said)
 }
 
 /** The bodies a line is inside, innermost last (none: the sheet's top). */
@@ -100,7 +112,7 @@ export function stepLine(state: LineState, line: SourceLine): Step {
     stack.pop()
     return { node: parseCloser(line), role: LINE_ROLE.closer, context, ended, state: stack }
   }
-  const { node, body, brackets = 0 } = readLine(line, context, top?.said)
+  const { node, body, brackets = 0 } = readLine(line, context, top?.carried)
   if (contextInfo(context).raw) return { node, role: LINE_ROLE.row, context, ended, state: stack }
   // A `}` of its own closes the block it's in (one at the top, with none open, is just a line).
   if (top?.ends === BODY_END.closer && node.kind === NODE_KIND.blockCloser) {
@@ -112,13 +124,15 @@ export function stepLine(state: LineState, line: SourceLine): Step {
     const open = (top.open ?? 0) + brackets
     stack.pop()
     if (open <= 0) return { node, role: LINE_ROLE.closer, context, ended, state: stack }
-    stack.push({ ...top, open, said: saying(top.said, node), expects: endsExpecting(node) ?? top.expects })
+    stack.push({ ...top, open, said: saying(top.said, node), carried: carrying(top.carried, node), expects: endsExpecting(node) ?? top.expects })
     return { node, role: LINE_ROLE.line, context, ended, state: stack }
   }
   // (A line that opens a body of its own, `@import(…)`, isn't carried on by its brackets.)
   const opens = body ?? (brackets > 0 ? CONTINUED : undefined)
   if (opens) {
-    const open = opens === CONTINUED ? { open: brackets, said: saying(undefined, node), expects: endsExpecting(node) } : {}
+    const open = opens === CONTINUED
+      ? { open: brackets, said: saying(undefined, node), carried: carrying(undefined, node), expects: endsExpecting(node) }
+      : {}
     stack.push({ node: opens.node, context: opens.context, ends: opens.ends, indent: indentOf(line.text), ...open })
     return { node, role: LINE_ROLE.opener, context, ended, body: opens, state: stack }
   }

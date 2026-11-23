@@ -1966,6 +1966,30 @@ Create prompt change with it):
 
 ## Done
 
+- [x] **GitHub's build failing, on and off, since multiline calls** (2026-11-23,
+      Emily): the test that round-trips every file in the repository timed out
+      at 30 s on GitHub's runners, so nothing was published (six failures since
+      951669a, Nov 19; the passing runs in between were just under). Found: a
+      line carrying on a continued line (one with a bracket still open) was read
+      after everything the lines before it had said, lexed again whole for each
+      line, so reading one took time growing with the square of its length:
+      `src/lib/language/topics.ts`, whose TypeScript holds a bracket open over
+      1,000 lines, took 18–27 s alone, and a sheet with an 800-value series typed
+      one value a line took 3.2 s (the editor reads lines the same way).
+      Resolved (2026-11-23, decided with Emily): a continued line carries a short
+      context instead (`carriedContext`, lexer.ts): each call still open, by its
+      head (`@plot(`), then what's said since the innermost span's last `,` or
+      `;`, after `= ` if its `=` has been read, so the next line is read as it
+      was. An opener a later line could close into one part (a label's `"`, a
+      `{species}`, a vector's `<`) is kept, with the part before it; which ones
+      can is each rule's to say, a new hook, `LexRule.pending` (the core's quote,
+      chemistry's species, vectors' `<`), so the core knows no module's syntax.
+      `said` is kept as it was for the editor's parameter hints, which count
+      commas back to the call. Checked side by side with the old reading over
+      every continuation line in the repository and the whole suite (5,386
+      lines, 1,121 tests): no difference; the cases where they first differed (a
+      quote, a brace and a `<` closed on a later line) are tests now. topics.ts
+      reads in 0.36 s, the series of 800 in 55 ms (3,200 in 206 ms).
 - [x] **A line that read back with text repeated** (2026-11-17, found by the
       tree's round-trip test over the repository): `h({)}` came back as
       `h({)})}`. Inside a call's brackets, chemistry's `{species}` rule read up to

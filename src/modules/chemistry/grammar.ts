@@ -38,7 +38,14 @@ const SPECIES_RULE: LexRule = {
     const m = SPECIES_AT.exec(text)
     return m ? { parts: [token(CHEM_TOKEN.species, m[0])], length: m[0].length } : undefined
   },
+  // (A `{` with no brace after it: a later line's `}` can close it into one. One with a brace after it can't be any more.)
+  pending: (text, pos) => text[pos] === SPECIES_OPEN && text[pos + 1] !== SPECIES_OPEN && !BRACE.test(text.slice(pos + 1)),
 }
+
+/** What opens a species: `{`. */
+const SPECIES_OPEN = '{'
+/** A brace, of which a species has none inside it. */
+const BRACE = /[{}]/
 
 /** A formula in text, `{Na^+}`: drawn as one, in prose and headings. */
 const FORMULA_RULE: TextRule = {

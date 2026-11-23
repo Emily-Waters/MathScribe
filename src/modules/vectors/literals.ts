@@ -26,3 +26,32 @@ export function vectorEnd(src: string, start: number): number {
   }
   return -1
 }
+
+/**
+ * Whether the `<` at `start` could still open a vector once more text follows:
+ * vectorEnd hasn't been decided by what's there (no `>` at its depth yet, and
+ * no bracket closed below it), so a later line's `>` can close it. (As
+ * vectorEnd reads, but undecided at the end rather than not a vector; whether
+ * what's before it lets it open one is left to vectorEnd, as it's what's before.)
+ */
+export function vectorPending(src: string, start: number): boolean {
+  return vectorDecidedBy(src, start) === UNDECIDED
+}
+
+/** vectorEnd's reading of a `<`, from its `>` on: where it closes, -1 if it can't, or undecided by the end of src. */
+const UNDECIDED = -2
+function vectorDecidedBy(src: string, start: number): number {
+  let depth = 0
+  for (let i = start + 1; i < src.length; i++) {
+    const c = src[i]
+    if (c === '(' || c === '[' || c === '{') depth++
+    else if (c === ')' || c === ']' || c === '}') {
+      if (--depth < 0) return -1
+    } else if (c === '<' && depth === 0) {
+      const inner = vectorDecidedBy(src, i)
+      if (inner < 0) return inner
+      i = inner
+    } else if (c === '>' && depth === 0) return i
+  }
+  return UNDECIDED
+}

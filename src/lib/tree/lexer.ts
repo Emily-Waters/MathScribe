@@ -107,6 +107,15 @@ export interface LexRule {
   /** What it reads, for the schema's listing: `a unit after a number`. */
   readonly describes: string
   read(pos: number, state: LexState, span: ReadSpan): Lexed | undefined
+  /**
+   * Whether what's at `pos` in `text` isn't this rule's yet but could be once
+   * more text follows it: an opener whose closer hasn't come (a label's `"`, a
+   * `{species}`'s `{`, a vector's `<`). A line carrying on a continued line can
+   * close it, making one part of what's between; so a continued line is read
+   * after a context that keeps such an opener (carriedContext). A rule that
+   * never reads past what's there to read leaves it out.
+   */
+  pending?(text: string, pos: number): boolean
 }
 
 /** The rules declared, in the order they're tried, by who declared them (the core's last). */
@@ -193,7 +202,7 @@ function readSpan(text: string, start: number, end: number, callee: string | und
     for (const p of read.parts) {
       if (isToken(p) && p.t === TOKEN_KIND.space) continue
       prev = p
-      if (isToken(p) && p.t === TOKEN_KIND.delimiter && p.text === '=') lhs = false
+      if (isToken(p) && p.t === TOKEN_KIND.delimiter && p.text === ASSIGNS) lhs = false
     }
     pos += read.length
   }
@@ -211,6 +220,94 @@ function readSpan(text: string, start: number, end: number, callee: string | und
 export function lexTail(said: string, text: string): readonly Part[] {
   const before = said + CARRIED_JOIN
   return partsFrom(lexExpression(before + text), before.length)
+}
+
+/** The `=` after which a line is no longer the name being assigned (LexState.lhs). */
+const ASSIGNS = '='
+
+/**
+ * Where reading can start again within a span, the same as before: at a `,` or
+ * `;` between its parts (each read whole by one rule, a call's settings after
+ * `;` too), kept with what's after it, so what's read before it doesn't matter.
+ */
+const RESTARTS: ReadonlySet<string> = new Set([',', ';'])
+
+/**
+ * Where reading has to start again from, at the latest, for an opener a later
+ * line could still close (LexRule.pending: a `"`, a `{species}`'s `{`, a
+ * vector's `<`): the part before the first one (whether it's read as an opener
+ * can depend on what's just before it: a `<` opens a vector only after `=`, `(`, …),
+ * or -1 if there's none. (Only ever over what's carried, which is short.)
+ */
+function stillClosable(parts: readonly Part[]): number {
+  const text = parts.map(partText).join('')
+  let at = 0
+  let before = 0
+  for (const [i, p] of parts.entries()) {
+    const start = at
+    at += partText(p).length
+    if (isToken(p) && p.t === TOKEN_KIND.space) continue
+    if (isToken(p) && [...rules, ...unitRules].some((r) => r.rule.pending?.(text, start))) return before
+    before = i
+  }
+  return -1
+}
+
+/**
+ * A short text that leaves the lexer where `text` does, for reading what comes
+ * after it (lexTail): so a line carrying on a continued line is read after
+ * this, not after everything the lines before it said, which made reading a
+ * long continued line (a series of 800 values, one a line) take time growing
+ * with the square of its length.
+ *
+ * What reading the next part depends on is the span it's in (each call still
+ * open, by its callee), whether it's still the name being assigned (before the
+ * `=`: LexState.lhs), and what was read last. So it's each open call's head
+ * (`@plot(`), then, in the innermost span, what's said since its last `,` or
+ * `;` (with it); each after `= ` where an `=` had been read before it in its
+ * span. lexTail(carriedContext(said), text) reads as lexTail(said, text) does.
+ */
+export function carriedContext(text: string): string {
+  const pieces: string[] = []
+  let parts = lexExpression(text)
+  let lhsAtStart = true
+  for (;;) {
+    // This span's parts, with whether it's still the name being assigned before each.
+    let lhs = lhsAtStart
+    const lhsBefore: boolean[] = []
+    let last = -1
+    for (const [i, p] of parts.entries()) {
+      lhsBefore.push(lhs)
+      if (isToken(p) && p.t === TOKEN_KIND.space) continue
+      last = i
+      if (isTokenOf(p, TOKEN_KIND.delimiter, ASSIGNS)) lhs = false
+    }
+    const flipped = (at: number) => (lhsAtStart && !lhsBefore[at] ? `${ASSIGNS} ` : '')
+    const rest = (at: number) => [...pieces, flipped(at), parts.slice(at).map(partText).join('')].join('')
+    // A quote (or brace, or `<`) not closed yet: a later line's can close it,
+    // making one part of what's after it (its commas, a call), so reading starts again no later.
+    const quote = stillClosable(parts)
+    const final = parts[last]
+    if (quote >= 0 && quote < last) return rest(quote)
+    // Still in a call that's open: its head, then on into its arguments.
+    if (final && !isToken(final) && final.kind === NODE_KIND.openCall) {
+      const open = final.parts.findIndex((p) => isTokenOf(p, TOKEN_KIND.delimiter, OPEN))
+      pieces.push(flipped(last), final.parts.slice(0, open + 1).map(partText).join(''))
+      parts = final.parts.slice(open + 1)
+      lhsAtStart = lhsBefore[last]
+      continue
+    }
+    // The innermost span: what's said since its last `,` or `;`, with it.
+    let from = 0
+    for (let i = parts.length - 1; i >= 0; i--) {
+      const p = parts[i]
+      if (isToken(p) && p.t === TOKEN_KIND.delimiter && RESTARTS.has(p.text)) {
+        from = i
+        break
+      }
+    }
+    return from < parts.length ? rest(quote >= 0 ? Math.min(from, quote) : from) : pieces.join('')
+  }
 }
 
 /** Parts from a place in their text on: those after it whole, a node it falls in by its parts from there, a token it falls in from there. */
@@ -350,6 +447,8 @@ const BUILTIN_AT = new RegExp(String.raw`${SIGIL}${NAME}(?:\.${NAME})*`)
 const PRECISION_AT = new RegExp(CONSTANT_PRECISION)
 /** A label in quotes, as mathjs reads a string (`\"` inside it). */
 const STRING_AT = /"(?:[^"\\]|\\.)*"/
+/** A label's quote. */
+const QUOTE = '"'
 /** Words with a meaning of their own: mathjs's named delimiters, MathScribe's keywords, and `delta F`. */
 const KEYWORDS: ReadonlySet<string> = new Set<string>([...MATHJS_NAMED_DELIMITERS, ...KEYWORD.words, ...UNCERTAINTY_WORDS])
 /** `±` or `+-`: an uncertainty (as `pm`). */
@@ -377,6 +476,8 @@ const CORE_RULES: LexRule[] = [
       const s = sticky(STRING_AT, text, pos)
       return s ? one(token(TOKEN_KIND.string, s), s.length) : undefined
     },
+    // (A quote with none after it to close it: a later line's can.)
+    pending: (text, pos) => text[pos] === QUOTE && !sticky(STRING_AT, text, pos),
   },
   {
     describes: 'a number, as mathjs reads one; with a unit after it, a quantity: 5.00 g',

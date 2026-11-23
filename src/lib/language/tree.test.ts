@@ -12,7 +12,7 @@ import { formatSheet } from '../tree/format.ts'
 import { languageTopics, moduleLanguageTopics, moduleSettingWords } from '../engine/index.ts'
 import { BUILTINS, ConstantMember, Namespace } from '../builtins.ts'
 import {
-  COMMAND_NAMES, EXACT_SETTING, KEYWORD, NOTATION, PERCENT, SERIES_SUFFIXES, SIGIL, MEMBER_DOT, MEMBER_INDEX, UNCERTAINTY_WORDS,
+  EXACT_SETTING, KEYWORD, NOTATION, PERCENT, SERIES_SUFFIXES, SIGIL, MEMBER_DOT, MEMBER_INDEX, UNCERTAINTY_WORDS,
 } from '../syntax.ts'
 import { TERM_KIND, entryMatches, languageTree, treeExamples, treeTerms, type LanguageTopic, type TermKind } from './tree.ts'
 import { searchWords } from '../search.ts'
@@ -40,8 +40,7 @@ describe('what the language has, each in the tree (so nothing’s left undescrib
   /** Every example's text, to find what's written in one. */
   const written = treeExamples(TREE).map((e) => e.example.source).join('\n')
 
-  it('every display command, keyword and setting word is a term of an entry', () => {
-    expect(names(TERM_KIND.command)).toEqual(expect.arrayContaining(COMMAND_NAMES.map((c) => `#${c}`)))
+  it('every keyword and setting word is a term of an entry', () => {
     expect(names(TERM_KIND.keyword)).toEqual(expect.arrayContaining([...KEYWORD.words, UNCERTAINTY_WORDS[0]]))
     expect(names(TERM_KIND.setting)).toEqual(expect.arrayContaining([EXACT_SETTING, ...NOTATION.words, PERCENT]))
   })

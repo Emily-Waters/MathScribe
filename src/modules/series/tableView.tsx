@@ -17,7 +17,7 @@ const boldTex = (tex: string) => `\\boldsymbol{${tex}}`
 export function TableView({ block }: { block: CustomBlock }) {
   const link = useLineLink()
   const number = useCaptionNumber(block)
-  // `#hide` tables stay hidden unless something went wrong.
+  // Hidden tables stay hidden unless something went wrong.
   if (block.hidden && !block.error) return null
   const { lines, rowHeaders, header, rows, gapBefore, title } = block.data as TableData
   /** Whether column `i` is the row headers (numbers or labels): bold text, to the left. */

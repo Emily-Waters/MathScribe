@@ -394,7 +394,6 @@ body {
   --syn-function: #3a5bd9;
   --syn-constant: #8143b8;
   --syn-keyword: #b03a6e;
-  --syn-command: #b03a6e;
   --syn-note: #6b7486;
   --syn-heading: var(--text);
   --syn-text: #4a5568;
@@ -410,7 +409,6 @@ body {
   --syn-function: #7b1fa2;
   --syn-constant: #c2185b;
   --syn-keyword: #2e7d32;
-  --syn-command: #e65100;
   --syn-note: #607d8b;
   --syn-heading: #000000;
   --syn-text: #37474f;
@@ -426,7 +424,6 @@ body {
   --syn-function: #795e26;
   --syn-constant: #0070c1;
   --syn-keyword: #af00db;
-  --syn-command: #0000ff;
   --syn-note: #008000;
   --syn-heading: #0000ff;
   --syn-text: #3b3b3b;
@@ -442,7 +439,6 @@ body {
   --syn-function: #00008b;
   --syn-constant: #6a0080;
   --syn-keyword: #000000;
-  --syn-command: #8a2b00;
   --syn-note: #3d3d3d;
   --syn-heading: #000000;
   --syn-text: #000000;
@@ -458,7 +454,6 @@ body {
   --syn-function: var(--text);
   --syn-constant: var(--text);
   --syn-keyword: var(--text);
-  --syn-command: var(--accent);
   --syn-note: var(--muted);
   --syn-heading: var(--accent);
   --syn-text: var(--text);
@@ -474,7 +469,6 @@ body {
   --syn-function: #7c96ff;
   --syn-constant: #c39bf0;
   --syn-keyword: #f07fb0;
-  --syn-command: #f07fb0;
   --syn-note: #8d96a8;
   --syn-text: #b8c0cf;
   --syn-latex: #c39bf0;
@@ -489,7 +483,6 @@ body {
   --syn-function: #ce93d8;
   --syn-constant: #f48fb1;
   --syn-keyword: #81c784;
-  --syn-command: #ffb74d;
   --syn-note: #90a4ae;
   --syn-heading: #ffffff;
   --syn-text: #cfd8dc;
@@ -505,7 +498,6 @@ body {
   --syn-function: #dcdcaa;
   --syn-constant: #4fc1ff;
   --syn-keyword: #c586c0;
-  --syn-command: #569cd6;
   --syn-note: #6a9955;
   --syn-heading: #569cd6;
   --syn-text: #cccccc;
@@ -521,7 +513,6 @@ body {
   --syn-function: #a8d1ff;
   --syn-constant: #ffb0ff;
   --syn-keyword: #ffffff;
-  --syn-command: #ffd166;
   --syn-note: #d6d6d6;
   --syn-heading: #ffffff;
   --syn-text: #ffffff;

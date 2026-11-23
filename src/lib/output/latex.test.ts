@@ -33,9 +33,15 @@ describe('equations', () => {
     expect(centered).not.toContain('\\mathindent}{1em}') // \mathindent only exists with fleqn
   })
 
-  it('in a row share one gather*, with notes as tags; a hidden line doesn’t split them', () => {
-    const tex = body(exportOf('m = 2.00 kg   # mass\nh = 3   #hide\nF = m * 9.81 m/s^2'))
+  it('in a row share one gather*, with notes as tags; a comment or a hidden block doesn’t split them', () => {
+    const tex = body(exportOf('m = 2.00 kg   // mass\n// h = 3\nF = m * 9.81 m/s^2'))
     expect(tex.match(/\\begin\{gather\*\}/g)).toHaveLength(1)
+    const hidden = body(exportOf('m = 2.00 kg   // mass\n@layout.hidden {\n    h = 3\n}\nF = m * 9.81 m/s^2'))
+    expect(hidden.match(/\\begin\{gather\*\}/g)).toHaveLength(1)
+    // Nor does a block that only sets how its lines are shown: they're in the row.
+    const shownAs = body(exportOf('F = 2 N\n@layout.sym {\n    G = 2 * F\n}\n@layout.val {\n    H = 3 * F\n}\nK = 4 * F'))
+    expect(shownAs.match(/\\begin\{gather\*\}/g)).toHaveLength(1)
+    expect(shownAs).toContain('H = 6')
     // (A note is small and italic, beside its line or, if they don't fit, under it, with room after.)
     expect(tex).toContain('\\msnoted{m = 2.00\\,\\mathrm{kg}}{\\small\\itshape mass} \\msnotesep\n  F = ')
     expect(exportOf('x = 1')).toContain('\\ifdim\\dimexpr\\wd\\msnoteeqbox+\\wd\\msnotebox+1em\\relax>\\dimexpr\\linewidth-\\mathindent\\relax')
@@ -43,7 +49,7 @@ describe('equations', () => {
   })
 
   it('show a name’s subscript in a note, and @solve’s unknown as it’s drawn', () => {
-    const tex = body(exportOf('v_f = 2 m/s   # speed v_f\nd_stop = @solve(v_f^2 = 2 * 1 m/s^2 * d_stop, d_stop)'))
+    const tex = body(exportOf('v_f = 2 m/s   // speed v_f\nd_stop = @solve(v_f^2 = 2 * 1 m/s^2 * d_stop, d_stop)'))
     expect(tex).toContain('speed v\\textsubscript{f}')
     expect(tex).toContain('solving for $d_{\\mathrm{stop}}$')
     expect(tex).not.toContain('h = 3')

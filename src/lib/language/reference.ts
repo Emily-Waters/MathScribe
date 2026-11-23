@@ -88,7 +88,7 @@ const row = (cells: readonly string[]) => `| ${cells.join(' | ')} |`
 /** What Markdown reads as markup in plain text: emphasis, headings, maths, tags, links, code. */
 const MARKUP = /[\\`*_{}[\]<>#$|~]/g
 
-/** Plain text as Markdown shows it as it is: `1/2 * m * v^2` not in italics, `#sym` not a heading, `$…$` not maths. */
+/** Plain text as Markdown shows it as it is: `1/2 * m * v^2` not in italics, `# Title` not a heading, `$…$` not maths. */
 const plain = (text: string) => text.replace(MARKUP, (c) => `\\${c}`)
 
 /** What docs/REFERENCE.md says first: what it is, and that it's made, not written. */

@@ -13,7 +13,7 @@ export interface UserFunction {
   /** What it works out, as typed: `a * b + 1`. */
   expression: string
   definedIn: Variables
-  /** Defined with #multiline: every line that calls it is laid out one = per row. */
+  /** Defined in @layout.multiline: every line that calls it is laid out one = per row. */
   multiline: boolean
   /** Sig figs declared for the result (`f(x):3 = …`), which every call's result has. */
   returnSf?: number

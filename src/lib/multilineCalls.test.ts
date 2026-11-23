@@ -42,14 +42,15 @@ describe('a call over several lines', () => {
     same('m = [(1 + 2) kg, max(3, 4) kg]', 'm = [\n    (1 + 2) kg,\n    max(3, 4) kg\n]')
   })
 
-  it('takes its #commands and note from any of its lines', () => {
-    same('y = max(1, 2)  #val  # the larger', 'y = max(  # the larger\n    1,\n    2\n)  #val')
+  it('takes its note from any of its lines', () => {
+    same('y = max(1, 2)  // the larger', 'y = max(  // the larger\n    1,\n    2\n)')
+    same('y = max(1, 2)  // the larger one', 'y = max(  // the larger\n    1,\n    2\n)  // one')
   })
 
   it('takes a trailing comma before its closing bracket, in any call', () => {
     same('val = [1234, 5678]\nw = val[2]', 'val = [\n    1234,\n    5678,\n]\nw = val[2]')
     same(`${DATA}@table(t, x)`, `${DATA}@table(\n    t,\n    x,\n)`)
-    same('y = max(1, 2)  # the larger', 'y = max(\n    1,\n    2,  # the larger\n)')
+    same('y = max(1, 2)  // the larger', 'y = max(\n    1,\n    2,  // the larger\n)')
     same('m = [1 kg, 2 kg]', 'm = [\n    1 kg,\n    2 kg,\n]')
   })
 

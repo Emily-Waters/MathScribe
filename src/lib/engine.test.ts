@@ -330,7 +330,7 @@ describe('functions', () => {
   it('give a call inside a bigger expression the sig figs of its measured numbers', () => {
     const src = 'hyd(n) = -13.6 eV / n^2\ndE = hyd(3) - hyd(2)'
     expect(value(src)).toBe('1.89 eV')
-    expect(value(`${src}   #val`)).toBe('1.89 eV')
+    expect(value(`@layout.val {\n${src}\n}`)).toBe('1.89 eV')
   })
 
   describe('settings for the result', () => {
@@ -403,8 +403,8 @@ describe('functions', () => {
     expect(value(`${head}rel(A) = delta A / A\nv = rel(2 * k1)`)).toBe('0.012')
   })
 
-  it('lays out every call of a #multiline function one = per row', () => {
-    expect(last('area(r) = pi * r^2   #multiline\nr_1 = 2.0 cm\nA = area(r_1)').tex).toContain('\\begin{aligned}')
+  it('lays out every call of a function defined in @layout.multiline one = per row', () => {
+    expect(last('@layout.multiline {\n    area(r) = pi * r^2\n}\nr_1 = 2.0 cm\nA = area(r_1)').tex).toContain('\\begin{aligned}')
     expect(last('area(r) = pi * r^2\nr_1 = 2.0 cm\nA = area(r_1)').tex).not.toContain('\\begin{aligned}')
   })
 })
@@ -465,28 +465,26 @@ describe('notation on the name', () => {
   })
 })
 
-describe('#sci and #dec', () => {
+describe('@layout.sci and @layout.dec', () => {
+  /** A line inside an @layout block with these members. */
+  const inLayout = (members: string, line: string, before = '') => `${before}@layout.${members} {\n    ${line}\n}`
+
   it('show a line’s result in that notation, named or not', () => {
-    expect(shown('p = 0.0707\np^2   #sci')).toBe('p^2 = 0.0707^2 = 5.00e-3')
-    expect(shown('p:sci = 0.0707\np^2   #dec')).toBe('p^2 = (7.07e-2)^2 = 0.00500')
-    expect(shown('a = 12000. m   #sci')).toBe('a = 1.2000e4 m') // a typed value too
-    expect(value('p = 0.0707\np^2   #val #sci')).toBe('5.00e-3') // combines with other commands
+    expect(shown(inLayout('sci', 'p^2', 'p = 0.0707\n'))).toBe('p^2 = 0.0707^2 = 5.00e-3')
+    expect(shown(inLayout('sci', 'a = 12000. m'))).toBe('a = 1.2000e4 m') // a typed value too
+    expect(value(inLayout('val.sci', 'p^2', 'p = 0.0707\n'))).toBe('5.00e-3') // combines with other members
   })
 
   it('only change how the line is shown: the variable doesn’t keep it', () => {
-    expect(value('q = 0.0707 * 2   #sci\nq')).toBe('0.141')
+    expect(value(`${inLayout('sci', 'q = 0.0707 * 2')}\nq`)).toBe('0.141')
   })
 
-  it('apply to every line in a block, below a name’s or a variable’s own notation', () => {
-    const src = 'p:dec = 2.5e-3\nQ {   #sci\n    a = 0.0707 * 2\n    b:dec = 0.0707 * 2\n    p\n    c = 0.0707 * 3   #dec\n}'
+  it('apply to every line in the block, below a name’s or a variable’s own notation, and an inner block’s', () => {
+    const src = 'p:dec = 2.5e-3\n@layout.sci {\n    a = 0.0707 * 2\n    b:dec = 0.0707 * 2\n    p\n    @layout.dec {\n        c = 0.0707 * 3\n    }\n}'
     expect(resultOfLine(src, 3)).toBe('1.41e-1')
     expect(resultOfLine(src, 4)).toBe('0.141') // the name's :dec
     expect(resultOfLine(src, 5)).toBe('0.0025') // p keeps its own :dec
-    expect(resultOfLine(src, 6)).toBe('0.212') // the line's own command
-  })
-
-  it('aren’t taken into the note', () => {
-    expect(last('x = 2.0   #sci   # a note').tex).toBe('x = 2.0')
+    expect(resultOfLine(src, 7)).toBe('0.212') // the inner block's
   })
 })
 
@@ -599,12 +597,12 @@ describe('vectors', () => {
     // Combined with :ijk, on a name with a subscript already.
     expect(readable(last('F_net:ijk:xyz = <3.0, 4.0, 1.5> N').tex))
       .toBe('F_net = (3.0 î + 4.0 ĵ + 1.5 k̂) N F_net,x = 3.0 N F_net,y = 4.0 N F_net,z = 1.5 N')
-    // #sym shows only the equation (the components are still made).
-    expect(shown('v:xyz = <1.0, 2.0> m   #sym\nw = v_y')).toBe('w = v_y = 2.0 m')
+    // In @layout.sym, only the equation is shown (the components are still made).
+    expect(shown('@layout.sym {\n    v:xyz = <1.0, 2.0> m\n}\nw = v_y')).toBe('w = v_y = 2.0 m')
   })
 
-  it('add the components as rows under a #multiline line', () => {
-    const tex = last('F = <3.0, 4.0> N\nG:xyz = F + 2 * F   #multiline').tex
+  it('add the components as rows under a line in @layout.multiline', () => {
+    const tex = last('F = <3.0, 4.0> N\n@layout.multiline {\n    G:xyz = F + 2 * F\n}').tex
     expect(tex).toMatch(/^\\begin\{aligned\}G &= F\+ 2 F \\\\ &= .* \\\\ G_\{x\} &= 9\.0\\,\\mathrm\{N\} \\\\ G_\{y\} &= 12\\,\\mathrm\{N\}\\end\{aligned\}$/)
   })
 
@@ -707,13 +705,18 @@ describe('atan2', () => {
   })
 })
 
-describe('display commands', () => {
-  const src = 'm = 2.00 kg\nF = m * 9.81 m/s^2   #multiline\nG = m * 9.81 m/s^2   #val\nH = m * 9.81 m/s^2   #sym'
+describe('display settings on a block', () => {
+  const src = [
+    'm = 2.00 kg',
+    '@layout.multiline {', '    F = m * 9.81 m/s^2', '}',
+    '@layout.val {', '    G = m * 9.81 m/s^2', '}',
+    '@layout.sym {', '    H = m * 9.81 m/s^2', '}',
+  ].join('\n')
 
   it('shows the right parts', () => {
-    expect(lineAt(src, 2).tex).toContain('\\begin{aligned}F &= ')
-    expect(readable(lineAt(src, 3).tex)).toBe('G = 19.6 N')
-    expect(readable(lineAt(src, 4).tex)).toBe('H = m\\times 9.81 m/s^2')
+    expect(lineAt(src, 3).tex).toContain('\\begin{aligned}F &= ')
+    expect(readable(lineAt(src, 6).tex)).toBe('G = 19.6 N')
+    expect(readable(lineAt(src, 9).tex)).toBe('H = m\\times 9.81 m/s^2')
   })
 })
 

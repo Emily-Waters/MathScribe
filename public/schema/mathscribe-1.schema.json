@@ -162,9 +162,6 @@
           "$ref": "#/$defs/token.body"
         },
         {
-          "$ref": "#/$defs/token.command"
-        },
-        {
           "$ref": "#/$defs/token.note"
         },
         {
@@ -281,7 +278,7 @@
       }
     },
     "node.calc": {
-      "description": "A calculation: m = 2.0 kg, with any #commands and note (core)",
+      "description": "A calculation: m = 2.0 kg, with any note (core)",
       "type": "object",
       "required": [
         "kind",
@@ -1338,7 +1335,7 @@
       }
     },
     "token.body": {
-      "description": "What a line says, before its #commands and note (core)",
+      "description": "What a line says, before its note (core)",
       "type": "object",
       "required": [
         "t",
@@ -1354,25 +1351,8 @@
         }
       }
     },
-    "token.command": {
-      "description": "A display command: #val, #multiline, #sci, #center (core)",
-      "type": "object",
-      "required": [
-        "t",
-        "text"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "t": {
-          "const": "command"
-        },
-        "text": {
-          "type": "string"
-        }
-      }
-    },
     "token.note": {
-      "description": "A note, # …, to the end of the line (core)",
+      "description": "A note, // … after what a line says, to the end of the line (core)",
       "type": "object",
       "required": [
         "t",

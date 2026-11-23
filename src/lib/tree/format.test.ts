@@ -67,8 +67,8 @@ function random(seed: number): () => number {
 describe('formatting a sheet', () => {
   it('lays out a call over several lines: its lines a level in, its bracket under its first, no trailing comma', () => {
     expect(keepsMeaning('val = [\n  1234,\n  5678,\n  ]')).toBe('val = [\n    1234,\n    5678\n]')
-    expect(keepsMeaning('Box {\n  val = [\n      1,\n      2,  # two\n  ]\n}')).toBe(
-      'Box {\n    val = [\n        1,\n        2  # two\n    ]\n}',
+    expect(keepsMeaning('Box {\n  val = [\n      1,\n      2,  // two\n  ]\n}')).toBe(
+      'Box {\n    val = [\n        1,\n        2  // two\n    ]\n}',
     )
   })
 
@@ -83,7 +83,7 @@ describe('formatting a sheet', () => {
     expect(worksOutTheSame(`Fs = [ ${values[0]},\n     ${values[1]},\n     ${values[2]}]\nF = Fs.avg`))
       .toBe(`Fs = [\n    ${values[0]},\n    ${values[1]},\n    ${values[2]}\n]\nF = Fs.avg`)
     expect(worksOutTheSame('y = max(1,\n  2)')).toBe('y = max(\n    1,\n    2\n)')
-    expect(worksOutTheSame('y = max(1, 2,\n  3)  #val  # the most')).toBe('y = max(\n    1,\n    2,\n    3\n)  #val  # the most')
+    expect(worksOutTheSame('y = max(1, 2,\n  3)  // the most')).toBe('y = max(\n    1,\n    2,\n    3\n)  // the most')
   })
 
   it('brings a value at the wrong indentation back into its call', () => {
@@ -96,7 +96,7 @@ describe('formatting a sheet', () => {
   it('keeps its settings together, and a note with what it’s after', () => {
     const DATA = 't1 = 0.10 s\nt2 = 0.20 s\nx1 = 0.012 m\nx2 = 0.047 m\n'
     expect(worksOutTheSame(`${DATA}@table(t, x;\n  rows 1-2, lines grid)`)).toBe(`${DATA}@table(\n    t,\n    x;\n    rows 1-2, lines grid\n)`)
-    expect(worksOutTheSame('v = [1,  # first\n  2]')).toBe('v = [\n    1,  # first\n    2\n]')
+    expect(worksOutTheSame('v = [1,  // first\n  2]')).toBe('v = [\n    1,  // first\n    2\n]')
   })
 
   it('leaves a bracket on one line as it is, and lays out one over several in it', () => {
@@ -120,7 +120,7 @@ describe('formatting a sheet', () => {
   })
 
   it('leaves spacing in strings, notes, comments, prose’s values, a == and a comma before a bracket as they are', () => {
-    const source = 'label = "a,b=c"  # x=1,y=2\n// a=b\n> The mass is {{m=2}}.\ny = 1==1\nz = f(1,)'
+    const source = 'label = "a,b=c"  // x=1,y=2\n// a=b\n> The mass is {{m=2}}.\ny = 1==1\nz = f(1,)'
     expect(keepsMeaning(source)).toBe(source)
   })
 
@@ -135,9 +135,7 @@ describe('formatting a sheet', () => {
     expect(keepsMeaning('f(a\n  ,\n)')).toBe('f(\n    a\n    ,\n)')
     expect(keepsMeaning('f(,\n)')).toBe('f(,\n)')
     expect(keepsMeaning('f(a,,\n)')).toBe('f(\n    a,,\n)')
-    expect(keepsMeaning('f(\n  a,#val\n)')).toBe('f(\n    a #val\n)')
-    // (A line break only ever takes the place of spaces: a #command between two things stays.)
-    expect(keepsMeaning('v = [  #val 1 N,\n  2 N]')).toBe('v = [  #val 1 N,\n    2 N\n]')
+    expect(keepsMeaning('f(\n  a,// x\n)')).toBe('f(\n    a // x\n)')
   })
 
   it('indents each line by the blocks it’s in, closing braces under their openers', () => {

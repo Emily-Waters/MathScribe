@@ -743,7 +743,7 @@ export class Calculator {
         sf: this.sigFigs.of(a, literals, false),
         contributions: this.uncertainty.propagate(a),
         // f(pi) shows π inside the function's working, not 3.14159, and a variable
-        // that stays symbolic (defined with #sym) stays symbolic as an argument.
+        // that stays symbolic (defined in @layout.sym) stays symbolic as an argument.
         shown: isSymbolNode(unwrap(a))
           ? this.vars.get((unwrap(a) as SymbolNode).name)?.shown ?? this.constantForm(a, literals)
           : this.constantForm(a, literals),
@@ -780,7 +780,7 @@ export class Calculator {
           look: isTuple(args[i].value) ? argLooks[i] : undefined,
         })
       })
-      // The function's own #multiline lays out its working too.
+      // The function's own .multiline lays out its working too.
       const outerMultiline = this.multiline
       this.multiline = outerMultiline || def.multiline
       let r: LineResult
@@ -801,10 +801,9 @@ export class Calculator {
   // -------------------------------------------------------------------------
 
   /**
-   * Evaluate one line. `explicit` says the mode was asked for with a command
-   * (on the line or its block), so it isn't overridden by a called function's
-   * return-line command. `notation`: `#sci` or `#dec` on the line, or on a
-   * block around it.
+   * Evaluate one line. `explicit` says the mode was asked for by an `@layout`
+   * block around it, so it isn't overridden by a called function's return
+   * line's. `notation`: `.sci` or `.dec` on a block around it.
    */
   /** mathjs's message for a name that's a series, not a value (`2 * t`), explained: what to write instead (seriesInMaths). */
   private seriesHint(message: string): string {
@@ -851,10 +850,10 @@ export class Calculator {
     return this.modules.reduce((t, m) => m.rewriteLine(t), text)
   }
 
-  /** `#multiline` on the line being evaluated: each `=` (and in a call's working too) on its own row. */
+  /** `.multiline` on a block around the line being evaluated: each `=` (and in a call's working too) on its own row. */
   private multiline = false
 
-  /** `#sci` / `#dec` on the line being evaluated, or on a block around it. */
+  /** `.sci` / `.dec` on a block around the line being evaluated. */
   private lineNotation: LineNotation = {}
 
   /** The left-hand side to show instead of the assigned name (set while unpacking). */
@@ -1114,7 +1113,7 @@ export class Calculator {
   /**
    * Variables a line's settings (a module's) make from the one it assigns, as
    * `F:xyz = …` makes each component of the vector F (F_x, F_y, F_z): stored at
-   * its sig figs and notation, and shown under its line (except with #sym,
+   * its sig figs and notation, and shown under its line (except in @layout.sym,
    * which shows only the equation).
    */
   private withDerived(name: string, result: LineResult, mode: DisplayMode, settings: readonly string[]): LineResult {
@@ -1127,7 +1126,7 @@ export class Calculator {
     if (!derived.length) return result
     const sf = this.vars.get(name)?.sf ?? EXACT
     const declared = this.vars.get(name)?.declared === true
-    // Kept as its notation; shown as its line is (with #sci or #dec too).
+    // Kept as its notation; shown as its line is (with a block's .sci or .dec too).
     const notation = this.vars.get(name)?.notation
     // Each at its sig figs, or one of a typed tuple's values, as typed.
     const typed = declared ? undefined : this.typedSfs.get(this.scope.get(name) as object)
@@ -1147,7 +1146,7 @@ export class Calculator {
     const { uncNode, percent, literals, warnings, explicit, mode } = ctx
     const assigned = isAssignmentNode(node) ? node.object.name : undefined
     const expr = isAssignmentNode(node) ? node.value : node
-    // #multiline on the line, or a call to a function defined with #multiline.
+    // .multiline on a block around the line, or a call to a function defined in one.
     const multiline = this.multiline || this.functions.callsIn(expr).some((c) => this.functions.named(c.fn.name)?.multiline === true)
     // For `x to kN`, show `x`; the conversion shows up in the result.
     const shown = isOperatorNode(expr) && isConversion(expr) ? expr.args[0] : expr
@@ -1169,12 +1168,12 @@ export class Calculator {
     // Calls to the sheet's functions: show the working inside each one first.
     // When the whole right-hand side is one call, the line itself then reads
     // `r = <return expression> = … = result` instead of `r = f(y, z) = …`.
-    // Lines shown before this one (e.g. the equation being solved), except for #val.
+    // Lines shown before this one (e.g. the equation being solved), except in @layout.val.
     const trace: TraceLine[] = mode === DISPLAY_MODE.val ? [] : [...(ctx.prelude ?? [])]
     let wholeLineTraced = false
     /** For a line that's just a function call: the sig figs of what it returns. */
     let returnSf: number | undefined
-    // (Worked out with #val too: each call's result has the sig figs of its return
+    // (Worked out in @layout.val too: each call's result has the sig figs of its return
     // line, which sigFigsOf needs when the call is part of a bigger expression.)
     for (const call of this.functions.callsIn(shown)) {
       const t = this.traceCall(call, literals, mode, explicit)
@@ -1309,7 +1308,7 @@ export class Calculator {
     // Declared sig figs (`m:3 = …`) replace the counted ones, and beat the global
     // setting, unless the value has an uncertainty, which sets its precision instead.
     /** A notation asked for on this line or its block (not just inherited from a variable). */
-    const explicitNotation = ctx.notation ?? this.lineNotation.own ?? this.lineNotation.block
+    const explicitNotation = ctx.notation ?? this.lineNotation.block
     let declaredSf: number | undefined
     if (ctx.declaredSf !== undefined && assigned) {
       if (unc !== undefined) {
@@ -1333,9 +1332,9 @@ export class Calculator {
       ?? (deltaOf ? this.vars.get(deltaOf)?.notation : undefined)
       ?? (isSymbolNode(bare) ? this.vars.get(bare.name)?.notation : undefined)
       ?? this.functions.of(callee)?.returnNotation
-    // `#sci` / `#dec` only change how this line is shown: the line's own command
-    // beats a variable's notation, and a block's doesn't (see LineNotation).
-    const notation = ctx.notation ?? this.lineNotation.own ?? kept ?? this.lineNotation.block
+    // A block's `.sci` / `.dec` only change how its lines are shown, and a
+    // variable's own notation beats it (see LineNotation).
+    const notation = kept ?? this.lineNotation.block
     // A look the line's settings give it (`F:ijk = …`: with unit vectors). Otherwise a
     // tuple keeps the look of what it's made from (see lookOf); a plain tuple has none.
     const look = isTuple(value) ? ctx.look?.look ?? this.lookOf(expr) : undefined
@@ -1361,7 +1360,7 @@ export class Calculator {
     }
 
     if (assigned) {
-      // Defined with #sym (on the line or its block): later substitutions keep the
+      // Defined in @layout.sym: later substitutions keep the
       // symbol instead of the value. Otherwise, constant-only values stay symbolic.
       const keepSymbol = ctx.mode === DISPLAY_MODE.sym && explicit
       this.store(assigned, {

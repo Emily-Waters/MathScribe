@@ -55,8 +55,8 @@ export const VECTOR_TOPICS: readonly PlacedTopic[] = [
         explain: 'name:xyz also makes each component a variable of its own, a_x, a_y (and a_z), shown under the '
           + 'vector.',
         rules: [
-          'It combines with the other settings (F_net:3:ijk:xyz) and works in function bodies. With #sym, the '
-            + 'components are made but not shown.',
+          'It combines with the other settings (F_net:3:ijk:xyz) and works in function bodies. In @layout.sym, '
+            + 'the components are made but not shown.',
         ],
         examples: [{
           source: [

@@ -978,6 +978,38 @@ active task list stays lean while preserving the full paper trail.
 
 ## Sheet schema, structure, and language tree
 
+- [x] `[medium]` **One way to write a comment, and `#` only for headings.** `#`
+  is now a heading on a line of its own, a note after a calculation
+  (`  # weight`) and a display command (`#sym`, `#val`, `#hide`,
+  `#list(a)`), while `//` is a comment. Look at `//` as the only comment
+  (and a calculation's note), `#` only for headings, and the display
+  commands in one consistent form of their own (e.g., `@`, like `@layout`'s
+  members).
+  Resolved (2026-11-23, Emily: get rid of the inline commands; no backward
+  compatibility for now, a directive in CLAUDE.md): `#` is only a heading,
+  at the start of a line; `//` starts a comment line and, after what a line
+  says, its note (syntax/notes.ts, which replaces commands.ts; a `//` in a
+  quoted string is the string's). The inline commands are gone: how lines
+  are shown is set only by an `@layout` block around them (`.sym`, `.val`,
+  `.full`, `.hidden`, `.multiline`, `.sci`, `.dec`), which reaches the
+  `{ }` blocks inside it; a one-line layout is a block of one line. The
+  `command` token kind, the editor's `#` completions, hovers and colour,
+  `commandTerm` and `TERM_KIND.command` went with them; a block's
+  `.sci`/`.dec` now ranks below a variable's own notation (there's no
+  line-level one). A `#` after a calculation is an error saying a note
+  goes after `//` (mathjs would have dropped the rest of the line as its
+  own comment). `@constants` and `@chem.species` cards are hidden by an
+  `@layout.hidden` around them. The language tree's "Display commands"
+  topic is now "How lines are shown"; the sample, templates, AI prompt,
+  showcase and tests moved to the new form; the golden snapshots changed
+  only in the Reference's examples and the hydrogen sheet's line numbers.
+  A block's setting is its `display` (`DISPLAY`, `Display`: full, sym,
+  val, hidden), no longer its `command` (`LINE_COMMAND`). An `@layout`
+  block that only sets how its lines are shown (`onlyShows`: no layout,
+  columns, title or note) has its lines flow with those around it
+  (`flowing`): one `gather*` in LaTeX with the lines before and after, and
+  each line its own item in a list, as when the commands were on the lines.
+
 - [x] **GitHub's build failing, on and off, since multiline calls** (2026-11-23,
   Emily): the test that round-trips every file in the repository timed out
   at 30 s on GitHub's runners, so nothing was published (six failures since

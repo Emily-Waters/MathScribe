@@ -99,10 +99,10 @@ describe('a series in square brackets', () => {
     expect(value(`${source}w = t[1]`)).toBe('5.0 s')
   })
 
-  it('shows just the rule with #sym, and just the values with #val', () => {
-    const source = `${FORCES}m = [F / 2]`
-    expect(shown(`${source}  #sym`)).not.toMatch(/kg/)
-    expect(shown(`${source}  #val`)).toMatch(/^m = \(1\.00, 1\.50, 5\.00\) N\s+3 values$/)
+  it('shows just the rule in @layout.sym, and just the values in @layout.val', () => {
+    const inLayout = (member: string) => `${FORCES}@layout.${member} {\n    m = [F / 2]\n}`
+    expect(shown(inLayout('sym'))).not.toMatch(/kg/)
+    expect(shown(inLayout('val'))).toMatch(/^m = \(1\.00, 1\.50, 5\.00\) N\s+3 values$/)
   })
 
   it('shortens a long series, and is listed for suggestions by its first and last values', () => {

@@ -5,7 +5,7 @@
  */
 import type { ReactNode } from 'react'
 import { hasError, listItems, type LayoutBlock } from '../../lib/sheet/blocks.ts'
-import { LAYOUT_STYLE, LINE_COMMAND } from '../../lib/syntax.ts'
+import { LAYOUT_STYLE, DISPLAY } from '../../lib/syntax.ts'
 import { columnParts } from '../../lib/output/constructs/columns.ts'
 import { BlockMessages, Title } from './shared.tsx'
 import { useLineLink } from './context.ts'
@@ -14,7 +14,7 @@ import { RenderedBlock } from './index.tsx'
 /** `@layout.…`: a list (with sub-lists), or its lines arranged as its layout says. */
 export function LayoutView({ block }: { block: LayoutBlock }) {
   const link = useLineLink()
-  if (block.command === LINE_COMMAND.hide && !hasError(block)) return null
+  if (block.display === DISPLAY.hidden && !hasError(block)) return null
   const title = (block.title || block.note) && (
     <p className="layout__title" {...link(block.line)}>
       <Title text={block.title} />

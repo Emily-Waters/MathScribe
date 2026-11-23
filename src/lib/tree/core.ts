@@ -15,7 +15,7 @@ export const HEADING_MARKS = /^#+/
 /** A line in the sheet (or a block in it). */
 const SHEET = [LINE_CONTEXT.sheet] as const
 
-/** Whether a line ends with a block's `{` (before its #commands and note). */
+/** Whether a line ends with a block's `{` (before its note). */
 const opensBlock = (body: string) => body.endsWith(BLOCK_OPEN)
 
 const SYNTAXES: LineSyntax[] = [
@@ -64,7 +64,7 @@ const SYNTAXES: LineSyntax[] = [
   },
 ]
 
-/** A heading line's body, after its `#`s and before its #commands and note: `# Kinematics {  #val` → `Kinematics {`. */
+/** A heading line's body, after its `#`s and before its note: `# Kinematics {  // part 1` → `Kinematics {`. */
 export const splitHeaded = (trimmed: string) => splitNote(trimmed.replace(HEADING_MARKS, '').trim()).body
 
 declareContexts([

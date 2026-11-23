@@ -8,7 +8,7 @@ import { DIAGNOSTIC_KIND, SYMBOL_KIND, collectDefinitions, collectDiagnostics, c
 import { TITLE_SEGMENT, titleSegments } from '../output/textSegments.ts'
 import { LAYOUT_STYLE } from '../syntax.ts'
 import { BLOCK_KIND, HEADING_LEVEL, type Block, type LayoutBlock } from './blocks.ts'
-import { last, lines, sheet } from '../../test/helpers.ts'
+import { last, lineAt, lines, readable, sheet, value } from '../../test/helpers.ts'
 import { toLatexDocument } from '../output/latex.ts'
 
 /** A compact outline of the blocks: kinds, titles, styles and lines. */
@@ -45,14 +45,14 @@ describe('{ } blocks', () => {
   })
 
   it('can be titled as a section or subsection, numbered with the headings', () => {
-    const src = '# Setup\n# Kinematics {\n  v = 2.0 m/s\n}\n## Energy {  #val  # at the top\n  E = 1.0 J\n}\n# Results'
+    const src = '# Setup\n# Kinematics {\n  v = 2.0 m/s\n}\n## Energy {  // at the top\n  E = 1.0 J\n}\n# Results'
     const s = sheet(src)
     const numbered = (b: Block) => (b.kind === BLOCK_KIND.heading ? `${b.number} ${b.text}`
       : b.kind === BLOCK_KIND.group ? `${b.section?.number} ${b.title} {` : b.kind)
     expect(s.blocks.map(numbered)).toEqual(['1 Setup', '2 Kinematics {', '2.1 Energy {', '3 Results'])
-    // The block scopes its variables, and takes commands and a note after its `{`, as any does.
+    // The block scopes its variables, and takes a note after its `{`, as any does.
     expect(s.blocks[1]).toMatchObject({ section: { level: HEADING_LEVEL.section }, locals: [expect.objectContaining({ name: 'v' })] })
-    expect(s.blocks[2]).toMatchObject({ section: { level: HEADING_LEVEL.subsection }, command: 'val', note: 'at the top' })
+    expect(s.blocks[2]).toMatchObject({ section: { level: HEADING_LEVEL.subsection }, note: 'at the top' })
     // A heading that isn't a block's is just a heading.
     expect(sheet('# The {Na^+} ion').blocks[0]).toMatchObject({ kind: BLOCK_KIND.heading })
   })
@@ -73,18 +73,20 @@ describe('layout blocks', () => {
     '        > nested b', // 5
     '    > three', // 6
     '}', // 7
-    '@layout.list(1) Steps {  # the 1s orbital', // 8
+    '@layout.list(1) Steps {  // the 1s orbital', // 8
     '    Z = 1', // 9
     '    sigma = Z * 2', // 10
     '}', // 11
     'after = sigma * 2', // 12
-    'E = 2.00 kg * 9.81 m/s^2   #center', // 13
-    '@layout.list Empty {', // 14
+    '@layout.center {', // 13
+    '    E = 2.00 kg * 9.81 m/s^2', // 14
     '}', // 15
-    'x = 1', // 16
+    '@layout.list Empty {', // 16
+    '}', // 17
+    'x = 1', // 18
   ].join('\n')
 
-  it('build lists, sub-lists and single centered lines', () => {
+  it('build lists, sub-lists and centered lines', () => {
     expect(outline(sheet(src).blocks)).toEqual([
       'layout list "Assumptions"',
       '  text 2',
@@ -98,9 +100,9 @@ describe('layout blocks', () => {
       '  calc 10',
       'calc 12',
       'layout center ""',
-      '  calc 13',
+      '  calc 14',
       'layout list "Empty" ERROR',
-      'calc 16',
+      'calc 18',
     ])
   })
 
@@ -130,15 +132,20 @@ describe('layout blocks', () => {
     expect(tex).toContain('\\paragraph{Steps --- the 1s orbital}\n\\begin{enumerate}\n\\item $\\displaystyle Z = 1$')
     expect(tex).toContain('\\begin{center}')
     // An empty list would not compile, so it's left as a comment.
-    expect(tex).toMatch(/% Line 14: @layout.list Empty \{\n% Error: @layout.list Empty \{ is empty/)
+    expect(tex).toMatch(/% Line 16: @layout.list Empty \{\n% Error: @layout.list Empty \{ is empty/)
     expect(tex).not.toMatch(/\\begin\{itemize\}\s*\\end\{itemize\}/)
   })
 
   it('leave hidden lines out of lists', () => {
-    const s = sheet('@layout.list(1) Results {  #val\n    F = 2.00 kg * 9.81 m/s^2\n    h = 5   #hide\n}')
+    const s = sheet('@layout.list(1).val Results {\n    F = 2.00 kg * 9.81 m/s^2\n    @layout.hidden {\n        h = 5\n    }\n}')
     const tex = toLatexDocument(s.blocks)
     expect(tex.match(/\\item/g)).toHaveLength(1)
-    expect((s.blocks[0] as LayoutBlock).command).toBe('val')
+    expect((s.blocks[0] as LayoutBlock).display).toBe('val')
+  })
+
+  it('make each line of a block that only sets how they’re shown an item of their own', () => {
+    const s = sheet('@layout.list(1) Results {\n    a = 1\n    @layout.val {\n        b = 2 * 3\n        c = 4 * 5\n    }\n}')
+    expect(toLatexDocument(s.blocks).match(/\\item/g)).toHaveLength(3)
   })
 })
 
@@ -226,22 +233,22 @@ describe('@layout display settings', () => {
   it('.hidden works the lines out without showing them, and they stay usable', () => {
     const src = '@layout.hidden {\n    m = 2.00 kg\n    g_0 = 9.81 m/s^2\n}\nF = m * g_0'
     const s = sheet(src)
-    expect(s.blocks[0]).toMatchObject({ kind: BLOCK_KIND.layout, style: undefined, command: 'hide' })
+    expect(s.blocks[0]).toMatchObject({ kind: BLOCK_KIND.layout, style: undefined, display: 'hidden' })
     expect(last(src).error).toBeUndefined()
     expect(toLatexDocument(s.blocks.slice(0, 1))).not.toContain('2.00')
   })
 
-  it('.sym, .val and .full show every line inside that way, unless a line has its own command', () => {
-    const lns = lines('@layout.val {\n    F = 2.00 kg * 9.81 m/s^2\n    p = 2.00 kg * 3.00 m/s   #full\n}')
+  it('.sym, .val and .full show every line inside that way, unless a block inside says otherwise', () => {
+    const lns = lines('@layout.val {\n    F = 2.00 kg * 9.81 m/s^2\n    @layout.full {\n        p = 2.00 kg * 3.00 m/s\n    }\n}')
     expect(lns[0].tex).not.toContain('\\cdot')
     expect(lns[0].tex.split('=')).toHaveLength(2)
     expect(lns[1].tex.split('=').length).toBeGreaterThan(2)
   })
 
   it('combine with each other and with a layout', () => {
-    expect(layoutOf('@layout.val.multiline {\n    x = 1\n}')).toMatchObject({ style: undefined, command: 'val', multiline: true })
-    expect(layoutOf('@layout.list(1).sym.sci Steps {\n    x = 1\n}')).toMatchObject({ style: 'list', marker: '1', command: 'sym', notation: 'sci', title: 'Steps' })
-    expect(layoutOf('@layout.hidden.val {\n    x = 1\n}')).toMatchObject({ command: 'hide' })
+    expect(layoutOf('@layout.val.multiline {\n    x = 1\n}')).toMatchObject({ style: undefined, display: 'val', multiline: true })
+    expect(layoutOf('@layout.list(1).sym.sci Steps {\n    x = 1\n}')).toMatchObject({ style: 'list', marker: '1', display: 'sym', notation: 'sci', title: 'Steps' })
+    expect(layoutOf('@layout.hidden.val {\n    x = 1\n}')).toMatchObject({ display: 'hidden' })
   })
 
   it('number a list as its brackets say, its sub-lists 1, a, i in turn; or say what’s wrong with them', () => {
@@ -256,22 +263,20 @@ describe('@layout display settings', () => {
     expect(layoutOf('@layout.center(1) {\n    > one\n}')!.error).toContain('.center takes nothing in brackets')
   })
 
-  it('lay out a single line as a list item, numbered as #list’s brackets say', () => {
-    expect(sheet('x = 1  #list(a)').blocks[0]).toMatchObject({ kind: BLOCK_KIND.layout, style: 'list', marker: 'a' })
-    expect(sheet('x = 1  #list').blocks[0]).toMatchObject({ style: 'list', marker: undefined })
-    expect((sheet('x = 1  #list(7)').blocks[0] as LayoutBlock).error).toContain('#list(…) takes')
-    expect((sheet('x = 1  #center(1)').blocks[0] as LayoutBlock).error).toContain('#center takes nothing in brackets')
-    // (Only a layout takes brackets: anything else like it is the note's.)
-    expect(sheet('x = 1  #val(2)').blocks[0]).toMatchObject({ kind: BLOCK_KIND.calc, note: 'val(2)' })
+  it('reach the { } blocks inside them, which keep their own variables', () => {
+    const src = 'x = 1\n@layout.val {\n    Inner {\n        x = 2 * 3\n    }\n}\ny = x'
+    expect(readable(lineAt(src, 4).tex)).toBe('x = 6')
+    expect(value(src)).toBe('1')
   })
 
-  it('win over the #commands on the opener', () => {
-    expect(layoutOf('@layout.val {  #sym\n    x = 1\n}')).toMatchObject({ command: 'val' })
+  it('say a # after a calculation isn’t read, and that a note goes after //', () => {
+    expect(last('x = 1  # one').error).toMatch(/^# only starts a heading.*write a note after \/\//)
+    expect(last('x = "a#b"').error).toBeUndefined()
   })
 
   it('warn when two can’t both apply, and use the first layout and the last of the rest', () => {
     expect(layoutOf('@layout.sym.val {\n    x = 1\n}')).toMatchObject({
-      command: 'val', warning: '@layout.sym.val has more than one of .full, .sym, .val; the last, .val, is used.',
+      display: 'val', warning: '@layout.sym.val has more than one of .full, .sym, .val; the last, .val, is used.',
     })
     expect(layoutOf('@layout.list.center {\n    x = 1\n}')).toMatchObject({
       style: 'list', warning: '@layout.list.center has more than one layout; it\'s laid out as .list.',
@@ -280,7 +285,7 @@ describe('@layout display settings', () => {
     expect(layoutOf('@layout.text.sym {\n    Some prose.\n}')).toMatchObject({
       style: 'text', warning: 'Nothing in @layout.text is worked out, so .sym does nothing there.',
     })
-    expect(layoutOf('@layout.text.hidden {\n    Some prose.\n}')).toMatchObject({ command: 'hide', warning: undefined })
+    expect(layoutOf('@layout.text.hidden {\n    Some prose.\n}')).toMatchObject({ display: 'hidden', warning: undefined })
   })
 
   it('put the warning in the editor’s diagnostics', () => {

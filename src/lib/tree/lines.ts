@@ -66,8 +66,8 @@ function spaced(t: string, text: string, into: Part[], lex?: (text: string) => r
   if (trail) into.push(token(TOKEN_KIND.space, trail))
 }
 
-/** How a noted line's body (each of its pieces, between #commands) is read into tokens. */
-type BodyReader = (text: string, into: Part[], first: boolean, last: boolean) => void
+/** How a noted line's body (what it says, before its note) is read into tokens. */
+type BodyReader = (text: string, into: Part[]) => void
 
 /** A body as it is: one token. */
 const plainBody: BodyReader = (text, into) => spaced(TOKEN_KIND.body, text, into)
@@ -88,14 +88,14 @@ const OPENING_BRACE = /\{[ \t]*$/
  * A block opener's body: its `@` name at the start, if it has one
  * (`@layout.list`), its `{` at the end, and its title between.
  */
-const openerBody: BodyReader = (text, into, first, last) => {
+const openerBody: BodyReader = (text, into) => {
   let rest = text
-  const name = first ? BLOCK_NAME.exec(rest)?.[0] : undefined
+  const name = BLOCK_NAME.exec(rest)?.[0]
   if (name) {
     into.push(token(TOKEN_KIND.blockName, name))
     rest = rest.slice(name.length)
   }
-  const brace = last ? OPENING_BRACE.exec(rest) : null
+  const brace = OPENING_BRACE.exec(rest)
   spaced(TOKEN_KIND.title, brace ? rest.slice(0, brace.index) : rest, into)
   if (brace) {
     into.push(token(TOKEN_KIND.blockOpen, BLOCK_OPEN))
@@ -104,18 +104,14 @@ const openerBody: BodyReader = (text, into, first, last) => {
 }
 
 /**
- * Content with #commands and a note, as tokens, from its pieces as readNoted
- * reads them: `m = 2.0 kg  #val  # mass` → body, space, command, space, note.
- * (A command after the note's `#` is a command too, as it's taken.) Its body is
- * read by `body`: as it is, as an expression, or as a block's opener.
+ * Content with a note, as tokens, from its pieces as readNoted reads them:
+ * `m = 2.0 kg  // mass` → body, space, note. Its body is read by `body`: as it
+ * is, as an expression, or as a block's opener.
  */
 function notedTokens(content: string, into: Part[], body: BodyReader = plainBody, noted = readNoted(content)): void {
-  // (The first and last pieces of the body with something in them: spaces between two commands are a piece too.)
-  const bodies = noted.pieces.filter((p) => p.kind === NOTED_PIECE.body && content.slice(p.start, p.end).trim())
   for (const p of noted.pieces) {
     const text = content.slice(p.start, p.end)
-    if (p.kind === NOTED_PIECE.command) into.push(token(TOKEN_KIND.command, text))
-    else if (p.kind === NOTED_PIECE.body) body(text, into, p === bodies[0], p === bodies.at(-1))
+    if (p.kind === NOTED_PIECE.body) body(text, into)
     else spaced(TOKEN_KIND.note, text, into)
   }
 }
@@ -132,10 +128,10 @@ function rawOpenerTokens(content: string, into: Part[]): void {
   spaced(TOKEN_KIND.text, rest.slice(at + BLOCK_OPEN.length), into)
 }
 
-/** What each line read as a noted line says (its #commands and note), by its node, so a reader needn't read them again. */
+/** What each line read as a noted line says (its body and note), by its node, so a reader needn't read them again. */
 const notedLines = new WeakMap<SyntaxNode, NotedLine>()
 
-/** What a line read as a noted line says: its body, #commands and note (undefined for a line read another way). */
+/** What a line read as a noted line says: its body and note (undefined for a line read another way). */
 export const notedOf = (node: SyntaxNode): NotedLine | undefined => notedLines.get(node)
 
 /**
@@ -186,7 +182,7 @@ const BODY_READER = {
   [CONTENT.opener]: openerBody,
 } as const satisfies Partial<Record<Content, BodyReader>>
 
-/** The kinds of content read as a noted line: a body, then #commands and a note. */
+/** The kinds of content read as a noted line: a body, then a note. */
 type NotedContent = keyof typeof BODY_READER
 const isNoted = (style: Content): style is NotedContent => style in BODY_READER
 
@@ -299,7 +295,7 @@ function parseLine(line: SourceLine, context: string, said?: string): ReadLine {
   let kind: string
   let body: Body | undefined
   let brackets: number | undefined
-  // (Read for its #commands and note once: for which kind of line it is, its tokens, and its reader.)
+  // (Read for its note once: for which kind of line it is, its tokens, and its reader.)
   let noted: NotedLine | undefined
   if (!content) kind = NODE_KIND.blank
   else if (isComment(content)) {
@@ -325,12 +321,12 @@ function parseLine(line: SourceLine, context: string, said?: string): ReadLine {
   return read
 }
 
-/** The kinds of token after what a line says: its #commands, its note, the spaces between them, and its ending. */
-const AFTER_SAID: ReadonlySet<string> = new Set([TOKEN_KIND.space, TOKEN_KIND.command, TOKEN_KIND.note, TOKEN_KIND.eol])
+/** The kinds of token after what a line says: its note, the spaces before it, and its ending. */
+const AFTER_SAID: ReadonlySet<string> = new Set([TOKEN_KIND.space, TOKEN_KIND.note, TOKEN_KIND.eol])
 
 /**
  * Where in a line's parts the `,` is that what it says ends with (before any
- * #commands and note), or -1: `5678,` in a call carried on over several lines,
+ * note), or -1: `5678,` in a call carried on over several lines,
  * which a trailing comma before its `)` is allowed in.
  */
 export function trailingSeparatorAt(line: SyntaxNode): number {
@@ -342,7 +338,7 @@ export function trailingSeparatorAt(line: SyntaxNode): number {
   return -1
 }
 
-/** The last token said in parts, at any depth (before any #commands and note); undefined if nothing's said. */
+/** The last token said in parts, at any depth (before any note); undefined if nothing's said. */
 function lastSaid(parts: readonly Part[]): Token | undefined {
   for (let i = parts.length - 1; i >= 0; i--) {
     const p = parts[i]
@@ -354,7 +350,7 @@ function lastSaid(parts: readonly Part[]): Token | undefined {
   return undefined
 }
 
-/** The first token in parts after the line's indentation and spaces, at any depth (a #command or note too). */
+/** The first token in parts after the line's indentation and spaces, at any depth (a note too). */
 function firstToken(parts: readonly Part[]): Token | undefined {
   for (const p of parts) {
     if (!isToken(p)) {
@@ -367,7 +363,7 @@ function firstToken(parts: readonly Part[]): Token | undefined {
 
 /**
  * Whether a line starts by closing a bracket, as its tokens say: its first token
- * after its indentation is one (`#val )` doesn't; nor does a `]` in a module's
+ * after its indentation is one (`// note )` doesn't; nor does a `]` in a module's
  * settings, one token).
  */
 export function startsClosing(line: SyntaxNode): boolean {
@@ -442,7 +438,7 @@ export function readLine(line: SourceLine, context: string, said?: string): Read
   return read
 }
 
-/** A closing line, `}  # end`: its brace and any note, as tokens. */
+/** A closing line, `}  // end`: its brace and any note, as tokens. */
 function closerLine(line: SourceLine): ReadLine {
   const [, indent, content, trailing] = EDGES.exec(line.text)!
   const parts: Part[] = []

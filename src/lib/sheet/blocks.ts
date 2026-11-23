@@ -15,7 +15,7 @@
  */
 import type { DataColumn, Definition, LineValue, TraceLine } from '../engine/index.ts'
 import type { VariableSummary } from './values.ts'
-import { LINE_COMMAND, type LayoutStyle, type LineCommand, type ListMarker, type Notation } from '../syntax.ts'
+import { DISPLAY, type LayoutStyle, type Display, type ListMarker, type Notation } from '../syntax.ts'
 import { words, type WordOf } from '../syntax.ts'
 import type { PlotData } from '../output/plot.ts'
 
@@ -34,8 +34,7 @@ export const BLOCK_KIND = {
 } as const
 export type BlockKind = (typeof BLOCK_KIND)[keyof typeof BLOCK_KIND]
 
-/** A display command on a line or block (#sym, #val, #full, #hide). */
-export type Command = LineCommand
+export type { Display }
 
 export type { LayoutStyle }
 
@@ -49,7 +48,7 @@ export interface BlockBase {
   line: number
 }
 
-/** A block with a note: the text after `#` on its line. */
+/** A block with a note: the text after `//` on its line. */
 export interface Noted {
   note?: string
 }
@@ -59,7 +58,7 @@ export interface Faulted {
   error?: string
 }
 
-/** A block that can be hidden (`#hide`): worked out, but not shown. */
+/** A block that can be hidden (in `@layout.hidden { }`): worked out, but not shown. */
 export interface Hideable {
   hidden?: boolean
 }
@@ -69,13 +68,13 @@ export interface Spans {
   endLine: number
 }
 
-/** The display settings an opener gives the lines inside it. */
+/** The display settings an opener gives the lines inside it (an `@layout` block's members; a `{ }` block's only hides, inside a hidden one). */
 export interface BlockSettings {
-  /** Display command given on the opener, inherited by lines inside. */
-  command?: Command
-  /** `#multiline` on the opener: every line inside is laid out one `=` per row. */
+  /** How the lines inside are shown (`.sym`, `.val`, `.full`), or hidden (`.hidden`). */
+  display?: Display
+  /** `.multiline`: every line inside is laid out one `=` per row. */
   multiline?: boolean
-  /** `#sci` / `#dec` on the opener: the notation results inside are shown in. */
+  /** `.sci` / `.dec`: the notation results inside are shown in. */
   notation?: Notation
 }
 
@@ -314,14 +313,26 @@ export function isOmitted(b: Block): boolean {
   if (b.kind === BLOCK_KIND.calc || b.kind === BLOCK_KIND.card || b.kind === BLOCK_KIND.custom) {
     return !!b.hidden && !b.error
   }
-  if (isContainer(b)) return b.command === LINE_COMMAND.hide && !b.error
+  if (isContainer(b)) return b.display === DISPLAY.hidden && !b.error
   return false
 }
 
-/** A list block's items, each with the sub-lists indented under it. */
+/**
+ * Whether a block only sets how its lines are shown, `@layout.val { … }`: an
+ * `@layout` block with no layout, columns, title or note, nothing wrong, and
+ * not hidden. Its lines flow on with the lines around it, as if written there.
+ */
+export const onlyShows = (b: Block): b is LayoutBlock =>
+  b.kind === BLOCK_KIND.layout && !b.style && !b.columns && !b.title && !b.note && !b.error && b.display !== DISPLAY.hidden
+
+/** Blocks with the lines of those that only set how they're shown in their place (onlyShows), at any depth. */
+export const flowing = (blocks: readonly Block[]): Block[] =>
+  blocks.flatMap((b) => (onlyShows(b) ? flowing(b.children) : [b]))
+
+/** A list block's items, each with the sub-lists indented under it (each line of a block that only sets how they're shown an item). */
 export function listItems(children: Block[]): { item: Block; subs: Block[] }[] {
   const items: { item: Block; subs: Block[] }[] = []
-  for (const c of children) {
+  for (const c of flowing(children)) {
     if (isOmitted(c)) continue
     if (c.kind === BLOCK_KIND.layout && c.nested && items.length) items.at(-1)!.subs.push(c)
     else items.push({ item: c, subs: [] })

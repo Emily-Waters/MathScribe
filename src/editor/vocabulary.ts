@@ -18,9 +18,6 @@ interface Described {
 const described = (kind: TermKind): Described[] =>
   treeTerms(languageTopics(), kind).map((t) => ({ name: t.name, description: t.summary }))
 
-/** Every display command, `#` and all, in the order they're suggested. */
-export const COMMANDS: Described[] = described(TERM_KIND.command)
-
 /** Words that can follow a `:` on a name (besides sig figs and units), the modules' too (a vector's `:ijk`, chemistry's `:formula`). */
 export const SETTING_WORDS: Described[] = [...described(TERM_KIND.setting), ...moduleSettingWords()]
 

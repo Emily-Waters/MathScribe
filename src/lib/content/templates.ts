@@ -38,11 +38,11 @@ x = [0.61 m pm 0.01 m, 1.24 m pm 0.01 m, 1.83 m pm 0.01 m]
 
 # Calculations
 @table(t, x, v = x / t; title "Speeds")
-v.avg                    # mean speed
+v.avg                   // mean speed
 
 # Results
 p = @plot(t, x; fit linear, title "Distance against time")
-v_fit = p.slope          # speed from the fit
+v_fit = p.slope         // speed from the fit
 
 # Discussion
 @layout.text Discussion {
@@ -64,14 +64,14 @@ const PROBLEM_SET = `@layout.titlepage {
 
 # Problem 1
 > The problem, as it's set.
-m = 2.00 kg              # given
-a = 3.00 m/s^2           # given
-F = m * a                # the answer
+m = 2.00 kg             // given
+a = 3.00 m/s^2          // given
+F = m * a               // the answer
 
 # Problem 2
 > The problem, as it's set.
-v_0 = 12.0 m/s           # given
-t = 2.50 s               # given
+v_0 = 12.0 m/s          // given
+t = 2.50 s              // given
 d = v_0 * t - 1/2 * @g * t^2
 `
 

@@ -29,7 +29,7 @@ export {
   type SettingDescription, type SettingsDescription, type SettingsPanel, type SettingsState, type SettingValue,
 } from './language/settings.ts'
 // (The language tree's topics: what a module says about its features, with examples the tests check.)
-export { TERM_KIND, commandTerm, type LanguageEntry, type LanguageExample, type LanguageTerm, type LanguageTopic, type PlacedTopic, type TermKind } from './language/tree.ts'
+export { TERM_KIND, type LanguageEntry, type LanguageExample, type LanguageTerm, type LanguageTopic, type PlacedTopic, type TermKind } from './language/tree.ts'
 // (settingsTopic: a call's settings as a topic of the tree, made from their declarations.)
 export { settingsTopic, type SettingsTopicPlace } from './language/reference.ts'
 

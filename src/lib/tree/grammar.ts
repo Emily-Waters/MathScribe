@@ -15,7 +15,7 @@
 import type { NotedLine } from '../syntax.ts'
 import { LINE_CONTEXT, NODE_KIND } from './nodes.ts'
 
-/** A line split into what it says and its #commands and note (as syntax/commands.ts reads it): what a syntax needs of it. */
+/** A line split into what it says and its note (as syntax/notes.ts reads it): what a syntax needs of it. */
 export type { NotedLine }
 
 /** How a body ends: at its `}`; at a `}` on its own (raw LaTeX); at the first line not indented further (a blank one too, or not). */
@@ -39,7 +39,7 @@ export type BodyEnd = (typeof BODY_END)[keyof typeof BODY_END]
 
 /** How a line's content is read into tokens. */
 export const CONTENT = {
-  /** Its text, then its #commands and note (`m = 2.0 kg  #val  # mass`). */
+  /** Its text, then its note (`m = 2.0 kg  // mass`). */
   noted: 'noted',
   /** As `noted`, its text read as an expression into tokens (lexer.ts): a calculation, a constant. */
   expression: 'expression',
@@ -49,7 +49,7 @@ export const CONTENT = {
    * (`v = x / t` there is one of `@table(…)`'s columns, not the line's own name).
    */
   continuation: 'continuation',
-  /** All one token: raw LaTeX, imported data (a `#` in it is the text's). */
+  /** All one token: raw LaTeX, imported data (a `//` in it is the text's). */
   whole: 'whole',
   /** Text, as `whole`, but with each value in it, `{{c_Na}}`, read as an expression (outside `$…$` maths): prose. */
   text: 'text',
@@ -57,9 +57,9 @@ export const CONTENT = {
   paragraph: 'paragraph',
   /** A heading's `#`s, then its title (all of it: a `#` in a title is the title's; values in it as in `text`). */
   heading: 'heading',
-  /** A block's opener: its `@` name if it has one, its title and its `{`, then #commands and note (`@layout.list Steps {  #val`, `Forces {`). */
+  /** A block's opener: its `@` name if it has one, its title and its `{`, then its note (`@layout.list Steps {  // to do`, `Forces {`). */
   opener: 'opener',
-  /** A heading's `#`s, then the rest as an `opener` (`# Kinematics {  #val`). */
+  /** A heading's `#`s, then the rest as an `opener` (`# Kinematics {  // part 1`). */
   headedOpener: 'headedOpener',
   /** A raw block's opener: its `@` name and its `{`, then its text all one token (`@latex { \frac{a}{b} }`, on one line). */
   rawOpener: 'rawOpener',
@@ -95,11 +95,11 @@ export interface LineSyntax {
   readonly contexts: readonly string[]
   /** How its content is read into tokens. */
   readonly content: Content
-  /** Whether a line (trimmed, and split into its body, #commands and note) is one of these. */
+  /** Whether a line (trimmed, and split into its body and note) is one of these. */
   matches(trimmed: string, split: () => NotedLine): boolean
   /** What it opens, if anything: the lines after it are its body. (Declared, so the schema can list it.) */
   readonly opens?: Body
-  /** The kind of token what it says is, before its #commands and note, if not `body` (a reaction's: a formula). */
+  /** The kind of token what it says is, before its note, if not `body` (a reaction's: a formula). */
   readonly bodyToken?: string
 }
 

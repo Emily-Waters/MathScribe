@@ -4,7 +4,7 @@
  * line of its own (`{2 H2 + O2 -> 2 H2O}`). See ReadsLines.
  */
 import {
-  BLOCK_CLOSE, BLOCK_KIND, bodyLines, type CardBlock, type CardEntry, type DefinedName, LINE_COMMAND, NodeReader,
+  BLOCK_CLOSE, BLOCK_KIND, bodyLines, type CardBlock, type CardEntry, type DefinedName, NodeReader,
   type SheetReader, SheetWideReader, SIGIL, SYMBOL_KIND, type TreeItem,
 } from '../../lib/plugin.ts'
 import { REACTION_LINE, formulaTex, setSpeciesNames, type SpeciesNames } from './chemistry.ts'
@@ -57,7 +57,6 @@ export class SpeciesReader extends SheetWideReader<CardBlock> {
         const entry = name(line.number, opener.body, opener.note, single[1], single[2], single[3])
         this.prepared.set(item, {
           kind: BLOCK_KIND.card, title: SPECIES_TITLE, line: line.number, endLine: line.number, entries: [entry], defines, single: true,
-          hidden: opener.command === LINE_COMMAND.hide,
         })
         continue
       }
@@ -72,7 +71,6 @@ export class SpeciesReader extends SheetWideReader<CardBlock> {
       })
       this.prepared.set(item, {
         kind: BLOCK_KIND.card, title: SPECIES_TITLE, line: line.number, endLine: item.last + 1, note: opener.note, entries, defines,
-        hidden: opener.command === LINE_COMMAND.hide,
         error: item.closer ? undefined : `The ${SIGIL}${CHEM_NAMESPACE}.${SPECIES_BLOCK} block on line ${line.number} is missing its closing ${BLOCK_CLOSE}.`,
       })
     }

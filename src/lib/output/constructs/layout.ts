@@ -5,7 +5,7 @@
  */
 import { BLOCK_KIND, listItems, type Block, type LayoutBlock } from '../../sheet/blocks.ts'
 import { columnParts } from './columns.ts'
-import { LAYOUT_STYLE, LAYOUT_SYNTAX, LINE_COMMAND, LIST_MARKER, type LayoutStyle, type ListMarker } from '../../syntax.ts'
+import { LAYOUT_STYLE, LAYOUT_SYNTAX, DISPLAY, LIST_MARKER, type LayoutStyle, type ListMarker } from '../../syntax.ts'
 import { ALIGN } from '../alignment.ts'
 import { errorComment, heading as latexHeading, titleToLatex } from '../latexKit.ts'
 import {
@@ -244,12 +244,12 @@ export class LayoutConstruct extends Construct<LayoutBlock> {
 
   latex(b: LayoutBlock, out: LatexOut): string {
     if (b.error && !b.children.length) return errorComment(b.line, LAYOUT_SYNTAX.openerOf(b), b.error)
-    if (b.command === LINE_COMMAND.hide) return ''
+    if (b.display === DISPLAY.hidden) return ''
     return arrangementOf(b).latex(b, latexHeading(b.title && titleToLatex(b.title), b.note), out)
   }
 
   docx(b: LayoutBlock, ctx: Ctx, out: DocxOut): Item[] {
-    if (b.command === LINE_COMMAND.hide || (b.error && !b.children.length)) return []
+    if (b.display === DISPLAY.hidden || (b.error && !b.children.length)) return []
     const title: Item[] = b.title || b.note
       ? [{ props: { ...baseProps(ctx), keepNext: true, ...SPACING.title }, content: docxHeading(b.title, b.note) }]
       : []

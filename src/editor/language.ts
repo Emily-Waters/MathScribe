@@ -5,7 +5,7 @@
  *
  * Each line is read in its place, as the tree reads it (stepLine: what it is,
  * what it's inside), into its tokens: its indentation, a heading's `#`s, what it
- * says, its #commands and note. What it says is then coloured by its kind: a
+ * says, and its note. What it says is then coloured by its kind: a
  * calculation's numbers, units and names; a block opener's name, title and `{`; prose with its
  * values and formulas; raw LaTeX.
  */
@@ -15,7 +15,7 @@ import { tags } from '@lezer/highlight'
 // their kinds of line and their rules for expressions are then the tree's.)
 import {
   INDENT_WIDTH, LATEX_OPENER, COMMENT_START,
-  VALUE_BRACES, COMMAND_NAMES, indentOf, isComment,
+  VALUE_BRACES, NOTED_PIECE, indentOf, isComment, readNoted,
 } from '../lib/syntax.ts'
 import {
   LINE_ROLE, NODE_KIND, TOKEN_KIND, TOKEN_ROLE, TOP, isCallKind, isToken, stepLine, tokenRoleOf, type LineState, type Part, type SyntaxNode, type TokenRole,
@@ -32,7 +32,6 @@ const TOKEN = {
   definition: 'definition',
   constant: 'constant',
   keyword: 'keyword',
-  command: 'command',
   note: 'note',
   comment: 'comment',
   value: 'value',
@@ -159,9 +158,8 @@ function expressionStyle(piece: Piece, text: string): Token | null {
   return expressionStyleOf(piece.t) ?? null
 }
 
-/** How each token coloured all at once is coloured: #commands, notes, and a block opener's name, title and brace. */
+/** How each token coloured all at once is coloured: notes, and a block opener's name, title and brace. */
 const WHOLE_TOKEN_STYLE: Readonly<Record<string, Token>> = {
-  [TOKEN_KIND.command]: TOKEN.command,
   [TOKEN_KIND.note]: TOKEN.note,
   [TOKEN_KIND.blockName]: TOKEN.keyword,
   [TOKEN_KIND.title]: TOKEN.title,
@@ -197,8 +195,7 @@ function token(stream: StringStream, state: State): Token | null {
       else stream.pos = at!.end
       return TOKEN.heading
   }
-  // A token coloured as it is, all of it at once: a #command, a note (a #command after it is a
-  // command, coloured as one), and a block opener's name, title and brace.
+  // A token coloured as it is, all of it at once: a note, and a block opener's name, title and brace.
   const style = piece === undefined ? undefined : WHOLE_TOKEN_STYLE[piece]
   if (style) {
     stream.pos = at!.end
@@ -263,7 +260,6 @@ export const mathscribeLanguage = StreamLanguage.define<State>({
     [TOKEN.definition]: tags.definition(tags.function(tags.variableName)),
     [TOKEN.constant]: tags.constant(tags.variableName),
     [TOKEN.keyword]: tags.keyword,
-    [TOKEN.command]: tags.processingInstruction,
     [TOKEN.note]: tags.lineComment,
     [TOKEN.comment]: tags.comment,
     [TOKEN.value]: tags.special(tags.variableName),
@@ -343,9 +339,6 @@ export const isProseLine = (before: string) => /^\s*[#>]/.test(before) || LATEX_
 /** Whether a value in text, `{{…`, is being typed here, where there are names after all. */
 export const inValue = (before: string) => /\{\{[^{}]*$/.test(before) && !isComment(before)
 
-/** A finished display command (followed by a space), anywhere in a line. */
-const TYPED_COMMAND = new RegExp(String.raw`(?:^|\s)#(?:${COMMAND_NAMES.join('|')})(?=\s)`, 'g')
-
-/** Whether a `#` note has started on the line before this point (not one of the commands). */
-export const inNote = (before: string) => /(?:^|\s)#/.test(before.replace(TYPED_COMMAND, ' '))
+/** Whether a `//` note has started on the line before this point (as the tree reads a note: syntax/notes.ts). */
+export const inNote = (before: string) => readNoted(before).pieces.some((p) => p.kind === NOTED_PIECE.note)
 

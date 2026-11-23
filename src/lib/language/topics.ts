@@ -5,9 +5,9 @@
  * (EngineModule.languageTopics), placed among these.
  */
 import {
-  EXACT_SETTING, KEYWORD, LINE_COMMAND, LINE_LAYOUT, MULTILINE, NOTATION, PERCENT, UNCERTAINTY_WORDS,
+  EXACT_SETTING, KEYWORD, NOTATION, PERCENT, UNCERTAINTY_WORDS,
 } from '../syntax.ts'
-import { TERM_KIND, commandTerm, type LanguageTopic } from './tree.ts'
+import { TERM_KIND, type LanguageTopic } from './tree.ts'
 
 /** The core's topics, in order. */
 export const CORE_TOPICS: readonly LanguageTopic[] = [
@@ -16,16 +16,17 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
     title: 'Basics',
     entries: [
       {
-        explain: 'Assign a value. Text after # is a note shown beside the result.',
+        explain: 'Assign a value. Text after // on a calculation is a note, shown beside the result.',
         rules: [
-          'Text after ` # ` on a calculation is its note: two spaces or more before the #.',
+          'A note goes after what the line says, on a calculation or a block\'s opener: m = 2.00 kg   // mass.',
         ],
-        examples: [{ source: 'm = 2.00 kg   # mass of the block' }],
+        examples: [{ source: 'm = 2.00 kg   // mass of the block' }],
       },
       {
-        explain: '// starts a comment, never shown. A blank line is spacing; two leave a gap in the output.',
+        explain: 'A line starting with // is a comment, never shown. A blank line is spacing; two leave a gap in the '
+          + 'output.',
         rules: [
-          'Don\'t use # for a comment on its own line: it makes a heading.',
+          'Don\'t use # for a comment: a line starting with # is a heading, and # anywhere else isn\'t read.',
           'A // line is never shown or worked out, wherever it is: in a block, a function, or an @layout.text '
             + 'block (where it doesn\'t split a paragraph).',
         ],
@@ -246,8 +247,8 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
         rules: [
           'The lines inside are indented further than the first; the closing bracket can be under the first '
             + 'line. A blank line, or one not indented further, ends it.',
-          'A trailing comma before the closing bracket is fine (the formatter takes it out). #commands and '
-            + 'notes can go on any of its lines.',
+          'A trailing comma before the closing bracket is fine (the formatter takes it out). A note can '
+            + 'go on any of its lines.',
           'The formatter (Ctrl+Shift+F, or saving) lays it out so.',
         ],
         examples: [{
@@ -264,14 +265,14 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
         explain: 'Title { … } is a block. Variables assigned inside are local to it.',
         rules: [
           'Indent the lines inside 4 spaces.',
-          'Title {  #hide works the whole block out without showing it.',
+          'To work a block out without showing it, put it in @layout.hidden { }.',
           'Don\'t end a line with : to start a block: write Title {.',
           'Inside a block you can read everything defined above it, in the blocks around it too.',
           'What\'s assigned inside is gone at its }; a name that\'s outside too is shadowed, and the outer value '
             + 'is as it was.',
           'A block without a title has no title bar: just its lines, in a card.',
           'A block\'s title can be a heading: # Kinematics { titles it as a numbered section, ## Energy { as a '
-            + 'subsection. Commands and a note go after the {.',
+            + 'subsection. A note goes after the {.',
         ],
         examples: [{
           source: [
@@ -561,7 +562,7 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
         rules: [
           'When the right-hand side is just the call, the line reads K = ½mv² = … (the function\'s expression); '
             + 'a call in a bigger expression is shown as usual.',
-          '#sym on the calling line shows the equation without values, #val just the result.',
+          'In @layout.sym { } the calling line shows the equation without values; in @layout.val { }, just the result.',
         ],
         examples: [{
           source: [
@@ -725,7 +726,7 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
         examples: [{
           source: [
             '@constants {',
-            '    rho_w = 998 kg/m^3   # water at 20 °C',
+            '    rho_w = 998 kg/m^3   // water at 20 °C',
             '}',
             'P = @rho_w * @g * 0.250 m to kPa',
           ].join('\n'),
@@ -735,121 +736,120 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
   },
   {
     id: 'display',
-    title: 'Display commands',
+    title: 'How lines are shown',
     entries: [
       {
-        explain: '#sym shows the equation only.',
-        terms: [
-          commandTerm(LINE_COMMAND.sym, 'Show the equation only'),
-        ],
+        explain: '@layout.sym shows each line up to its } as its equation only; @layout.val, as its result only. '
+          + 'Lines outside any such block are shown in full.',
         rules: [
-          'A command goes before or after the note: F = m * a  #val  # weight is F = m * a  # weight  #val.',
-          'Commands combine: #sym #multiline.',
-          'On a line that\'s just a name (delta F, t.avg), #sym shows how it\'s worked out (δF = √(…)), and #val '
+          'How lines are shown is only ever set by an @layout block around them: there\'s nothing to write on the '
+            + 'line itself.',
+          'On a line that\'s just a name (delta F, t.avg), .sym shows how it\'s worked out (δF = √(…)), and .val '
             + 'its name and value.',
-          'Only these words are commands: any other #word (#3) stays part of the note.',
-        ],
-        examples: [{ source: 'F = 2.00 kg * 9.81 m/s^2   #sym' }],
-      },
-      {
-        explain: '#val shows the result only.',
-        terms: [
-          commandTerm(LINE_COMMAND.val, 'Show the result only'),
-        ],
-        examples: [{ source: 'F = 2.00 kg * 9.81 m/s^2   #val' }],
-      },
-      {
-        explain: 'A variable defined with #sym stays a symbol in later lines\' substitution steps (F = k·x = k · 0.150 '
-          + 'm), though its value is used in every calculation; in a function\'s working too, and for a #sym '
-          + 'block\'s variables.',
-        rules: [
-          'Defining it again without #sym brings its value back into substitutions.',
         ],
         examples: [{
           source: [
-            'k = 4.0 N/m * 2   #sym',
+            '@layout.sym {',
+            '    F = 2.00 kg * 9.81 m/s^2',
+            '}',
+            '@layout.val {',
+            '    p = 2.00 kg * 3.00 m/s',
+            '}',
+          ].join('\n'),
+        }],
+      },
+      {
+        explain: 'A variable defined in @layout.sym stays a symbol in later lines\' substitution steps (F = k·x = k · '
+          + '0.150 m), though its value is used in every calculation; in a function\'s working too.',
+        rules: [
+          'Defining it again outside @layout.sym brings its value back into substitutions.',
+        ],
+        examples: [{
+          source: [
+            '@layout.sym {',
+            '    k = 4.0 N/m * 2',
+            '}',
             'x = 0.150 m',
             'F = k * x',
           ].join('\n'),
         }],
       },
       {
-        explain: '#sci shows the result in scientific notation, #dec in plain digits: for a line with no name to put '
-          + ':sci on, or a whole block.',
-        terms: [
-          commandTerm(NOTATION.sci, 'Results in scientific notation (on a line, or every line in a block)'),
-          commandTerm(NOTATION.dec, 'Results in plain decimal digits, no powers of ten (on a line, or every line in a block)'),
-        ],
+        explain: '@layout.sci shows results in scientific notation, @layout.dec in plain digits: for lines with no name '
+          + 'to put :sci on.',
         rules: [
-          'They only change how the line is shown: the variable doesn\'t keep the notation (write x:sci = … for '
+          'They only change how the lines are shown: a variable doesn\'t keep the notation (write x:sci = … for '
             + 'that).',
-          'A name\'s own :sci or :dec beats the line\'s command, which beats a variable\'s own notation, which '
-            + 'beats the block\'s.',
+          'A name\'s own :sci or :dec beats a variable\'s own notation, which beats the block\'s.',
         ],
         examples: [{
           source: [
             'p = 0.0707',
-            'p^2   #sci',
+            '@layout.sci {',
+            '    p^2',
+            '}',
           ].join('\n'),
         }],
       },
       {
-        explain: '#hide calculates the line but doesn’t show it.',
-        terms: [
-          commandTerm(LINE_COMMAND.hide, 'Calculate, but don’t show the line or block'),
-        ],
+        explain: '@layout.hidden works out the lines inside without showing them; what they define is usable after it.',
         rules: [
-          'Hidden lines and blocks are left out of the exports too, but their variables can still be used. A '
-            + 'hidden line with an error is shown anyway.',
+          'Hidden lines and blocks are left out of the exports too. A hidden line with an error is shown anyway.',
         ],
         examples: [{
           source: [
-            'm = 2.00 kg   #hide',
-            'F = m * 9.81 m/s^2',
+            '@layout.hidden {',
+            '    m = 2.00 kg',
+            '    g_0 = 9.81 m/s^2',
+            '}',
+            'F = m * g_0',
           ].join('\n'),
         }],
       },
       {
-        explain: '#multiline puts each = on its own row, lined up. It combines with the others (#sym #multiline), and '
-          + 'works on a block.',
-        terms: [
-          commandTerm(MULTILINE, 'Each = on its own row, lined up'),
-        ],
+        explain: '@layout.multiline puts each = of every line inside on its own row, lined up.',
         rules: [
           'A line with only one = left to show stays on one line.',
+          'A function (f(x) = …) defined inside is shown multiline on every line that calls it, wherever that is.',
         ],
         examples: [{
           source: [
             'm = 2.00 kg',
-            'F = m * 9.81 m/s^2   #multiline',
-          ].join('\n'),
-        }],
-      },
-      {
-        explain: 'On a function (f(x) = …), every line that calls it is shown multiline.',
-        examples: [{
-          source: [
-            'area(r) = pi * r^2   #multiline',
+            '@layout.multiline {',
+            '    F = m * 9.81 m/s^2',
+            '    area(r) = pi * r^2',
+            '}',
             'r_1 = 2.0 cm',
             'A = area(r_1)',
           ].join('\n'),
         }],
       },
       {
-        explain: 'On a block, a command applies to every line inside; a line’s own command (#full) wins.',
-        terms: [
-          commandTerm(LINE_COMMAND.full, 'Show everything (the default; overrides a block’s command)'),
-        ],
+        explain: 'The settings combine (@layout.val.multiline), and with a layout (@layout.list(1).val). They apply to '
+          + 'the blocks inside too: an @layout.full block inside shows its lines in full again.',
         rules: [
-          'It applies to the blocks inside too; #hide on a block hides all of it.',
-          'To give some lines a command without scoping their variables, use an @layout block: @layout.val {, '
-            + '@layout.hidden {.',
+          'Members combine in any order: a layout with display settings (@layout.list(1).val), or display '
+            + 'settings alone (@layout.val.multiline).',
+          'Some can\'t both apply, and are warned of: of two layouts the first is used; of two of .sym, .val '
+            + 'and .full (or .sci and .dec) the last; on prose only .hidden does anything.',
+          'An @layout block doesn\'t scope its variables: for that, put a Title { } block inside it, which takes '
+            + 'its settings.',
         ],
         examples: [{
           source: [
-            'Results only {   #val',
+            '@layout.val.multiline Results {',
             '    F = 2.00 kg * 9.81 m/s^2',
-            '    p = 2.00 kg * 3.00 m/s   #full',
+            '    @layout.full {',
+            '        p = 2.00 kg * 3.00 m/s',
+            '    }',
+            '}',
+          ].join('\n'),
+        }, {
+          source: [
+            '@layout.val {',
+            '    Energy {',
+            '        E = 1/2 * 2.00 kg * (3.00 m/s)^2',
+            '    }',
             '}',
           ].join('\n'),
         }],
@@ -867,8 +867,7 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
           'Indent further for a sub-list; anywhere else, indenting the lines inside is for reading only.',
           'A layout block only arranges lines: what\'s assigned inside stays available after it (a Title { } '
             + 'block scopes it).',
-          'Its title is optional. A note after the opener shows beside the title, and display commands on the '
-            + 'opener apply to the lines inside.',
+          'Its title is optional. A note after the opener shows beside the title.',
           'In the LaTeX export, lists are itemize and enumerate (each calculation inline beside its marker), '
             + 'and centred blocks center.',
         ],
@@ -938,35 +937,12 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
         }],
       },
       {
-        explain: '@layout.hidden works out the lines inside without showing them; what they define is usable after it.',
-        examples: [{
-          source: [
-            '@layout.hidden {',
-            '    m = 2.00 kg',
-            '    g_0 = 9.81 m/s^2',
-            '}',
-            'F = m * g_0',
-          ].join('\n'),
-        }],
-      },
-      {
-        explain: '.sym, .val, .full, .multiline, .sci and .dec set how every line inside is shown, as their #commands '
-          + 'do on a line. Members combine (@layout.list(1).val); a line’s own command still wins.',
+        explain: 'Besides its layout, an @layout block can set how every line inside is shown: .sym, .val, .full, '
+          + '.multiline, .sci, .dec and .hidden (see How lines are shown).',
         rules: [
-          'Members combine in any order: a layout with display settings (@layout.list(1).val), or display '
-            + 'settings alone (@layout.val.multiline).',
-          'Some can\'t both apply, and are warned of: of two layouts the first is used; of two of .sym, .val '
-            + 'and .full (or .sci and .dec) the last; on prose only .hidden does anything.',
-          'The members win over #commands on the opener.',
+          'A layout of a single line is a block of one line: @layout.center {, the line, }.',
         ],
         examples: [{
-          source: [
-            '@layout.val.multiline Results {',
-            '    F = 2.00 kg * 9.81 m/s^2',
-            '    p = 2.00 kg * 3.00 m/s   #full',
-            '}',
-          ].join('\n'),
-        }, {
           source: [
             'm = 2.00 kg',
             '@layout.sym.multiline Formulas {',
@@ -980,15 +956,6 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
             '}',
           ].join('\n'),
         }],
-      },
-      {
-        explain: 'On a single line, #center centers just that line; #list makes it a bullet, and #list(1), #list(a) '
-          + 'and so on a numbered item, marked as @layout.list(1) marks them.',
-        terms: [
-          commandTerm(LINE_LAYOUT.center, 'Center the line (for a block of lines: @layout.center { })'),
-          commandTerm(LINE_LAYOUT.list, 'The line as a bullet, or #list(1), #list(a) a numbered item (for a block of lines: @layout.list { })'),
-        ],
-        examples: [{ source: 'F = 2.00 kg * 9.81 m/s^2   #center' }, { source: 'F = 2.00 kg * 9.81 m/s^2   #list(a)' }],
       },
       {
         explain: '@layout.text makes a block of prose: lines join into paragraphs (a blank line starts a new one), $…$ '

@@ -84,7 +84,7 @@ export function layoutEquation(mode: DisplayMode, p: EquationParts, multiline = 
   // The relation before each step after the first: =, or ≈ before a rounded result.
   const rels = steps.slice(1).map((s, i) =>
     p.approx && i === steps.length - 2 && s === p.result ? '\\approx' : '=')
-  // #multiline: each `=` on its own row, lined up (a single = stays on one line).
+  // .multiline: each `=` on its own row, lined up (a single = stays on one line).
   if (multiline && steps.length > 2) {
     const rows = steps.slice(1).map((s, i) => `&${rels[i]} ${s}`)
     return `\\begin{aligned}${steps[0]} ${rows.join(' \\\\ ')}\\end{aligned}`
@@ -114,7 +114,7 @@ export interface CalcResult {
   plot?: PlotData
   /**
    * A line a module shows as a block of its own kind rather than as an
-   * equation (`@table(…)`'s table): the line's note, messages and `#hide` go
+   * equation (`@table(…)`'s table): the line's note, messages and hiding go
    * with it. Its `tex` is then unused.
    */
   block?: ResultBlock
@@ -205,13 +205,11 @@ export interface DataColumn {
 }
 
 /**
- * `#sci` / `#dec` for a line: its own command, and the nearest block's. They
- * rank differently: a name's `:sci` or `:dec` beats the line's own command,
- * which beats a variable's own notation (`x` after `x:sci = …`), which beats
+ * `.sci` / `.dec` for a line: the nearest `@layout` block's. A name's `:sci` or
+ * `:dec` beats a variable's own notation (`x` after `x:sci = …`), which beats
  * the block's.
  */
 export interface LineNotation {
-  own?: Notation
   block?: Notation
 }
 

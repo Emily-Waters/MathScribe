@@ -32,13 +32,13 @@ describe('buildPrompt', () => {
     expect(prompt).toContain('Request: A midterm on momentum')
     expect(prompt).toContain('Include a worked solution to every question')
     expect(prompt).toContain('mark value')
-    expect(prompt).not.toContain('#hide` on each solution') // not ticked
+    expect(prompt).not.toContain('solution blocks inside `@layout.hidden') // not ticked
     expect(prompt.trimEnd()).toMatch(/Reply with only the sheet, in a single code block\.$/)
   })
 
   it('asks to hide the solutions only if there are some', () => {
-    expect(buildPrompt('test', 'x', { ...defaultChoices('test'), hide: true })).toContain('#hide` on each solution')
-    expect(buildPrompt('test', 'x', { solutions: false, hide: true })).not.toContain('#hide` on each solution')
+    expect(buildPrompt('test', 'x', { ...defaultChoices('test'), hide: true })).toContain('solution blocks inside `@layout.hidden')
+    expect(buildPrompt('test', 'x', { solutions: false, hide: true })).not.toContain('solution blocks inside `@layout.hidden')
   })
 
   it('uses the example request when none is written', () => {

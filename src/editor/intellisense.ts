@@ -10,7 +10,6 @@
  * Completions depend on what's being typed:
  *   after `@`                 → constants
  *   after a number, or `to`   → units (and `percent` after `to`)
- *   `#` after a line's text   → display commands
  *   `\` and a letter's name   → Greek letters (`\Delta` → Δ; see greek.ts)
  *   a name                    → variables, functions, series names, keywords
  *
@@ -34,7 +33,7 @@ import { STORAGE_KEYS } from '../config.ts'
 import { readStored, writeStored } from '../lib/data/storage.ts'
 import { GREEK_CHARS, KEYWORD, MEMBER_DOT, MEMBER_INDEX, NAME, NAME_CHAR, PERCENT, SERIES_STAT_SUFFIX, SIGIL, VALUE_BRACES } from '../lib/syntax.ts'
 import { memberName, parseMemberName, parseNumberedName, seriesMemberName, typedName } from '../lib/sheet/names.ts'
-import { BUILTIN_FUNCTIONS, COMMANDS, KEYWORDS, MATH_CONSTANTS, SERIES_SUFFIXES, SETTING_WORDS } from './vocabulary.ts'
+import { BUILTIN_FUNCTIONS, KEYWORDS, MATH_CONSTANTS, SERIES_SUFFIXES, SETTING_WORDS } from './vocabulary.ts'
 import { inNote, inValue, isProseLine } from './language.ts'
 import { inDataBlock, inNamelessBlock, readAs } from './sheetLines.ts'
 import { TYPING, typingAt, typingInValue } from './typing.ts'
@@ -321,14 +320,6 @@ export function complete(ctx: CompletionContext): CompletionResult | null {
     : typingAt(readAs(ctx.state.doc, line.number, before).node.parts)
   const from = ctx.pos - (typing?.typed.length ?? 0)
 
-  // `#…` after the line's text: display commands.
-  if (typing?.kind === TYPING.command) {
-    return {
-      from,
-      options: COMMANDS.map((c) => ({ label: c.name, type: 'keyword', detail: c.description })),
-      validFor: /^#\w*$/,
-    }
-  }
   if (typing?.kind === TYPING.note) return null
 
   // `\…`: a Greek letter, typed as its character.
@@ -494,7 +485,7 @@ function seriesMemberInfo(visible: Map<string, SheetSymbol>, name: string): HTML
   return null
 }
 
-/** Hover information: what a name, unit, constant, command or keyword is. */
+/** Hover information: what a name, unit, constant or keyword is. */
 const hoverInfo = hoverTooltip((view, pos) => {
   const { state } = view
   const line = state.doc.lineAt(pos)
@@ -512,11 +503,6 @@ const hoverInfo = hoverTooltip((view, pos) => {
   const name = state.sliceDoc(word.from, word.to)
   const show = (from: number, dom: HTMLElement) => ({ pos: from, end: word.to, above: true, create: () => ({ dom }) })
 
-  // `#command`
-  if (before.endsWith('#')) {
-    const c = COMMANDS.find((x) => x.name === `#${name}`)
-    return c ? show(word.from - 1, infoNode(undefined, c.name, c.description)) : null
-  }
   // `@c`, `@chem.mm.Na`, `@layout.val.multiline`, `@constants`: what that built-in member is
   // (or, at the top, a constant of your own).
   const builtinPrefix = BUILTIN_BEFORE.exec(before)

@@ -46,9 +46,9 @@ const KEPT_CONTENT: ReadonlySet<Content> = new Set([CONTENT.whole, CONTENT.text]
 /** The bodies whose lines keep how much further in than the first each is: a list's sub-lists. */
 const RELATIVE_BODIES: ReadonlySet<string> = new Set([NODE_KIND.layout])
 
-/** The kinds of token that aren't something said: spaces, indentation, line endings, notes, #commands, comments. */
+/** The kinds of token that aren't something said: spaces, indentation, line endings, notes, comments. */
 const UNSAID: ReadonlySet<string> = new Set([
-  TOKEN_KIND.space, TOKEN_KIND.indent, TOKEN_KIND.eol, TOKEN_KIND.note, TOKEN_KIND.command, TOKEN_KIND.comment,
+  TOKEN_KIND.space, TOKEN_KIND.indent, TOKEN_KIND.eol, TOKEN_KIND.note, TOKEN_KIND.comment,
 ])
 
 /** A body being formatted (one for each the tree has open, and the sheet's top). */
@@ -123,9 +123,9 @@ interface LineToken {
   readonly parent?: SyntaxNode
 }
 
-/** The kinds of token nothing is said in: spaces, indentation, line endings, notes, #commands, comments. */
+/** The kinds of token nothing is said in: spaces, indentation, line endings, notes, comments. */
 const QUIET: ReadonlySet<string> = new Set([
-  TOKEN_KIND.space, TOKEN_KIND.indent, TOKEN_KIND.eol, TOKEN_KIND.note, TOKEN_KIND.command, TOKEN_KIND.comment,
+  TOKEN_KIND.space, TOKEN_KIND.indent, TOKEN_KIND.eol, TOKEN_KIND.note, TOKEN_KIND.comment,
 ])
 
 /**
@@ -321,7 +321,7 @@ function continuedChanges(
     const line = lines.findLastIndex((_, n) => starts[n] <= to)
     const text = lines[line].text
     // (And only where a bracket is open, so the line before it still carries the line on; and only
-    // in place of spaces: a #command between the two, `[  #val 1 N`, stays where it is.)
+    // in place of spaces.)
     if (open < 1 || text.slice(from - starts[line], to - starts[line]).trim() || isComment(text.slice(to - starts[line]))) return
     changes.push({ from, to, insert: eol + ' '.repeat(continuedIndent(opener, open, startsClosing)) })
   }
@@ -365,7 +365,7 @@ function trailingCommaGoes(tokens: readonly Placed[], comma: number, before: num
   return !(isDelimiter(p) && (opensBracket(p.token.text) || p.token.text === SEPARATOR || p.token.text === ROW_SEPARATOR))
 }
 
-/** What a comma taken off leaves: a space if something's right after it (`5678,#val` keeps its command), or nothing. */
+/** What a comma taken off leaves: a space if something's right after it (`5678,// note` keeps its note apart), or nothing. */
 const commaGap = (tokens: readonly Placed[], comma: number) => {
   const after = tokens[comma + 1]
   return after && after.line === tokens[comma].line && after.token.t !== TOKEN_KIND.space && after.token.t !== TOKEN_KIND.eol ? ' ' : ''

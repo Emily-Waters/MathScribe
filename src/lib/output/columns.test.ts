@@ -63,8 +63,8 @@ describe('columns', () => {
     expect(columnGrid(columnsOf(five)).rows.map((r) => r.length)).toEqual([4, 1])
   })
 
-  it('leave out a column with nothing shown, and keep a hidden line with the one before it', () => {
-    expect(linesOf(columnsOf('@layout.column {\n  a = 1\n\n  h = 2  #hide\n\n  c = 3\n}'))).toEqual([[[2], [6]]])
+  it('leave out a column with nothing shown: a hidden block', () => {
+    expect(linesOf(columnsOf('@layout.column {\n  a = 1\n\n  @layout.hidden {\n    h = 2\n  }\n\n  c = 3\n}'))).toEqual([[[2], [8]]])
   })
 
   it('of prose start at two blank lines (one starts a paragraph)', () => {

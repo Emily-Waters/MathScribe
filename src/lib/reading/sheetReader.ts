@@ -6,8 +6,8 @@
  */
 import { Calculator, markupText, outsideMaths, sheetModules, type CalcOptions, type EngineModule } from '../engine/index.ts'
 import type { VariableSummary } from '../sheet/values.ts'
-import { BLOCK_CLOSE, EXACT_SETTING, LAYOUT_STYLE, LAYOUT_SYNTAX, LINE_COMMAND, SIGIL, SUB_LIST_MARKER, VALUE_IN_TEXT, closesBlock, type Notation } from '../syntax.ts'
-import { BLOCK_KIND, type Block, type Command, type GroupBlock, type LayoutBlock } from '../sheet/blocks.ts'
+import { BLOCK_CLOSE, EXACT_SETTING, LAYOUT_STYLE, LAYOUT_SYNTAX, DISPLAY, SIGIL, SUB_LIST_MARKER, VALUE_IN_TEXT, closesBlock, type Notation } from '../syntax.ts'
+import { BLOCK_KIND, type Block, type Display, type GroupBlock, type LayoutBlock } from '../sheet/blocks.ts'
 import { NODE_KIND, TOKEN_KIND, encode, isBlockKind, isToken, splitLines, statementOf, type SyntaxNode } from '../tree/index.ts'
 import { parseConstantDeclaration } from './lineSyntax.ts'
 import { Line, readsLines, type NodeReader, type TreeItem } from './reader.ts'
@@ -181,14 +181,14 @@ export class SheetReader {
     return { text: markupText(filled), error }
   }
 
-  /** The command the nearest open block that has one gives the lines inside it. */
-  get inheritedCommand(): Command | undefined {
-    return [...this.open].reverse().find((g) => g.command)?.command
+  /** How the nearest open block that has one shows the lines inside it. */
+  get inheritedDisplay(): Display | undefined {
+    return [...this.open].reverse().find((g) => g.display)?.display
   }
 
-  /** `#hide` from the blocks around, if they say it (a block hides what's in it, whatever else it says). */
-  get inheritedHide(): Command | undefined {
-    return this.inheritedCommand === LINE_COMMAND.hide ? LINE_COMMAND.hide : undefined
+  /** `.hidden` from the blocks around, if they say it (a block hides what's in it, whatever else it says). */
+  get inheritedHidden(): Display | undefined {
+    return this.inheritedDisplay === DISPLAY.hidden ? DISPLAY.hidden : undefined
   }
 
   /** Whether a block around the line puts each = on its own row. */
@@ -196,7 +196,7 @@ export class SheetReader {
     return this.open.some((g) => g.multiline)
   }
 
-  /** The notation the nearest open block that has one gives the lines inside it. */
+  /** The notation the nearest open block that has one shows the lines inside it. */
   get inheritedNotation(): Notation | undefined {
     return [...this.open].reverse().find((g) => g.notation)?.notation
   }

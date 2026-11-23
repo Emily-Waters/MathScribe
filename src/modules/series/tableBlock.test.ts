@@ -9,8 +9,11 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { RenderedBlock } from '../../components/blocks/index.tsx'
 import { CaptionNumbers } from '../../components/blocks/context.ts'
 import { captionNumbers } from '../../components/blocks/captions.ts'
-import { BLOCK_KIND } from '../../lib/sheet/blocks.ts'
+import { BLOCK_KIND, isContainer } from '../../lib/sheet/blocks.ts'
 import { formatTableSettings, parseTableSettings } from './tableSettings.ts'
+
+/** A line in an `@layout.hidden` block: worked out, not shown. */
+const hidden = (line: string) => `@layout.hidden {\n    ${line}\n}`
 
 const DATA = 't = [0.10 s, 0.20 s]\nx = [0.012 m, 0.047 m]\n'
 
@@ -58,7 +61,7 @@ describe('a table in LaTeX', () => {
   it('shows a long table’s gap, and its note under it', () => {
     const many = `d = [${Array.from({ length: 70 }, (_, i) => `${i + 1}.0 m`).join(', ')}]`
     expect(tableOf(`${many}\n@table(d)`)).toContain('\t\t$\\vdots$ & $\\vdots$ \\\\\n\t\t\\hline\n\t\t\\textbf{\\boldmath 66}')
-    expect(tableOf(`${DATA}@table(t)  # the times`)).toContain('\t\\par\\smallskip\\textit{the times}\n\\end{table}')
+    expect(tableOf(`${DATA}@table(t)  // the times`)).toContain('\t\\par\\smallskip\\textit{the times}\n\\end{table}')
   })
 
   it('is centred where it is in a list, where a float can’t go, its caption by \\captionof', () => {
@@ -113,9 +116,9 @@ describe('a table in Word', () => {
   })
 
   it('has its note under it, and nothing when it’s hidden or wrong', () => {
-    const xml = word(`${DATA}@table(t)  # the times`)
+    const xml = word(`${DATA}@table(t)  // the times`)
     expect(xml.indexOf('the times')).toBeGreaterThan(xml.indexOf('</w:tbl>'))
-    expect(tablesOf(word(`${DATA}@table(t)  #hide`))).toHaveLength(0)
+    expect(tablesOf(word(`${DATA}${hidden('@table(t)')}`))).toHaveLength(0)
     expect(tablesOf(word(`${DATA}@table(t; colour red)`))).toHaveLength(0)
   })
 })
@@ -125,7 +128,7 @@ describe('a table in the Rendered tab', () => {
   const rendered = (source: string) => renderToStaticMarkup(createElement(RenderedBlock, { block: sheet(source).blocks.at(-1)! }))
 
   it('is a table: its title over it, its n column and header bold, a grid unless its settings say otherwise', () => {
-    const html = rendered(`${DATA}@table(t, x; title "Runs")  # timed`)
+    const html = rendered(`${DATA}@table(t, x; title "Runs")  // timed`)
     expect(html).toContain('<p class="ms-table__caption"><span>Runs</span></p>')
     expect(html).toContain('<table class="ms-table__table ms-table--grid">')
     expect(html).toContain('<th class="ms-table__n"></th>')
@@ -140,9 +143,9 @@ describe('a table in the Rendered tab', () => {
   it('numbers its caption as the exports do: titled tables, not hidden or wrong ones', () => {
     // (The last a table with a row that's wrong: drawn with its error, and left out of the exports.)
     const wrong = 'a = [1.0 m, 2.0 s]\n@table(r = a + 1.0 m; title "Wrong")'
-    const { blocks } = sheet(`${DATA}@table(t; title "A")\n@table(t)\n@table(t; title "Hidden")  #hide\n@table(t; title "B")\n${wrong}`)
+    const { blocks } = sheet(`${DATA}@table(t; title "A")\n@table(t)\n${hidden('@table(t; title "Hidden")')}\n@table(t; title "B")\n${wrong}`)
     const numbers = captionNumbers(blocks)
-    const tables = blocks.filter((b) => b.kind === BLOCK_KIND.custom)
+    const tables = blocks.flatMap((b) => (isContainer(b) ? b.children : [b])).filter((b) => b.kind === BLOCK_KIND.custom)
     expect(tables.map((b) => numbers.get(b))).toEqual([1, undefined, undefined, 2, undefined])
     const html = renderToStaticMarkup(createElement(CaptionNumbers.Provider, { value: numbers }, createElement(RenderedBlock, { block: tables[3] })))
     expect(html).toContain('<p class="ms-table__caption"><span>Table 2: </span><span>B</span></p>')
@@ -153,7 +156,7 @@ describe('a table in the Rendered tab', () => {
     const html = rendered(`${many}\n@table(d)`)
     expect(html.match(/<tr>/g)).toHaveLength(1 + 1 + 55)
     expect(html.match(/vdots/g)).toHaveLength(2)
-    expect(rendered(`${DATA}@table(t)  #hide`)).toBe('')
+    expect(rendered(`${DATA}${hidden('@table(t)')}`)).toBe('')
     // (In Word too, as maths, not its LaTeX as text.)
     expect(docxParts(sheet(`${many}\n@table(d)`).blocks, DEFAULT_LATEX_OPTIONS)['word/document.xml']).not.toContain('>\\vdots<')
   })

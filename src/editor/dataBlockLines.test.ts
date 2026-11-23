@@ -78,8 +78,8 @@ describe('editing an import line', () => {
   })
 
   it('allows a note after the import, a new line after a folded block, and editing open rows', () => {
-    expect(edit((s) => ({ changes: { from: importEnd(s), insert: '   # run 1' }, userEvent: 'input.type' }), false))
-      .toBe(DOC.replace('@import("r.csv")', '@import("r.csv")   # run 1'))
+    expect(edit((s) => ({ changes: { from: importEnd(s), insert: '   // run 1' }, userEvent: 'input.type' }), false))
+      .toBe(DOC.replace('@import("r.csv")', '@import("r.csv")   // run 1'))
     expect(edit((s) => ({ changes: { from: lastRowEnd(s), insert: '\n' }, userEvent: 'input' }), true))
       .toBe(DOC.replace('    2\nT', '    2\n\nT'))
     expect(edit((s) => ({ changes: { from: lastRowEnd(s), insert: '5' }, userEvent: 'input.type' }), false))

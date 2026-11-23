@@ -18,7 +18,7 @@ export const PRESET_THEMES = [
   { id: 'vivid', name: 'Vivid', description: 'Stronger colours; units and variables stand out' },
   { id: 'classic', name: 'Classic', description: 'Familiar code-editor colours; pairs well with the Charcoal theme' },
   { id: 'contrast', name: 'High contrast', description: 'Maximum legibility, e.g. on a projector' },
-  { id: 'minimal', name: 'Minimal', description: 'Only notes, commands and headings are coloured' },
+  { id: 'minimal', name: 'Minimal', description: 'Only notes and headings are coloured' },
 ] as const
 
 /** Every choice in the syntax theme menu: the presets, then Custom. */
@@ -49,8 +49,7 @@ export const SYNTAX_TOKENS = [
   { id: 'function', name: 'Functions', sample: 'sin' },
   { id: 'constant', name: 'Constants', sample: '@h' },
   { id: 'keyword', name: 'Keywords', sample: 'to' },
-  { id: 'command', name: 'Commands', sample: '#val' },
-  { id: 'note', name: 'Notes', sample: '# note' },
+  { id: 'note', name: 'Notes', sample: '// note' },
   { id: 'heading', name: 'Headings', sample: '## Forces' },
   { id: 'text', name: 'Text', sample: '> prose' },
   { id: 'latex', name: 'LaTeX', sample: '$x^2$' },
@@ -74,7 +73,6 @@ export const mathscribeHighlight = HighlightStyle.define([
   { tag: tags.definition(tags.function(tags.variableName)), color: v('function'), fontWeight: '600' },
   { tag: tags.constant(tags.variableName), color: v('constant') },
   { tag: tags.keyword, color: v('keyword'), fontWeight: '600' },
-  { tag: tags.processingInstruction, color: v('command'), fontWeight: '600' },
   { tag: tags.lineComment, color: v('note'), fontStyle: 'italic' },
   // A `//` comment line, in the note's colour; a `{{value}}` in prose, as a variable.
   { tag: tags.comment, color: v('note'), fontStyle: 'italic' },

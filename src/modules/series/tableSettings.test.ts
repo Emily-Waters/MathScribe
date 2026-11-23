@@ -38,14 +38,14 @@ describe('table settings', () => {
   })
 
   it('rewrites a table line with new settings, or takes them out', () => {
-    const line = '    @table(t, x; lines header)   # run 1'
+    const line = '    @table(t, x; lines header)   // run 1'
     const inner = { from: line.indexOf('(') + 1, to: line.lastIndexOf(')') }
     expect(withTableSettings(line, inner, { lines: 'grid', numbers: true, uncertainty: true, allRows: false, from: 2, to: 9 }))
-      .toBe('    @table(t, x; rows 2-9)   # run 1')
+      .toBe('    @table(t, x; rows 2-9)   // run 1')
     expect(withTableSettings(line, inner, { lines: 'grid', numbers: true, uncertainty: true, allRows: false }))
-      .toBe('    @table(t, x)   # run 1')
+      .toBe('    @table(t, x)   // run 1')
     expect(withTableSettings(line, inner, { lines: 'grid', numbers: true, uncertainty: false, allRows: false }))
-      .toBe('    @table(t, x; uncertainty off)   # run 1')
+      .toBe('    @table(t, x; uncertainty off)   // run 1')
   })
 })
 

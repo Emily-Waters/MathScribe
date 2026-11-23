@@ -7,30 +7,36 @@
 # Calculations
 > Values, units, sig figs and uncertainty, with notes at the right.
 
-m = 2.00 kg                       # mass
-g = 9.81 m/s^2                    # gravitational acceleration
-theta = 30.0 deg pm 0.5 deg       # incline angle, measured
-d = 3.50 m pm 0.02 m              # ramp length, measured
-F_par = m * g * sin(theta)        # along the ramp
+m = 2.00 kg                      // mass
+g = 9.81 m/s^2                   // gravitational acceleration
+theta = 30.0 deg pm 0.5 deg      // incline angle, measured
+d = 3.50 m pm 0.02 m             // ramp length, measured
+F_par = m * g * sin(theta)       // along the ramp
 a = F_par / m
-v_f = sqrt(2 * a * d)             # speed at the bottom
+v_f = sqrt(2 * a * d)            // speed at the bottom
 v_f to km/h
-delta v_f =                       # how its uncertainty is worked out
-N = 6.022e23 * 2.00   #sci
+delta v_f =                      // how its uncertainty is worked out
+N:sci = 6.022e23 * 2.00
 ratio = 0.125 to percent
-E = 1/2 * m * v_f^2 + m * g * d * sin(theta) - 1/2 * m * (0.50 m/s)^2 + m * g * 0.10 m   # a long one
+E = 1/2 * m * v_f^2 + m * g * d * sin(theta) - 1/2 * m * (0.50 m/s)^2 + m * g * 0.10 m  // a long one
 
-## Display commands
-F = m * g   #sym
-G = m * g   #val
-H = m * g * cos(theta)   #multiline
+## How lines are shown
+@layout.sym {
+    F = m * g
+}
+@layout.val {
+    G = m * g
+}
+@layout.multiline {
+    H = m * g * cos(theta)
+}
 > In text, a value stays right: the speed was {{v_f}}, and $\alpha = \frac{a}{g}$ is maths.
 
 ## Functions, constants and solving
 KE(mass, speed) = 1/2 * mass * speed^2
 E_k = KE(m, v_f)
 @constants {
-    rho_w = 998 kg/m^3   # water at 20 °C
+    rho_w = 998 kg/m^3  // water at 20 °C
 }
 P = @rho_w * @g * 0.250 m to kPa
 E_photon = @h * @c / 532 nm to eV
@@ -53,7 +59,7 @@ x[2:4]
 v = [x / t]
 salts = ["{KCl}", "{KBr}", "{KI}", "{NaCl}", "{NaBr}"]
 @table(t, x, v; title "Runs, timed", labels salts)
-@table(x[t > 0.2 s]; lines header)  # the later points
+@table(x[t > 0.2 s]; lines header) // the later points
 p = @plot(t, x; fit linear, legend top left, title "Distance against time")
 x_model(t) = 0.5 m/s * t
 @plot(t, x, x_model; colour x_model line green, xlabel "Time", ylabel "Distance")
@@ -89,7 +95,9 @@ y = [n^2]
     > Why is it slower?
 }
 
-F_W = m_2 * g   #list(a)
+@layout.list(a) {
+    F_W = m_2 * g
+}
 
 @layout.center Key result {
     v_bottom = sqrt(2 * g * 1.20 m)
@@ -103,7 +111,7 @@ F_W = m_2 * g   #list(a)
     a_2 = 3.0 m/s^2
 }
 
-Steeper ramp {   # a block of its own
+Steeper ramp {  // a block of its own
     theta = 45 deg
     a = g * sin(theta)
 }

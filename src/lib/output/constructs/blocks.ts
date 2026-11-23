@@ -5,7 +5,7 @@
 import {
   BLOCK_KIND, HEADING_LEVEL, type Block, type CardBlock, type CustomBlock, type GroupBlock, type ImportBlock, type HeadingLevel,
 } from '../../sheet/blocks.ts'
-import { LINE_COMMAND } from '../../syntax.ts'
+import { DISPLAY } from '../../syntax.ts'
 import { errorComment, gather, heading as latexHeading, titleToLatex, titled as latexTitled, type Equation } from '../latexKit.ts'
 import { moduleBlockKind } from '../../engine/index.ts'
 import { equation, heading as docxHeading, run, titled as docxTitled, type Ctx, type Item } from '../docxKit.ts'
@@ -65,7 +65,7 @@ export class GroupConstruct extends Construct<GroupBlock> {
   readonly kind = BLOCK_KIND.group
 
   latex(b: GroupBlock, out: LatexOut): string {
-    if (b.command === LINE_COMMAND.hide) return ''
+    if (b.display === DISPLAY.hidden) return ''
     const title = b.title && titleToLatex(b.title)
     // A title written as a heading (`# Kinematics {`) takes the next section's (or
     // subsection's) number, so LaTeX's count goes on from it as from a heading.
@@ -75,7 +75,7 @@ export class GroupConstruct extends Construct<GroupBlock> {
   }
 
   docx(b: GroupBlock, ctx: Ctx, out: DocxOut): Item[] {
-    if (b.command === LINE_COMMAND.hide) return []
+    if (b.display === DISPLAY.hidden) return []
     const number = ctx.o.numberSections && b.section?.number ? run(`${b.section.number}${EM_SPACE}`, { bold: true }) : ''
     return docxTitled(ctx, number + docxHeading(b.title, b.note), (inner) => out.blocks(b.children, inner))
   }

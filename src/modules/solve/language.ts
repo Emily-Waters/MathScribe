@@ -16,7 +16,7 @@ export const SOLVE_TOPICS: readonly PlacedTopic[] = [
         explain: '@solve(equation, unknown) rearranges for the unknown and evaluates it.',
         rules: [
           'Give a guess for a hard one: @solve(x = cos(x), x, 0.5).',
-          'The result is an ordinary formula: units, sig figs, uncertainty, #sym and #val work.',
+          'The result is an ordinary formula: units, sig figs, uncertainty, @layout.sym and @layout.val work.',
           '@solve(…) is the whole right-hand side, with to after it if wanted: theta = @solve(…, theta) to '
             + 'deg. On a line of its own, without =, it shows the answer without keeping it.',
           'The unknown is solved for even if it has a value; assigning the result replaces it.',

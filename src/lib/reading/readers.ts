@@ -3,11 +3,11 @@
  * its own). The tree says what each line is, and which lines a block holds.
  */
 import {
-  BLOCK_CLOSE, BLOCK_OPEN, CONSTANTS_BLOCK, DISPLAY_MODE, EXACT_SETTING, IMPORT, LATEX_BLOCK, LATEX_OPENER, LAYOUT_STYLE, LAYOUT_SYNTAX, LINE_COMMAND, SIGIL,
-  PARAGRAPH_MARK, bracesBalance, splitNote, type SplitLine,
+  BLOCK_CLOSE, BLOCK_OPEN, CONSTANTS_BLOCK, DISPLAY_MODE, EXACT_SETTING, IMPORT, LATEX_BLOCK, LATEX_OPENER, LAYOUT_STYLE, LAYOUT_SYNTAX, DISPLAY, SIGIL,
+  PARAGRAPH_MARK, COMMENT_START, HEADING_MARK, bracesBalance, splitNote, type SplitLine,
 } from '../syntax.ts'
 import { BLOCK_KIND, HEADING_LEVEL, SYMBOL_KIND, type CardBlock, type CardEntry, type DefinedName, type GroupBlock, type HeadingLevel, type SectionTitle, type ImportBlock, type LayoutBlock } from '../sheet/blocks.ts'
-import { NODE_KIND } from '../tree/index.ts'
+import { NODE_KIND, TOKEN_KIND, statementOf } from '../tree/index.ts'
 import { lineShape } from '../tree/shapes.ts'
 import { parseConstantDeclaration, readCsv } from './lineSyntax.ts'
 import { NodeReader, SheetWideReader, bodyLines, type Line, type TreeItem } from './reader.ts'
@@ -90,7 +90,6 @@ class ConstantsReader extends SheetWideReader<CardBlock> {
       })
       this.prepared.set(item, {
         kind: BLOCK_KIND.card, title: CONSTANTS_TITLE, line, endLine: item.last + 1, note: opener.note, entries, defines,
-        hidden: opener.command === LINE_COMMAND.hide,
         error: item.closer ? undefined : `The ${SIGIL}${CONSTANTS_BLOCK} block on line ${line} is missing its closing ${BLOCK_CLOSE}.`,
       })
     }
@@ -186,7 +185,7 @@ class ImportReader extends NodeReader {
 
   read(item: TreeItem, sheet: SheetReader): void {
     const { line } = item
-    const { body, note, command } = line.parts
+    const { body, note } = line.parts
     const imported = IMPORT.exec(body)!.groups!
     // The rows are the lines straight under it, indented further (the tree's: a blank line ends them).
     const rowLines = item.body.flatMap((b) => b.rows)
@@ -195,7 +194,7 @@ class ImportReader extends NodeReader {
     const endLine = item.last + 1
     const block: ImportBlock = {
       kind: BLOCK_KIND.import, line: line.number, endLine, name: imported.name, file: imported.file, columns: [], rows: 0, note,
-      hidden: (command ?? sheet.inheritedCommand) === LINE_COMMAND.hide,
+      hidden: sheet.inheritedDisplay === DISPLAY.hidden,
     }
     if (rows.length) {
       const csv = readCsv(rows)
@@ -236,15 +235,15 @@ class ProseLayoutReader extends NodeReader {
 
   read(item: TreeItem, sheet: SheetReader): void {
     const { line } = item
-    const { body: opened, note, command } = line.parts
+    const { body: opened, note } = line.parts
     const opener = LAYOUT_SYNTAX.read(opened)!
     const style = opener.style!
     const titlePage = style === LAYOUT_STYLE.titlepage
     const block: LayoutBlock = {
       kind: BLOCK_KIND.layout, line: line.number, title: '', note, style, members: opener.members, children: [], indent: line.indent,
       columns: opener.columns,
-      // (Prose only takes .hidden, or #hide.)
-      command: (opener.command === LINE_COMMAND.hide ? opener.command : undefined) ?? command ?? sheet.inheritedHide,
+      // (Prose only takes .hidden.)
+      display: (opener.display === DISPLAY.hidden ? opener.display : undefined) ?? sheet.inheritedHidden,
       warning: opener.warning,
     }
     let titleSource = opener.title
@@ -298,22 +297,21 @@ class ProseLayoutReader extends NodeReader {
 /**
  * `@layout.list(1) Title {`, `@layout.val.multiline {`: the lines up to its `}` are
  * laid out together, shown as its members say (and stay in scope after it).
- * Its members' settings win over the #commands on its opener.
  */
 class LayoutReader extends NodeReader {
   readonly kinds = [NODE_KIND.layout]
 
   read(item: TreeItem, sheet: SheetReader): void {
     const { line } = item
-    const { body, note, command, multiline, notation } = line.parts
+    const { body, note } = line.parts
     const opener = LAYOUT_SYNTAX.read(body)!
     const title = sheet.withValues(opener.title)
     const block: LayoutBlock = {
       kind: BLOCK_KIND.layout, line: line.number, title: title.text, note, style: opener.style, marker: opener.marker, members: opener.members, children: [], indent: line.indent,
       columns: opener.columns,
-      command: opener.command ?? command ?? sheet.inheritedHide,
-      multiline: opener.multiline || multiline || undefined,
-      notation: opener.notation ?? notation,
+      display: opener.display ?? sheet.inheritedHidden,
+      multiline: opener.multiline,
+      notation: opener.notation,
       error: opener.error ?? title.error,
       warning: opener.warning,
     }
@@ -326,8 +324,8 @@ class LayoutReader extends NodeReader {
 /**
  * `Title {`: a block whose variables are its own, gone after its `}`. Its title
  * can be a section's (`# Kinematics {`, `##` a subsection's): numbered with the
- * headings, and set as one in its title bar. (Commands and a note go after the
- * `{`, as on any block: `# Kinematics {  #val`.)
+ * headings, and set as one in its title bar. (A note goes after the `{`, as on
+ * any block: `# Kinematics {  // part 1`.)
  */
 class GroupReader extends NodeReader {
   readonly kinds = [NODE_KIND.block]
@@ -349,14 +347,12 @@ function readBody(item: TreeItem, sheet: SheetReader): void {
 
 /** Open a `{ }` block from its opener's parts (its body is its title and the `{`), titled as a section or not. */
 function openGroup(sheet: SheetReader, line: Line, parts: SplitLine, section?: SectionTitle): void {
-  const { body, note, command, multiline, notation } = parts
+  const { body, note } = parts
   // (Values in its title are the ones from before the block.)
   const title = sheet.withValues(body.slice(0, -BLOCK_OPEN.length).trim())
   const group: GroupBlock = {
     kind: BLOCK_KIND.group, line: line.number, title: title.text, note, children: [], locals: [],
-    command: command ?? sheet.inheritedHide,
-    multiline: multiline || undefined,
-    notation,
+    display: sheet.inheritedHidden,
     error: title.error,
     section,
   }
@@ -369,30 +365,28 @@ function openGroup(sheet: SheetReader, line: Line, parts: SplitLine, section?: S
 // Everything else: a calculation
 // ---------------------------------------------------------------------------
 
-/** `m = 2.0 kg  # note`: a calculation, shown as its #commands (or the blocks around it) say. */
+/** What's said of a `#` after what a line says. */
+const STRAY_HEADING_MARK = `${HEADING_MARK} only starts a heading, at the start of a line: write a note after ${COMMENT_START}, `
+  + `m = 2.00 kg  ${COMMENT_START} mass.`
+
+/** `m = 2.0 kg  // note`: a calculation, shown as the blocks around it say. */
 class CalcReader extends NodeReader {
   readonly kinds = [NODE_KIND.calc]
 
-  read({ line, last }: TreeItem, sheet: SheetReader): void {
-    const { body, note, command, multiline, notation, layout, layoutArgument } = line.parts
-    // A line's own command wins; otherwise the nearest enclosing block's.
-    const inherited = sheet.inheritedCommand
-    const effective = command ?? inherited ?? DISPLAY_MODE.full
-    const mode = effective === LINE_COMMAND.hide ? DISPLAY_MODE.full : effective
-    const result = sheet.calc.evaluate(body, mode, (command ?? inherited) !== undefined, multiline || sheet.inheritedMultiline, {
-      own: notation, block: sheet.inheritedNotation,
-    })
-    // `#center` (or another layout, `#list(a)`) on a single line: lay out just that line.
-    const marked = layout && LAYOUT_SYNTAX.lineMarker(layout, layoutArgument)
-    const own: LayoutBlock | undefined = layout
-      ? {
-        kind: BLOCK_KIND.layout, line: line.number, endLine: line.number, title: '', style: layout, marker: marked?.marker,
-        error: marked?.error, children: [], indent: line.indent,
-      }
-      : undefined
-    if (own) sheet.add(own)
-    const into = own?.children ?? sheet.open.at(-1)?.children ?? sheet.root
-    const hidden = effective === LINE_COMMAND.hide
+  read({ node, line, last }: TreeItem, sheet: SheetReader): void {
+    const { body, note } = line.parts
+    // A `#` after what a line says isn't read (mathjs would take the rest of the line as its own comment).
+    if (statementOf(node).tokens.some(({ token }) => token.t === TOKEN_KIND.unknown && token.text === HEADING_MARK)) {
+      const into = sheet.open.at(-1)?.children ?? sheet.root
+      into.push({ kind: BLOCK_KIND.calc, line: line.number, source: body, tex: '', note, error: STRAY_HEADING_MARK })
+      return
+    }
+    const inherited = sheet.inheritedDisplay
+    const effective = inherited ?? DISPLAY_MODE.full
+    const mode = effective === DISPLAY.hidden ? DISPLAY_MODE.full : effective
+    const result = sheet.calc.evaluate(body, mode, inherited !== undefined, sheet.inheritedMultiline, { block: sheet.inheritedNotation })
+    const into = sheet.open.at(-1)?.children ?? sheet.root
+    const hidden = effective === DISPLAY.hidden
     const warning = sheet.duplicateDeclarations.get(line.number) ?? result.warning
     // A line a module shows as a block of its own kind (a table), with the line's note and messages.
     if (result.block) {

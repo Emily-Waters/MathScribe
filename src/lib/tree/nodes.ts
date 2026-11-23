@@ -65,11 +65,9 @@ export const TOKEN_KIND = {
   text: 'text',
   /** A comment, `// …`, kept as written. */
   comment: 'comment',
-  /** What a line says, before its #commands and note: `m = 2.0 kg`, `Title {`. */
+  /** What a line says, before its note: `m = 2.0 kg`, `Title {`. */
   body: 'body',
-  /** A display command: `#val`, `#multiline`, `#sci`, `#center`. */
-  command: 'command',
-  /** A note: `# the mass`, to the end of the line. */
+  /** A note: `// the mass`, to the end of the line. */
   note: 'note',
   /** A heading's `#`s. */
   marks: 'marks',
@@ -113,7 +111,7 @@ export const NODE_KIND = {
   blank: 'blank',
   /** A line that's a comment: `// check the units`. */
   comment: 'comment',
-  /** A calculation, or anything else no other kind of line is: `m = 2.0 kg  #val`. */
+  /** A calculation, or anything else no other kind of line is: `m = 2.0 kg  // mass`. */
   calc: 'calc',
   /** `# Title`: a heading. */
   heading: 'heading',

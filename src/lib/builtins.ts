@@ -327,13 +327,13 @@ const COLUMN_DESCRIPTION = 'The lines inside side by side in columns: a blank li
 
 /** What each display setting does, `@layout.val.multiline { … }`. */
 const LAYOUT_MODIFIER_DESCRIPTIONS: Record<LayoutModifier, string> = {
-  hidden: 'Work the lines inside out, but don’t show them (as #hide)',
-  full: 'Show every line inside in full (as #full)',
-  sym: 'Show every line inside as its equation only (as #sym)',
-  val: 'Show every line inside as its result only (as #val)',
-  multiline: 'Each = of every line inside on its own row (as #multiline)',
-  sci: 'Results inside in scientific notation (as #sci)',
-  dec: 'Results inside in plain decimal digits (as #dec)',
+  hidden: 'Work the lines inside out, but don’t show them (an error still shows)',
+  full: 'Show every line inside in full: equation, values and result (the default; undoes a block around it)',
+  sym: 'Show every line inside as its equation only; a variable defined inside stays a symbol in later working',
+  val: 'Show every line inside as its result only',
+  multiline: 'Each = of every line inside on its own row, lined up',
+  sci: 'Results inside in scientific notation',
+  dec: 'Results inside in plain decimal digits, no powers of ten',
 }
 
 // ---------------------------------------------------------------------------

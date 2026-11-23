@@ -11,7 +11,7 @@ const SOURCE = [
   '# Heading',
   '> Some prose with $x^2$',
   '@latex { \\frac{a}{b} }',
-  'm = 2.00 kg   # mass',
+  'm = 2.00 kg   // mass',
   '',
   '',
   'f(x) = x^2',

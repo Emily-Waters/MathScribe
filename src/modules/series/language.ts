@@ -134,7 +134,7 @@ export const SERIES_TOPICS: readonly PlacedTopic[] = [
             + 'rows, a warning says so: slice them to choose, [d[1:3] / t[1:3]].',
           'Square brackets are only for series (and their members): there are no matrices.',
           'Making a series again replaces it. Its line shows the values (the first three and last two of a '
-            + 'long one); #sym the rule, #val the values.',
+            + 'long one); in @layout.sym the rule, in @layout.val the values.',
         ],
         examples: [{
           source: [

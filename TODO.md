@@ -161,7 +161,7 @@ Completed items with their resolution notes live in `CHANGELOG.md`.
       - "The most important rule" at the primer's head and the prompt's end
         (every calculation a calculation line, never LaTeX), and rules on
         what `$…$` and `@latex` are for.
-      - `#sym` for formulas: a #sym line whose names have no values yet shown
+      - `@layout.sym` for formulas: a line in it whose names have no values yet shown
         rather than an error, so a formula sheet is `@layout.sym { … }` of
         calculation lines; the formula-sheet option and the example sheet
         using it.
@@ -172,7 +172,7 @@ Completed items with their resolution notes live in `CHANGELOG.md`.
       calculations), and trying the prompt on several AIs before settling.
 - [ ] `[medium]` **Equations wider than the output pane**: they scroll sideways
       (with a scrollbar), which is easy to miss. Break a very long line onto
-      rows, one `=` each, as `#multiline` does, when it doesn't fit. (Found in
+      rows, one `=` each, as `@layout.multiline` does, when it doesn't fit. (Found in
       a browser pass, 2026-11-16, along with notes that cut equations off beside
       them, fixed then: a note goes below an equation that doesn't fit beside
       it.)
@@ -219,7 +219,7 @@ Completed items with their resolution notes live in `CHANGELOG.md`.
       maths).
       **Set aside (2026-11-16):** after weighing it up (formatting in `{{…}}`
       text and table columns, eng and frac, against a fourth place to set
-      notation beside `#sci`, `:sci` and `@layout.sci`, and frac's clash with
+      notation beside `:sci` and `@layout.sci`, and frac's clash with
       sig figs), `@format` waits until there's a clearer need: investigate how
       people would use it first (which notations they reach for, and where a
       `:` can't go). Flipping a fraction, which changes the value rather than
@@ -236,13 +236,6 @@ tests, or the Create prompt:
       anything symbolic. Look at an explicit symbolic form, or a clear rule
       for free and bound names (it goes with the calculus items in section 1 and
       the Create prompt's item in section 6).
-- [ ] `[medium]` **One way to write a comment, and `#` only for headings.** `#`
-      is now a heading on a line of its own, a note after a calculation
-      (`  # weight`) and a display command (`#sym`, `#val`, `#hide`,
-      `#list(a)`), while `//` is a comment. Look at `//` as the only comment
-      (and a calculation's note), `#` only for headings, and the display
-      commands in one consistent form of their own (e.g., `@`, like `@layout`'s
-      members).
 - [ ] `[medium]` **How a value is shown, apart from its name.** `to` converts
       units in an expression (`v to km/h`, `to percent`), a function's
       parameters on entry (`m to kg`) and a constant's display (`@a_0:3 to

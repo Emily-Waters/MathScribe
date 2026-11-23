@@ -59,7 +59,7 @@ function PlotView({ plot }: { plot: PlotData }) {
 /** A calculation: the working inside function calls, a plot, its equation, and anything to say about it. */
 export function CalcView({ block }: { block: CalcBlock }) {
   const link = useLineLink()
-  // `#hide` lines stay hidden unless something went wrong.
+  // Hidden lines stay hidden unless something went wrong.
   if (block.hidden && !block.error) return null
   return (
     <div className={`calc${block.error ? ' calc--error' : ''}`} {...link(block.line)}>

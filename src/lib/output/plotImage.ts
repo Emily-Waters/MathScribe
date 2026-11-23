@@ -3,7 +3,7 @@
  * drawn onto a canvas and saved as a PNG. Browser only.
  */
 import { BLOCK_KIND, isContainer, type Block } from '../sheet/blocks.ts'
-import { LINE_COMMAND } from '../syntax.ts'
+import { DISPLAY } from '../syntax.ts'
 import { PLOT_SIZE, PRINT_PALETTE, plotSvg, type PlotData } from './plot.ts'
 import type { PlotImages } from './docx.ts'
 
@@ -14,7 +14,7 @@ const SCALE = 2.5
 export function plotsOf(blocks: Block[]): PlotData[] {
   return blocks.flatMap((b) => {
     if (b.kind === BLOCK_KIND.calc) return b.plot && !b.hidden && !b.error ? [b.plot] : []
-    if (isContainer(b)) return b.command === LINE_COMMAND.hide ? [] : plotsOf(b.children)
+    if (isContainer(b)) return b.display === DISPLAY.hidden ? [] : plotsOf(b.children)
     return []
   })
 }

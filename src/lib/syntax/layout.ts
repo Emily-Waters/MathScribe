@@ -4,11 +4,30 @@
  * writes their openers.
  */
 import type { BlockSettings, Columns, LayoutBlock } from '../sheet/blocks.ts'
-import { DISPLAY_MODE, LINE_COMMAND, LINE_LAYOUT, MULTILINE, type DisplayMode, type LineLayout } from './commands.ts'
 import { MEMBER_DOT, NAME, NAME_CHAR, NAMESPACE, SIGIL } from './lexical.ts'
 import { NOTATION, type Notation } from './settings.ts'
 import { BLOCK_OPEN } from './blocks.ts'
 import { named, optional, regex, src, words, type WordOf } from './patterns.ts'
+
+// ---------------------------------------------------------------------------
+// How lines are shown
+// ---------------------------------------------------------------------------
+
+/**
+ * How much of a calculation to show:
+ *   full  F = m·a = 2.0 kg · 9.81 m/s² = 19.6 N
+ *   sym   F = m·a                       (the equation only)
+ *   val   F = 19.6 N                    (the result only)
+ */
+export const DISPLAY_MODE = words({ full: 'full', sym: 'sym', val: 'val' })
+export type DisplayMode = WordOf<typeof DISPLAY_MODE>
+
+/** How a block shows the lines in it (its `display`, from its members): a display mode, or hidden. */
+export const DISPLAY = words({ full: DISPLAY_MODE.full, sym: DISPLAY_MODE.sym, val: DISPLAY_MODE.val, hidden: 'hidden' })
+export type Display = WordOf<typeof DISPLAY>
+
+/** `.multiline`: one `=` per row; it combines with the display modes. */
+export const MULTILINE = 'multiline'
 
 // ---------------------------------------------------------------------------
 // Members
@@ -53,9 +72,6 @@ export const SUB_LIST_MARKER: Readonly<Record<ListMarker, ListMarker>> = {
   [LIST_MARKER.upperRoman]: LIST_MARKER.number,
 }
 
-// (Each layout a single line can take as a command is one of these.)
-LINE_LAYOUT.words satisfies readonly LayoutStyle[]
-
 /** The layouts whose lines are prose rather than calculations: text blocks and title pages. */
 export const PROSE_LAYOUTS: ReadonlySet<LayoutStyle> = new Set([LAYOUT_STYLE.text, LAYOUT_STYLE.titlepage])
 
@@ -74,10 +90,10 @@ export type LayoutArrangement = WordOf<typeof LAYOUT_ARRANGEMENT>
 export const COLUMN_COUNT = { min: 2, max: 4, unbroken: 2 } as const
 
 /**
- * What a layout block can have besides its layout: the display settings the
- * #commands give a line, for every line inside (`@layout.val.multiline {`), and
- * `hidden`, which works the block out without showing it (#hide). They combine
- * with each other and with a layout: `@layout.list(1).val {`.
+ * What a layout block can have besides its layout: how every line inside is
+ * shown (`@layout.val.multiline {`), and `hidden`, which works the block out
+ * without showing it. They combine with each other and with a layout:
+ * `@layout.list(1).val {`.
  */
 export const LAYOUT_MODIFIER = words({
   hidden: 'hidden',
@@ -189,7 +205,7 @@ export class LayoutSyntax {
     const modes = modifiers.filter((x) => LayoutSyntax.MODES.has(x)) as DisplayMode[]
     const notations = modifiers.filter(NOTATION.has) as Notation[]
     opener.style = styles[0]
-    opener.command = modifiers.includes(LAYOUT_MODIFIER.hidden) ? LINE_COMMAND.hide : modes.at(-1)
+    opener.display = modifiers.includes(LAYOUT_MODIFIER.hidden) ? DISPLAY.hidden : modes.at(-1)
     opener.multiline = modifiers.includes(LAYOUT_MODIFIER.multiline) || undefined
     opener.notation = notations.at(-1)
     const name = this.name(...members)
@@ -206,16 +222,6 @@ export class LayoutSyntax {
     return opener
   }
 
-  /**
-   * A single line's layout command, `#list(a)`, read for what's in its
-   * brackets: the list's marker, or what's wrong with it (only #list takes one).
-   */
-  lineMarker(layout: LineLayout, argument: string | undefined): { marker?: ListMarker; error?: string } {
-    const name = `#${layout}`
-    if (layout !== LINE_LAYOUT.list) return argument === undefined ? {} : { error: this.noBrackets(name) }
-    return this.marker(name, argument)
-  }
-
   /** A list's marker, from what's in its brackets as written (none: bulleted), or what's wrong with it. */
   private marker(name: string, argument: string | undefined): { marker?: ListMarker; error?: string } {
     if (argument === undefined) return {}
@@ -225,7 +231,7 @@ export class LayoutSyntax {
       + `${written || 'nothing'} isn't one. Without brackets, ${name} is bulleted.` }
   }
 
-  /** The message for brackets on a member or command that takes none. */
+  /** The message for brackets on a member that takes none. */
   private noBrackets(name: string): string {
     return `${name} takes nothing in brackets; only ${asMember(LAYOUT_ARRANGEMENT.column)}(n) and ${asMember(LAYOUT_STYLE.list)}(1) do.`
   }

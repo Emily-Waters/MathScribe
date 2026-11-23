@@ -86,8 +86,8 @@ describe('uncertainty columns', () => {
 
 describe('withImportedData', () => {
   it('names the file and puts its rows under the import line, indented', () => {
-    expect(withImportedData('m = 2\n@import()   # run 1\ny = 3', 2, 'run1.csv', 't (s)\r\n0.10\r\n\r\n'))
-      .toBe('m = 2\n@import("run1.csv")   # run 1\n    t (s)\n     0.10\ny = 3')
+    expect(withImportedData('m = 2\n@import()   // run 1\ny = 3', 2, 'run1.csv', 't (s)\r\n0.10\r\n\r\n'))
+      .toBe('m = 2\n@import("run1.csv")   // run 1\n    t (s)\n     0.10\ny = 3')
   })
 
   it('lays the rows out as a table, right-aligned, whatever separated them', () => {

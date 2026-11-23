@@ -34,7 +34,7 @@ const placedTokens = ({ statement, starts }: SheetStatement): Placed[] =>
   statement.tokens.map(({ token, line, at }) => ({ t: token.t, text: token.text, at: starts[line] + at }))
 
 /** Tokens that say nothing: a value starts at the first token after its comma that isn't one. */
-const QUIET: ReadonlySet<string> = new Set([TOKEN_KIND.space, TOKEN_KIND.indent, TOKEN_KIND.eol, TOKEN_KIND.note, TOKEN_KIND.comment, TOKEN_KIND.command])
+const QUIET: ReadonlySet<string> = new Set([TOKEN_KIND.space, TOKEN_KIND.indent, TOKEN_KIND.eol, TOKEN_KIND.note, TOKEN_KIND.comment])
 
 const isDelimiter = (p: Placed | undefined, text: string) => p?.t === TOKEN_KIND.delimiter && p.text === text
 

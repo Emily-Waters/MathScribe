@@ -5,7 +5,7 @@
  * options for the page and the look.
  */
 import { STORAGE_KEYS } from '../../config.ts'
-import { isOmitted } from '../sheet/blocks.ts'
+import { flowing, isOmitted } from '../sheet/blocks.ts'
 import { modulePreamble } from '../engine/index.ts'
 import { BLOCK_KIND, isContainer, type Block } from '../sheet/blocks.ts'
 import { ALIGN } from './alignment.ts'
@@ -75,7 +75,8 @@ function joinBlocks(blocks: Block[], o: LatexOptions, share: number): string {
     if (run.length) out.push(gather(run, share))
     run = []
   }
-  for (const b of blocks) {
+  // (A block that only sets how its lines are shown doesn't interrupt a run either: its lines are in it.)
+  for (const b of flowing(blocks)) {
     const eq = constructOf(b).equation(b)
     if (eq) {
       run.push(eq)

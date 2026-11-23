@@ -8,7 +8,7 @@ import {
   HEADING_LEVEL, hasError, type CardBlock, type CustomBlock, type GroupBlock, type HeadingLevel, type ImportBlock,
 } from '../../lib/sheet/blocks.ts'
 import { DIAGNOSTIC_KIND } from '../../lib/sheet/sheetIndex.ts'
-import { LINE_COMMAND } from '../../lib/syntax.ts'
+import { DISPLAY } from '../../lib/syntax.ts'
 import { moduleBlockKind, symbolTex, unitTex } from '../../lib/engine/index.ts'
 import { BlockMessages, LineMessage, Tex, Title } from './shared.tsx'
 import { ImportFile, useLineLink } from './context.ts'
@@ -104,7 +104,7 @@ const SECTION_LOOK: Record<HeadingLevel, string> = {
 /** `Title { … }`: a card, its variables scoped to it. Untitled (and without a note), it has no header. */
 export function GroupView({ block }: { block: GroupBlock }) {
   const link = useLineLink()
-  if (block.command === LINE_COMMAND.hide && !hasError(block)) return null
+  if (block.display === DISPLAY.hidden && !hasError(block)) return null
   const header = !!block.title || !!block.note
   // A title written as a heading (`# Kinematics {`) is set as one, with its number.
   const section = block.section ? ` group__header--${SECTION_LOOK[block.section.level]}` : ''

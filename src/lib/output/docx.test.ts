@@ -60,7 +60,7 @@ describe('LaTeX to Word equations (OMML)', () => {
     expect(x).toContain('<m:deg><m:r><m:rPr><m:sty m:val="p"/></m:rPr><m:t xml:space="preserve">3</m:t>')
   })
 
-  it('lines up #multiline rows in a matrix justified right, then left', () => {
+  it('lines up .multiline rows in a matrix justified right, then left', () => {
     const x = texToOmml('\\begin{aligned}F &= m\\cdot a \\\\ &\\approx 19.6\\end{aligned}')
     expect(x).toContain('<m:mcJc m:val="right"/>')
     expect(x).toContain('<m:mcJc m:val="left"/>')
@@ -99,7 +99,7 @@ describe('the Word export', () => {
   })
 
   it('puts a note at the right margin, beside a full-size equation', () => {
-    const doc = exportOf('m = 2.00 kg   # mass of the block\nF = m * 9.81 m/s^2')['word/document.xml']
+    const doc = exportOf('m = 2.00 kg   // mass of the block\nF = m * 9.81 m/s^2')['word/document.xml']
     // A borderless row: the equation displayed in one cell, the note right-aligned in the other.
     expect(doc).toMatch(/<w:tbl>.*<m:oMathPara>.*<\/m:oMathPara><\/w:p><\/w:tc><w:tc>.*<w:jc w:val="right"\/>.*mass of the block.*<\/w:tbl>/)
     // Without a note, just the displayed equation.
@@ -108,13 +108,13 @@ describe('the Word export', () => {
   })
 
   it('in a list, keeps the note on the item’s line with a tab', () => {
-    const doc = exportOf('@layout.list(1) Steps {\n    F = 2.0 N   # weight\n}')['word/document.xml']
+    const doc = exportOf('@layout.list(1) Steps {\n    F = 2.0 N   // weight\n}')['word/document.xml']
     expect(doc).not.toContain('<w:tbl>')
     expect(doc).toMatch(/<w:numId w:val="1"\/>.*<w:tab w:val="right"/)
   })
 
   it('numbers sections and leaves out hidden lines and errors', () => {
-    const doc = exportOf('# Setup\nm = 2.00 kg   #hide\nbad = 1 +\nF = 3.0 N')['word/document.xml']
+    const doc = exportOf('# Setup\n@layout.hidden {\n    m = 2.00 kg\n}\nbad = 1 +\nF = 3.0 N')['word/document.xml']
     expect(doc).toContain('<w:pStyle w:val="Heading1"/>')
     expect(doc).toContain('1\u2003')
     expect(doc.match(/<m:oMath>/g)).toHaveLength(1)

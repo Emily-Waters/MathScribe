@@ -10,19 +10,10 @@ export type { Sheet }
  *   > Some prose       → paragraph (inline $latex$ allowed)
  *   @latex { \frac{a}{b} } → displayed LaTeX, not evaluated (or over several lines, up to a `}` alone)
  *   Title {            → opens a scoped block (title optional); `}` closes it
- *   m = 2.0 kg  # note → calculation; the text after # is shown as its description
+ *   m = 2.0 kg  // note → calculation; the text after // is shown as its description
+ *   // a comment       → never shown or worked out
  *   @constants {       → constants, usable anywhere as @name; `}` closes it
- * *   f(a, b) = a * b    → a function, worked out where it's called
- *
- * Display commands can go anywhere after a calculation or block opener:
- *   #sym   show the equation only        F = m·a
- *   #val   show the result only          F = 19.6 N
- *   #full  show everything (the default; overrides a block's command)
- *   #hide  calculate, but don't show the line (or the whole block)
- *   #multiline  put each = on its own row, lined up (combines with the above)
- *   #sci, #dec  show results in scientific notation, or plain digits (combine too)
- * On a block opener, the command applies to every line inside unless a line
- * has its own.
+ *   f(a, b) = a * b    → a function, worked out where it's called
  *
  * Layout blocks are in @layout, and hold the lines up to their `}`:
  *   @layout.list(1) Steps {   → numbered list (list: bullets, center: centered)
@@ -30,8 +21,14 @@ export type { Sheet }
  *   }
  *   @layout.text Discussion {  → prose: lines run into paragraphs, nothing is worked out
  *   @layout.titlepage Lab 3 {  → a title page: the title, with the lines inside centered under it
+ * They also set how the lines inside are shown, the blocks inside them too:
+ *   .sym   the equation only        F = m·a
+ *   .val   the result only          F = 19.6 N
+ *   .full  everything (the default; undoes a block around it)
+ *   .hidden  worked out, but not shown
+ *   .multiline  each = on its own row, lined up
+ *   .sci, .dec  results in scientific notation, or plain digits
  * They only arrange lines: variables assigned inside stay available afterwards.
- * `#center` (or #list(1)) on a single calculation lays out just that line.
  *
  * Blocks scope variables like a programming language: inside a block you can
  * read everything defined above it, but anything assigned inside is local and

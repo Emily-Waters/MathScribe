@@ -45,7 +45,7 @@ export const CREATE_KIND_INFO: Record<CreateKind, {
     task: 'a test (exam) for students to sit',
     options: [
       { id: 'solutions', label: 'Worked solutions (at the end)', ticked: true, instruction: 'Include a worked solution to every question, after all the questions (see "Questions and solutions").' },
-      { id: 'hide', label: 'Hide the solutions (a copy to hand out)', ticked: false, instruction: 'Put `#hide` on each solution block\'s opening line, so the solutions are worked out but not shown.' },
+      { id: 'hide', label: 'Hide the solutions (a copy to hand out)', ticked: false, instruction: 'Put the solution blocks inside `@layout.hidden { … }`, so the solutions are worked out but not shown.' },
       { id: 'marks', label: 'Marks for each question', ticked: true, instruction: 'Give each question a mark value in its heading, e.g. `## Question 1 (5 marks)`, and the total at the top.' },
       { id: 'formulas', label: 'A formula sheet at the start', ticked: false, instruction: 'Start with a short formula sheet: a `## Formula sheet` section of `@latex { … }` lines of LaTeX (not calculations).' },
     ],
@@ -57,7 +57,7 @@ export const CREATE_KIND_INFO: Record<CreateKind, {
     task: 'an assignment (problem set) for students to work through',
     options: [
       { id: 'solutions', label: 'Worked solutions (at the end)', ticked: true, instruction: 'Include a worked solution to every question, after all the questions (see "Questions and solutions").' },
-      { id: 'hide', label: 'Hide the solutions (a copy to hand out)', ticked: false, instruction: 'Put `#hide` on each solution block\'s opening line, so the solutions are worked out but not shown.' },
+      { id: 'hide', label: 'Hide the solutions (a copy to hand out)', ticked: false, instruction: 'Put the solution blocks inside `@layout.hidden { … }`, so the solutions are worked out but not shown.' },
       { id: 'hints', label: 'A hint with each question', ticked: false, instruction: 'After each question, add a hint as a `> Hint: …` line.' },
       { id: 'marks', label: 'Marks for each question', ticked: false, instruction: 'Give each question a mark value in its heading, e.g. `## Question 1 (5 marks)`.' },
     ],
@@ -112,8 +112,8 @@ export const EXAMPLE_SHEET = `# Kinematics practice test
 
 Question 1 {
     h = 12.0 m
-    t_f = sqrt(2 * h / @g)   # time to fall
-    v = @g * t_f             # speed on landing
+    t_f = sqrt(2 * h / @g)  // time to fall
+    v = @g * t_f            // speed on landing
 }
 
 Question 2 {

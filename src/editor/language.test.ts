@@ -14,7 +14,7 @@ const names = tagHighlighter([
   { tag: t.number, class: 'num' }, { tag: t.unit, class: 'unit' }, { tag: t.variableName, class: 'var' },
   { tag: t.function(t.variableName), class: 'fn' }, { tag: t.definition(t.function(t.variableName)), class: 'def' },
   { tag: t.constant(t.variableName), class: 'const' }, { tag: t.keyword, class: 'kw' },
-  { tag: t.processingInstruction, class: 'cmd' }, { tag: t.lineComment, class: 'note' }, { tag: t.heading, class: 'head' },
+  { tag: t.lineComment, class: 'note' }, { tag: t.heading, class: 'head' },
   { tag: t.content, class: 'text' }, { tag: t.quote, class: 'quote' }, { tag: t.special(t.string), class: 'latex' },
   { tag: t.labelName, class: 'title' }, { tag: t.brace, class: 'brace' },
   { tag: t.comment, class: 'comment' }, { tag: t.special(t.variableName), class: 'value' }, { tag: t.atom, class: 'formula' },
@@ -48,7 +48,7 @@ describe('comments and values in text', () => {
 
 describe('highlighting', () => {
   it('reads a unit after a number as a unit, as the engine does', () => {
-    expect(tokens('g = 9.81 m/s^2   # gravity')).toEqual(['g:var', '9.81:num', 'm/s^2:unit', '# gravity:note'])
+    expect(tokens('g = 9.81 m/s^2   // gravity')).toEqual(['g:var', '9.81:num', 'm/s^2:unit', '// gravity:note'])
     // A space ends a unit: here m is the variable.
     expect(tokens('q = 5 kg * m')).toEqual(['q:var', '5:num', 'kg:unit', 'm:var'])
   })
@@ -80,10 +80,6 @@ describe('highlighting', () => {
     expect(tokens('d = 3.0 μm')).toEqual(['d:var', '3.0:num', 'μm:unit'])
   })
 
-  it('colours #sci and #dec as commands', () => {
-    expect(tokens('p^2   #sci   # density')).toEqual(['p:var', '2:num', '#sci:cmd', '# density:note'])
-  })
-
   it('reads a unit after a vector as a unit, but not after a comparison', () => {
     expect(tokens('F = <3.0, 4.0> N')).toEqual(['F:var', '3.0:num', '4.0:num', 'N:unit'])
     expect(tokens('q = a > m')).toEqual(['q:var', 'a:var', 'm:var'])
@@ -94,21 +90,20 @@ describe('highlighting', () => {
     expect(tokens('s = sin(30.0 deg)')).toEqual(['s:var', 'sin:fn', '30.0:num', 'deg:unit'])
   })
 
-  it('separates commands from notes', () => {
-    expect(tokens('F = m * a   #multiline #val  # weight')).toEqual(
-      ['F:var', 'm:var', 'a:var', '#multiline:cmd', '#val:cmd', '# weight:note'])
+  it('colours a note from its // to the end, and a # after a calculation as nothing of its own', () => {
+    expect(tokens('F = m * a   // weight, #val')).toEqual(['F:var', 'm:var', 'a:var', '// weight, #val:note'])
   })
 
   it('colours headings, prose, LaTeX and block openers', () => {
     expect(tokens('## Forces')).toEqual(['## Forces:head'])
     expect(tokens('> Prose with $E = mc^2$ inline')).toEqual(
       ['>:quote', 'Prose with :text', '$E = mc^2$:latex', 'inline:text'])
-    expect(tokens('@layout.list(1) Steps {  # the 1s orbital')).toEqual(
-      ['@layout.list(1):kw', 'Steps:title', '{:brace', '# the 1s orbital:note'])
+    expect(tokens('@layout.list(1) Steps {  // the 1s orbital')).toEqual(
+      ['@layout.list(1):kw', 'Steps:title', '{:brace', '// the 1s orbital:note'])
     expect(tokens('@constants {')).toEqual(['@constants:kw', '{:brace'])
     expect(tokens('What if {')).toEqual(['What if:title', '{:brace'])
     // A block titled as a section: its `#`s as a heading's, then its title.
-    expect(tokens('## Energy {  #val')).toEqual(['##:head', 'Energy:title', '{:brace', '#val:cmd'])
+    expect(tokens('## Energy {  // part 2')).toEqual(['##:head', 'Energy:title', '{:brace', '// part 2:note'])
   })
 
   it('colours @ constants and @chem’s functions', () => {
@@ -146,8 +141,8 @@ describe('text blocks', () => {
   })
 
   it('colour a closing } with a note after it as its opener’s {', () => {
-    const lines = tokensByLine('@constants {\n    g = 9.81 m/s^2\n}  # end')
-    expect(lines[2]).toEqual(['}:brace', '# end:note'])
+    const lines = tokensByLine('@constants {\n    g = 9.81 m/s^2\n}  // end')
+    expect(lines[2]).toEqual(['}:brace', '// end:note'])
     // (Coloured alike, the two are a pair for bracket matching.)
     const doc = '@constants {\n    g = 9.81 m/s^2\n}'
     const state = EditorState.create({ doc, extensions: [mathscribeLanguage] })
@@ -208,7 +203,7 @@ describe('indentation', () => {
   }
 
   it('indents when Enter is pressed after a block opener, and not after a line or an import’s rows', () => {
-    expect(enter('@layout.list(1) Steps {  # note')).toBe('\n    ')
+    expect(enter('@layout.list(1) Steps {  // note')).toBe('\n    ')
     expect(enter('a = 1\nBlock {')).toBe('\n    ')
     expect(enter('Block {\n    x = 1')).toBe('\n    ')
     expect(enter('x = 1')).toBe('\n')

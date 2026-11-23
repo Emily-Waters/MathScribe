@@ -11,8 +11,8 @@
  *   text.ts       comments, and markup in text: subscripts, {{values}}, $maths$
  *   blocks.ts     braces, @latex { }, the import line, indentation
  *   constants.ts  @constants { }, @c as written, sheet-wide declarations
- *   commands.ts   #commands and the note after them
- *   layout.ts     @layout blocks: their members, and LayoutSyntax for their openers
+ *   notes.ts      the note after a line, `// weight`
+ *   layout.ts     @layout blocks: their members (how lines are shown), and LayoutSyntax for their openers
  */
 export * from './syntax/patterns.ts'
 export * from './syntax/lexical.ts'
@@ -21,5 +21,5 @@ export * from './syntax/settings.ts'
 export * from './syntax/text.ts'
 export * from './syntax/blocks.ts'
 export * from './syntax/constants.ts'
-export * from './syntax/commands.ts'
+export * from './syntax/notes.ts'
 export * from './syntax/layout.ts'

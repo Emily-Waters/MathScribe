@@ -221,7 +221,7 @@ function stepsOf(tex: string): { steps: string[]; relations: string[] } {
 /**
  * An equation as the fitting macro takes it, if it might not fit and has more
  * than one step to put on rows of their own; otherwise as it is. (One already
- * on rows, #multiline's, is as it is.)
+ * on rows, .multiline's, is as it is.)
  */
 export function fitted(tex: string, share = 1): string {
   // (In a column, `share` of the line, a shorter one might not fit.)

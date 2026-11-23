@@ -20,8 +20,8 @@ exports[`golden sheets > hydrogen orbitals 1`] = `
 25: r = 3.000 Å
 26: s = \\fracZ ra_0 = \\frac1\\times 3.000 Å0.529 Å = 5.67
 27: \\theta = 0.00°
-28: \\psi_210 = (32 \\pi)^-\\frac12 (\\fracZa_0)^\\frac32 s e^-\\fracs2 \\cos(\\theta) = (32 \\pi)^-\\frac12 (\\frac10.529 Å)^\\frac32\\times 5.67\\times e^-\\frac5.672 \\cos(0.00°) = 0.0863 Å^-1.5
-29: P = 4 \\pi r^2 \\psi_210^2 = 4 \\pi\\times (3.000 Å)^2\\times (0.0863 Å^-1.5)^2 = 0.842 Å^-1"
+29: \\psi_210 = (32 \\pi)^-\\frac12 (\\fracZa_0)^\\frac32 s e^-\\fracs2 \\cos(\\theta) = (32 \\pi)^-\\frac12 (\\frac10.529 Å)^\\frac32\\times 5.67\\times e^-\\frac5.672 \\cos(0.00°) = 0.0863 Å^-1.5
+31: P = 4 \\pi r^2 \\psi_210^2 = 4 \\pi\\times (3.000 Å)^2\\times (0.0863 Å^-1.5)^2 = 0.842 Å^-1"
 `;
 
 exports[`golden sheets > the sample sheet 1`] = `
@@ -272,7 +272,7 @@ exports[`the Reference tab’s examples > Basics: g = 9.81 m/s^2 1`] = `
 4: a = g \\sin(\\theta) = 9.81 m/s^2\\times \\sin(45.0°) = 6.94 m/s^2"
 `;
 
-exports[`the Reference tab’s examples > Basics: m = 2.00 kg   # mass of the block 1`] = `"1: m = 2.00 kg"`;
+exports[`the Reference tab’s examples > Basics: m = 2.00 kg   // mass of the block 1`] = `"1: m = 2.00 kg"`;
 
 exports[`the Reference tab’s examples > Basics: m = 2.00 kg 1`] = `
 "1: m = 2.00 kg
@@ -395,42 +395,6 @@ exports[`the Reference tab’s examples > Constants: E = @h * @c / 532 nm to eV 
 
 exports[`the Reference tab’s examples > Constants: F = @G:5 * 5.972e24 kg * 70.0 kg / (6.371e6 m)^2 1`] = `"1: F = \\fracG\\times (5.972e24 kg)\\times 70.0 kg(6.371e6 m)^2 = \\frac(6.6743e-11 N· m^2/kg^2)\\times (5.972e24 kg)\\times 70.0 kg(6.371e6 m)^2 = 687 N"`;
 
-exports[`the Reference tab’s examples > Display commands: F = 2.00 kg * 9.81 m/s^2   #sym 1`] = `"1: F = 2.00 kg\\times 9.81 m/s^2"`;
-
-exports[`the Reference tab’s examples > Display commands: F = 2.00 kg * 9.81 m/s^2   #val 1`] = `"1: F = 19.6 N"`;
-
-exports[`the Reference tab’s examples > Display commands: Results only {   #val 1`] = `
-"2: F = 19.6 N
-3: p = 2.00 kg\\times 3.00 m/s = 6.00 kg· m/s"
-`;
-
-exports[`the Reference tab’s examples > Display commands: area(r) = pi * r^2   #multiline 1`] = `
-"1: area(r) = \\pi r^2
-2: r_1 = 2.0 cm
-3: A = \\pi r_1^2 = \\pi\\times (2.0 cm)^2 = 13 cm^2"
-`;
-
-exports[`the Reference tab’s examples > Display commands: k = 4.0 N/m * 2   #sym 1`] = `
-"1: k = 4.0 N/m\\times 2
-2: x = 0.150 m
-3: F = k x = k\\times 0.150 m = 1.2 N"
-`;
-
-exports[`the Reference tab’s examples > Display commands: m = 2.00 kg   #hide 1`] = `
-"1: m = 2.00 kg
-2: F = m\\times 9.81 m/s^2 = 2.00 kg\\times 9.81 m/s^2 = 19.6 N"
-`;
-
-exports[`the Reference tab’s examples > Display commands: m = 2.00 kg 1`] = `
-"1: m = 2.00 kg
-2: F = m\\times 9.81 m/s^2 = 2.00 kg\\times 9.81 m/s^2 = 19.6 N"
-`;
-
-exports[`the Reference tab’s examples > Display commands: p = 0.0707 1`] = `
-"1: p = 0.0707
-2: p^2 = 0.0707^2 = 5.00e-3"
-`;
-
 exports[`the Reference tab’s examples > Functions: E(n, m to kg, L to m) = n^2 * @h^2 / (8*m*L^2) 1`] = `
 "1: E(n, m [kg], L [m]) = \\fracn^2 h^28 m L^2
 2: m_e = 9.11e-31 kg
@@ -470,6 +434,43 @@ exports[`the Reference tab’s examples > Functions: ramp(x) = x > 0 ? x : 0 1`]
 4: F_f = \\begincases -6.0 N, \\quad\\textif \\; (-1.5 m/s)> 0 m/s 6.0 N, \\quad\\textif \\; (-1.5 m/s)< 0 m/s 0 N, \\quad\\textotherwise\\endcases = 6.0 N"
 `;
 
+exports[`the Reference tab’s examples > How lines are shown: @layout.hidden { 1`] = `
+"2: m = 2.00 kg
+3: g_0 = 9.81 m/s^2
+5: F = m g_0 = 2.00 kg\\times 9.81 m/s^2 = 19.6 N"
+`;
+
+exports[`the Reference tab’s examples > How lines are shown: @layout.sym { 1`] = `
+"2: F = 2.00 kg\\times 9.81 m/s^2
+5: p = 6.00 kg· m/s"
+`;
+
+exports[`the Reference tab’s examples > How lines are shown: @layout.sym { 2`] = `
+"2: k = 4.0 N/m\\times 2
+4: x = 0.150 m
+5: F = k x = k\\times 0.150 m = 1.2 N"
+`;
+
+exports[`the Reference tab’s examples > How lines are shown: @layout.val { 1`] = `"3: E = 9.00 J"`;
+
+exports[`the Reference tab’s examples > How lines are shown: @layout.val.multiline Results { 1`] = `
+"2: F = 19.6 N
+4: p = 2.00 kg\\times 3.00 m/s = 6.00 kg· m/s"
+`;
+
+exports[`the Reference tab’s examples > How lines are shown: m = 2.00 kg 1`] = `
+"1: m = 2.00 kg
+3: F = m\\times 9.81 m/s^2 = 2.00 kg\\times 9.81 m/s^2 = 19.6 N
+4: area(r) = \\pi r^2
+6: r_1 = 2.0 cm
+7: A = \\pi r_1^2 = \\pi\\times (2.0 cm)^2 = 13 cm^2"
+`;
+
+exports[`the Reference tab’s examples > How lines are shown: p = 0.0707 1`] = `
+"1: p = 0.0707
+3: p^2 = 0.0707^2 = 5.00e-3"
+`;
+
 exports[`the Reference tab’s examples > Layout: @layout.center Key result { 1`] = `"2: E = 2.00 kg\\times (3.00e8 m/s)^2 = 1.80e17 J"`;
 
 exports[`the Reference tab’s examples > Layout: @layout.column Givens { 1`] = `
@@ -477,12 +478,6 @@ exports[`the Reference tab’s examples > Layout: @layout.column Givens { 1`] = 
 3: g_0 = 9.81 m/s^2
 5: \\theta = 30.0°
 6: d = 3.50 m"
-`;
-
-exports[`the Reference tab’s examples > Layout: @layout.hidden { 1`] = `
-"2: m = 2.00 kg
-3: g_0 = 9.81 m/s^2
-5: F = m g_0 = 2.00 kg\\times 9.81 m/s^2 = 19.6 N"
 `;
 
 exports[`the Reference tab’s examples > Layout: @layout.list Assumptions { 1`] = `""`;
@@ -497,15 +492,6 @@ exports[`the Reference tab’s examples > Layout: @layout.list(a) Parts { 1`] = 
 exports[`the Reference tab’s examples > Layout: @layout.text Discussion { 1`] = `""`;
 
 exports[`the Reference tab’s examples > Layout: @layout.titlepage { 1`] = `""`;
-
-exports[`the Reference tab’s examples > Layout: @layout.val.multiline Results { 1`] = `
-"2: F = 19.6 N
-3: p = 2.00 kg\\times 3.00 m/s = 6.00 kg· m/s"
-`;
-
-exports[`the Reference tab’s examples > Layout: F = 2.00 kg * 9.81 m/s^2   #center 1`] = `"1: F = 2.00 kg\\times 9.81 m/s^2 = 19.6 N"`;
-
-exports[`the Reference tab’s examples > Layout: F = 2.00 kg * 9.81 m/s^2   #list(a) 1`] = `"1: F = 2.00 kg\\times 9.81 m/s^2 = 19.6 N"`;
 
 exports[`the Reference tab’s examples > Layout: m = 2.00 kg 1`] = `
 "1: m = 2.00 kg

@@ -12,9 +12,7 @@ import { words, type WordOf } from '../lib/syntax/patterns.ts'
 
 /** What can be being typed, each with its own suggestions. */
 export const TYPING = words({
-  /** A display command after the line's text: `#mu`. */
-  command: 'command',
-  /** A note, `# the mass`: nothing's suggested in one. */
+  /** A note, `// the mass`: nothing's suggested in one. */
   note: 'note',
   /** An `@` name: `@h`, `@chem.mm.N`, `@layout.val.` (its namespaces' path, and what's typed of the next). */
   builtin: 'builtin',
@@ -31,7 +29,6 @@ export type TypingKind = WordOf<typeof TYPING>
 
 /** What's being typed: its kind, and `typed`, the text it replaces (just before the cursor). */
 export type Typing =
-  | { readonly kind: typeof TYPING.command; readonly typed: string }
   | { readonly kind: typeof TYPING.note; readonly typed: '' }
   | { readonly kind: typeof TYPING.builtin; readonly typed: string; readonly path: readonly string[]; readonly lineStart: boolean }
   | { readonly kind: typeof TYPING.setting; readonly typed: string }
@@ -74,8 +71,6 @@ const isDelimiter = (p: Piece | undefined, text: string) => p?.t === TOKEN_KIND.
 
 /** Letters only: what's typed of a setting or a unit. */
 const LETTERS = /^[A-Za-z]*$/
-/** A word typed as `#` and letters: a display command, finished or not. */
-const COMMAND_TYPED = /^#\w*$/
 /** A number ending in a digit (or a digit and its point), as a unit can follow: `2.5`, `3.`, not `1e`. */
 const ENDS_IN_DIGIT = /\d\.?$/
 
@@ -115,14 +110,8 @@ function inUnit(pieces: readonly Piece[]): Typing | null | undefined {
 /** What's being typed in a value in text, `{{c_`: its expression's text read as one. */
 export const typingInValue = (expression: string): Typing | undefined => typingAt(lexExpression(expression))
 
-/** `#mu` after the line's text: a command; any other `#` that's started a note: nothing. */
-function commandOrNote(pieces: readonly Piece[]): Typing | null | undefined {
-  const last = pieces.at(-1)!
-  const hasText = pieces.slice(0, -1).some((p) => !isSpace(p))
-  if ((last.t === TOKEN_KIND.note || last.t === TOKEN_KIND.command) && COMMAND_TYPED.test(last.text) && hasText && isSpace(pieces.at(-2))) {
-    return { kind: TYPING.command, typed: last.text }
-  }
-  // (A note runs to the end of the line: the spaces after it too.)
+/** In a note, `// the mass`: nothing. (A note runs to the end of the line: the spaces after it too.) */
+function note(pieces: readonly Piece[]): Typing | null | undefined {
   return pieces.some((p) => p.t === TOKEN_KIND.note) ? { kind: TYPING.note, typed: '' } : undefined
 }
 
@@ -240,4 +229,4 @@ function name(pieces: readonly Piece[]): Typing | null | undefined {
 }
 
 /** The readers, in the order they're asked. */
-const READERS: readonly Reader[] = [commandOrNote, builtin, inUnit, setting, unit, member, name]
+const READERS: readonly Reader[] = [note, builtin, inUnit, setting, unit, member, name]

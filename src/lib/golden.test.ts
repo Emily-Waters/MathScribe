@@ -22,10 +22,10 @@ function render(source: string): string {
   ].filter(Boolean).join('\n')).join('\n')
 }
 
-/** Hydrogen orbitals: functions, casts, sheet-wide constants, ≈, %, Å and #multiline. */
+/** Hydrogen orbitals: functions, casts, sheet-wide constants, ≈, %, Å and @layout.multiline. */
 const ORBITALS = `@a_0:3 to angstrom
 
-psi_prob(r, psi) = 4 * pi * r^2 * psi^2   # radial probability density
+psi_prob(r, psi) = 4 * pi * r^2 * psi^2   // radial probability density
 sigma(Z, r to angstrom) = Z*r/@a_0
 
 Hydrogen 1s orbital {
@@ -50,7 +50,9 @@ Hydrogen 2p_z orbital {
     r = 3.000 angstrom
     s = sigma(Z, r)
     theta = 0.00 deg
-    psi_210 = (32pi)^(-(1/2)) * (Z/@a_0)^(3/2) * s * e^(-(s/2)) * cos(theta)   #multiline
+    @layout.multiline {
+        psi_210 = (32pi)^(-(1/2)) * (Z/@a_0)^(3/2) * s * e^(-(s/2)) * cos(theta)
+    }
     P = psi_prob(r, psi_210)
 }
 `

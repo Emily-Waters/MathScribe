@@ -23,14 +23,14 @@ const SOURCE = [
   'y = 2.5 ang', // 11
   'z = y to per', // 12
   'w = 3 * @h', // 13
-  'v = 2 * KE(1 kg, 2 m/s)   #mu', // 14
+  'v = 2 * KE(1 kg, 2 m/s)', // 14
   't = [1.2 s, 1.3 s]', // 15
   'u = t.c', // 16
   'q = t', // 17
   '# Heading ps', // 18
   '> prose ps', // 19
   'n = 1e5', // 20
-  'k = 2.0 kg   # mass in kil', // 21
+  'k = 2.0 kg   // mass in kil', // 21
   'X = @chem.s', // 22
   '@layout.ti', // 23
   'phi:3:de', // 24
@@ -96,10 +96,6 @@ describe('suggestions', () => {
     expect(suggestions(26)).toEqual(expect.arrayContaining(['deg'])) // on a name being unpacked
     expect(suggestions(27)).toEqual(expect.arrayContaining(['deg'])) // on a function's result
     expect(suggestions(28)).toEqual(expect.arrayContaining(['deg']))
-  })
-
-  it('offer display commands after #', () => {
-    expect(suggestions(14)).toEqual(['#multiline'])
   })
 
   it('offer a series as itself and t[n] for its values rather than each one, and its statistics after a dot', () => {

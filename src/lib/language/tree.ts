@@ -24,8 +24,6 @@ export interface LanguageExample {
 
 /** The kinds of word the editor suggests and describes, each a term of an entry. */
 export const TERM_KIND = {
-  /** A display command, `#sym`. */
-  command: 'command',
   /** A word with a meaning of its own in an expression, `to`, `pm`, `delta`. */
   keyword: 'keyword',
   /** A setting after a name's `:`, `exact`, `sci`, `percent`. */
@@ -42,7 +40,7 @@ export type TermKind = (typeof TERM_KIND)[keyof typeof TERM_KIND]
 /** A word the editor suggests and describes (its completion's detail, its hover), as an entry says it. */
 export interface LanguageTerm {
   readonly kind: TermKind
-  /** As it's written: `#sym`, `to`, `sqrt`, `.avg`. */
+  /** As it's written: `to`, `sqrt`, `.avg`. */
   readonly name: string
   /** What it does, in a phrase. */
   readonly summary: string
@@ -57,16 +55,13 @@ export const termShown = (t: LanguageTerm): string =>
 /** The series what a series has is shown on: `t.avg`. */
 const SAMPLE_SERIES = 't'
 
-/** A display command as a term: `#sym`. */
-export const commandTerm = (name: string, summary: string): LanguageTerm => ({ kind: TERM_KIND.command, name: `#${name}`, summary })
-
 /** One feature: how it's written, what's said about it, the rules for writing it, and examples of it. */
 export interface LanguageEntry {
   /** How it's written, if it's one thing to write (a setting: `legend top right`, `log x`). */
   readonly syntax?: readonly string[]
   /** What it is and does, as the Reference says it. */
   readonly explain: string
-  /** The words it brings, which the editor suggests and describes: `#sym`, `to`, `sqrt`. */
+  /** The words it brings, which the editor suggests and describes: `to`, `sqrt`. */
   readonly terms?: readonly LanguageTerm[]
   /** Do and don't for whoever writes it, people or AI models: shown in the Reference and in the AI primer. */
   readonly rules?: readonly string[]

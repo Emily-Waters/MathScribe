@@ -26,7 +26,7 @@ export class Line {
   readonly indent: number
   private split: SplitLine | undefined
 
-  /** `noted`: its body, #commands and note, if the tree read them already (tree/lines.ts notedOf). */
+  /** `noted`: its body and note, if the tree read them already (tree/lines.ts notedOf). */
   constructor(index: number, raw: string, noted?: SplitLine) {
     this.index = index
     this.raw = raw
@@ -40,7 +40,7 @@ export class Line {
     return this.index + 1
   }
 
-  /** Its body, #commands and note: as the tree read them, or read now (a line the tree read another way). */
+  /** Its body and note: as the tree read them, or read now (a line the tree read another way). */
   get parts(): SplitLine {
     return (this.split ??= splitNote(this.trimmed))
   }

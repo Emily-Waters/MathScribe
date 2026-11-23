@@ -308,7 +308,7 @@ function convert(n: XmlNode, ctx: Ctx): Piece[] {
 }
 
 /**
- * `aligned` rows (#multiline) as a matrix whose columns are justified like the
+ * `aligned` rows (.multiline) as a matrix whose columns are justified like the
  * LaTeX (right, then left), so the = signs line up.
  */
 function table(n: XmlNode, ctx: Ctx): string {

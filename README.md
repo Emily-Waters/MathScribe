@@ -260,8 +260,8 @@ assignment, worked examples or a lab write-up.
 Nothing is sent from MathScribe: the prompt only goes to your clipboard. Errors in
 what the AI wrote are marked line by line, as in any sheet. In a test or
 assignment, the questions come first and each solution is a `{ }` block at the
-end, which starts by defining the question's values; add `#hide` to a solution
-block's first line to hide it. The dialog remembers your last choices.
+end, which starts by defining the question's values; put the solution
+blocks in `@layout.hidden { }` to hide them. The dialog remembers your last choices.
 
 ## Syntax
 
@@ -272,8 +272,8 @@ MathScribe is.
 
 A sheet is lines, worked out from top to bottom: calculations (`F = m * a`),
 headings (`# Title`), prose (`> Some text`, with `{{name}}` for a value), comments
-(`// …`), and blocks (`Title {` … `}`). Display commands after a line (`#val`,
-`#multiline`) say how much of it to show. Values carry units, significant figures
+(`// …`), and blocks (`Title {` … `}`). An `@layout` block (`@layout.val`,
+`@layout.multiline`) says how much of the lines in it to show; a note goes after `//`. Values carry units, significant figures
 and uncertainties through every calculation by themselves.
 
 The reference has every part, with the rules for writing it and examples:
@@ -339,7 +339,7 @@ renamed, change it there too.
   `@`) are at its top.
 - `src/lib/syntax/`: the sheet language's words and patterns, one file per
   concept (names and numbers, settings, text markup, blocks, constants,
-  #commands, `@layout`), written with `patterns.ts` (`src`, `named`, `words`);
+  notes, `@layout`), written with `patterns.ts` (`src`, `named`, `words`);
   `src/lib/syntax.ts` gathers them. Shared by the tree, the engine, the outputs
   and the editor
 - `src/lib/sheet/names.ts`: the names the engine makes for itself (`delta__F`, `at__c__5`,

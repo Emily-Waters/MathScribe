@@ -99,14 +99,14 @@ describe('a sheet as a tree', () => {
 })
 
 describe('statements', () => {
-  it('reads a call over several lines as one statement: its text as one line, its notes and commands as one line’s', () => {
-    const [node] = encode('val = [  # readings\n    1234,\n    // the second\n    5678,\n]  #val\nw = 1').body
+  it('reads a call over several lines as one statement: its text as one line, its notes as one line’s', () => {
+    const [node] = encode('val = [  // readings\n    1234,\n    // the second\n    5678,\n]  // in mm\nw = 1').body
     const s = statementOf(node)
     expect(s.kind).toBe(NODE_KIND.calc)
     expect(s.lines).toHaveLength(5)
     // (Comments left out, and the trailing comma before the closing bracket; a note stays where it's written.)
-    expect(s.text).toBe('val = [  # readings 1234, 5678 ]  #val')
-    expect(s.noted).toMatchObject({ body: 'val = [ 1234, 5678 ]', command: 'val', note: 'readings' })
+    expect(s.text).toBe('val = [  // readings 1234, 5678 ]  // in mm')
+    expect(s.noted).toEqual({ body: 'val = [ 1234, 5678 ]', note: 'readings in mm' })
   })
 
   it('has every token of its lines, each where it is', () => {
@@ -118,8 +118,8 @@ describe('statements', () => {
   })
 
   it('reads a line as itself, and each statement once', () => {
-    const [node] = encode('  m = 2.0 kg  # mass\n').body
-    expect(statementOf(node)).toMatchObject({ text: '  m = 2.0 kg  # mass', noted: { body: 'm = 2.0 kg', note: 'mass' } })
+    const [node] = encode('  m = 2.0 kg  // mass\n').body
+    expect(statementOf(node)).toMatchObject({ text: '  m = 2.0 kg  // mass', noted: { body: 'm = 2.0 kg', note: 'mass' } })
     expect(statementOf(node)).toBe(statementOf(node))
   })
 })
@@ -198,7 +198,7 @@ function shape(nodes: readonly SyntaxNode[], depth = 0): string[] {
 describe('the kinds of line, and the blocks they open', () => {
   it('reads each kind of line in the sheet', () => {
     const source = [
-      '# Setup', '> Prose', '@latex { \frac{a}{b} }', 'm = 2.0 kg  #val  # mass', '}', 'r = @tuple(1, 2)',
+      '# Setup', '> Prose', '@latex { \frac{a}{b} }', 'm = 2.0 kg  // mass', '}', 'r = @tuple(1, 2)',
     ].join('\n')
     expect(shape(encode(source).body)).toEqual([
       NODE_KIND.heading, NODE_KIND.paragraph, NODE_KIND.latex, NODE_KIND.calc, NODE_KIND.blockCloser, NODE_KIND.calc,
@@ -206,7 +206,7 @@ describe('the kinds of line, and the blocks they open', () => {
   })
 
   it('holds a block’s lines in it, blocks inside it too, with its }', () => {
-    const source = 'Outer {\n  a = 1\n  # Inner {  #val\n    b = 2\n  }\n}\nc = 3'
+    const source = 'Outer {\n  a = 1\n  # Inner {  // a note\n    b = 2\n  }\n}\nc = 3'
     expect(shape(encode(source).body)).toEqual([
       NODE_KIND.block,
       `  ${NODE_KIND.blockOpener}`, `  ${NODE_KIND.calc}`,
@@ -218,7 +218,7 @@ describe('the kinds of line, and the blocks they open', () => {
 
   it('reads lines in a block by what the block holds: prose, raw LaTeX, constants', () => {
     const source = [
-      '@layout.text Notes {', 'Some prose, x = 1 # not a note', '}',
+      '@layout.text Notes {', 'Some prose, x = 1 // not a note', '}',
       '@latex {', '\frac{a}{b}', '}',
       '@constants {', 'rho = 1000 kg/m^3', '}',
       'z = 1',
@@ -238,24 +238,27 @@ describe('the kinds of line, and the blocks they open', () => {
     expect(data).toEqual([{ t: TOKEN_KIND.rows, text: '    t (s), x (m)\n    0.1, 0.2\n' }])
   })
 
-  it('reads a line’s #commands and note as tokens of their own', () => {
-    // (A block's title isn't an expression: what it says is one token, before its #commands and note.
-    // A command after the note's `#` is one too, as the line's reader takes it: the note is around it.)
-    const opener = (encode('Forces {  #val #sci  # the force #sym is shown').body[0].parts[0] as SyntaxNode).parts
+  it('reads a line’s note as a token of its own, from its first // to the end', () => {
+    // (A block's title isn't an expression: what it says is one token, before its note. A # after
+    // the title, or a second // in the note, is the note's.)
+    const opener = (encode('Forces {  // the force #val // is shown').body[0].parts[0] as SyntaxNode).parts
     expect(opener.map((p) => (isToken(p) ? `${p.t}:${p.text}` : ''))).toEqual([
-      `${TOKEN_KIND.title}:Forces`, `${TOKEN_KIND.space}: `, `${TOKEN_KIND.blockOpen}:{`, `${TOKEN_KIND.space}:  `, `${TOKEN_KIND.command}:#val`, `${TOKEN_KIND.space}: `,
-      `${TOKEN_KIND.command}:#sci`, `${TOKEN_KIND.space}:  `, `${TOKEN_KIND.note}:# the force`, `${TOKEN_KIND.space}: `,
-      `${TOKEN_KIND.command}:#sym`, `${TOKEN_KIND.space}: `, `${TOKEN_KIND.note}:is shown`,
+      `${TOKEN_KIND.title}:Forces`, `${TOKEN_KIND.space}: `, `${TOKEN_KIND.blockOpen}:{`, `${TOKEN_KIND.space}:  `,
+      `${TOKEN_KIND.note}:// the force #val // is shown`,
     ])
   })
 
-  it('gives a line’s reader its #commands and note as the tree read them, so they aren’t read again', () => {
-    const tree = encode('m = 2.0 kg  #val  # mass')
+  it('reads a // in a quoted string as the string’s, not a note', () => {
+    expect(splitNote('@import("http://example.com/a.csv")  // run 1')).toEqual({ body: '@import("http://example.com/a.csv")', note: 'run 1' })
+  })
+
+  it('gives a line’s reader its note as the tree read it, so it isn’t read again', () => {
+    const tree = encode('m = 2.0 kg  // mass')
     const line = tree.body[0]
-    expect(notedOf(line)).toMatchObject({ body: 'm = 2.0 kg', command: 'val', note: 'mass' })
-    // (The same as reading them from the text: the one reader, syntax/commands.ts.)
+    expect(notedOf(line)).toMatchObject({ body: 'm = 2.0 kg', note: 'mass' })
+    // (The same as reading it from the text: the one reader, syntax/notes.ts.)
     const { pieces: _pieces, ...said } = notedOf(line)!
-    expect(said).toEqual(splitNote('m = 2.0 kg  #val  # mass'))
+    expect(said).toEqual(splitNote('m = 2.0 kg  // mass'))
   })
 
   it('reads a block that isn’t closed to the end, and a } with none open as a line', () => {
@@ -281,7 +284,7 @@ describe('the kinds of line, and the blocks they open', () => {
     expect(lines('y = f(a, g(\n    b\n))\nx = 1')).toEqual([
       NODE_KIND.continued, `  ${NODE_KIND.calc}`, `  ${NODE_KIND.continuation}`, `  ${NODE_KIND.continuation}`, NODE_KIND.calc,
     ])
-    expect(lines('a = f(1)\nb = "("  # (\n    c = 2')).toEqual([NODE_KIND.calc, NODE_KIND.calc, NODE_KIND.calc])
+    expect(lines('a = f(1)\nb = "("  // (\n    c = 2')).toEqual([NODE_KIND.calc, NODE_KIND.calc, NODE_KIND.calc])
   })
 
   it('carries on a line in a block, closing it at the block’s indentation, and the block’s } still closes the block', () => {
@@ -312,7 +315,7 @@ describe('the kinds of line, and the blocks they open', () => {
     })
     const cases: [string, string][] = [
       ['@table(\n    t,\n    x;\n    rows 2-3, lines grid\n)', '@table(t, x; rows 2-3, lines grid)'],
-      ['p = @plot(\n    t,\n    x;  # the run\n    fit linear\n)', 'p = @plot(t, x; fit linear)  # the run'],
+      ['p = @plot(\n    t,\n    x;  // the run\n    fit linear\n)', 'p = @plot(t, x; fit linear)  // the run'],
       ['val = [\n    sqrt(4),\n    5678\n]', 'val = [sqrt(4), 5678]'],
     ]
     for (const [multiline, oneLine] of cases) {

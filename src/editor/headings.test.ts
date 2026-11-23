@@ -38,8 +38,8 @@ describe('a section’s fold', () => {
 })
 
 describe('a section’s line', () => {
-  it('is highlighted, a subsection’s more lightly, and not a deeper heading’s or a # in prose', () => {
-    const state = stateOf(['# A', '## B', '### C', 'x = 1  # a note', '@layout.text Notes {', '# not a heading', '}', '# D {', '}'].join('\n'))
+  it('is highlighted, a subsection’s more lightly, and not a deeper heading’s or a // in prose', () => {
+    const state = stateOf(['# A', '## B', '### C', 'x = 1  // a note', '@layout.text Notes {', '# not a heading', '}', '# D {', '}'].join('\n'))
     const classes: [number, string][] = []
     headingLines(state).between(0, state.doc.length, (from, _to, deco) => {
       classes.push([state.doc.lineAt(from).number, deco.spec.class as string])

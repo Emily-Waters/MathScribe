@@ -9,6 +9,12 @@ import { named, regex, src } from './patterns.ts'
 /** A comment line starts with this: `// check the units`. It's never shown or worked out. */
 export const COMMENT_START = '//'
 
+/**
+ * A heading's mark, `#` (`##` a subsection's): only at the start of a line.
+ * Anywhere else in a calculation it isn't read (a note is written after `//`).
+ */
+export const HEADING_MARK = '#'
+
 /** Whether a line (indentation and all) is a comment. */
 export const isComment = (line: string) => line.trimStart().startsWith(COMMENT_START)
 

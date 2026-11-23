@@ -1,102 +1,32 @@
-# MathScribe: how to work in this repository
+# MathScribe: working in this repository
 
-MathScribe is a calculation sheet: a sheet's lines are read into a tree
-(`src/lib/tree/`), the tree into blocks (`src/lib/reading/`), each line worked out
-by the engine (`src/lib/engine/`), and the blocks drawn in the Rendered tab
-(`src/components/blocks/`) and written to LaTeX and Word
-(`src/lib/output/constructs/`). The README's Structure section maps every folder.
+Pipeline: sheet text → lossless tree (`src/lib/tree/`) → blocks (`src/lib/reading/`) → engine (`src/lib/engine/`) → Rendered tab (`src/components/blocks/`) and LaTeX/Word exports (`src/lib/output/constructs/`). `README.md` (Structure) maps every folder.
 
-## The architecture: a small core, and everything else a module
+## Architecture
 
-- **The core is small and generic.** Anything beyond the very core (chemistry,
-  series, solving, vectors, and anything new) is a module that extends the core
-  through its hooks. A special case for one feature never goes into the core as an
-  `if`: it becomes a hook on the base class, which the feature's module overrides.
-- **Adding a module is extending a class and dropping in its folder.** A module
-  is a subclass of `EngineModule` (`src/lib/engine/core/module.ts`) that
-  overrides the hooks it needs: its grammar (`grammar()`: kinds of line, node and
-  token, lex and text rules, token roles), its `@` members (`builtinMembers()`),
-  its steps of a line's pipeline (`LineStep` and `LineForm` subclasses, at a
-  stage of `LINE_STAGE`), its readers (`ReadsLines`), its
-  settings, its LaTeX preamble, and so on. It lives in a folder of its own in
-  `src/modules/`, whose `index.ts` exports the class as its default; every folder
-  there is found and registered (`src/modules/index.ts`, which `main.tsx` and the
-  tests' setup load first). MathScribe's own modules
-  (chemistry, series, solve, vectors) are there in just that form. Nothing else in
-  the app is edited to add one. This is meant to be within reach of someone
-  running MathScribe locally who wants a module of their own
-  (`src/lib/plugin.test.ts` is one), so every hook is documented where it's
-  declared, and a module can't need more than the hooks offer: if it does, the
-  hook is added to the base (with a no-op default), not a special case to the
-  core. A module can also have kinds of block of its own (`blockKinds`: a
-  construct for the exports and a view for the Rendered tab, of a
-  `CustomBlock` its readers make) and add to the editor (`editorExtensions`).
-  (Still being completed: see "One harmonious structure" in `TODO.md`. Where a
-  module still has to be named outside its own folder, that's a gap to close,
-  not a pattern to follow.)
-- **A module uses MathScribe only through the module API,** `src/lib/plugin.ts`:
-  it imports from there, its own folder, and the `public.ts` of a module it
-  `requires`. What a module needs that isn't there is added there, documented.
-- **The rest of the app uses the engine through `engine/index.ts`, and a module
-  through its `public.ts`,** never the core's or a module's own files.
-  `src/lib/engine/boundaries.test.ts` checks all of this, and that the core needs
-  no module at any depth. A type-only import is `import type { … }`
-  (`import { type X }` still loads the file).
-- **A kind of thing is a class extending a base, in a typed table.** A block
-  kind's `Construct` (LaTeX and Word) and view (the Rendered tab), a node's
-  `NodeReader`, an `@` `Member`, a `LineForm`, a module: each kind is one class,
-  found by its kind in a table TypeScript checks is complete. Plain declarations
-  (lex rules, text rules, a grammar's kinds) are data the core and modules add to.
-- **Each piece of syntax is read once,** by the tree (`src/lib/tree/`): the
-  engine, the readers, the outputs and the editor read its tokens, not the text
-  again with patterns of their own.
+- **Small generic core; features live in modules.** Never add a feature-specific `if` to the core: add a hook with a no-op default on `EngineModule` (`src/lib/engine/core/module.ts`), documented where it's declared, and override it in the module.
+- **Modules (`src/modules/<name>/index.ts`):** subclass `EngineModule` (`grammar()`, `builtinMembers()`, `LineStep`/`LineForm` at a `LINE_STAGE`, `ReadsLines`, settings, `latexPreamble`, `blockKinds` for a `CustomBlock`, `editorExtensions`, …) and export it as default. `src/modules/index.ts` finds every folder (loaded first by `main.tsx` and the tests' setup). Adding one edits nothing else. `src/lib/plugin.test.ts` is an example; "One harmonious structure" in `TODO.md` lists the leaks left to close (a gap, not a pattern).
+- **Import boundaries** (`src/lib/engine/boundaries.test.ts`):
+  - A module imports only `src/lib/plugin.ts` (the module API), its own folder, and a required module's `public.ts`. What a module needs that isn't there is added to `plugin.ts`, documented.
+  - The app imports only `src/lib/engine/index.ts` and a module's `public.ts`.
+  - The core never imports a module. A type-only import is `import type { … }` (`import { type X }` still loads the file).
+- **A class per kind, in typed tables:** block `Construct`s and views, `NodeReader`s, `@` `Member`s, `LineForm`s, modules. Lex/text rules and grammar kinds are plain data.
+- **Syntax is read once, by the tree:** readers, engine, outputs and editor use its tokens, never their own regexes on the text.
 
 ## Conventions
 
-- **No magic strings or numbers.** A value with a meaning is a named constant in
-  one place. A set of words is a `words({ … })` list (`src/lib/syntax/patterns.ts`:
-  `.words`, `.has`, `.alternation`), with its type from `WordOf`; code writes
-  `BLOCK_KIND.card`, never `'card'`. Related shapes extend a shared base type.
-- **Patterns** are written with `src`, `named`, `optional`, `regex`
-  (`src/lib/syntax/patterns.ts`), and their groups are named and read as
-  `.groups`. The sheet language's own patterns live in `src/lib/syntax/`, one
-  file per concept; a module's in its own `syntax.ts`.
-- **MathScribe's own functions are written with `@`** (`@tuple`, `@table`,
-  `@solve`, `@chem.substance`); mathjs's maths stays bare (`sin`, `sqrt`).
-- **`TODO.md` is a paper trail.** Every to-do goes there; a resolved one keeps
-  its original text, ticked, with a "Resolved:" write-up of how.
-- **Refactors are behaviour-neutral**, one step at a time, checked in with Emily
-  between steps. The golden tests (`src/lib/golden.test.ts`) prove the outputs
-  didn't change; where a step swaps one way of reading something for another,
-  run both side by side over the whole suite before switching.
-- **Commit and push only when asked.** End commit messages with the
-  co-author line.
-- **Comments** say what a thing is and why, in plain sentences, as the existing
-  ones do.
-- **What a user writes is described once, in the language tree**
-  (`src/lib/language/`: `topics.ts`, a module's `language.ts`, a call's settings'
-  declarations). The Reference tab, the AI primer, the editor's tooltips and the
-  docs are made from it, and the tests run every example in it. Code comments
-  say how and why the code works, and point to the declaration
-  (`{@link PLOT_SETTINGS}`) rather than restate what a user writes; a feature
-  added or changed is described there, with an example, not in a comment or by hand.
-  After the tree changes, `npm run docs` writes `docs/REFERENCE.md` again (not
-  `vitest -u`, which would accept every other snapshot's change too).
+- **No magic strings/numbers:** named constants (`BLOCK_KIND.card`, never `'card'`); word sets with `words({ … })` (`src/lib/syntax/patterns.ts`: `.words`, `.has`, `.alternation`, `WordOf`). Related shapes extend a shared base type.
+- **Patterns:** `src`, `named`, `optional`, `regex` (`src/lib/syntax/patterns.ts`), read by `.groups`. Core syntax in `src/lib/syntax/` (a file per concept); a module's in its `syntax.ts`.
+- **MathScribe's own functions use `@`** (`@tuple`, `@table`, `@solve`, `@chem.substance`); mathjs's stay bare (`sin`, `sqrt`).
+- **What a user writes is described once, in the language tree** (`src/lib/language/`: `topics.ts`, a module's `language.ts`, settings declarations), with an example; the Reference tab, AI primer, tooltips and `docs/REFERENCE.md` come from it, and the tests run every example. After changing it, run `npm run docs` (not `vitest -u`).
+- **Comments** say what a thing is and why, in plain sentences, as the existing ones do; they point to the language tree (`{@link …}`) rather than restate what a user writes.
+- **Refactors are behaviour-neutral,** one step at a time, checked in with Emily between steps: the golden tests (`src/lib/golden.test.ts`) prove outputs unchanged, and a step swapping one way of reading for another runs both side by side over the whole suite first.
+- **`TODO.md` holds open to-dos only,** each tagged `[high]`, `[medium]` or `[low]`. A finished one moves to `CHANGELOG.md` with its original text, ticked, and a "Resolved:" note of how. Read only the part of either you need.
+- **Git and edits:** commit and push only when asked; end commit messages with the co-author line. Edit with the editor tools (shell scripts mangle backslashes and backticks); after a batch of edits, touch the changed files so a running dev server reloads them.
 
 ## Checking work
 
 - Type check: `npx tsc -p tsconfig.app.json --noEmit` (`tsc -p .` checks nothing).
 - Lint: `npx oxlint`.
-- Tests: `npx vitest run`, from `C:\…` (an uppercase drive letter: from `c:\` every
-  test fails at "reading config").
-- Visual check of the exports: `npm run visual` (not part of `npm test`) exports
-  `visual/showcase.txt` to LaTeX and Word, compiles both to PDF (pdflatex; Word
-  through PowerShell) and their pages to `visual/out/latex-*.png` and
-  `word-*.png`, with `report.txt` saying what worked. Run it, and look at every
-  page, when Emily asks, and after a change that could change what the exports
-  look like (constructs, latexKit, docx, plot drawing, how names are typeset, a
-  new kind of block); add what a new feature needs to the showcase sheet. Type
-  check it with `npx tsc -p tsconfig.visual.json --noEmit`.
-- Make edits with the editor tools, not shell scripts, which mangle backslashes
-  and backticks in TypeScript. After a batch of edits, touch the changed files so
-  a running dev server reloads them all.
+- Tests: the affected files while iterating (`npx vitest run <file>`), then the whole suite (`npx vitest run`), from `C:\…` (an uppercase drive letter: from `c:\` every test fails at "reading config").
+- Visual check of the exports: `npm run visual` (and `npx tsc -p tsconfig.visual.json --noEmit`) exports `visual/showcase.txt` to LaTeX and Word, compiled to PDF and pages in `visual/out/` with `report.txt`. Run it and look at every page when Emily asks, and after a change that could alter the exports (constructs, latexKit, docx, plots, how names are typeset, a new kind of block); add what a new feature needs to the showcase sheet.

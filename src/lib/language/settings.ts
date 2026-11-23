@@ -7,7 +7,7 @@
  * (SettingsSpec.parse), writing them back as text (format), and the error for
  * a setting that isn't one, which lists what is. They're the first part of
  * MathScribe's language described once, in a tree (see "One source for the
- * language" in TODO.md): the ⚙ menus and the reference are to be made from
+ * language" in CHANGELOG.md): the ⚙ menus and the reference are to be made from
  * them too.
  *
  * A kind of setting is a class extending Setting (a switch, a choice, a range

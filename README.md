@@ -288,8 +288,8 @@ The reference has every part, with the rules for writing it and examples:
 
 ## To do
 
-What's planned, and what's been done (with how it was addressed), is in
-[TODO.md](TODO.md).
+What's planned is in [TODO.md](TODO.md); what's been done, with how it was
+addressed, is in [CHANGELOG.md](CHANGELOG.md).
 
 ## Development
 

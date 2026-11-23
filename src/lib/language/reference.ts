@@ -2,7 +2,7 @@
  * The language, described from its declarations: what the Reference, the AI
  * primer and (to come) docs/REFERENCE.md say about it is made here, from the
  * language tree and the declarations the core and the modules make, so none
- * of it is written by hand or can be out of date with what's read. (See "One source for the language" in TODO.md.)
+ * of it is written by hand or can be out of date with what's read. (See "One source for the language" in CHANGELOG.md.)
  */
 import { SIGIL } from '../syntax.ts'
 import type { SettingDescription, SettingsDescription } from './settings.ts'

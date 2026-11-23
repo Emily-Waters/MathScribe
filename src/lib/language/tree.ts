@@ -8,7 +8,7 @@
  *
  * What MathScribe says about itself is made from this tree: the Reference tab,
  * the AI primer, the editor's hovers and the docs (see "One source for the
- * language" in TODO.md); and the tests walk it, so every example is checked
+ * language" in CHANGELOG.md); and the tests walk it, so every example is checked
  * (it works, it's formatted, its output is as it was: lib/language/tree.test.ts,
  * golden.test.ts), and none can go out of date.
  */

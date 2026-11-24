@@ -12,34 +12,28 @@
  * principal one first.
  */
 import {
-  isConstantNode,
-  isFunctionNode,
-  isOperatorNode,
-  isParenthesisNode,
-  isSymbolNode,
-  type MathJsInstance,
-  type MathNode,
-} from 'mathjs'
-import { FN, MATH_CONSTANT, OP, OP_SYMBOL, isOp } from './library/index.ts'
+  FN, MATH_CONSTANT, OP, call, constant, derivative, findAll, isCall, isConstant, isOp, isOperator, isParen, isSymbol, mapParts,
+  operator, paren, simplify, symbol, transform, type Expr,
+} from './library/index.ts'
 
 /** What kind of polynomial @solve(…) found f to be in x. */
 export const POLYNOMIAL_KIND = { linear: 'linear', quadratic: 'quadratic' } as const
 export type PolynomialKind = (typeof POLYNOMIAL_KIND)[keyof typeof POLYNOMIAL_KIND]
 
 /** Whether `node` uses the variable `x` (not counting function names). */
-export function contains(node: MathNode, x: string): boolean {
-  return node.filter((n, path) => isSymbolNode(n) && n.name === x && path !== 'fn').length > 0
+export function contains(node: Expr, x: string): boolean {
+  return countOccurrences(node, x) > 0
 }
 
 /** How many times `x` appears in an expression. */
-export function countOccurrences(node: MathNode, x: string): number {
-  return node.filter((n, path) => isSymbolNode(n) && n.name === x && path !== 'fn').length
+export function countOccurrences(node: Expr, x: string): number {
+  return findAll(node, (n, path) => isSymbol(n) && n.name === x && path !== 'fn').length
 }
 
 /** A constant number written as such (possibly negated or bracketed), else undefined. */
-function numericValue(n: MathNode): number | undefined {
-  if (isParenthesisNode(n)) return numericValue(n.content)
-  if (isConstantNode(n) && typeof n.value === 'number') return n.value
+function numericValue(n: Expr): number | undefined {
+  if (isParen(n)) return numericValue(n.content)
+  if (isConstant(n) && typeof n.value === 'number') return n.value
   if (isOp(n, OP.unaryMinus)) {
     const v = numericValue(n.args[0])
     return v === undefined ? undefined : -v
@@ -49,35 +43,29 @@ function numericValue(n: MathNode): number | undefined {
 
 /** Rearranges an equation for an unknown, when it can be done exactly. */
 export class Solver {
-  private math: MathJsInstance
-
-  constructor(math: MathJsInstance) {
-    this.math = math
-  }
-
-  private C = (v: number) => new this.math.ConstantNode(v)
-  private P = (n: MathNode) => new this.math.ParenthesisNode(n)
-  private fn = (name: string, args: MathNode[]) => new this.math.FunctionNode(new this.math.SymbolNode(name), args)
-  private add = (a: MathNode, b: MathNode) => new this.math.OperatorNode(OP_SYMBOL.add, OP.add, [a, b])
-  private sub = (a: MathNode, b: MathNode) => new this.math.OperatorNode(OP_SYMBOL.subtract, OP.subtract, [a, this.P(b)])
-  private mul = (a: MathNode, b: MathNode) => new this.math.OperatorNode(OP_SYMBOL.multiply, OP.multiply, [this.P(a), this.P(b)])
-  private div = (a: MathNode, b: MathNode) => new this.math.OperatorNode(OP_SYMBOL.divide, OP.divide, [this.P(a), this.P(b)])
-  private pow = (a: MathNode, b: MathNode) => new this.math.OperatorNode(OP_SYMBOL.pow, OP.pow, [this.P(a), b])
-  private neg = (a: MathNode) => new this.math.OperatorNode(OP_SYMBOL.unaryMinus, OP.unaryMinus, [this.P(a)])
+  private C = (v: number) => constant(v)
+  private P = (n: Expr) => paren(n)
+  private fn = (name: string, args: Expr[]) => call(name, args)
+  private add = (a: Expr, b: Expr) => operator(OP.add, [a, b])
+  private sub = (a: Expr, b: Expr) => operator(OP.subtract, [a, this.P(b)])
+  private mul = (a: Expr, b: Expr) => operator(OP.multiply, [this.P(a), this.P(b)])
+  private div = (a: Expr, b: Expr) => operator(OP.divide, [this.P(a), this.P(b)])
+  private pow = (a: Expr, b: Expr) => operator(OP.pow, [this.P(a), b])
+  private neg = (a: Expr) => operator(OP.unaryMinus, [this.P(a)])
 
   /**
    * Solve `side = other` for x, where x appears exactly once in `side` and not in
    * `other`. Returns every branch (principal first), or null if a step can't be undone.
    */
-  isolate(side: MathNode, other: MathNode, x: string): MathNode[] | null {
-    if (isSymbolNode(side) && side.name === x) return [other]
-    if (isParenthesisNode(side)) return this.isolate(side.content, other, x)
-    const both = (...branches: (MathNode[] | null)[]) => {
-      const ok = branches.filter((b): b is MathNode[] => b !== null)
+  isolate(side: Expr, other: Expr, x: string): Expr[] | null {
+    if (isSymbol(side) && side.name === x) return [other]
+    if (isParen(side)) return this.isolate(side.content, other, x)
+    const both = (...branches: (Expr[] | null)[]) => {
+      const ok = branches.filter((b): b is Expr[] => b !== null)
       return ok.length ? ok.flat() : null
     }
 
-    if (isOperatorNode(side)) {
+    if (isOperator(side)) {
       const [a, b] = side.args
       const inA = contains(a, x)
       switch (side.fn) {
@@ -96,7 +84,7 @@ export class Solver {
         case OP.pow: {
           if (!inA) {
             // a^x = O  →  x = ln(O) / ln(a), or ln(O) for e^x
-            const base = isSymbolNode(a) && a.name === MATH_CONSTANT.e
+            const base = isSymbol(a) && a.name === MATH_CONSTANT.e
             return this.isolate(b, base ? this.fn(FN.log, [other]) : this.div(this.fn(FN.log, [other]), this.fn(FN.log, [a])), x)
           }
           const n = numericValue(b)
@@ -114,7 +102,7 @@ export class Solver {
       return null
     }
 
-    if (isFunctionNode(side) && side.args.length === 1) {
+    if (isCall(side) && side.args.length === 1) {
       const u = side.args[0]
       switch (side.fn.name) {
         case FN.sqrt:
@@ -130,7 +118,7 @@ export class Solver {
         case FN.sin:
           return both(
             this.isolate(u, this.fn(FN.asin, [other]), x),
-            this.isolate(u, this.sub(new this.math.SymbolNode(MATH_CONSTANT.pi), this.fn(FN.asin, [other])), x),
+            this.isolate(u, this.sub(symbol(MATH_CONSTANT.pi), this.fn(FN.asin, [other])), x),
           )
         case FN.cos:
           return both(this.isolate(u, this.fn(FN.acos, [other]), x), this.isolate(u, this.neg(this.fn(FN.acos, [other])), x))
@@ -156,42 +144,41 @@ export class Solver {
    * placeholder symbols first, then put back in the answer. Plain arithmetic on
    * numbers and names is left in, so it can simplify (4 · ½ → 2).
    */
-  polynomial(f: MathNode, x: string): { kind: PolynomialKind; solutions: MathNode[] } | null {
-    const math = this.math
-    const saved = new Map<string, MathNode>()
-    const hasCall = (n: MathNode) => n.filter((c) => isFunctionNode(c)).length > 0
-    const abstract = (n: MathNode): MathNode => {
+  polynomial(f: Expr, x: string): { kind: PolynomialKind; solutions: Expr[] } | null {
+    const saved = new Map<string, Expr>()
+    const hasCall = (n: Expr) => findAll(n, (c) => isCall(c)).length > 0
+    const abstract = (n: Expr): Expr => {
       if (!contains(n, x)) {
         if (!hasCall(n)) return n
         const name = `K__${saved.size}`
         saved.set(name, n)
-        return new math.SymbolNode(name)
+        return symbol(name)
       }
-      return n.map((child, path) => (path === 'fn' ? child : abstract(child)))
+      return mapParts(n, (child, path) => (path === 'fn' ? child : abstract(child)))
     }
-    const restore = (n: MathNode) =>
-      n.transform((s) => (isSymbolNode(s) && saved.has(s.name) ? this.P(saved.get(s.name)!) : s))
-    const isZero = (n: MathNode) => numericValue(n) === 0
-    const at0 = (n: MathNode) =>
-      math.simplify(n.transform((s) => (isSymbolNode(s) && s.name === x ? this.C(0) : s)))
+    const restore = (n: Expr) =>
+      transform(n, (s) => (isSymbol(s) && saved.has(s.name) ? this.P(saved.get(s.name)!) : s))
+    const isZero = (n: Expr) => numericValue(n) === 0
+    const at0 = (n: Expr) =>
+      simplify(transform(n, (s) => (isSymbol(s) && s.name === x ? this.C(0) : s)))
 
     try {
       const g = abstract(f)
-      const d1 = math.simplify(math.derivative(g, x))
-      const d2 = math.simplify(math.derivative(d1, x))
-      const d3 = math.simplify(math.derivative(d2, x))
+      const d1 = simplify(derivative(g, x))
+      const d2 = simplify(derivative(d1, x))
+      const d3 = simplify(derivative(d2, x))
       if (!isZero(d3)) return null
       const b = at0(d1)
       const c = at0(g)
       if (isZero(d2)) {
         if (isZero(b)) return null
-        return { kind: POLYNOMIAL_KIND.linear, solutions: [restore(math.simplify(this.div(this.neg(c), b)))] }
+        return { kind: POLYNOMIAL_KIND.linear, solutions: [restore(simplify(this.div(this.neg(c), b)))] }
       }
-      const a = math.simplify(this.div(d2, this.C(2)))
+      const a = simplify(this.div(d2, this.C(2)))
       const disc = this.sub(this.pow(b, this.C(2)), this.mul(this.mul(this.C(4), a), c))
       const plus = this.div(this.add(this.neg(b), this.fn(FN.sqrt, [disc])), this.mul(this.C(2), a))
       const minus = this.div(this.sub(this.neg(b), this.fn(FN.sqrt, [disc])), this.mul(this.C(2), a))
-      return { kind: POLYNOMIAL_KIND.quadratic, solutions: [restore(math.simplify(plus)), restore(math.simplify(minus))] }
+      return { kind: POLYNOMIAL_KIND.quadratic, solutions: [restore(simplify(plus)), restore(simplify(minus))] }
     } catch {
       return null
     }

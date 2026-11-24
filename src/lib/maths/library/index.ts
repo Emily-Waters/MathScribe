@@ -13,7 +13,7 @@ export {
   BASE_DIMENSION, COMPARISONS, FN, LIBRARY_IN, MATH_CONSTANT, OP, OP_SYMBOL, UNIT, UNIT_LOOKS, type Op,
   MATHS_ERROR, mathsError, type MathsError,
   // Expressions
-  parse, compile, evaluateCompiled, evaluate, evaluateText, findAll, transform, copyExpr, exprText, exprTex, symbol, call, operator,
+  parse, compile, evaluateCompiled, evaluate, evaluateText, findAll, transform, mapParts, copyExpr, exprText, exprTex, symbol, call, operator,
   constant, paren, assign, source, type Scope, type ScopeMap, type ExprPath, type TexOptions,
   // Algebra
   derivative, simplify,

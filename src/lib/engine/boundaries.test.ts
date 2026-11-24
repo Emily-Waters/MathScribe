@@ -151,7 +151,6 @@ const importsLibrary = (path: string) => [...(SOURCES.get(path) ?? '').matchAll(
  * that takes files off this list, until it's empty.
  */
 const STILL_USING_LIBRARY: ReadonlySet<string> = new Set([
-  'lib/maths/solve.ts',
   'modules/chemistry/module.ts', 'modules/chemistry/species.ts', 'modules/chemistry/substance.ts', 'modules/chemistry/writers.ts',
   'modules/series/extremes.ts', 'modules/series/module.ts', 'modules/series/plot.ts', 'modules/solve/solve.ts', 'modules/solve/system.ts',
   'modules/vectors/module.ts',

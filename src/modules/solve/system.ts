@@ -74,7 +74,7 @@ function solveSystem(entries: readonly string[], equationsText: string, line: Fo
   if (missing) return fail(`${missing} doesn't appear in any of the equations.`, `\\begin{gathered}${failTex}\\end{gathered}`)
 
   // Eliminate: rearrange one equation for one unknown, and put that into the rest.
-  const solver = new Solver(math)
+  const solver = new Solver()
   const rearranged = (e: Equation, x: string): MathNode | null => {
     const occurrences = countOccurrences(e.lhs, x) + countOccurrences(e.rhs, x)
     if (!occurrences) return null

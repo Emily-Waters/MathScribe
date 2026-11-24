@@ -75,7 +75,7 @@ function solve(text: string, call: RegExpExecArray, line: FormLine, prepared: Pr
   if (!occurrences) return fail(`${x} doesn't appear in the equation.`, equationTex)
 
   // Rearrange: isolate x if it appears once, else try linear / quadratic.
-  const solver = new Solver(math)
+  const solver = new Solver()
   let candidates: MathNode[] | null = null
   let quadratic = false
   if (occurrences === 1) {

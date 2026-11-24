@@ -195,6 +195,10 @@ export const findAll = (expr: Expr, test: (part: Expr, path: ExprPath, parent: E
 export const transform = (expr: Expr, change: (part: Expr, path: ExprPath, parent: Expr | null) => Expr): Expr =>
   expr.transform(change as never)
 
+/** An expression with each of its own parts (one level down) changed by `change`; the parts' parts are `change`'s to look into. */
+export const mapParts = (expr: Expr, change: (part: Expr, path: ExprPath, parent: Expr) => Expr): Expr =>
+  expr.map(change as never)
+
 /** A copy of an expression, every part of it, to change without changing it. */
 export const copyExpr = (expr: Expr): Expr => expr.cloneDeep()
 

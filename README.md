@@ -363,9 +363,13 @@ renamed, change it there too.
   sig-fig tracking, uncertainty propagation, functions, tables, plots and
   selections, LaTeX generation. `index.ts` is all the rest of MathScribe imports;
   `core/` is split by concern, one file each: the `Calculator` class
-  (`calculator.ts`), the mathjs instance (`math.ts`), scopes, unit literals,
+  (`calculator.ts`), values shown (`valueTex.ts`: sig figs, notation,
+  uncertainty, tuples), the working as LaTeX (`workingTex.ts`), the engine's
+  additions to the maths library (`math.ts`), scopes, unit literals,
   tuples (and the look a module gives one: `TupleLook`), uncertainty, series,
-  imported data and LaTeX. `writer.ts` writes an expression for mathjs from
+  imported data and LaTeX. The maths library itself is behind
+  `src/lib/maths/library/` (`index.ts` its interface, `mathjs.ts` its only
+  adapter). `writer.ts` writes an expression for the library from
   its tokens (`src/lib/tree/lexer.ts`), one writer per kind of part: the
   core's (a quantity, `(9.81 * unit("m/s^2"))`; a unit after `to`; a number
   kept as typed), and a module's (`EngineModule.writers`: a vector, a species),

@@ -392,6 +392,21 @@ tests, or the Create prompt:
          evaluateParsed stay, as the core of it. Why: a concern can then be
          read whole (an edit needs only the part read, but understanding one
          now means piecing it together).
+         ~~Done 2026-11-24~~, as far as is worth it: values shown (sig figs,
+         notation, uncertainty, tuples, as LaTeX) are `ValueTex`'s
+         (valueTex.ts); expressions as the working shows them, a call's
+         parameters as its arguments, and values substituted are
+         `WorkingTex`'s (workingTex.ts); each takes a small host of what it
+         needs of the Calculator. calculator.ts is 63 KB now (from 79). Left
+         where they are, on purpose: the constants (already `SheetConstants`'s;
+         what stays is three one-line pass-throughs and `defineConstant`,
+         which works the line out through the Calculator itself) and the
+         variable summaries (`summary`, `assignedBy`, `describe`, ~50 lines
+         tied to scopes and views): moving either would add a host for little.
+      **Still open** of this item: the adapter throwing typed errors as it
+      evaluates (not `mathsError` reading message text); the ~70 comments in
+      the core that name mathjs; and the tree's lexer, which mirrors mathjs's
+      own reading of characters (its delimiters, `isAlpha`).
 - [ ] `[medium]` **One harmonious structure** (2026-11-17, from the
       codebase-wide audit). Remaining items:
       - Step 5 sub-items: hovers (`BUILTIN_BEFORE`, `UNIT_PLACE`, a namespace

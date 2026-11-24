@@ -278,15 +278,50 @@ tests, or the Create prompt:
 
 ## 8. Architecture and polish
 
-- [ ] `[low]` **Split `src/lib/engine/core/calculator.ts`** (~79 KB, the
-      largest source file): one class whose concerns are spread over ~1,500
-      lines, so understanding one means piecing it together from several
-      partial reads (an edit itself needs only the part read). A file per
-      concern, behaviour-neutral, the golden tests proving it. Natural seams
-      (2026-11-23): formatting and TeX (formatNumber, the uncertainty and value
-      TeX, toTex, formulaTex), first; constants (declareConstant*,
-      defineConstant); scopes and variable summaries. The line pipeline and
-      evaluateParsed stay, as the core of it.
+- [ ] `[high]` **Core, modules and the maths library, in three steps**
+      (2026-11-23, Emily). Decided: series are core (a kind of value, as
+      tuples are; their notation and `@table`/`@plot` the series module's);
+      the maths library goes behind one adapter with MathScribe's own types
+      ("layers 1 and 2": not our own syntax tree yet); the module API exposes
+      only that interface, never mathjs's types. In this order, so code moves
+      once; each step behaviour-neutral, the golden tests proving it, checked
+      in with Emily between steps:
+      1. **The core stops naming modules' concepts** (CLAUDE.md: "The core
+         asks; modules answer"), one at a time:
+         - plots and fits: `FIT` (sheet/names.ts), `fitHint` and
+           `MISSING_FIT_MEMBER` (results.ts), R²/χ² in tex.ts, `CalcResult.plot`
+           and `CalcBlock.plot`, and output/plot.ts, plotImage.ts, latexKit's
+           `plotToLatex` and docxKit's plot images: a plot becomes the series
+           module's own block kind (as a table is), with hooks such as
+           `explainError(message)` and `memberTex(namespace, member)`;
+         - solved names: `parseSolvedName` / `HIDDEN_PREFIX.solved`
+           (sheet/names.ts, tex.ts), behind a hook such as `hiddenNameTex`;
+         - series' syntax in the core's messages: the "square brackets make a
+           series" error (calculator.ts) is the series module's to say.
+           (`seriesHint`, statistics and lookups stay core: series are.)
+      2. **Maths library behind one interface**: a folder (e.g.
+         `src/lib/maths/mathjs/`) the only one importing `mathjs`, enforced in
+         `boundaries.test.ts`. It offers named operations (parse, evaluate,
+         units, node guards and builders, TeX, derivative, simplify) under
+         MathScribe's own type names (`Expr`, `Value`, `Quantity`, …), and turns
+         mathjs's errors into typed ones (`UndefinedSymbol { name }`) so nothing
+         matches message text (results.ts, series' plot.ts and where.ts do
+         now). Found 2026-11-23: 30 files import mathjs (18 core, 10 in
+         modules), about 200 `math.*` calls; `plugin.ts` exports `math` and the
+         EngineModule hooks take `MathNode`/`FunctionNode`. The plugin API
+         changes to the interface's types, and the chemistry, series, solve and
+         vectors modules with it. Also mathjs-shaped, to move behind it: the
+         source text the writer produces (`unit("…")`, `lit("…")`) and hidden
+         names (`chem__mm__Na`, because mathjs names have no dots).
+      3. **Split `src/lib/engine/core/calculator.ts`** (~79 KB, ~1,500 lines,
+         one class) along the seams left, each a typed collaborator with a
+         narrow interface (as `Aggregates` and `SheetConstants` are), not loose
+         functions: formatting and TeX (formatNumber, the uncertainty and
+         value TeX, toTex, formulaTex), first; constants (declareConstant*,
+         defineConstant); scopes and variable summaries. The line pipeline and
+         evaluateParsed stay, as the core of it. Why: a concern can then be
+         read whole (an edit needs only the part read, but understanding one
+         now means piecing it together).
 - [ ] `[medium]` **One harmonious structure** (2026-11-17, from the
       codebase-wide audit). Remaining items:
       - Step 5 sub-items: hovers (`BUILTIN_BEFORE`, `UNIT_PLACE`, a namespace

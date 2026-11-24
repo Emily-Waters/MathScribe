@@ -10,6 +10,9 @@ Pipeline: sheet text → lossless tree (`src/lib/tree/`) → blocks (`src/lib/re
   - A module imports only `src/lib/plugin.ts` (the module API), its own folder, and a required module's `public.ts`. What a module needs that isn't there is added to `plugin.ts`, documented.
   - The app imports only `src/lib/engine/index.ts` and a module's `public.ts`.
   - The core never imports a module. A type-only import is `import type { … }` (`import { type X }` still loads the file).
+- **The core asks; modules answer.** The core never names a module's concept in code (its members, hidden names, error messages, blocks): it asks through a hook, and the module answers. Comments may use a module's feature as an example.
+- **Kinds of value are core; what's written with them is a module's.** Numbers, quantities, tuples and series (members `t[1]`, statistics `t.avg`) are the core's. A module adds notation and operations: vectors give a tuple a look; series' `[…]`, ranges, conditions, `@table` and `@plot` are the series module's.
+- **One maths adapter** (being built: "Maths library behind one interface" in `TODO.md`): only the adapter imports `mathjs`. Everything else, modules included, uses MathScribe's own interface (its own type names, typed errors, never mathjs's types or message text), so a change of maths library touches the adapter alone.
 - **A class per kind, in typed tables:** block `Construct`s and views, `NodeReader`s, `@` `Member`s, `LineForm`s, modules. Lex/text rules and grammar kinds are plain data.
 - **Syntax is read once, by the tree:** readers, engine, outputs and editor use its tokens, never their own regexes on the text.
 

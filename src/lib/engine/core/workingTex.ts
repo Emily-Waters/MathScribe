@@ -1,0 +1,219 @@
+/**
+ * An expression as the working shows it, as LaTeX: products as in a textbook
+ * (ma, 2.00 kg × 9.81 m/s²), a unit after its number, a condition's cases,
+ * `@inv(x)` as its fraction turned over, a name as its display name, the
+ * sheet's functions as f(x), a module's as it says; and, for the substitution
+ * step, each variable as its value at its own sig figs. While a call's working
+ * is shown, its parameters are written as the arguments it was given
+ * (`paramAliases`, set by the Calculator's traceCall).
+ */
+import { EXACT } from '../../maths/sigfigs.ts'
+import type { Variable } from '../../sheet/values.ts'
+import { INV_FUNCTION, TUPLE_FUNCTION } from '../../sheet/names.ts'
+import {
+  FN, OP, call as callExpr, constant, copyExpr, exprTex, findAll, formatValue, isCall, isConditional, isConstant, isLibraryName, isOp,
+  isSymbol, operator, paren, transform, type CallExpr, type Expr, type SymbolExpr, type TexOptions,
+} from '../../maths/library/index.ts'
+import { isTuple } from './math.ts'
+import type { EngineModule, ModuleHost } from './module.ts'
+import { RAW, rawNode, type CalcOptions } from './results.ts'
+import { CASE_WORDS, attachUnit, caseTex, isLitCall, isUnitCall, numberTex, splitUnit, symbolTex, unitCallText, unitTex } from './tex.ts'
+import { isLiteral, unwrap } from './nodes.ts'
+import { BUILTIN_CONSTANT_NAMES } from './literals.ts'
+import { bracketed } from './tuples.ts'
+import {
+  EVERY_PRODUCT_SIGN, PRODUCT_SIGN, SIDE, inScientificNotation, isNumberWithUnit, needsBrackets, productSeparator, type Side,
+} from './products.ts'
+import type { ValueTex } from './valueTex.ts'
+
+/** What the working's LaTeX needs of the Calculator: its variables and values, options, modules, and how values are shown. */
+export interface WorkingTexHost {
+  variable(name: string): Variable | undefined
+  value(name: string): unknown
+  has(name: string): boolean
+  options(): CalcOptions
+  modules(): readonly EngineModule[]
+  /** What the modules are given, for writing their own functions (EngineModule.functionTex). */
+  moduleHost(): ModuleHost
+  display(): ValueTex
+}
+
+export class WorkingTex {
+  private readonly host: WorkingTexHost
+
+  /**
+   * While showing a call's working: parameter → TeX of the argument it was given,
+   * so psi_prob(r, psi_200) shows 4πr²ψ₂₀₀², not 4πr²ψ².
+   */
+  paramAliases = new Map<string, Expr>()
+
+  constructor(host: WorkingTexHost) {
+    this.host = host
+  }
+
+  /**
+   * Put each aliased parameter's argument in place of the parameter, bracketed;
+   * the automatic parentheses then keep the brackets only where needed
+   * ((3.00 m/s)², but 2.00 kg·g).
+   */
+  withAliases(node: Expr): Expr {
+    if (!this.paramAliases.size) return node
+    return transform(node, (n, path) => {
+      const alias = isSymbol(n) && path !== 'fn' ? this.paramAliases.get(n.name) : undefined
+      if (!alias) return n
+      // Automatic brackets drop around a negative (2.0 m · −2.0); keep them, as the
+      // substituted step does.
+      if (isOp(alias, OP.unaryMinus)) {
+        const saved = this.paramAliases
+        this.paramAliases = new Map()
+        try {
+          return rawNode(`\\left(${this.tex(alias, new Map())}\\right)`)
+        } finally {
+          this.paramAliases = saved
+        }
+      }
+      return paren(copyExpr(alias))
+    })
+  }
+
+  /** A variable's value for the substitution step, at its own sig figs. */
+  variableNode(name: string): Expr {
+    const v = this.host.variable(name)
+    if (v?.shown) return rawNode(v.shown)
+    const display = this.host.display()
+    return display.inNotation(v?.notation, () => display.inLook(v?.look,
+      () => this.valueNode(this.host.value(name), v?.sf ?? EXACT, v?.declared === true)))
+  }
+
+  /**
+   * TeX for an expression made only of numbers and built-in constants (pi, e,
+   * tau, …), using at least one constant: `pi/4` → π/4 as a fraction. Bracketed
+   * unless it's a single symbol, a fraction or a function call, so it can be
+   * dropped into a substitution safely. Anything else (variables, units) → undefined.
+   */
+  constantForm(node: Expr, literals: Map<number, string>): string | undefined {
+    const n = unwrap(node)
+    const symbols = findAll(n, (c, path) => isSymbol(c) && path !== 'fn') as SymbolExpr[]
+    if (!symbols.length) return undefined
+    if (symbols.some((c) => !BUILTIN_CONSTANT_NAMES.has(c.name) || this.host.has(c.name))) return undefined
+    if (findAll(n, (c) => isUnitCall(c)).length) return undefined
+    const tex = this.tex(n, literals)
+    const bare = isSymbol(n) || isCall(n) || (isOp(n, OP.divide))
+    return bare ? tex : `\\left(${tex}\\right)`
+  }
+
+  /** Node standing in for a variable's value in the substitution step. */
+  private valueNode(value: unknown, sf: number, forced = false): Expr {
+    const display = this.host.display()
+    // A tuple is already bracketed, (1.0, 2.0) m; a sum of unit vectors needs brackets, unless it has a unit.
+    if (isTuple(value)) {
+      return rawNode(bracketed(display.valueTex(value, sf, undefined, undefined, forced)))
+    }
+    const parts = display.split(value, sf, forced)
+    if (!parts) return rawNode(`\\left(${display.valueTex(value, sf)}\\right)`)
+    const numTex = numberTex(parts.num)
+    // A negative value is bracketed, so its sign doesn't read as an operator:
+    // ½ · (−9.81 m/s²) · t², not ½ · −9.81 m/s² · t².
+    if (parts.num.startsWith('-')) {
+      return rawNode(`\\left(${parts.unit ? attachUnit(numTex, unitTex(parts.unit)) : numTex}\\right)`)
+    }
+    if (!parts.unit) return rawNode(numTex)
+    const unit = callExpr(FN.unit, [constant(parts.unit)])
+    return paren(operator(OP.multiply, [rawNode(numTex), unit]))
+  }
+
+  /** How a variable's name is shown: its display name, if it has one. */
+  private nameTex(name: string): string {
+    const v = this.host.variable(name)
+    return v?.label ?? v?.symbol ?? symbolTex(name)
+  }
+
+  /** An expression as the working shows it, its numbers as typed (`literals`). */
+  tex(node: Expr, literals: Map<number, string>): string {
+    // Leading spaces keep the library's output such as `\cdot` from running into a name.
+    const handler = (n: Expr, options: TexOptions): string | undefined => {
+      if (isConstant(n) && typeof n.value === 'number') {
+        return ` ${numberTex(literals.get(n.value) ?? formatValue(n.value, this.host.display().format))}`
+      }
+      if (isUnitCall(n)) return ` ${unitTex(unitCallText(n))}`
+      if (isLitCall(n)) return ` ${numberTex(unitCallText(n))}`
+      if (isOp(n, OP.multiply) && isUnitCall(n.args[1])) {
+        return attachUnit(exprTex(n.args[0], options), unitTex(unitCallText(n.args[1])))
+      }
+      // -2.0 m, not -(2.0 m)
+      if (isOp(n, OP.unaryMinus) && (isNumberWithUnit(unwrap(n.args[0])) || isLiteral(n.args[0]))) {
+        return ` -${exprTex(unwrap(n.args[0]), options).trim()}`
+      }
+      // Products as in a textbook, ma, ½mv², 2.00 kg × 9.81 m/s² (or with every dot, if the option is on).
+      if (isOp(n, OP.multiply)) {
+        const factor = (a: Expr, side: Side) => {
+          const tex = exprTex(a, options).trim()
+          return needsBrackets(a, side) ? `\\left(${tex}\\right)` : tex
+        }
+        // A display name is words, so it's set apart from its neighbour with ×:
+        // Molarity of EDTA × Average volume of EDTA.
+        const labelled = (node: Expr, side: Side): boolean => {
+          const e = unwrap(node)
+          if (isOp(e, OP.multiply)) return labelled(side === SIDE.right ? e.args[e.args.length - 1] : e.args[0], side)
+          return isSymbol(e) && this.host.variable(e.name)?.label !== undefined
+        }
+        const separator = (l: Expr, r: Expr) => (labelled(l, SIDE.right) || labelled(r, SIDE.left)
+          ? PRODUCT_SIGN
+          : this.host.options().productDots ? EVERY_PRODUCT_SIGN : productSeparator(l, r))
+        return ` ${n.args.slice(1).reduce((out, a, i) => `${out}${separator(n.args[i], a)}${factor(a, SIDE.right)}`,
+          factor(n.args[0], SIDE.left))}`
+      }
+      // A condition inside a condition's last case (`c1 ? a : (c2 ? b : c)`) is one more case of the same brace.
+      if (isConditional(n)) {
+        const cases: string[] = []
+        let at: Expr = n
+        for (; isConditional(at); at = unwrap(at.falseExpr)) {
+          cases.push(caseTex(exprTex(at.trueExpr, options), `\\text{${CASE_WORDS.if}}\\; ${exprTex(at.condition, options)}`))
+        }
+        cases.push(caseTex(exprTex(at, options), `\\text{${CASE_WORDS.otherwise}}`))
+        return `\\begin{cases} ${cases.join('\\\\')}\\end{cases}`
+      }
+      // A value in scientific notation raised to a power is bracketed: (7.07 × 10⁻²)², not 7.07 × 10⁻²².
+      if (isOp(n, OP.pow)) {
+        const base = unwrap(n.args[0])
+        if (isSymbol(base) && inScientificNotation(base)) {
+          return `\\left(${base.name.slice(1)}\\right)^{${exprTex(n.args[1], options).trim()}}`
+        }
+      }
+      if (isSymbol(n)) {
+        if (n.name.startsWith(RAW)) return ` ${n.name.slice(1)}`
+        return ` ${this.nameTex(n.name)}`
+      }
+      // `@inv(x)`: a fraction turned over, m/V as V/m; a value whose unit is one,
+      // 18.015 g/mol as 1 mol / 18.015 g (a conversion factor turned over); anything else, 1/x.
+      if (isCall(n) && n.fn.name === INV_FUNCTION) {
+        const arg = unwrap(n.args[0])
+        const tex = (a: Expr) => exprTex(a, options).trim()
+        if (isOp(arg, OP.divide)) return `\\frac{${tex(arg.args[1])}}{${tex(arg.args[0])}}`
+        if (isNumberWithUnit(arg)) {
+          const unit = splitUnit(unitCallText(arg.args[1] as CallExpr))
+          if (unit) return `\\frac{${attachUnit('1', unitTex(unit.below))}}{${attachUnit(tex(arg.args[0]), unitTex(unit.above))}}`
+        }
+        return `\\frac{1}{${tex(n.args[0])}}`
+      }
+      if (isCall(n) && n.fn.name === TUPLE_FUNCTION) {
+        return `\\left(${n.args.map((a) => exprTex(a, options).trim()).join(', ')}\\right)`
+      }
+      // A module's own functions (giving a value its species, `{H2O}`; a vector, ⟨…⟩) are written as it says.
+      if (isCall(n)) {
+        for (const m of this.host.modules()) {
+          const tex = m.functionTex(n, (a) => exprTex(a, options).trim(), this.host.moduleHost())
+          if (tex !== undefined) return tex
+        }
+      }
+      if (isCall(n) && (!isLibraryName(n.fn.name) || typeof this.host.value(n.fn.name) === 'function')) {
+        // User-defined function (even one named like a built-in, e.g. sum): f(x), not \mathrm{f}(x)
+        return ` ${symbolTex(n.fn.name)}\\left(${n.args.map((a) => exprTex(a, options).trim()).join(', ')}\\right)`
+      }
+      return undefined
+    }
+    return exprTex(this.withAliases(node), { handler })
+      .replace(/([{(])\s+/g, '$1')
+      .trim()
+  }
+}

@@ -7,7 +7,7 @@ import { EXACT, countSigFigs } from '../../maths/sigfigs.ts'
 import { AGGREGATE_KIND, Variable, type Contributions, type VariableFields, type VariableSummary } from '../../sheet/values.ts'
 import { BUILTINS, isReservedConstantName } from '../../builtins.ts'
 import { EXACT_SETTING, IS_NAME, MEMBER_DOT, PERCENT, DISPLAY_MODE, CONSTANTS_BLOCK, LABEL_WORDS, SIGIL, UNCERTAINTY_WORDS, type DisplayMode, type Precision } from '../../syntax.ts'
-import { INLINE_VALUE_NAME, INV_FUNCTION, JOIN, TUPLE_FUNCTION, RESERVED_NAMESPACES, isHiddenName, memberName, parseUncertaintyName, readableMembers, unpackedName, uncertaintyName } from '../../sheet/names.ts'
+import { INLINE_VALUE_NAME, JOIN, TUPLE_FUNCTION, RESERVED_NAMESPACES, isHiddenName, memberName, parseUncertaintyName, readableMembers, unpackedName, uncertaintyName } from '../../sheet/names.ts'
 import { expandDots } from './memberAccess.ts'
 import { SheetConstants } from './sheetConstants.ts'
 import { DisplayNames } from './displayNames.ts'
@@ -16,11 +16,11 @@ import { Propagation } from './propagation.ts'
 import { SeriesAggregates, seriesInMaths } from './aggregates.ts'
 import { SheetFunctions } from './sheetFunctions.ts'
 import { ValueTex } from './valueTex.ts'
+import { WorkingTex } from './workingTex.ts'
 import {
-  FN, MATHS_ERROR, OP, UNIT, abs, call as callExpr, constant, copyExpr, evaluate, evaluateText, exprTex, findAll, fixPrefix, formatValue,
-  isAssign, isCall, isConditional, isConstant, isFunctionAssign, isLibraryName, isOp, isOperator, isQuantity, isSymbol, isValueMatrix,
-  magnitude, mapValues, mathsError, multiply, operator, paren, parse, quantity, sameDimension, symbol, transform, unitText, valuesOf,
-  withFixedPrefix, type CallExpr, type Expr, type Quantity, type SymbolExpr, type TexOptions, type Value,
+  MATHS_ERROR, OP, UNIT, abs, evaluate, evaluateText, findAll, fixPrefix, isAssign, isCall, isConstant, isFunctionAssign, isOp, isOperator,
+  isQuantity, isSymbol, isValueMatrix, magnitude, mapValues, mathsError, multiply, parse, quantity, sameDimension, symbol, transform,
+  unitText, valuesOf, withFixedPrefix, type CallExpr, type Expr, type Quantity, type SymbolExpr, type Value,
 } from '../../maths/library/index.ts'
 
 import { nestBrackets } from '../../maths/brackets.ts'
@@ -32,11 +32,10 @@ import {
   type DerivedVariable, type LineInProgress, type LineStage, type LookSetting, type ModuleHost, type TupleLook,
 } from './module.ts'
 import { strayLineFormCall } from './builtinCalls.ts'
-import { BUILTIN_CONSTANT_NAMES } from './literals.ts'
 import { formulaSides, preprocess, typedNumbers } from './writer.ts'
-import { UNCERTAINTY_WORKING, ExplainedError, builtinCallHint, type CalcOptions, type EquationParts, layoutEquation, type TraceLine, type CalcResult, unexpectedError, type DataColumn, type LineNotation, type LineResult, type ParsedLine, TO_PERCENT, RAW, rawNode, readableUnitError } from './results.ts'
+import { UNCERTAINTY_WORKING, ExplainedError, builtinCallHint, type CalcOptions, type EquationParts, layoutEquation, type TraceLine, type CalcResult, unexpectedError, type DataColumn, type LineNotation, type LineResult, type ParsedLine, TO_PERCENT, readableUnitError } from './results.ts'
 import { NAME_THEN_SETTINGS, expandParenPm, splitPm } from './uncertainty.ts'
-import { symbolTex, numberTex, unitTex, attachUnit, isUnitCall, unitCallText, isLitCall, CASE_WORDS, caseTex, splitUnit } from './tex.ts'
+import { symbolTex, unitCallText, isLitCall } from './tex.ts'
 import { unwrap, isLiteral, isTupleLiteral, isConversion } from './nodes.ts'
 import { NODE_KIND, TOKEN_KIND, isToken, type Part } from '../../tree/nodes.ts'
 import { lexExpression } from '../../tree/lexer.ts'
@@ -46,9 +45,8 @@ import { Scope, Views, type Variables, Values, innerValues } from './scope.ts'
 import { MAX_TRACE_DEPTH } from './functions.ts'
 import { isAngleUnit, toDisplayUnit, type Declaration, type TupleName, parseTupleName, declarationOf } from './declarations.ts'
 import { withRows } from './rows.ts'
-import { bracketed } from './tuples.ts'
 import { PERCENT_SCALE, isValidUnit, castArgument } from './numbers.ts'
-import { isNumberWithUnit, SIDE, type Side, inScientificNotation, needsBrackets, productSeparator, PRODUCT_SIGN, EVERY_PRODUCT_SIGN } from './products.ts'
+import { isNumberWithUnit } from './products.ts'
 import { uncertaintyUnitError, columnValues } from './data.ts'
 
 /** Evaluates a sheet line by line, keeping its variables, their sig figs and uncertainties, and the functions it defines. */
@@ -91,6 +89,16 @@ export class Calculator {
   private scope = new Values(this.rootVars)
   /** Values shown: to their sig figs, in a notation, with their uncertainty, as LaTeX (valueTex.ts). */
   private readonly display = new ValueTex({ options: () => this.options, modules: () => this.modules })
+  /** Expressions as the working shows them, and each variable's value in the substitution step (workingTex.ts). */
+  private readonly working = new WorkingTex({
+    variable: (name) => this.vars.get(name),
+    value: (name) => this.scope.get(name),
+    has: (name) => this.scope.has(name),
+    options: () => this.options,
+    modules: () => this.modules,
+    moduleHost: () => this.host,
+    display: () => this.display,
+  })
   /** Sig figs of each call to a sheet's function's result, from its expression. */
   private readonly callSigFigs = new WeakMap<Expr, number>()
   /** The sheet's own functions: defining them, and what's kept about each (sheetFunctions.ts). */
@@ -100,7 +108,7 @@ export class Calculator {
     store: (name, fields) => this.store(name, fields),
     expandConstants: (text) => this.constants.expand(text),
     parse: (text) => parse(preprocess(text, this.isVariable).text),
-    tex: (node, source) => this.toTex(node, typedNumbers(source)),
+    tex: (node, source) => this.working.tex(node, typedNumbers(source)),
     lookSetting: (settings) => this.lookSettingOf(settings)?.look,
     lookOfWritten: (expression) => this.modules.map((m) => m.lookOfWritten(expression)).find((l) => l !== undefined),
     valueOf: (node) => evaluate(node, this.scope),
@@ -136,8 +144,8 @@ export class Calculator {
     scratchValues: () => innerValues(this.vars),
     store: (name, fields) => this.store(name, fields),
     displayNumber: (value) => this.display.split(value, EXACT)?.x,
-    tex: (node, literals) => this.toTex(node, literals),
-    variableNode: (name) => this.variableNode(name),
+    tex: (node, literals) => this.working.tex(node, literals),
+    variableNode: (name) => this.working.variableNode(name),
     uncertaintyTex: (unc, like, uncSf) => this.display.uncertaintyTex(unc, like, uncSf),
     showsSubstitution: () => this.options.showSubstitution,
     uncertaintyWorking: () => this.options.uncertaintyWorking ?? UNCERTAINTY_WORKING.derivatives,
@@ -153,8 +161,8 @@ export class Calculator {
     totalUncertainty: (contributions, like) => this.uncertainty.total(contributions, like),
     uncertainSigFigs: (value, unc) => this.display.uncertainParts(value, unc)?.sf,
     displayNumber: (value) => this.display.split(value, EXACT)?.x,
-    tex: (node) => this.toTex(node, new Map()),
-    variableNode: (name) => this.variableNode(name),
+    tex: (node) => this.working.tex(node, new Map()),
+    variableNode: (name) => this.working.variableNode(name),
     uncertaintyTex: (unc, like, uncSf) => this.display.uncertaintyTex(unc, like, uncSf),
     showsSubstitution: () => this.options.showSubstitution,
   })
@@ -197,7 +205,7 @@ export class Calculator {
       }
     },
     scratchValues: () => innerValues(this.vars),
-    tex: (node, literals) => this.toTex(node, literals),
+    tex: (node, literals) => this.working.tex(node, literals),
     evaluateExpression: (text) => evaluateText(preprocess(text, this.isVariable).text, this.scope) as unknown,
     total: (contributions, like) => this.uncertainty.total(contributions, like),
     valueTex: (value, sf, unc, uncSf, forced) => this.display.valueTex(value, sf, unc, uncSf, forced),
@@ -268,37 +276,6 @@ export class Calculator {
     return this.modules.flatMap((m) => m.derivedVariables(name, value, settings))
   }
 
-  /**
-   * While showing a call's working: parameter → TeX of the argument it was given,
-   * so psi_prob(r, psi_200) shows 4πr²ψ₂₀₀², not 4πr²ψ².
-   */
-  private paramAliases = new Map<string, Expr>()
-
-  /**
-   * Put each aliased parameter's argument in place of the parameter, bracketed;
-   * toTex's automatic parentheses then keep the brackets only where needed
-   * ((3.00 m/s)², but 2.00 kg·g).
-   */
-  private withAliases(node: Expr): Expr {
-    if (!this.paramAliases.size) return node
-    return transform(node, (n, path) => {
-      const alias = isSymbol(n) && path !== 'fn' ? this.paramAliases.get(n.name) : undefined
-      if (!alias) return n
-      // Automatic brackets drop around a negative (2.0 m · −2.0); keep them, as the
-      // substituted step does.
-      if (isOp(alias, OP.unaryMinus)) {
-        const saved = this.paramAliases
-        this.paramAliases = new Map()
-        try {
-          return rawNode(`\\left(${this.toTex(alias, new Map())}\\right)`)
-        } finally {
-          this.paramAliases = saved
-        }
-      }
-      return paren(copyExpr(alias))
-    })
-  }
-
   private isVariable = (id: string) => this.scope.has(id)
 
   private isValueSymbol(n: Expr, path: string): n is SymbolExpr {
@@ -306,138 +283,6 @@ export class Calculator {
       && typeof this.scope.get(n.name) !== 'function'
   }
 
-
-  /** A variable's value for the substitution step, at its own sig figs. */
-  private variableNode(name: string): Expr {
-    const shown = this.vars.get(name)?.shown
-    if (shown) return rawNode(shown)
-    return this.display.inNotation(this.vars.get(name)?.notation, () => this.display.inLook(this.vars.get(name)?.look,
-      () => this.valueNode(this.scope.get(name), this.vars.get(name)?.sf ?? EXACT, this.vars.get(name)?.declared === true)))
-  }
-
-  /**
-   * TeX for an expression made only of numbers and built-in constants (pi, e,
-   * tau, …), using at least one constant: `pi/4` → π/4 as a fraction. Bracketed
-   * unless it's a single symbol, a fraction or a function call, so it can be
-   * dropped into a substitution safely. Anything else (variables, units) → undefined.
-   */
-  private constantForm(node: Expr, literals: Map<number, string>): string | undefined {
-    const n = unwrap(node)
-    const symbols = findAll(n, (c, path) => isSymbol(c) && path !== 'fn') as SymbolExpr[]
-    if (!symbols.length) return undefined
-    if (symbols.some((c) => !BUILTIN_CONSTANT_NAMES.has(c.name) || this.scope.has(c.name))) return undefined
-    if (findAll(n, (c) => isUnitCall(c)).length) return undefined
-    const tex = this.toTex(n, literals)
-    const bare = isSymbol(n) || isCall(n) || (isOp(n, OP.divide))
-    return bare ? tex : `\\left(${tex}\\right)`
-  }
-
-  /** Node standing in for a variable's value in the substitution step. */
-  private valueNode(value: unknown, sf: number, forced = false): Expr {
-    // A tuple is already bracketed, (1.0, 2.0) m; a sum of unit vectors needs brackets, unless it has a unit.
-    if (isTuple(value)) {
-      return rawNode(bracketed(this.display.valueTex(value, sf, undefined, undefined, forced)))
-    }
-    const parts = this.display.split(value, sf, forced)
-    if (!parts) return rawNode(`\\left(${this.display.valueTex(value, sf)}\\right)`)
-    const numTex = numberTex(parts.num)
-    // A negative value is bracketed, so its sign doesn't read as an operator:
-    // ½ · (−9.81 m/s²) · t², not ½ · −9.81 m/s² · t².
-    if (parts.num.startsWith('-')) {
-      return rawNode(`\\left(${parts.unit ? attachUnit(numTex, unitTex(parts.unit)) : numTex}\\right)`)
-    }
-    if (!parts.unit) return rawNode(numTex)
-    const unit = callExpr(FN.unit, [constant(parts.unit)])
-    return paren(operator(OP.multiply, [rawNode(numTex), unit]))
-  }
-
-  private toTex(node: Expr, literals: Map<number, string>): string {
-    // Leading spaces keep the library's output such as `\cdot` from running into a name.
-    const handler = (n: Expr, options: TexOptions): string | undefined => {
-      if (isConstant(n) && typeof n.value === 'number') {
-        return ` ${numberTex(literals.get(n.value) ?? formatValue(n.value, this.display.format))}`
-      }
-      if (isUnitCall(n)) return ` ${unitTex(unitCallText(n))}`
-      if (isLitCall(n)) return ` ${numberTex(unitCallText(n))}`
-      if (isOp(n, OP.multiply) && isUnitCall(n.args[1])) {
-        return attachUnit(exprTex(n.args[0], options), unitTex(unitCallText(n.args[1])))
-      }
-      // -2.0 m, not -(2.0 m)
-      if (isOp(n, OP.unaryMinus) && (isNumberWithUnit(unwrap(n.args[0])) || isLiteral(n.args[0]))) {
-        return ` -${exprTex(unwrap(n.args[0]), options).trim()}`
-      }
-      // Products as in a textbook, ma, ½mv², 2.00 kg × 9.81 m/s² (or with every dot, if the option is on).
-      if (isOp(n, OP.multiply)) {
-        const factor = (a: Expr, side: Side) => {
-          const tex = exprTex(a, options).trim()
-          return needsBrackets(a, side) ? `\\left(${tex}\\right)` : tex
-        }
-        // A display name is words, so it's set apart from its neighbour with ×:
-        // Molarity of EDTA × Average volume of EDTA.
-        const labelled = (node: Expr, side: Side): boolean => {
-          const e = unwrap(node)
-          if (isOp(e, OP.multiply)) return labelled(side === SIDE.right ? e.args[e.args.length - 1] : e.args[0], side)
-          return isSymbol(e) && this.vars.get(e.name)?.label !== undefined
-        }
-        const separator = (l: Expr, r: Expr) => (labelled(l, SIDE.right) || labelled(r, SIDE.left)
-          ? PRODUCT_SIGN
-          : this.options.productDots ? EVERY_PRODUCT_SIGN : productSeparator(l, r))
-        return ` ${n.args.slice(1).reduce((out, a, i) => `${out}${separator(n.args[i], a)}${factor(a, SIDE.right)}`,
-          factor(n.args[0], SIDE.left))}`
-      }
-      // A condition inside a condition's last case (`c1 ? a : (c2 ? b : c)`) is one more case of the same brace.
-      if (isConditional(n)) {
-        const cases: string[] = []
-        let at: Expr = n
-        for (; isConditional(at); at = unwrap(at.falseExpr)) {
-          cases.push(caseTex(exprTex(at.trueExpr, options), `\\text{${CASE_WORDS.if}}\\; ${exprTex(at.condition, options)}`))
-        }
-        cases.push(caseTex(exprTex(at, options), `\\text{${CASE_WORDS.otherwise}}`))
-        return `\\begin{cases} ${cases.join('\\\\')}\\end{cases}`
-      }
-      // A value in scientific notation raised to a power is bracketed: (7.07 × 10⁻²)², not 7.07 × 10⁻²².
-      if (isOp(n, OP.pow)) {
-        const base = unwrap(n.args[0])
-        if (isSymbol(base) && inScientificNotation(base)) {
-          return `\\left(${base.name.slice(1)}\\right)^{${exprTex(n.args[1], options).trim()}}`
-        }
-      }
-      if (isSymbol(n)) {
-        if (n.name.startsWith(RAW)) return ` ${n.name.slice(1)}`
-        return ` ${this.nameTex(n.name)}`
-      }
-      // `@inv(x)`: a fraction turned over, m/V as V/m; a value whose unit is one,
-      // 18.015 g/mol as 1 mol / 18.015 g (a conversion factor turned over); anything else, 1/x.
-      if (isCall(n) && n.fn.name === INV_FUNCTION) {
-        const arg = unwrap(n.args[0])
-        const tex = (a: Expr) => exprTex(a, options).trim()
-        if (isOp(arg, OP.divide)) return `\\frac{${tex(arg.args[1])}}{${tex(arg.args[0])}}`
-        if (isNumberWithUnit(arg)) {
-          const unit = splitUnit(unitCallText(arg.args[1] as CallExpr))
-          if (unit) return `\\frac{${attachUnit('1', unitTex(unit.below))}}{${attachUnit(tex(arg.args[0]), unitTex(unit.above))}}`
-        }
-        return `\\frac{1}{${tex(n.args[0])}}`
-      }
-      if (isCall(n) && n.fn.name === TUPLE_FUNCTION) {
-        return `\\left(${n.args.map((a) => exprTex(a, options).trim()).join(', ')}\\right)`
-      }
-      // A module's own functions (giving a value its species, `{H2O}`; a vector, ⟨…⟩) are written as it says.
-      if (isCall(n)) {
-        for (const m of this.modules) {
-          const tex = m.functionTex(n, (a) => exprTex(a, options).trim(), this.host)
-          if (tex !== undefined) return tex
-        }
-      }
-      if (isCall(n) && (!isLibraryName(n.fn.name) || typeof this.scope.get(n.fn.name) === 'function')) {
-        // User-defined function (even one named like a built-in, e.g. sum): f(x), not \mathrm{f}(x)
-        return ` ${symbolTex(n.fn.name)}\\left(${n.args.map((a) => exprTex(a, options).trim()).join(', ')}\\right)`
-      }
-      return undefined
-    }
-    return exprTex(this.withAliases(node), { handler })
-      .replace(/([{(])\s+/g, '$1')
-      .trim()
-  }
 
   // -------------------------------------------------------------------------
   // Constants
@@ -520,12 +365,6 @@ export class Calculator {
     }
   }
 
-  /** How a variable's name is shown: its display name, if it has one. */
-  private nameTex(name: string): string {
-    const v = this.vars.get(name)
-    return v?.label ?? v?.symbol ?? symbolTex(name)
-  }
-
   defineConstant(input: string): CalcResult {
     const internal = internalTyped(input)
     if (internal) return { tex: '', error: internal }
@@ -578,8 +417,8 @@ export class Calculator {
         // f(pi) shows π inside the function's working, not 3.14159, and a variable
         // that stays symbolic (defined in @layout.sym) stays symbolic as an argument.
         shown: isSymbol(unwrap(a))
-          ? this.vars.get((unwrap(a) as SymbolExpr).name)?.shown ?? this.constantForm(a, literals)
-          : this.constantForm(a, literals),
+          ? this.vars.get((unwrap(a) as SymbolExpr).name)?.shown ?? this.working.constantForm(a, literals)
+          : this.working.constantForm(a, literals),
       }))
     } catch {
       return null
@@ -587,11 +426,11 @@ export class Calculator {
 
     // Parameters show as the argument they were given, in the caller's terms
     // (psi_200, 2r, 1.00 Å), not as the parameter's own name.
-    const callerAliases = this.paramAliases
+    const callerAliases = this.working.paramAliases
     // An argument that uses the enclosing call's parameters is put in terms of
     // what those were given, so nested calls chain.
     const aliases = new Map<string, Expr>()
-    call.args.forEach((a, i) => aliases.set(def.params[i], this.withAliases(unwrap(a))))
+    call.args.forEach((a, i) => aliases.set(def.params[i], this.working.withAliases(unwrap(a))))
     // So is a parameter's uncertainty, given a variable: δA, given k1, shows as δk1.
     def.params.forEach((p) => {
       const given = aliases.get(p)
@@ -605,7 +444,7 @@ export class Calculator {
     const caller = this.vars
     this.enter(new Scope(def.definedIn))
     this.traceDepth++
-    this.paramAliases = aliases
+    this.working.paramAliases = aliases
     try {
       def.params.forEach((p, i) => {
         this.store(p, {
@@ -624,7 +463,7 @@ export class Calculator {
       }
       return { lines: r.trace ?? [], ret: r.parts, retSf: def.returnSf ?? r.sf }
     } finally {
-      this.paramAliases = callerAliases
+      this.working.paramAliases = callerAliases
       this.traceDepth--
       this.enter(caller)
     }
@@ -761,7 +600,7 @@ export class Calculator {
   private expressionTex(expr: string): string {
     const literals = typedNumbers(expr)
     try {
-      return this.toTex(parse(preprocess(expr, this.isVariable).text), literals)
+      return this.working.tex(parse(preprocess(expr, this.isVariable).text), literals)
     } catch {
       return `\\text{${expr}}`
     }
@@ -777,7 +616,7 @@ export class Calculator {
     if (sides.some((s) => !s)) return { tex: '', error: 'A formula has something on each side of its =: F = m * a.' }
     const literals = typedNumbers(line)
     try {
-      return { tex: sides.map((s) => this.toTex(parse(s), literals)).join(' = ') }
+      return { tex: sides.map((s) => this.working.tex(parse(s), literals)).join(' = ') }
     } catch (e) {
       return { tex: '', error: `This formula couldn't be read: ${e instanceof Error ? e.message : String(e)}` }
     }
@@ -940,7 +779,7 @@ export class Calculator {
 
     if (isFunctionAssign(node)) {
       const lhs = `${symbolTex(node.name)}\\left(${node.params.map(symbolTex).join(', ')}\\right)`
-      const tex = `${lhs} = ${this.toTex(node.expr, literals)}`
+      const tex = `${lhs} = ${this.working.tex(node.expr, literals)}`
       const warning = warnings.join(' ') || undefined
       try {
         evaluate(node, this.scope)
@@ -1005,7 +844,7 @@ export class Calculator {
     const unpackDeclaredSf = this.unpackDeclaredSf
     this.unpackDeclaredSf = undefined
     const lhsTex = override ?? (assigned ? (ctx.label ?? symbolTex(assigned)) : ctx.lhs)
-    let exprTex = uncNode ? this.uncertainty.pmTex(shown, uncNode, percent, literals) : this.toTex(shown, literals)
+    let exprTex = uncNode ? this.uncertainty.pmTex(shown, uncNode, percent, literals) : this.working.tex(shown, literals)
     const bare = unwrap(shown)
     /** Intermediate steps between the expression and the result. */
     const steps: string[] = []
@@ -1053,16 +892,16 @@ export class Calculator {
 
     // A module's calls written as the names they come to (`\max(t)` as t_3), as a step of its own, which the values go into.
     const named = wholeLineTraced ? shown : this.modules.reduce((n, m) => m.namedWorking(n, this.host) ?? n, shown)
-    if (named !== shown) steps.push(this.toTex(named, literals))
+    if (named !== shown) steps.push(this.working.tex(named, literals))
     // Substitution and sig figs use the values from before this line runs.
     const usesVariables = findAll(named, (n, path) => this.isValueSymbol(n, path)).length > 0
     if (usesVariables && !isSymbol(unwrap(named)) && !wholeLineTraced && this.options.showSubstitution) {
       const substituted = transform(named, (n, path) =>
         this.isValueSymbol(n, path)
-          ? this.variableNode(n.name)
+          ? this.working.variableNode(n.name)
           : n)
       // Typed numbers keep their trailing zeros here too (0.250 m, not 0.25 m).
-      steps.push(this.toTex(substituted, literals))
+      steps.push(this.working.tex(substituted, literals))
     }
     this.sigFigs.lost = false
     // A function call's precision comes from its expression (the measured numbers in it),
@@ -1210,7 +1049,7 @@ export class Calculator {
       const keepSymbol = ctx.mode === DISPLAY_MODE.sym && explicit
       this.store(assigned, {
         value, sf: shownSf, contributions, uncSf: declaredUncSf, declared: declaredSf !== undefined, notation: kept, look, label: ctx.label,
-        shown: keepSymbol ? (ctx.label ?? symbolTex(assigned)) : this.constantForm(expr, literals),
+        shown: keepSymbol ? (ctx.label ?? symbolTex(assigned)) : this.working.constantForm(expr, literals),
         def: isLiteral(expr) ? undefined : expr,
       })
     }

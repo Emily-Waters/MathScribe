@@ -5,9 +5,9 @@
  * expression. (Showing a call's working runs the Calculator's line evaluator
  * again, inside the function, so that stays in the Calculator: traceCall.)
  */
-import { isFunctionNode, type EvalFunction, type FunctionNode, type MathNode } from 'mathjs'
-import { multiply, type Value } from '../../maths/library/index.ts'
-import { math } from './math.ts'
+import {
+  call, compile, evaluateCompiled, isCall, multiply, symbol, transform, type CallExpr, type CompiledExpr, type Expr, type Value,
+} from '../../maths/library/index.ts'
 import { parameterDeltas } from './propagation.ts'
 import { argumentUncertaintyName } from '../../sheet/names.ts'
 import { EXACT } from '../../maths/sigfigs.ts'
@@ -33,17 +33,17 @@ export interface SheetFunctionsHost {
   /** An expression with its `@name`s written out, or what's wrong with one. */
   expandConstants(text: string): { text: string; error?: string }
   /** An expression as typed, read as mathjs reads it. */
-  parse(text: string): MathNode
+  parse(text: string): Expr
   /** An expression as LaTeX, its numbers as typed in `source`. */
-  tex(node: MathNode, source: string): string
+  tex(node: Expr, source: string): string
   /** The look a function's result settings give the tuples it returns (`f(x):ijk`), if a module's does. */
   lookSetting(settings: readonly string[] | undefined): TupleLook | undefined
   /** The look a module reads from how a function's body is written (a vector typed in it), if any. */
   lookOfWritten(expression: string): TupleLook | undefined
   /** An expression's value, worked out in scope. */
-  valueOf(node: MathNode): unknown
+  valueOf(node: Expr): unknown
   /** The uncertainty of an expression worked out as `value` (a zero like it if none). */
-  uncertaintyOf(node: MathNode, value: unknown): unknown
+  uncertaintyOf(node: Expr, value: unknown): unknown
 }
 
 export class SheetFunctions {
@@ -71,11 +71,11 @@ export class SheetFunctions {
   }
 
   /** Calls to the sheet's own functions in `node`, innermost first (arguments before the call). */
-  callsIn(node: MathNode): FunctionNode[] {
-    const out: FunctionNode[] = []
-    const visit = (n: MathNode) => {
+  callsIn(node: Expr): CallExpr[] {
+    const out: CallExpr[] = []
+    const visit = (n: Expr) => {
       n.forEach((child) => visit(child))
-      if (isFunctionNode(n) && this.has(n.fn.name)) out.push(n)
+      if (isCall(n) && this.has(n.fn.name)) out.push(n)
     }
     visit(node)
     return out
@@ -88,19 +88,19 @@ export class SheetFunctions {
    * `agreement(k1, k2, δk1, δk2)`, held in hidden variables). Shown as typed:
    * this is only what's evaluated. (`node` itself, if there are no such calls.)
    */
-  withArgumentUncertainties(node: MathNode): MathNode {
+  withArgumentUncertainties(node: Expr): Expr {
     if (!this.callsIn(node).some((c) => this.named(c.fn.name)?.deltas.length)) return node
-    return node.transform((n) => {
-      const def = isFunctionNode(n) ? this.named(n.fn.name) : undefined
-      if (!isFunctionNode(n) || !def?.deltas.length || n.args.length !== def.params.length) return n
+    return transform(node, (n) => {
+      const def = isCall(n) ? this.named(n.fn.name) : undefined
+      if (!isCall(n) || !def?.deltas.length || n.args.length !== def.params.length) return n
       const args = n.args.map((a) => this.withArgumentUncertainties(a))
       const extras = def.deltas.map((d) => {
         const argument = args[d.param]
         const hidden = argumentUncertaintyName(this.nextArgument++)
         this.host.store(hidden, { value: this.host.uncertaintyOf(argument, this.host.valueOf(argument)), sf: EXACT })
-        return new math.SymbolNode(hidden)
+        return symbol(hidden)
       })
-      return new math.FunctionNode(n.fn, [...args, ...extras])
+      return call(n.fn, [...args, ...extras])
     })
   }
 
@@ -147,7 +147,7 @@ export class SheetFunctions {
     const duplicate = params.find((p, i) => params.indexOf(p) !== i)
     if (duplicate) return fail(`The parameter "${duplicate}" is listed twice.`)
 
-    let code: EvalFunction
+    let code: CompiledExpr
     let tex: string
     // (`delta A` of a parameter: the uncertainty of the argument A is given, set on each call.)
     const { text: body, deltas } = parameterDeltas(expression, params)
@@ -156,7 +156,7 @@ export class SheetFunctions {
       const expanded = this.host.expandConstants(body)
       if (expanded.error) throw new Error(expanded.error)
       const node = this.host.parse(expanded.text)
-      code = node.compile()
+      code = compile(node)
       tex = `${signature} = ${this.host.tex(node, expression)}${inUnit}`
     } catch (e) {
       return fail((e as Error).message)
@@ -177,7 +177,7 @@ export class SheetFunctions {
       deltas.forEach((d, k) => local.set(d.hidden, withUncertainties
         ? given[params.length + k]
         : multiply(args[d.param] as Value, 0)))
-      const v = code.evaluate(local)
+      const v = evaluateCompiled(code, local)
       return returnUnit ? toDisplayUnit(v, returnUnit) : v
     }
     this.defs.set(fn, { params, casts, expression, definedIn, multiline, returnSf, returnNotation, returnLook, returnUnit, deltas })

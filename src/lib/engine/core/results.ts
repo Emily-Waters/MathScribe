@@ -1,11 +1,9 @@
 /** What evaluating a line gives back, and how its equation is laid out. */
-import { type MathNode } from 'mathjs'
 import { PERCENT, KEYWORD, DISPLAY_MODE, SIGIL, words, type DisplayMode, type Notation, type Precision, type WordOf } from '../../syntax.ts'
 import { seriesMemberName } from '../../sheet/names.ts'
 import { FunctionMember, builtinAt } from '../../builtins.ts'
 import type { VariableSummary } from '../../sheet/values.ts'
-import { math } from './math.ts'
-import { MATHS_ERROR, mathsError } from '../../maths/library/index.ts'
+import { MATHS_ERROR, mathsError, symbol, type Expr } from '../../maths/library/index.ts'
 import { moduleReadableMessage, unitMismatchNotes, type LookSetting } from './module.ts'
 
 /**
@@ -210,7 +208,7 @@ export interface LineResult extends CalcResult {
 
 /** A parsed line ready for evaluateParsed, with what the text stage worked out. */
 export interface ParsedLine {
-  uncNode?: MathNode
+  uncNode?: Expr
   percent: boolean
   literals: Map<number, string>
   warnings: string[]
@@ -238,10 +236,10 @@ export interface ParsedLine {
 /** `… to percent` at the end of a line. */
 export const TO_PERCENT = new RegExp(String.raw`\s+${KEYWORD.to}\s+${PERCENT}\s*$`)
 
-/** Marks a SymbolNode whose name is pre-rendered TeX (used for substituted values). */
+/** Marks a SymbolExpr whose name is pre-rendered TeX (used for substituted values). */
 export const RAW = '\u0001'
 /** A node standing for pre-rendered TeX. */
-export const rawNode = (tex: string) => new math.SymbolNode(RAW + tex)
+export const rawNode = (tex: string) => symbol(RAW + tex)
 
 /** Relative step for numerical derivatives, as a fraction of each uncertainty. */
 export const STEP = 1e-4

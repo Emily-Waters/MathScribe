@@ -1,9 +1,8 @@
 /**
- * Calculation engine: evaluates plain-text math lines with mathjs, keeping a
+ * Calculation engine: evaluates plain-text math lines with the maths library, keeping a
  * shared scope so variables defined on one line are usable on later lines,
  * and produces LaTeX for each line (symbolic = substituted = result).
  */
-import { isAssignmentNode, isConditionalNode, isConstantNode, isFunctionAssignmentNode, isFunctionNode, isOperatorNode, isSymbolNode, type FunctionNode, type MathNode, type SymbolNode } from 'mathjs'
 import { EXACT, MAX_DIGITS, countSigFigs, formatExact, formatSigFigs, formatWithUncertainty } from '../../maths/sigfigs.ts'
 import { AGGREGATE_KIND, Variable, type Contributions, type VariableFields, type VariableSummary } from '../../sheet/values.ts'
 import { BUILTINS, isReservedConstantName } from '../../builtins.ts'
@@ -18,14 +17,16 @@ import { Propagation } from './propagation.ts'
 import { SeriesAggregates, seriesInMaths } from './aggregates.ts'
 import { SheetFunctions } from './sheetFunctions.ts'
 import {
-  FN, MATHS_ERROR, OP, OP_SYMBOL, UNIT, abs, fixPrefix, formatValue, isOp, isQuantity, isValueMatrix, magnitude, mapValues, mathsError,
-  multiply, quantity, sameDimension, unitText, valuesOf, withFixedPrefix, type Quantity, type Value, type ValueMatrix,
+  FN, MATHS_ERROR, OP, UNIT, abs, call as callExpr, constant, copyExpr, evaluate, evaluateText, exprTex, findAll, fixPrefix, formatValue,
+  isAssign, isCall, isConditional, isConstant, isFunctionAssign, isLibraryName, isOp, isOperator, isQuantity, isSymbol, isValueMatrix,
+  magnitude, mapValues, mathsError, multiply, operator, paren, parse, quantity, sameDimension, symbol, transform, unitText, valuesOf, withFixedPrefix,
+  type CallExpr, type Expr, type Quantity, type SymbolExpr, type TexOptions, type Value, type ValueMatrix,
 } from '../../maths/library/index.ts'
 
 import { nestBrackets } from '../../maths/brackets.ts'
 import type { CsvColumn } from '../../data/csv.ts'
 
-import { isTuple, math } from './math.ts'
+import { isTuple } from './math.ts'
 import {
   EngineModule, LINE_STAGE, LINE_STAGES, LineStep, inDependencyOrder, installModule, moduleExplainedMessage, moduleReadableMessage,
   type DerivedVariable, type LineInProgress, type LineStage, type LookSetting, type ModuleHost, type TupleLook,
@@ -99,18 +100,18 @@ export class Calculator {
    */
   private readonly typedSfs = new WeakMap<object, number[]>()
   /** Sig figs of each call to a sheet's function's result, from its expression. */
-  private readonly callSigFigs = new WeakMap<MathNode, number>()
+  private readonly callSigFigs = new WeakMap<Expr, number>()
   /** The sheet's own functions: defining them, and what's kept about each (sheetFunctions.ts). */
   private readonly functions = new SheetFunctions({
     variables: () => this.vars,
     value: (name) => this.scope.get(name),
     store: (name, fields) => this.store(name, fields),
     expandConstants: (text) => this.constants.expand(text),
-    parse: (text) => math.parse(preprocess(text, this.isVariable).text),
+    parse: (text) => parse(preprocess(text, this.isVariable).text),
     tex: (node, source) => this.toTex(node, typedNumbers(source)),
     lookSetting: (settings) => this.lookSettingOf(settings)?.look,
     lookOfWritten: (expression) => this.modules.map((m) => m.lookOfWritten(expression)).find((l) => l !== undefined),
-    valueOf: (node) => node.compile().evaluate(this.scope),
+    valueOf: (node) => evaluate(node, this.scope),
     uncertaintyOf: (node, value) => this.uncertainty.uncertaintyOf(node, value),
   })
   /** Nesting depth while replaying function bodies to show their working. */
@@ -123,7 +124,7 @@ export class Calculator {
   })
   /** Counting a result's significant figures (sigFigs.ts). */
   private readonly sigFigs = new SigFigs({
-    valueOf: (node) => node.compile().evaluate(this.scope),
+    valueOf: (node) => evaluate(node, this.scope),
     variableSigFigs: (name) => this.vars.get(name)?.sf,
     declaredSigFigs: (name) => this.functions.named(name)?.returnSf,
     tracedSigFigs: (call) => this.callSigFigs.get(call),
@@ -139,7 +140,7 @@ export class Calculator {
     variable: (name) => this.vars.get(name),
     value: (name) => this.scope.get(name),
     has: (name) => this.scope.has(name),
-    isValueSymbol: (node, path): node is SymbolNode => this.isValueSymbol(node, path),
+    isValueSymbol: (node, path): node is SymbolExpr => this.isValueSymbol(node, path),
     scratchValues: () => innerValues(this.vars),
     store: (name, fields) => this.store(name, fields),
     displayNumber: (value) => this.split(value, EXACT)?.x,
@@ -188,8 +189,8 @@ export class Calculator {
     newSource: () => this.nextSource++,
     evaluateLine: (text, mode) => this.evaluateLine(text, mode, false),
     evaluateParsed: (node, line) => this.evaluateParsed(node, line),
-    parse: (text) => math.parse(preprocess(text, this.isVariable).text),
-    evaluateNode: (node) => node.compile().evaluate(this.scope) as unknown,
+    parse: (text) => parse(preprocess(text, this.isVariable).text),
+    evaluateNode: (node) => evaluate(node, this.scope) as unknown,
     expandConstants: (text) => this.constants.expand(text),
     isUserFunction: (name) => this.functions.has(name),
     propagate: (node) => this.uncertainty.propagate(node),
@@ -205,7 +206,7 @@ export class Calculator {
     },
     scratchValues: () => innerValues(this.vars),
     tex: (node, literals) => this.toTex(node, literals),
-    evaluateExpression: (text) => math.evaluate(preprocess(text, this.isVariable).text, this.scope) as unknown,
+    evaluateExpression: (text) => evaluateText(preprocess(text, this.isVariable).text, this.scope) as unknown,
     total: (contributions, like) => this.uncertainty.total(contributions, like),
     valueTex: (value, sf, unc, uncSf, forced) => this.valueTex(value, sf, unc, uncSf, forced),
     split: (value, sf, forced) => this.split(value, sf, forced),
@@ -232,8 +233,8 @@ export class Calculator {
   }
 
   /** Evaluate `node`; a value typed with a unit (`1.00e-10 m`) keeps that unit for display. */
-  private typedValue(node: MathNode): unknown {
-    const v = node.compile().evaluate(this.scope) as unknown
+  private typedValue(node: Expr): unknown {
+    const v = evaluate(node, this.scope) as unknown
     return isLiteral(node) && isQuantity(v) ? withFixedPrefix(v) : v
   }
 
@@ -283,10 +284,10 @@ export class Calculator {
    * what it's made from (variables, a module's functions, the sheet's functions),
    * as the module they're from decides; undefined if none has one (a plain tuple).
    */
-  private lookOf(node: MathNode): TupleLook | undefined {
-    const looks = node.filter((n) => isSymbolNode(n) || isFunctionNode(n)).map((n) => {
-      if (isSymbolNode(n)) return this.vars.get(n.name)?.look
-      const name = (n as FunctionNode).fn.name
+  private lookOf(node: Expr): TupleLook | undefined {
+    const looks = findAll(node, (n) => isSymbol(n) || isCall(n)).map((n) => {
+      if (isSymbol(n)) return this.vars.get(n.name)?.look
+      const name = (n as CallExpr).fn.name
       const own = this.modules.map((m) => m.lookOfFunction(name)).find((l) => l !== undefined)
       if (own !== undefined) return own
       return this.functions.named(name)?.returnLook
@@ -306,7 +307,7 @@ export class Calculator {
   }
 
   /** Whether an expression is a tuple typed value by value, as a module's function makes one (a vector, `<0.50, -9.81>`). */
-  private isTypedTuple(node: MathNode): boolean {
+  private isTypedTuple(node: Expr): boolean {
     return isTupleLiteral(node, (name) => this.modules.some((m) => m.typedTupleFunctions.includes(name)))
   }
 
@@ -326,17 +327,17 @@ export class Calculator {
    * While showing a call's working: parameter → TeX of the argument it was given,
    * so psi_prob(r, psi_200) shows 4πr²ψ₂₀₀², not 4πr²ψ².
    */
-  private paramAliases = new Map<string, MathNode>()
+  private paramAliases = new Map<string, Expr>()
 
   /**
    * Put each aliased parameter's argument in place of the parameter, bracketed;
    * toTex's automatic parentheses then keep the brackets only where needed
    * ((3.00 m/s)², but 2.00 kg·g).
    */
-  private withAliases(node: MathNode): MathNode {
+  private withAliases(node: Expr): Expr {
     if (!this.paramAliases.size) return node
-    return node.transform((n, path) => {
-      const alias = isSymbolNode(n) && path !== 'fn' ? this.paramAliases.get(n.name) : undefined
+    return transform(node, (n, path) => {
+      const alias = isSymbol(n) && path !== 'fn' ? this.paramAliases.get(n.name) : undefined
       if (!alias) return n
       // Automatic brackets drop around a negative (2.0 m · −2.0); keep them, as the
       // substituted step does.
@@ -349,14 +350,14 @@ export class Calculator {
           this.paramAliases = saved
         }
       }
-      return new math.ParenthesisNode(alias.cloneDeep())
+      return paren(copyExpr(alias))
     })
   }
 
   private isVariable = (id: string) => this.scope.has(id)
 
-  private isValueSymbol(n: MathNode, path: string): n is SymbolNode {
-    return isSymbolNode(n) && path !== 'fn' && this.scope.has(n.name)
+  private isValueSymbol(n: Expr, path: string): n is SymbolExpr {
+    return isSymbol(n) && path !== 'fn' && this.scope.has(n.name)
       && typeof this.scope.get(n.name) !== 'function'
   }
 
@@ -433,7 +434,7 @@ export class Calculator {
     if (isTuple(value)) return this.tupleTex(value, sf, forced)
     if (isValueMatrix(value) || Array.isArray(value)) {
       try {
-        return math.parse(formatValue(value, this.format)).toTex()
+        return exprTex(parse(formatValue(value, this.format)))
       } catch {
         /* fall through */
       }
@@ -477,7 +478,7 @@ export class Calculator {
   }
 
   /** A variable's value for the substitution step, at its own sig figs. */
-  private variableNode(name: string): MathNode {
+  private variableNode(name: string): Expr {
     const shown = this.vars.get(name)?.shown
     if (shown) return rawNode(shown)
     return this.inNotation(this.vars.get(name)?.notation, () => this.inLook(this.vars.get(name)?.look,
@@ -490,19 +491,19 @@ export class Calculator {
    * unless it's a single symbol, a fraction or a function call, so it can be
    * dropped into a substitution safely. Anything else (variables, units) → undefined.
    */
-  private constantForm(node: MathNode, literals: Map<number, string>): string | undefined {
+  private constantForm(node: Expr, literals: Map<number, string>): string | undefined {
     const n = unwrap(node)
-    const symbols = n.filter((c, path) => isSymbolNode(c) && path !== 'fn') as SymbolNode[]
+    const symbols = findAll(n, (c, path) => isSymbol(c) && path !== 'fn') as SymbolExpr[]
     if (!symbols.length) return undefined
     if (symbols.some((c) => !BUILTIN_CONSTANT_NAMES.has(c.name) || this.scope.has(c.name))) return undefined
-    if (n.filter((c) => isUnitCall(c)).length) return undefined
+    if (findAll(n, (c) => isUnitCall(c)).length) return undefined
     const tex = this.toTex(n, literals)
-    const bare = isSymbolNode(n) || isFunctionNode(n) || (isOp(n, OP.divide))
+    const bare = isSymbol(n) || isCall(n) || (isOp(n, OP.divide))
     return bare ? tex : `\\left(${tex}\\right)`
   }
 
   /** Node standing in for a variable's value in the substitution step. */
-  private valueNode(value: unknown, sf: number, forced = false): MathNode {
+  private valueNode(value: unknown, sf: number, forced = false): Expr {
     // A tuple is already bracketed, (1.0, 2.0) m; a sum of unit vectors needs brackets, unless it has a unit.
     if (isTuple(value)) {
       return rawNode(bracketed(this.valueTex(value, sf, undefined, undefined, forced)))
@@ -516,95 +517,94 @@ export class Calculator {
       return rawNode(`\\left(${parts.unit ? attachUnit(numTex, unitTex(parts.unit)) : numTex}\\right)`)
     }
     if (!parts.unit) return rawNode(numTex)
-    const unit = new math.FunctionNode(new math.SymbolNode(FN.unit), [new math.ConstantNode(parts.unit)])
-    return new math.ParenthesisNode(new math.OperatorNode(OP_SYMBOL.multiply, OP.multiply, [rawNode(numTex), unit]))
+    const unit = callExpr(FN.unit, [constant(parts.unit)])
+    return paren(operator(OP.multiply, [rawNode(numTex), unit]))
   }
 
-  private toTex(node: MathNode, literals: Map<number, string>): string {
-    // Leading spaces keep mathjs output such as `\cdot` from running into a name.
-    const handler = (n: MathNode, options: object): string | undefined => {
-      if (isConstantNode(n) && typeof n.value === 'number') {
+  private toTex(node: Expr, literals: Map<number, string>): string {
+    // Leading spaces keep the library's output such as `\cdot` from running into a name.
+    const handler = (n: Expr, options: TexOptions): string | undefined => {
+      if (isConstant(n) && typeof n.value === 'number') {
         return ` ${numberTex(literals.get(n.value) ?? formatValue(n.value, this.format))}`
       }
       if (isUnitCall(n)) return ` ${unitTex(unitCallText(n))}`
       if (isLitCall(n)) return ` ${numberTex(unitCallText(n))}`
       if (isOp(n, OP.multiply) && isUnitCall(n.args[1])) {
-        return attachUnit(n.args[0].toTex(options), unitTex(unitCallText(n.args[1])))
+        return attachUnit(exprTex(n.args[0], options), unitTex(unitCallText(n.args[1])))
       }
       // -2.0 m, not -(2.0 m)
       if (isOp(n, OP.unaryMinus) && (isNumberWithUnit(unwrap(n.args[0])) || isLiteral(n.args[0]))) {
-        return ` -${unwrap(n.args[0]).toTex(options).trim()}`
+        return ` -${exprTex(unwrap(n.args[0]), options).trim()}`
       }
       // Products as in a textbook, ma, ½mv², 2.00 kg × 9.81 m/s² (or with every dot, if the option is on).
       if (isOp(n, OP.multiply)) {
-        const factor = (a: MathNode, side: Side) => {
-          const tex = a.toTex(options).trim()
+        const factor = (a: Expr, side: Side) => {
+          const tex = exprTex(a, options).trim()
           return needsBrackets(a, side) ? `\\left(${tex}\\right)` : tex
         }
         // A display name is words, so it's set apart from its neighbour with ×:
         // Molarity of EDTA × Average volume of EDTA.
-        const labelled = (node: MathNode, side: Side): boolean => {
+        const labelled = (node: Expr, side: Side): boolean => {
           const e = unwrap(node)
           if (isOp(e, OP.multiply)) return labelled(side === SIDE.right ? e.args[e.args.length - 1] : e.args[0], side)
-          return isSymbolNode(e) && this.vars.get(e.name)?.label !== undefined
+          return isSymbol(e) && this.vars.get(e.name)?.label !== undefined
         }
-        const separator = (l: MathNode, r: MathNode) => (labelled(l, SIDE.right) || labelled(r, SIDE.left)
+        const separator = (l: Expr, r: Expr) => (labelled(l, SIDE.right) || labelled(r, SIDE.left)
           ? PRODUCT_SIGN
           : this.options.productDots ? EVERY_PRODUCT_SIGN : productSeparator(l, r))
         return ` ${n.args.slice(1).reduce((out, a, i) => `${out}${separator(n.args[i], a)}${factor(a, SIDE.right)}`,
           factor(n.args[0], SIDE.left))}`
       }
       // A condition inside a condition's last case (`c1 ? a : (c2 ? b : c)`) is one more case of the same brace.
-      if (isConditionalNode(n)) {
+      if (isConditional(n)) {
         const cases: string[] = []
-        let at: MathNode = n
-        for (; isConditionalNode(at); at = unwrap(at.falseExpr)) {
-          cases.push(caseTex(at.trueExpr.toTex(options), `\\text{${CASE_WORDS.if}}\\; ${at.condition.toTex(options)}`))
+        let at: Expr = n
+        for (; isConditional(at); at = unwrap(at.falseExpr)) {
+          cases.push(caseTex(exprTex(at.trueExpr, options), `\\text{${CASE_WORDS.if}}\\; ${exprTex(at.condition, options)}`))
         }
-        cases.push(caseTex(at.toTex(options), `\\text{${CASE_WORDS.otherwise}}`))
+        cases.push(caseTex(exprTex(at, options), `\\text{${CASE_WORDS.otherwise}}`))
         return `\\begin{cases} ${cases.join('\\\\')}\\end{cases}`
       }
       // A value in scientific notation raised to a power is bracketed: (7.07 × 10⁻²)², not 7.07 × 10⁻²².
       if (isOp(n, OP.pow)) {
         const base = unwrap(n.args[0])
-        if (isSymbolNode(base) && inScientificNotation(base)) {
-          return `\\left(${base.name.slice(1)}\\right)^{${n.args[1].toTex(options).trim()}}`
+        if (isSymbol(base) && inScientificNotation(base)) {
+          return `\\left(${base.name.slice(1)}\\right)^{${exprTex(n.args[1], options).trim()}}`
         }
       }
-      if (isSymbolNode(n)) {
+      if (isSymbol(n)) {
         if (n.name.startsWith(RAW)) return ` ${n.name.slice(1)}`
         return ` ${this.nameTex(n.name)}`
       }
       // `@inv(x)`: a fraction turned over, m/V as V/m; a value whose unit is one,
       // 18.015 g/mol as 1 mol / 18.015 g (a conversion factor turned over); anything else, 1/x.
-      if (isFunctionNode(n) && n.fn.name === INV_FUNCTION) {
+      if (isCall(n) && n.fn.name === INV_FUNCTION) {
         const arg = unwrap(n.args[0])
-        const tex = (a: MathNode) => a.toTex(options).trim()
+        const tex = (a: Expr) => exprTex(a, options).trim()
         if (isOp(arg, OP.divide)) return `\\frac{${tex(arg.args[1])}}{${tex(arg.args[0])}}`
         if (isNumberWithUnit(arg)) {
-          const unit = splitUnit(unitCallText(arg.args[1] as FunctionNode))
+          const unit = splitUnit(unitCallText(arg.args[1] as CallExpr))
           if (unit) return `\\frac{${attachUnit('1', unitTex(unit.below))}}{${attachUnit(tex(arg.args[0]), unitTex(unit.above))}}`
         }
         return `\\frac{1}{${tex(n.args[0])}}`
       }
-      if (isFunctionNode(n) && n.fn.name === TUPLE_FUNCTION) {
-        return `\\left(${n.args.map((a) => a.toTex(options).trim()).join(', ')}\\right)`
+      if (isCall(n) && n.fn.name === TUPLE_FUNCTION) {
+        return `\\left(${n.args.map((a) => exprTex(a, options).trim()).join(', ')}\\right)`
       }
       // A module's own functions (giving a value its species, `{H2O}`; a vector, ⟨…⟩) are written as it says.
-      if (isFunctionNode(n)) {
+      if (isCall(n)) {
         for (const m of this.modules) {
-          const tex = m.functionTex(n, (a) => a.toTex(options).trim(), this.host)
+          const tex = m.functionTex(n, (a) => exprTex(a, options).trim(), this.host)
           if (tex !== undefined) return tex
         }
       }
-      if (isFunctionNode(n) && (!(n.fn.name in math) || typeof this.scope.get(n.fn.name) === 'function')) {
+      if (isCall(n) && (!isLibraryName(n.fn.name) || typeof this.scope.get(n.fn.name) === 'function')) {
         // User-defined function (even one named like a built-in, e.g. sum): f(x), not \mathrm{f}(x)
-        return ` ${symbolTex(n.fn.name)}\\left(${n.args.map((a) => a.toTex(options).trim()).join(', ')}\\right)`
+        return ` ${symbolTex(n.fn.name)}\\left(${n.args.map((a) => exprTex(a, options).trim()).join(', ')}\\right)`
       }
       return undefined
     }
-    return this.withAliases(node)
-      .toTex({ parenthesis: 'auto', implicit: 'hide', handler } as object)
+    return exprTex(this.withAliases(node), { handler })
       .replace(/([{(])\s+/g, '$1')
       .trim()
   }
@@ -733,7 +733,7 @@ export class Calculator {
    * parameter bound to its argument's value, sig figs and uncertainty. Returns
    * the working of the calls inside it, and the pieces of its expression.
    */
-  private traceCall(call: FunctionNode, literals: Map<number, string>, mode: DisplayMode, explicit: boolean) {
+  private traceCall(call: CallExpr, literals: Map<number, string>, mode: DisplayMode, explicit: boolean) {
     const def = this.functions.named(call.fn.name)
     if (!def || def.params.length !== call.args.length || this.traceDepth >= MAX_TRACE_DEPTH) return null
 
@@ -747,8 +747,8 @@ export class Calculator {
         contributions: this.uncertainty.propagate(a),
         // f(pi) shows π inside the function's working, not 3.14159, and a variable
         // that stays symbolic (defined in @layout.sym) stays symbolic as an argument.
-        shown: isSymbolNode(unwrap(a))
-          ? this.vars.get((unwrap(a) as SymbolNode).name)?.shown ?? this.constantForm(a, literals)
+        shown: isSymbol(unwrap(a))
+          ? this.vars.get((unwrap(a) as SymbolExpr).name)?.shown ?? this.constantForm(a, literals)
           : this.constantForm(a, literals),
       }))
     } catch {
@@ -760,13 +760,13 @@ export class Calculator {
     const callerAliases = this.paramAliases
     // An argument that uses the enclosing call's parameters is put in terms of
     // what those were given, so nested calls chain.
-    const aliases = new Map<string, MathNode>()
+    const aliases = new Map<string, Expr>()
     call.args.forEach((a, i) => aliases.set(def.params[i], this.withAliases(unwrap(a))))
     // So is a parameter's uncertainty, given a variable: δA, given k1, shows as δk1.
     def.params.forEach((p) => {
       const given = aliases.get(p)
-      if (!given || !isSymbolNode(given)) return
-      for (const letter of UNCERTAINTY_WORDS) aliases.set(uncertaintyName(letter, p), new math.SymbolNode(uncertaintyName(letter, given.name)))
+      if (!given || !isSymbol(given)) return
+      for (const letter of UNCERTAINTY_WORDS) aliases.set(uncertaintyName(letter, p), symbol(uncertaintyName(letter, given.name)))
     })
 
     // A tuple passed in (a vector) is shown inside the function as it is outside.
@@ -931,7 +931,7 @@ export class Calculator {
   private expressionTex(expr: string): string {
     const literals = typedNumbers(expr)
     try {
-      return this.toTex(math.parse(preprocess(expr, this.isVariable).text), literals)
+      return this.toTex(parse(preprocess(expr, this.isVariable).text), literals)
     } catch {
       return `\\text{${expr}}`
     }
@@ -947,7 +947,7 @@ export class Calculator {
     if (sides.some((s) => !s)) return { tex: '', error: 'A formula has something on each side of its =: F = m * a.' }
     const literals = typedNumbers(line)
     try {
-      return { tex: sides.map((s) => this.toTex(math.parse(s), literals)).join(' = ') }
+      return { tex: sides.map((s) => this.toTex(parse(s), literals)).join(' = ') }
     } catch (e) {
       return { tex: '', error: `This formula couldn't be read: ${e instanceof Error ? e.message : String(e)}` }
     }
@@ -1093,8 +1093,8 @@ export class Calculator {
     const pm = splitPm(line.text.slice(lhs.length))
     const percent = !!pm?.[1].endsWith('%')
 
-    let node: MathNode
-    let uncNode: MathNode | undefined
+    let node: Expr
+    let uncNode: Expr | undefined
     const warnings: string[] = []
     try {
       const { text, shadowed } = preprocess(pm ? lhs + pm[0] : line.text, this.isVariable)
@@ -1102,18 +1102,18 @@ export class Calculator {
         warnings.push(`"${shadowed.join('", "')}" after a number is read as a unit, not your variable. `
           + `Write 2 * ${shadowed[0]} to use the variable.`)
       }
-      node = math.parse(text)
-      if (pm) uncNode = math.parse(preprocess(percent ? pm[1].slice(0, -1) : pm[1], this.isVariable).text)
+      node = parse(text)
+      if (pm) uncNode = parse(preprocess(percent ? pm[1].slice(0, -1) : pm[1], this.isVariable).text)
     } catch (e) {
       return { tex: '', error: (e as Error).message }
     }
 
-    if (isFunctionAssignmentNode(node)) {
+    if (isFunctionAssign(node)) {
       const lhs = `${symbolTex(node.name)}\\left(${node.params.map(symbolTex).join(', ')}\\right)`
       const tex = `${lhs} = ${this.toTex(node.expr, literals)}`
       const warning = warnings.join(' ') || undefined
       try {
-        node.compile().evaluate(this.scope)
+        evaluate(node, this.scope)
       } catch (e) {
         return { tex, error: (e as Error).message, warning }
       }
@@ -1159,14 +1159,14 @@ export class Calculator {
    * Evaluate a parsed line (an assignment or expression): display, substitution,
    * sig figs, uncertainty, and storing the result.
    */
-  private evaluateParsed(node: MathNode, ctx: ParsedLine): LineResult {
+  private evaluateParsed(node: Expr, ctx: ParsedLine): LineResult {
     const { uncNode, percent, literals, warnings, explicit, mode } = ctx
-    const assigned = isAssignmentNode(node) ? node.object.name : undefined
-    const expr = isAssignmentNode(node) ? node.value : node
+    const assigned = isAssign(node) ? node.object.name : undefined
+    const expr = isAssign(node) ? node.value : node
     // .multiline on a block around the line, or a call to a function defined in one.
     const multiline = this.multiline || this.functions.callsIn(expr).some((c) => this.functions.named(c.fn.name)?.multiline === true)
     // For `x to kN`, show `x`; the conversion shows up in the result.
-    const shown = isOperatorNode(expr) && isConversion(expr) ? expr.args[0] : expr
+    const shown = isOperator(expr) && isConversion(expr) ? expr.args[0] : expr
 
     // A given left-hand side, such as unpacking's (a, b, c), wins over the name assigned.
     // It's for this line only, not the working of functions it calls, so take it now.
@@ -1180,7 +1180,7 @@ export class Calculator {
     /** Intermediate steps between the expression and the result. */
     const steps: string[] = []
     const parts = (result?: string): EquationParts =>
-      ({ lhs: lhsTex, expr: exprTex, steps, result, bareSymbol: isSymbolNode(bare) })
+      ({ lhs: lhsTex, expr: exprTex, steps, result, bareSymbol: isSymbol(bare) })
 
     // Calls to the sheet's functions: show the working inside each one first.
     // When the whole right-hand side is one call, the line itself then reads
@@ -1208,7 +1208,7 @@ export class Calculator {
     }
 
     // `delta F`: show how F's uncertainty is worked out.
-    const uncRef = isSymbolNode(bare) ? parseUncertaintyName(bare.name) : null
+    const uncRef = isSymbol(bare) ? parseUncertaintyName(bare.name) : null
     const deltaOf = uncRef?.of
     if (uncRef) {
       // The uncertainty of a series mean is its standard error.
@@ -1218,16 +1218,16 @@ export class Calculator {
         : this.uncertainty.deltaWorking(uncRef.of, uncRef.letter)))
     }
     // `a.sum`, `a.avg`, …: show how the series is combined.
-    const agg = isSymbolNode(bare) ? this.vars.get(bare.name)?.agg : undefined
+    const agg = isSymbol(bare) ? this.vars.get(bare.name)?.agg : undefined
     if (agg) steps.push(...this.aggregates.working(agg))
 
     // A module's calls written as the names they come to (`\max(t)` as t_3), as a step of its own, which the values go into.
     const named = wholeLineTraced ? shown : this.modules.reduce((n, m) => m.namedWorking(n, this.host) ?? n, shown)
     if (named !== shown) steps.push(this.toTex(named, literals))
     // Substitution and sig figs use the values from before this line runs.
-    const usesVariables = named.filter((n, path) => this.isValueSymbol(n, path)).length > 0
-    if (usesVariables && !isSymbolNode(unwrap(named)) && !wholeLineTraced && this.options.showSubstitution) {
-      const substituted = named.transform((n, path) =>
+    const usesVariables = findAll(named, (n, path) => this.isValueSymbol(n, path)).length > 0
+    if (usesVariables && !isSymbol(unwrap(named)) && !wholeLineTraced && this.options.showSubstitution) {
+      const substituted = transform(named, (n, path) =>
         this.isValueSymbol(n, path)
           ? this.variableNode(n.name)
           : n)
@@ -1249,7 +1249,7 @@ export class Calculator {
       const rhs = unwrap(expr)
       const checked = !unpackDeclaredSf
         ? [expr]
-        : isFunctionNode(rhs) && rhs.fn.name === TUPLE_FUNCTION
+        : isCall(rhs) && rhs.fn.name === TUPLE_FUNCTION
           ? rhs.args.filter((_, i) => !unpackDeclaredSf[i])
           : unpackDeclaredSf.every(Boolean) ? [] : [expr]
       const ambiguous = checked.flatMap((n) => this.sigFigs.ambiguousLiterals(n, literals))
@@ -1265,13 +1265,13 @@ export class Calculator {
     try {
       // Evaluate the right-hand side and assign ourselves, so the stored value is normalised.
       // A call to a function that declares its result's unit (`conc(n, V):mol/L`) keeps that unit, as a conversion does.
-      const called = isFunctionNode(bare) ? this.scope.get(bare.fn.name) : undefined
+      const called = isCall(bare) ? this.scope.get(bare.fn.name) : undefined
       const declaresUnit = !!this.functions.of(called)?.returnUnit
       // A name on its own (`c`, `y = c`) is shown as the variable is: in its unit.
-      const justAName = isSymbolNode(bare)
+      const justAName = isSymbol(bare)
       // (Calls to functions using their parameters' uncertainties, `delta A`, are given them: withArgumentUncertainties.)
       const worked = this.functions.withArgumentUncertainties(expr)
-      value = normalise(worked.compile().evaluate(this.scope), isConversion(expr) || isLiteral(expr) || declaresUnit || justAName)
+      value = normalise(evaluate(worked, this.scope), isConversion(expr) || isLiteral(expr) || declaresUnit || justAName)
       // A value follows the modules' rules (a value with species, theirs), whatever it was worked out from.
       for (const m of this.modules) {
         const problem = m.valueProblem(value)
@@ -1342,10 +1342,10 @@ export class Calculator {
     // `x:sci = …`, `x:dec = …`: the notation the result is shown in, and the
     // variable keeps. Otherwise a variable shown on its own (`x`, `x to km`,
     // `delta x`) keeps its own, and a call keeps its function's (`f(x):sci = …`).
-    const callee = isFunctionNode(bare) ? this.scope.get(bare.fn.name) : undefined
+    const callee = isCall(bare) ? this.scope.get(bare.fn.name) : undefined
     const kept = ctx.notation
       ?? (deltaOf ? this.vars.get(deltaOf)?.notation : undefined)
-      ?? (isSymbolNode(bare) ? this.vars.get(bare.name)?.notation : undefined)
+      ?? (isSymbol(bare) ? this.vars.get(bare.name)?.notation : undefined)
       ?? this.functions.of(callee)?.returnNotation
     // A block's `.sci` / `.dec` only change how its lines are shown, and a
     // variable's own notation beats it (see LineNotation).
@@ -1399,8 +1399,8 @@ export class Calculator {
         // A bare variable keeps its declared uncertainty precision: `m` → (2.0 ± 0.1) kg.
         : declaredSf !== undefined
           ? this.valueTex(value, declaredSf, undefined, undefined, true)
-          : this.valueTex(value, sf, unc, isSymbolNode(bare) ? this.vars.get(bare.name)?.uncSf : undefined,
-            isSymbolNode(bare) && this.vars.get(bare.name)?.declared === true)
+          : this.valueTex(value, sf, unc, isSymbol(bare) ? this.vars.get(bare.name)?.uncSf : undefined,
+            isSymbol(bare) && this.vars.get(bare.name)?.declared === true)
     }
     // ≈ before a rounded result: always with the setting on, otherwise only when
     // every input is exact (1/3 ≈ 0.333). A value with ± already states its precision.
@@ -1419,27 +1419,27 @@ export class Calculator {
   }
 
   /** Sig figs of each value of a typed tuple (`<0.50, -9.81> m/s^2` → 2, 3). */
-  private componentSigFigs(node: MathNode, literals: Map<number, string>): number[] {
+  private componentSigFigs(node: Expr, literals: Map<number, string>): number[] {
     let n = unwrap(node)
     if (isOp(n, OP.multiply)) n = unwrap(n.args[0])
-    return (n as FunctionNode).args.map((a) => {
+    return (n as CallExpr).args.map((a) => {
       const c = unwrap(a)
       return this.literalSigFigs(isOp(c, OP.unaryMinus) ? c.args[0] : c, literals) ?? EXACT
     })
   }
 
   /** Sig figs of a number typed directly, with or without a unit (`0.1 kg` → 1). */
-  private literalSigFigs(node: MathNode, literals: Map<number, string>): number | undefined {
+  private literalSigFigs(node: Expr, literals: Map<number, string>): number | undefined {
     let n = unwrap(node)
     if (isNumberWithUnit(n)) n = unwrap(n.args[0])
     if (isLitCall(n)) return countSigFigs(unitCallText(n))
-    if (!isConstantNode(n) || typeof n.value !== 'number') return undefined
+    if (!isConstant(n) || typeof n.value !== 'number') return undefined
     return countSigFigs(literals.get(n.value) ?? String(n.value))
   }
 
   /** The uncertainty written after `pm`, as a quantity matching `value`. */
-  private declaredUncertainty(uncNode: MathNode, value: unknown, percent: boolean): unknown {
-    let u = uncNode.compile().evaluate(this.scope) as unknown
+  private declaredUncertainty(uncNode: Expr, value: unknown, percent: boolean): unknown {
+    let u = evaluate(uncNode, this.scope) as unknown
     if (percent) {
       if (typeof u !== 'number') throw new Error('A percentage uncertainty must be a plain number, like pm 5%.')
       return multiply(abs(value as Value), u / PERCENT_SCALE)

@@ -12,7 +12,7 @@
  * A part no one writes is written as it's typed; a node, as its parts.
  */
 import { CALL, KEYWORD, SIGIL } from '../../syntax.ts'
-import { FN } from '../../maths/library/index.ts'
+import { source } from '../../maths/library/index.ts'
 import { closesBracket, lexExpression, opensBracket } from '../../tree/lexer.ts'
 import { ASSIGN } from '../../tree/shapes.ts'
 import { textOf } from '../../tree/codec.ts'
@@ -76,10 +76,10 @@ export const isTokenOf = (part: Part | undefined, t: string, text?: string) =>
 export const unitSource = (typed: string) => readUnit(typed, 0)?.text ?? typed
 
 /** A value with a unit, as mathjs reads it: `(9.81 * unit("m/s^2"))`. */
-export const quantitySource = (value: string, unit: string) => `(${value} * ${FN.unit}("${unit}"))`
+export const quantitySource = source.quantity
 
 /** A unit on its own (after `to`), as mathjs reads it: `unit("km/h")`. */
-export const unitCallSource = (unit: string) => `${FN.unit}("${unit}")`
+export const unitCallSource = source.unit
 
 /** Whether the unit at `index` is a conversion's, after `to`. */
 export const isConversionUnit = (parts: readonly Part[], index: number) =>
@@ -93,7 +93,7 @@ const CORE_WRITERS: Readonly<Record<string, PartWriter>> = {
   /** `2.0` → `lit("2.0")` (kept as typed: its significant figures), `2` → `2`. */
   [TOKEN_KIND.number]: ({ part }) => {
     const typed = textOf(part)
-    return { text: String(Number(typed)) === typed ? typed : `${FN.literal}("${typed}")` }
+    return { text: String(Number(typed)) === typed ? typed : source.literal(typed) }
   },
   /** `9.81 m/s^2` → `(9.81 * unit("m/s^2"))`. */
   [NODE_KIND.quantity]: ({ part, parts, index, write, notes }) => {

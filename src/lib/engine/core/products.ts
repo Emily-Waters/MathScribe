@@ -4,15 +4,16 @@
  * so numbers and units never run into each other. Brackets only where they're
  * needed: (2.0 s)², × (−1.5 m/s).
  */
-import { isConstantNode, isFunctionNode, isOperatorNode, isSymbolNode, type MathNode } from 'mathjs'
-import { MATH_CONSTANT, OP, isOp } from '../../maths/library/index.ts'
+import {
+  MATH_CONSTANT, OP, isCall, isConstant, isOp, isOperator, isSymbol, type Expr, type OperatorExpr,
+} from '../../maths/library/index.ts'
 import { RAW } from './results.ts'
 import { INV_FUNCTION } from '../../sheet/names.ts'
 import { symbolTex, isUnitCall, unitCallText, isLitCall } from './tex.ts'
 import { unwrap, seeThrough } from './nodes.ts'
 
 /** A number followed by its unit: `2.0 kg`. */
-export const isNumberWithUnit = (n: MathNode): n is math.OperatorNode =>
+export const isNumberWithUnit = (n: Expr): n is OperatorExpr =>
   isOp(n, OP.multiply) && isUnitCall(n.args[1])
 
 // ---------------------------------------------------------------------------
@@ -76,30 +77,30 @@ export function rawEdge(tex: string, side: Side): Edge {
 }
 
 /** Whether a factor is a value that a product brackets: one in scientific notation, or a negative. */
-const isBracketedValue = (n: MathNode) =>
+const isBracketedValue = (n: Expr) =>
   inScientificNotation(n) || (isOp(n, OP.unaryMinus) && (isValue(unwrap(n.args[0]))))
 
 /** A number, with or without its unit, as typed or substituted. */
-const isValue = (n: MathNode) => isConstantNode(n) || isLitCall(n) || isNumberWithUnit(n)
-  || (isSymbolNode(n) && n.name.startsWith(RAW) && /^-?\d/.test(n.name.slice(RAW.length)))
+const isValue = (n: Expr) => isConstant(n) || isLitCall(n) || isNumberWithUnit(n)
+  || (isSymbol(n) && n.name.startsWith(RAW) && /^-?\d/.test(n.name.slice(RAW.length)))
 
 /** What `node` shows at its `side` edge (in a product). */
-export function edgeOf(node: MathNode, side: Side): Edge {
+export function edgeOf(node: Expr, side: Side): Edge {
   const n = unwrap(node)
   // Bracketed by the product: a value in scientific notation (a value), a sum, ….
   if (needsBrackets(n, side === SIDE.left ? SIDE.right : SIDE.left)) return isBracketedValue(n) ? EDGE.value : EDGE.bracket
-  if (isConstantNode(n) || isLitCall(n)) return EDGE.number
+  if (isConstant(n) || isLitCall(n)) return EDGE.number
   if (isUnitCall(n) || isNumberWithUnit(n)) return EDGE.quantity
-  if (isSymbolNode(n)) {
+  if (isSymbol(n)) {
     if (n.name.startsWith(RAW)) return rawEdge(n.name.slice(RAW.length), side)
     if (n.name === MATH_CONSTANT.e && side === SIDE.left) return EDGE.euler
     return symbolTex(n.name).startsWith('\\mathrm') ? EDGE.wide : EDGE.name
   }
   // `@inv(x)` is drawn as a fraction, x turned over.
-  if (isFunctionNode(n) && n.fn.name === INV_FUNCTION) return EDGE.fraction
-  if (isOperatorNode(n)) {
+  if (isCall(n) && n.fn.name === INV_FUNCTION) return EDGE.fraction
+  if (isOperator(n)) {
     // A fraction of numbers is a coefficient, as a number is (½mv²); any other, a fraction.
-    if (n.fn === OP.divide) return n.args.every((a) => isConstantNode(unwrap(a)) || isLitCall(unwrap(a))) ? EDGE.number : EDGE.fraction
+    if (n.fn === OP.divide) return n.args.every((a) => isConstant(unwrap(a)) || isLitCall(unwrap(a))) ? EDGE.number : EDGE.fraction
     // A negative starts with its sign, and ends as what's negated does: −500 N × sin(30°).
     if (n.fn === OP.unaryMinus) return side === SIDE.left ? EDGE.minus : edgeOf(n.args[0], side)
     if (n.fn === OP.multiply) return edgeOf(side === SIDE.left ? n.args[0] : n.args[n.args.length - 1], side)
@@ -121,10 +122,10 @@ export function edgeOf(node: MathNode, side: Side): Edge {
  * and not bracketed already. In a product it's bracketed, so its × 10ⁿ isn't
  * read as one more factor: 8 · (9.11 × 10⁻³¹ kg) · L².
  */
-export function inScientificNotation(node: MathNode): boolean {
+export function inScientificNotation(node: Expr): boolean {
   let n = unwrap(node)
   if (isNumberWithUnit(n)) n = unwrap(n.args[0])
-  if (isSymbolNode(n) && n.name.startsWith(RAW)) return n.name.includes('\\times') && !n.name.startsWith(`${RAW}\\left`)
+  if (isSymbol(n) && n.name.startsWith(RAW)) return n.name.includes('\\times') && !n.name.startsWith(`${RAW}\\left`)
   if (isLitCall(n)) return /e/i.test(unitCallText(n))
   return false
 }
@@ -135,10 +136,10 @@ export function inScientificNotation(node: MathNode): boolean {
  * (8 × (9.11 × 10⁻³¹ kg), so its × 10ⁿ isn't one more factor), a sum, a
  * conversion, a comparison, and a negative after another factor (× (−1.5 m/s)).
  */
-export function needsBrackets(node: MathNode, side: Side): boolean {
+export function needsBrackets(node: Expr, side: Side): boolean {
   if (inScientificNotation(node)) return true
   const n = seeThrough(node)
-  if (!isOperatorNode(n)) return false
+  if (!isOperator(n)) return false
   if (n.fn === OP.unaryMinus) return side === SIDE.right
   return !isOp(n, OP.multiply, OP.divide, OP.pow, OP.unaryPlus)
 }
@@ -153,7 +154,7 @@ const STARTS_AS_NUMBER: ReadonlySet<Edge> = new Set([EDGE.number, EDGE.quantity,
  * beside a wide name (mass · speed², Fn · F), but a thin space after a number
  * (½ mass); otherwise nothing: ma, ½mv², 2π(a + b).
  */
-export function productSeparator(left: MathNode, right: MathNode): string {
+export function productSeparator(left: Expr, right: Expr): string {
   const l = edgeOf(left, SIDE.right)
   const r = edgeOf(right, SIDE.left)
   const afterNumber = l === EDGE.number || l === EDGE.value

@@ -40,8 +40,8 @@ export type CallExpr = FunctionNode
 export type SymbolExpr = SymbolNode
 /** An operator and what it works on: `a * b`, its `fn` (OP), `op` (OP_SYMBOL) and `args`. */
 export type OperatorExpr = OperatorNode
-/** A number written in it: its `value`. */
-export type ConstantExpr = ConstantNode
+/** A value written in it, a number or text: its `value`. */
+export type ConstantExpr = ConstantNode<number | string>
 /** Brackets around an expression: its `content`. */
 export type ParenExpr = ParenthesisNode
 /** `x = …`: its `name` and `value`. */
@@ -153,6 +153,110 @@ export const UNIT_LOOKS: Readonly<Record<string, { tex: string; text: string }>>
   angstrom: { tex: '\\text{\\AA}', text: 'Å' },
   angstroms: { tex: '\\text{\\AA}', text: 'Å' },
 }
+
+// ---------------------------------------------------------------------------
+// Expressions: read, worked out, looked through, rewritten, typeset, made
+// ---------------------------------------------------------------------------
+
+/** Names and their values that look themselves up, as a Map does (the engine's scopes). */
+export interface ScopeMap {
+  get(name: string): unknown
+  has(name: string): boolean
+  set(name: string, value: unknown): unknown
+  keys(): Iterable<string>
+}
+
+/** The names an expression is worked out with, and their values. */
+export type Scope = ScopeMap | Record<string, unknown>
+
+/** Text as an expression (as the library reads it: see `source` for writing what it reads). */
+export const parse = (text: string): Expr => math.parse(text)
+
+/** An expression made ready to work out, again and again with different values (evaluateCompiled). */
+export const compile = (expr: Expr): CompiledExpr => expr.compile()
+
+/** A compiled expression worked out with these values. */
+export const evaluateCompiled = (code: CompiledExpr, scope: Scope = {}): unknown => code.evaluate(scope)
+
+/** An expression worked out with these values. */
+export const evaluate = (expr: Expr, scope: Scope = {}): unknown => expr.compile().evaluate(scope)
+
+/** Text read and worked out with these values. */
+export const evaluateText = (text: string, scope: Scope = {}): unknown => math.evaluate(text, scope as never)
+
+/** Where a part of an expression is in the part it's in: `fn` for what a call calls, `args[0]`, `content`, … */
+export type ExprPath = string
+
+/** Every part of an expression (itself too) that `test` says yes to, in order. */
+export const findAll = (expr: Expr, test: (part: Expr, path: ExprPath, parent: Expr | null) => boolean): Expr[] =>
+  expr.filter(test as never)
+
+/** An expression with each part `change` gives another for replaced (itself first; a part it changes isn't looked inside). */
+export const transform = (expr: Expr, change: (part: Expr, path: ExprPath, parent: Expr | null) => Expr): Expr =>
+  expr.transform(change as never)
+
+/** A copy of an expression, every part of it, to change without changing it. */
+export const copyExpr = (expr: Expr): Expr => expr.cloneDeep()
+
+/** An expression as text, as the library writes it. */
+export const exprText = (expr: Expr): string => expr.toString()
+
+/**
+ * How an expression is typeset: brackets where needed, an implicit product
+ * unmarked, and `handler`, which typesets a part its own way (or undefined to
+ * leave it to the library), for each part, the parts it's given too.
+ */
+export interface TexOptions {
+  readonly handler?: (part: Expr, options: TexOptions) => string | undefined
+}
+
+/** An expression as LaTeX: the library's, with `options`' handler first for each part. */
+export const exprTex = (expr: Expr, options?: TexOptions): string =>
+  expr.toTex(options ? ({ parenthesis: 'auto', implicit: 'hide', ...options } as object) : undefined)
+
+/** A name: `x`. */
+export const symbol = (name: string): SymbolExpr => new math.SymbolNode(name)
+
+/** A call: what's called (a name, or the call's own `fn` to keep it), and its arguments. */
+export const call = (fn: string | SymbolExpr, args: readonly Expr[]): CallExpr =>
+  new math.FunctionNode(typeof fn === 'string' ? new math.SymbolNode(fn) : fn, [...args])
+
+/** An operator and what it works on: `operator(OP.multiply, [a, b])`. */
+export const operator = (op: Op, args: readonly Expr[]): OperatorExpr =>
+  new math.OperatorNode(OP_SYMBOL[op] as never, op as never, [...args])
+
+/** A value written in an expression: a number, or text. */
+export const constant = (value: number | string): ConstantExpr => new math.ConstantNode(value)
+
+/** Brackets around an expression. */
+export const paren = (content: Expr): ParenExpr => new math.ParenthesisNode(content)
+
+/** `name = value`. */
+export const assign = (name: SymbolExpr, value: Expr): AssignExpr => new math.AssignmentNode(name, value)
+
+// ---------------------------------------------------------------------------
+// Algebra
+// ---------------------------------------------------------------------------
+
+/** An expression differentiated by one of its names, as an expression: d/dx of x^2 * sin(x). */
+export const derivative = (expr: Expr, name: string): Expr => math.derivative(expr, name)
+
+/** An expression made simpler, as an expression (`2 * x + x` → 3 x); `rules`: the library's own, given back to it as they are. */
+export const simplify = (expr: Expr, rules?: unknown): Expr =>
+  (rules === undefined ? math.simplify(expr) : math.simplify(expr, rules as never))
+
+/**
+ * What the library reads, written by MathScribe (writer.ts): a number with
+ * its unit, a unit alone, and a number kept as typed (so 2.00 keeps its sig figs).
+ */
+export const source = {
+  /** `9.81 m/s^2` → `(9.81 * unit("m/s^2"))`. */
+  quantity: (value: string, unit: string) => `(${value} * ${FN.unit}("${unit}"))`,
+  /** A unit on its own (after `to`): `unit("km/h")`. */
+  unit: (unit: string) => `${FN.unit}("${unit}")`,
+  /** A number as typed, `2.00` → `lit("2.00")`: worth 2, but written 2.00. */
+  literal: (typed: string) => `${FN.literal}("${typed}")`,
+} as const
 
 // ---------------------------------------------------------------------------
 // Values: quantities, tuples and arithmetic
@@ -279,6 +383,9 @@ export type LibraryFunction = ((...args: never[]) => unknown) & { toTex?: unknow
 
 /** The library's function of a name, as it is now (to wrap it, or call it as it was). */
 export const libraryFunction = (name: string): LibraryFunction => math[name as keyof typeof math] as unknown as LibraryFunction
+
+/** Whether a name is one of the library's own (or added to it): a function, `sqrt`, or a constant, `pi`. */
+export const isLibraryName = (name: string): boolean => name in math
 
 /** Whether the library has a function of a name (`sqrt`), its own or one added to it. */
 export const isLibraryFunction = (name: string): boolean => typeof (math as unknown as Record<string, unknown>)[name] === 'function'

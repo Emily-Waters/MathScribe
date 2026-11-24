@@ -12,10 +12,15 @@ export {
   isSymbol, isValueMatrix,
   BASE_DIMENSION, COMPARISONS, FN, LIBRARY_IN, MATH_CONSTANT, OP, OP_SYMBOL, UNIT, UNIT_LOOKS, type Op,
   MATHS_ERROR, mathsError, type MathsError,
+  // Expressions
+  parse, compile, evaluateCompiled, evaluate, evaluateText, findAll, transform, copyExpr, exprText, exprTex, symbol, call, operator,
+  constant, paren, assign, source, type Scope, type ScopeMap, type ExprPath, type TexOptions,
+  // Algebra
+  derivative, simplify,
   // Values
   isTuple, quantity, magnitude, baseMagnitude, withBaseMagnitude, convert, unitText, sameDimension, unitParts, type UnitPart, inSI, copyQuantity,
   hasFixedPrefix, fixPrefix, withFixedPrefix, keepUnitsAsGiven, bestPrefix, unitNames, isValuelessUnit, formatValue, type ValueFormat,
   tupleOf, valuesOf, mapValues, add, subtract, multiply, divide, abs, sqrt, isZero, larger, smaller,
   // Adding to it
-  libraryFunction, isLibraryFunction, defineFunctions, defineUnit, type LibraryFunction,
+  libraryFunction, isLibraryFunction, isLibraryName, defineFunctions, defineUnit, type LibraryFunction,
 } from './mathjs.ts'

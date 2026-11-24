@@ -339,7 +339,20 @@ tests, or the Create prompt:
          left outside the adapter in src/lib; math.ts's additions use
          `defineFunctions`/`defineUnit`/`libraryFunction`. Nine files off the
          list: aggregates, declarations, math, normalise, numbers,
-         sheetConstants, sigFigs, tex, sheet/values); (4) expressions and the writer's `source.*`; (5) algebra;
+         sheetConstants, sigFigs, tex, sheet/values);
+         (4) expressions and the writer's `source.*`, ~~done 2026-11-23~~
+         (`parse`, `compile`/`evaluateCompiled`/`evaluate`/`evaluateText`,
+         `findAll`, `transform`, `copyExpr`, `exprText`, `exprTex` with a
+         `TexOptions` handler, builders `symbol`/`call`/`operator`/`constant`/
+         `paren`/`assign`, `Scope`/`ScopeMap`, and `source.quantity`/`unit`/
+         `literal` for the writer; `derivative` and `simplify` too, which
+         propagation needed. No core file imports mathjs now; only
+         maths/solve.ts and the modules are on the list. Still to do there:
+         the adapter throwing typed errors itself as it evaluates, rather
+         than `mathsError` reading messages; about 70 comments in the core
+         that name mathjs; and the tree's lexer, which mirrors mathjs's own
+         reading of characters (its delimiters, `isAlpha`), so is the
+         library's knowledge outside the adapter); (5) algebra;
          (6) the module API and the modules.
          **Maths library behind one interface**: a folder (e.g.
          `src/lib/maths/mathjs/`) the only one importing `mathjs`, enforced in

@@ -5,20 +5,19 @@
  * a sum or difference of them, Y = A + B − C (δY = √(δA² + δB² + δC²)). Any
  * other formula is neither, and its working is by derivatives.
  */
-import { isFunctionNode, isParenthesisNode, isSymbolNode, type MathNode } from 'mathjs'
-import { OP, isOp } from '../../maths/library/index.ts'
+import { OP, evaluate, findAll, isCall, isOp, isParen, isSymbol, type Expr } from '../../maths/library/index.ts'
 
 /** The function a square root is, as mathjs names it (`sqrt(A)` is A to the ½). */
 const SQRT = 'sqrt'
 
 /** Whether a node uses any of the inputs (a constant, a unit or a variable with no uncertainty doesn't). */
-const usesAny = (node: MathNode, inputs: ReadonlySet<string>) =>
-  node.filter((n) => isSymbolNode(n) && inputs.has(n.name)).length > 0
+const usesAny = (node: Expr, inputs: ReadonlySet<string>) =>
+  findAll(node, (n) => isSymbol(n) && inputs.has(n.name)).length > 0
 
 /** A node's value if it's a plain number, uses no variable (an exponent: `2`, `-1`, `1/2`), else undefined. */
-function numberOf(node: MathNode): number | undefined {
+function numberOf(node: Expr): number | undefined {
   try {
-    const v = node.compile().evaluate({}) as unknown
+    const v = evaluate(node)
     return typeof v === 'number' && Number.isFinite(v) ? v : undefined
   } catch {
     return undefined
@@ -31,13 +30,13 @@ function numberOf(node: MathNode): number | undefined {
  * `sqrt(L / g)` → L: ½. Undefined if it's anything else (an input in a sum or
  * a function: `(A + B) / C`, `sin(θ)`), or an input's powers cancel (A / A).
  */
-export function productPowers(def: MathNode, inputs: readonly string[]): Map<string, number> | undefined {
+export function productPowers(def: Expr, inputs: readonly string[]): Map<string, number> | undefined {
   const names = new Set(inputs)
   const powers = new Map<string, number>()
-  const visit = (node: MathNode, power: number): boolean => {
+  const visit = (node: Expr, power: number): boolean => {
     if (!usesAny(node, names)) return true
-    if (isParenthesisNode(node)) return visit(node.content, power)
-    if (isSymbolNode(node)) {
+    if (isParen(node)) return visit(node.content, power)
+    if (isSymbol(node)) {
       powers.set(node.name, (powers.get(node.name) ?? 0) + power)
       return true
     }
@@ -48,7 +47,7 @@ export function productPowers(def: MathNode, inputs: readonly string[]): Map<str
       const n = numberOf(node.args[1])
       return n !== undefined && visit(node.args[0], power * n)
     }
-    if (isFunctionNode(node) && node.fn.name === SQRT && node.args.length === 1) return visit(node.args[0], power / 2)
+    if (isCall(node) && node.fn.name === SQRT && node.args.length === 1) return visit(node.args[0], power / 2)
     return false
   }
   if (!visit(def, 1)) return undefined
@@ -61,13 +60,13 @@ export function productPowers(def: MathNode, inputs: readonly string[]): Map<str
  * own (and anything with no uncertainty): `A + B - C`, `L - 0.5 m`. Not `2 A + B`
  * (a multiple's uncertainty is a multiple's: by derivatives), nor `A + A`.
  */
-export function isSumOfInputs(def: MathNode, inputs: readonly string[]): boolean {
+export function isSumOfInputs(def: Expr, inputs: readonly string[]): boolean {
   const names = new Set(inputs)
   const seen: string[] = []
-  const visit = (node: MathNode): boolean => {
+  const visit = (node: Expr): boolean => {
     if (!usesAny(node, names)) return true
-    if (isParenthesisNode(node)) return visit(node.content)
-    if (isSymbolNode(node)) {
+    if (isParen(node)) return visit(node.content)
+    if (isSymbol(node)) {
       seen.push(node.name)
       return true
     }

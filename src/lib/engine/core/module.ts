@@ -13,7 +13,7 @@
  *    installed once per class, by installModule (engine/index.ts installs
  *    MathScribe's when it's loaded), and must not depend on the instance's own state.
  */
-import type { FunctionNode, MathNode } from 'mathjs'
+import type { CallExpr, Expr } from '../../maths/library/index.ts'
 import type { Values } from './scope.ts'
 import { BUILTINS, type Member } from '../../builtins.ts'
 import { declareNodeKinds, declareTokenKinds, declareTokenRoles, type TokenRole } from '../../tree/registry.ts'
@@ -75,19 +75,19 @@ export interface ModuleHost {
   /** Work out a line, as the sheet would (in the scope here). */
   evaluateLine(text: string, mode: DisplayMode): LineResult
   /** Work out a parsed line (an assignment or expression) the core's way: sig figs, uncertainty, working, how it's shown. */
-  evaluateParsed(node: MathNode, line: ParsedLine): LineResult
+  evaluateParsed(node: Expr, line: ParsedLine): LineResult
   /** Text as a line's expression reads it (unit literals and all), parsed. */
-  parse(text: string): MathNode
+  parse(text: string): Expr
   /** A parsed expression's value here. */
-  evaluateNode(node: MathNode): unknown
+  evaluateNode(node: Expr): unknown
   /** Text with each `@constant` as the value it stands for (or what's wrong with one). */
   expandConstants(text: string): { text: string; error?: string }
   /** Whether the sheet defines a function of this name (which then wins over a built-in one). */
   isUserFunction(name: string): boolean
   /** Each uncertainty source's contribution to an expression's value. */
-  propagate(node: MathNode): Contributions
+  propagate(node: Expr): Contributions
   /** The sig figs an expression's value has, from the numbers in it as typed. */
-  sigFigs(node: MathNode, literals: Map<number, string>): number
+  sigFigs(node: Expr, literals: Map<number, string>): number
   /** Run `fn` in a scope of its own inside this one: what it stores is gone after. */
   inScratchScope<T>(fn: () => T): T
   /** Values to evaluate with, in a scope of their own inside this one (so setting one changes nothing here). */
@@ -109,7 +109,7 @@ export interface ModuleHost {
   /** An expression as typed, as LaTeX. */
   expressionTex(expr: string): string
   /** A parsed expression as LaTeX, its numbers as typed. */
-  tex(node: MathNode, literals: Map<number, string>): string
+  tex(node: Expr, literals: Map<number, string>): string
 }
 
 /**
@@ -527,7 +527,7 @@ export abstract class EngineModule {
   // -------------------------------------------------------------------------
 
   /** Whether a number times a unit, as typed, is an exact count (no sig-fig limit). */
-  isExactCount(_number: MathNode, _unit: MathNode, _literals: Map<number, string>): boolean {
+  isExactCount(_number: Expr, _unit: Expr, _literals: Map<number, string>): boolean {
     return false
   }
 
@@ -545,7 +545,7 @@ export abstract class EngineModule {
    * A call as LaTeX, if it's one of this module's functions (and not the sheet's own of that name); `tex` writes a node.
    * (Used as written, as mathjs's own would be: a leading space keeps it apart from what's before it, as in a sum.)
    */
-  functionTex(_node: FunctionNode, _tex: (n: MathNode) => string, _host: ModuleHost): string | undefined {
+  functionTex(_node: CallExpr, _tex: (n: Expr) => string, _host: ModuleHost): string | undefined {
     return undefined
   }
 
@@ -555,7 +555,7 @@ export abstract class EngineModule {
    * as t_3, the member it picks (`\max(t) = t_3 = 1.55 s`). The values are then
    * put into this. Undefined if it has none of them.
    */
-  namedWorking(_node: MathNode, _host: ModuleHost): MathNode | undefined {
+  namedWorking(_node: Expr, _host: ModuleHost): Expr | undefined {
     return undefined
   }
 

@@ -4,13 +4,14 @@
  * as a hidden variable holding F's uncertainty, and the working shown for it.
  * (The syntax of uncertainties, `pm` and `delta F`, is uncertainty.ts.)
  */
-import { isConstantNode, isSymbolNode, type FunctionNode, type MathNode, type SymbolNode } from 'mathjs'
 import { uncertaintySigFigs } from '../../maths/sigfigs.ts'
 import type { Contributions, Variable, VariableFields } from '../../sheet/values.ts'
 import { isArgumentUncertaintyName, isUncertaintyName, uncertaintyName } from '../../sheet/names.ts'
 import type { UncertaintyWord } from '../../syntax.ts'
-import { OP, add, divide, isOp, isQuantity, multiply, subtract, withBaseMagnitude, type Value } from '../../maths/library/index.ts'
-import { math } from './math.ts'
+import {
+  OP, add, compile, derivative, divide, evaluateCompiled, findAll, isConstant, isOp, isQuantity, isSymbol, multiply, subtract, transform,
+  withBaseMagnitude, type CallExpr, type Expr, type ScopeMap, type SymbolExpr, type Value,
+} from '../../maths/library/index.ts'
 import { STEP, UNCERTAINTY_WORKING, type UncertaintyWorking } from './results.ts'
 import { isSumOfInputs, powerTex, productPowers } from './uncertaintyForms.ts'
 import { DELTA_REF } from './uncertainty.ts'
@@ -45,10 +46,8 @@ export function parameterDeltas(body: string, params: readonly string[]): { text
   return { text, deltas }
 }
 
-/** Values by name, as mathjs evaluates with them, that an input can be nudged in. */
-interface NudgeableValues {
-  set(name: string, value: unknown): unknown
-}
+/** Values by name, as an expression is worked out with them, that an input can be nudged in. */
+type NudgeableValues = ScopeMap
 
 /** What uncertainties need of the Calculator they're worked out in. */
 export interface PropagationHost {
@@ -59,7 +58,7 @@ export interface PropagationHost {
   /** Whether a name is in scope. */
   has(name: string): boolean
   /** Whether a node is a variable holding a value (not a function's name, nor a function). */
-  isValueSymbol(node: MathNode, path: string): node is SymbolNode
+  isValueSymbol(node: Expr, path: string): node is SymbolExpr
   /** A copy of the values in scope, to work an expression out with some of them nudged. */
   scratchValues(): NudgeableValues
   /** Keep a value as a (hidden) variable. */
@@ -67,9 +66,9 @@ export interface PropagationHost {
   /** A value's number in its display unit, if it has one. */
   displayNumber(value: unknown): number | undefined
   /** An expression as LaTeX, its numbers as typed. */
-  tex(node: MathNode, literals: Map<number, string>): string
+  tex(node: Expr, literals: Map<number, string>): string
   /** A variable's value for the substitution step, at its own sig figs. */
-  variableNode(name: string): MathNode
+  variableNode(name: string): Expr
   /** An uncertainty on its own as LaTeX, in the unit of the value it belongs to. */
   uncertaintyTex(unc: unknown, like?: unknown, uncSf?: number): string
   /** Whether working shows the values substituted in. */
@@ -96,7 +95,7 @@ export class Propagation {
   }
 
   /** The uncertainty of an expression worked out as `value` (a call's argument), or a zero like it if it has none. */
-  uncertaintyOf(expr: MathNode, value: unknown): unknown {
+  uncertaintyOf(expr: Expr, value: unknown): unknown {
     return this.total(this.propagate(expr), value) ?? multiply(value as Value, 0)
   }
 
@@ -106,8 +105,8 @@ export class Propagation {
   }
 
   /** The variables an expression uses that have an uncertainty. */
-  private uncertainInputs(expr: MathNode): string[] {
-    const names = expr.filter((n, path) => this.host.isValueSymbol(n, path)).map((n) => (n as SymbolNode).name)
+  private uncertainInputs(expr: Expr): string[] {
+    const names = findAll(expr, (n, path) => this.host.isValueSymbol(n, path)).map((n) => (n as SymbolExpr).name)
     return [...new Set(names)].filter((n) => this.host.variable(n)?.contributions?.size)
   }
 
@@ -118,13 +117,13 @@ export class Propagation {
    * Σ (∂f/∂xᵢ)·δxᵢ. Combining sources in quadrature then gives
    * Δf = √(Σ (∂f/∂x · Δx)²) for independent inputs, while shared sources stay correlated.
    */
-  propagate(expr: MathNode): Contributions {
+  propagate(expr: Expr): Contributions {
     const out: Contributions = new Map()
     const inputs = this.uncertainInputs(expr)
     // Quantities built from an uncertainty (like ΔF / F, or a call given its arguments') don't carry one themselves.
-    const usesUncertainty = expr.filter((n) => isSymbolNode(n) && (isUncertaintyName(n.name) || isArgumentUncertaintyName(n.name))).length > 0
+    const usesUncertainty = findAll(expr, (n) => isSymbol(n) && (isUncertaintyName(n.name) || isArgumentUncertaintyName(n.name))).length > 0
     if (!inputs.length || usesUncertainty) return out
-    const code = expr.compile()
+    const code = compile(expr)
     // (Each input has contributions: uncertainInputs keeps only those.)
     const contributionsOf = (n: string) => this.host.variable(n)!.contributions!
     const sources = new Set(inputs.flatMap((n) => [...contributionsOf(n).keys()]))
@@ -139,7 +138,7 @@ export class Propagation {
         plus.set(n, add(v, step))
         minus.set(n, subtract(v, step))
       }
-      const [up, down] = [code.evaluate(plus), code.evaluate(minus)]
+      const [up, down] = [evaluateCompiled(code, plus), evaluateCompiled(code, minus)]
       // (A word, `"AGREE"`, has no uncertainty, whatever it was chosen by.)
       if (typeof up === 'string' || typeof down === 'string') return new Map()
       out.set(source, divide(subtract(up as Value, down as Value), 2 * STEP))
@@ -163,12 +162,12 @@ export class Propagation {
   }
 
   /** `2.0 kg pm 0.1 kg` → (2.0 ± 0.1) kg, keeping the numbers as typed. */
-  pmTex(value: MathNode, unc: MathNode, percent: boolean, literals: Map<number, string>): string {
+  pmTex(value: Expr, unc: Expr, percent: boolean, literals: Map<number, string>): string {
     const a = unwrap(value)
     const b = unwrap(unc)
-    if (!percent && isNumberWithUnit(a) && (isConstantNode(b) || (isNumberWithUnit(b)
-      && unitCallText(b.args[1] as FunctionNode) === unitCallText(a.args[1] as FunctionNode)))) {
-      const unit = unitTex(unitCallText(a.args[1] as FunctionNode))
+    if (!percent && isNumberWithUnit(a) && (isConstant(b) || (isNumberWithUnit(b)
+      && unitCallText(b.args[1] as CallExpr) === unitCallText(a.args[1] as CallExpr)))) {
+      const unit = unitTex(unitCallText(a.args[1] as CallExpr))
       const bNum = isNumberWithUnit(b) ? b.args[0] : b
       return attachUnit(`\\left(${this.host.tex(a.args[0], literals)} \\pm ${this.host.tex(bNum, literals)}\\right)`, unit)
     }
@@ -201,15 +200,15 @@ export class Propagation {
     const steps = [sqrt(inputs.map((n) =>
       term(`\\frac{\\partial ${target}}{\\partial ${symbolTex(n)}}`, uncOf(n))))]
     try {
-      const derivs = inputs.map((n) => math.derivative(def, n))
-      const wrap = (d: MathNode, tex: string) =>
+      const derivs = inputs.map((n) => derivative(def, n))
+      const wrap = (d: Expr, tex: string) =>
         (isOp(d, OP.add, OP.subtract, OP.unaryMinus) ? `\\left(${tex}\\right)` : tex)
       steps.push(sqrt(inputs.map((n, i) =>
         term(wrap(derivs[i], this.host.tex(derivs[i], new Map())), uncOf(n)))))
       if (this.host.showsSubstitution()) {
         steps.push(sqrt(inputs.map((n, i) => {
-          const sub = derivs[i].transform((m, path) => (this.host.isValueSymbol(m, path)
-            ? this.host.variableNode(m.name)
+          const sub = transform(derivs[i], (m, path) => (this.host.isValueSymbol(m, path)
+            ? this.host.variableNode((m as SymbolExpr).name)
             : m))
           return term(
             wrap(derivs[i], this.host.tex(sub, new Map())),
@@ -230,7 +229,7 @@ export class Propagation {
    * then, if substitution is shown, with the values put in. Undefined for any
    * other formula (its working is by derivatives).
    */
-  private relativeWorking(name: string, def: MathNode, inputs: string[], uncOf: (n: string) => string, sqrt: (terms: string[]) => string): string[] | undefined {
+  private relativeWorking(name: string, def: Expr, inputs: string[], uncOf: (n: string) => string, sqrt: (terms: string[]) => string): string[] | undefined {
     const valueTex = (n: string) => this.host.tex(this.host.variableNode(n), new Map())
     const uncTex = (n: string) => this.host.uncertaintyTex(this.totalOf(n), this.host.value(n), this.host.variable(n)?.uncSf)
     const squared = (tex: string) => `\\left(${tex}\\right)^{2}`

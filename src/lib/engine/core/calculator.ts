@@ -3,11 +3,10 @@
  * shared scope so variables defined on one line are usable on later lines,
  * and produces LaTeX for each line (symbolic = substituted = result).
  */
-import { EXACT, MAX_DIGITS, countSigFigs, formatExact, formatSigFigs, formatWithUncertainty } from '../../maths/sigfigs.ts'
+import { EXACT, countSigFigs } from '../../maths/sigfigs.ts'
 import { AGGREGATE_KIND, Variable, type Contributions, type VariableFields, type VariableSummary } from '../../sheet/values.ts'
 import { BUILTINS, isReservedConstantName } from '../../builtins.ts'
-import { stringTex } from './text.ts'
-import { EXACT_SETTING, IS_NAME, MEMBER_DOT, PERCENT, DISPLAY_MODE, CONSTANTS_BLOCK, LABEL_WORDS, SIGIL, UNCERTAINTY_WORDS, type DisplayMode, type Notation, type Precision } from '../../syntax.ts'
+import { EXACT_SETTING, IS_NAME, MEMBER_DOT, PERCENT, DISPLAY_MODE, CONSTANTS_BLOCK, LABEL_WORDS, SIGIL, UNCERTAINTY_WORDS, type DisplayMode, type Precision } from '../../syntax.ts'
 import { INLINE_VALUE_NAME, INV_FUNCTION, JOIN, TUPLE_FUNCTION, RESERVED_NAMESPACES, isHiddenName, memberName, parseUncertaintyName, readableMembers, unpackedName, uncertaintyName } from '../../sheet/names.ts'
 import { expandDots } from './memberAccess.ts'
 import { SheetConstants } from './sheetConstants.ts'
@@ -16,11 +15,12 @@ import { SigFigs } from './sigFigs.ts'
 import { Propagation } from './propagation.ts'
 import { SeriesAggregates, seriesInMaths } from './aggregates.ts'
 import { SheetFunctions } from './sheetFunctions.ts'
+import { ValueTex } from './valueTex.ts'
 import {
   FN, MATHS_ERROR, OP, UNIT, abs, call as callExpr, constant, copyExpr, evaluate, evaluateText, exprTex, findAll, fixPrefix, formatValue,
   isAssign, isCall, isConditional, isConstant, isFunctionAssign, isLibraryName, isOp, isOperator, isQuantity, isSymbol, isValueMatrix,
-  magnitude, mapValues, mathsError, multiply, operator, paren, parse, quantity, sameDimension, symbol, transform, unitText, valuesOf, withFixedPrefix,
-  type CallExpr, type Expr, type Quantity, type SymbolExpr, type TexOptions, type Value, type ValueMatrix,
+  magnitude, mapValues, mathsError, multiply, operator, paren, parse, quantity, sameDimension, symbol, transform, unitText, valuesOf,
+  withFixedPrefix, type CallExpr, type Expr, type Quantity, type SymbolExpr, type TexOptions, type Value,
 } from '../../maths/library/index.ts'
 
 import { nestBrackets } from '../../maths/brackets.ts'
@@ -34,20 +34,20 @@ import {
 import { strayLineFormCall } from './builtinCalls.ts'
 import { BUILTIN_CONSTANT_NAMES } from './literals.ts'
 import { formulaSides, preprocess, typedNumbers } from './writer.ts'
-import { AUTO_PRECISION, UNCERTAINTY_WORKING, ExplainedError, builtinCallHint, FIXED_UNCERTAINTY_SIG_FIGS, type CalcOptions, type EquationParts, layoutEquation, type TraceLine, type CalcResult, unexpectedError, type DataColumn, type LineNotation, type LineResult, type ParsedLine, TO_PERCENT, RAW, rawNode, readableUnitError } from './results.ts'
+import { UNCERTAINTY_WORKING, ExplainedError, builtinCallHint, type CalcOptions, type EquationParts, layoutEquation, type TraceLine, type CalcResult, unexpectedError, type DataColumn, type LineNotation, type LineResult, type ParsedLine, TO_PERCENT, RAW, rawNode, readableUnitError } from './results.ts'
 import { NAME_THEN_SETTINGS, expandParenPm, splitPm } from './uncertainty.ts'
 import { symbolTex, numberTex, unitTex, attachUnit, isUnitCall, unitCallText, isLitCall, CASE_WORDS, caseTex, splitUnit } from './tex.ts'
 import { unwrap, isLiteral, isTupleLiteral, isConversion } from './nodes.ts'
 import { NODE_KIND, TOKEN_KIND, isToken, type Part } from '../../tree/nodes.ts'
 import { lexExpression } from '../../tree/lexer.ts'
 import { ASSIGN, SETTING_MARK, assignedOf, lineShape, type LineShape } from '../../tree/shapes.ts'
-import { normalise, displayUnit, magnitudeOf } from './normalise.ts'
+import { normalise } from './normalise.ts'
 import { Scope, Views, type Variables, Values, innerValues } from './scope.ts'
 import { MAX_TRACE_DEPTH } from './functions.ts'
 import { isAngleUnit, toDisplayUnit, type Declaration, type TupleName, parseTupleName, declarationOf } from './declarations.ts'
 import { withRows } from './rows.ts'
 import { bracketed } from './tuples.ts'
-import { EXACT_DISPLAY_DIGITS, FIXED_FORMAT, FLOAT_NOISE, TINY, PERCENT_SCALE, isValidUnit, castArgument } from './numbers.ts'
+import { PERCENT_SCALE, isValidUnit, castArgument } from './numbers.ts'
 import { isNumberWithUnit, SIDE, type Side, inScientificNotation, needsBrackets, productSeparator, PRODUCT_SIGN, EVERY_PRODUCT_SIGN } from './products.ts'
 import { uncertaintyUnitError, columnValues } from './data.ts'
 
@@ -89,16 +89,8 @@ export class Calculator {
   private vars = this.rootVars
   /** Their values, as mathjs evaluates with them. */
   private scope = new Values(this.rootVars)
-  /** Notation numbers are being formatted in right now (see inNotation). */
-  private notation: Notation | undefined
-  /** The look tuples are being shown in right now (undefined: as a plain tuple, (…)); see inLook. */
-  private tupleLook: TupleLook | undefined
-  /**
-   * The sig figs of each value of a typed tuple, as typed (a vector, `<0.50, -9.81>` → 2, 3),
-   * keyed by the value itself: a copy (`b = a`) shows the same, while anything
-   * worked out from it is a new value, at the fewest sig figs of its inputs.
-   */
-  private readonly typedSfs = new WeakMap<object, number[]>()
+  /** Values shown: to their sig figs, in a notation, with their uncertainty, as LaTeX (valueTex.ts). */
+  private readonly display = new ValueTex({ options: () => this.options, modules: () => this.modules })
   /** Sig figs of each call to a sheet's function's result, from its expression. */
   private readonly callSigFigs = new WeakMap<Expr, number>()
   /** The sheet's own functions: defining them, and what's kept about each (sheetFunctions.ts). */
@@ -143,10 +135,10 @@ export class Calculator {
     isValueSymbol: (node, path): node is SymbolExpr => this.isValueSymbol(node, path),
     scratchValues: () => innerValues(this.vars),
     store: (name, fields) => this.store(name, fields),
-    displayNumber: (value) => this.split(value, EXACT)?.x,
+    displayNumber: (value) => this.display.split(value, EXACT)?.x,
     tex: (node, literals) => this.toTex(node, literals),
     variableNode: (name) => this.variableNode(name),
-    uncertaintyTex: (unc, like, uncSf) => this.uncertaintyTex(unc, like, uncSf),
+    uncertaintyTex: (unc, like, uncSf) => this.display.uncertaintyTex(unc, like, uncSf),
     showsSubstitution: () => this.options.showSubstitution,
     uncertaintyWorking: () => this.options.uncertaintyWorking ?? UNCERTAINTY_WORKING.derivatives,
   })
@@ -159,11 +151,11 @@ export class Calculator {
     store: (name, fields) => this.store(name, fields),
     newSource: () => this.nextSource++,
     totalUncertainty: (contributions, like) => this.uncertainty.total(contributions, like),
-    uncertainSigFigs: (value, unc) => this.uncertainParts(value, unc)?.sf,
-    displayNumber: (value) => this.split(value, EXACT)?.x,
+    uncertainSigFigs: (value, unc) => this.display.uncertainParts(value, unc)?.sf,
+    displayNumber: (value) => this.display.split(value, EXACT)?.x,
     tex: (node) => this.toTex(node, new Map()),
     variableNode: (name) => this.variableNode(name),
-    uncertaintyTex: (unc, like, uncSf) => this.uncertaintyTex(unc, like, uncSf),
+    uncertaintyTex: (unc, like, uncSf) => this.display.uncertaintyTex(unc, like, uncSf),
     showsSubstitution: () => this.options.showSubstitution,
   })
   /** Set while evaluating a line whose sum/difference has no significant figures. */
@@ -208,10 +200,10 @@ export class Calculator {
     tex: (node, literals) => this.toTex(node, literals),
     evaluateExpression: (text) => evaluateText(preprocess(text, this.isVariable).text, this.scope) as unknown,
     total: (contributions, like) => this.uncertainty.total(contributions, like),
-    valueTex: (value, sf, unc, uncSf, forced) => this.valueTex(value, sf, unc, uncSf, forced),
-    split: (value, sf, forced) => this.split(value, sf, forced),
-    uncertainParts: (value, unc, uncSf) => this.uncertainParts(value, unc, uncSf),
-    inNotation: (notation, fn) => this.inNotation(notation, fn),
+    valueTex: (value, sf, unc, uncSf, forced) => this.display.valueTex(value, sf, unc, uncSf, forced),
+    split: (value, sf, forced) => this.display.split(value, sf, forced),
+    uncertainParts: (value, unc, uncSf) => this.display.uncertainParts(value, unc, uncSf),
+    inNotation: (notation, fn) => this.display.inNotation(notation, fn),
     expressionTex: (expr) => this.expressionTex(expr),
   }
 
@@ -222,15 +214,6 @@ export class Calculator {
     for (const m of this.modules) installModule(m)
   }
 
-  private get autoSigFigs() {
-    return this.options.precision === AUTO_PRECISION
-  }
-
-  /** mathjs format options for values without a sig-fig count (exact values, matrices). */
-  private get format() {
-    const p = this.options.precision
-    return { ...FIXED_FORMAT, precision: p === AUTO_PRECISION ? EXACT_DISPLAY_DIGITS : p }
-  }
 
   /** Evaluate `node`; a value typed with a unit (`1.00e-10 m`) keeps that unit for display. */
   private typedValue(node: Expr): unknown {
@@ -238,34 +221,6 @@ export class Calculator {
     return isLiteral(node) && isQuantity(v) ? withFixedPrefix(v) : v
   }
 
-  /** Whether showing `value` at `sf` sig figs drops digits (ignoring floating-point noise). */
-  private isRounded(value: unknown, sf: number, forced = false): boolean {
-    const p = this.split(value, sf, forced)
-    if (!p) return false
-    const shown = Number(p.num)
-    return Number.isFinite(shown) && Math.abs(shown - p.x) > FLOAT_NOISE * Math.max(Math.abs(p.x), TINY)
-  }
-
-  /**
-   * `x` to `sf` sig figs, in the current notation. `forced`: the sig figs were
-   * declared (`m:3 = …`), so they apply even with a fixed sig-fig setting.
-   */
-  private formatNumber(x: number, sf: number, forced = false): string {
-    if ((this.autoSigFigs || forced) && Number.isFinite(sf)) return formatSigFigs(x, sf, this.notation)
-    if (this.notation) return formatExact(x, this.format.precision, this.notation)
-    return formatValue(x, this.format)
-  }
-
-  /** Run `fn` with numbers formatted in `notation` (undefined: the default). */
-  private inNotation<T>(notation: Notation | undefined, fn: () => T): T {
-    const saved = this.notation
-    this.notation = notation
-    try {
-      return fn()
-    } finally {
-      this.notation = saved
-    }
-  }
 
   /** Set a variable, with everything kept about it (in the current scope). */
   private store(name: string, v: VariableFields): void {
@@ -295,16 +250,6 @@ export class Calculator {
     return this.modules.map((m) => m.chooseLook(looks)).find((l) => l !== undefined)
   }
 
-  /** Run `fn` with tuples shown in `look` (undefined: as plain tuples). */
-  private inLook<T>(look: TupleLook | undefined, fn: () => T): T {
-    const saved = this.tupleLook
-    this.tupleLook = look
-    try {
-      return fn()
-    } finally {
-      this.tupleLook = saved
-    }
-  }
 
   /** Whether an expression is a tuple typed value by value, as a module's function makes one (a vector, `<0.50, -9.81>`). */
   private isTypedTuple(node: Expr): boolean {
@@ -361,127 +306,12 @@ export class Calculator {
       && typeof this.scope.get(n.name) !== 'function'
   }
 
-  /** Split a value into its number (in display units), formatted number, and unit. */
-  private split(value: unknown, sf: number, forced = false): { x: number; num: string; unit?: string } | null {
-    if (typeof value === 'number') return { x: value, num: this.formatNumber(value, sf, forced) }
-    if (isQuantity(value)) {
-      // Full precision first (the library picks the unit prefix), then round ourselves.
-      const s = formatValue(displayUnit(value), { precision: MAX_DIGITS })
-      const m = /^(\S+)\s+(.+)$/.exec(s)
-      if (!m) return null
-      const x = Number(m[1])
-      return { x, num: this.formatNumber(x, sf, forced), unit: m[2] }
-    }
-    return null
-  }
-
-  /** An uncertainty expressed in the same display unit as its value. */
-  private inDisplayUnits(value: unknown, unc: unknown, x: number, unit?: string): number {
-    if (!isQuantity(value)) return Math.abs(Number(unc))
-    const si = magnitudeOf(value)
-    if (si) return Math.abs((magnitudeOf(unc) * x) / si)
-    try {
-      return Math.abs(magnitude(unc as Quantity, unit ?? ''))
-    } catch {
-      return Math.abs(magnitudeOf(unc))
-    }
-  }
-
-  /** Sig figs to quote an uncertainty with: as declared, else the convention (auto) or 2 (fixed). */
-  private uncSigFigs(declared?: number): number | undefined {
-    return declared ?? (this.autoSigFigs ? undefined : FIXED_UNCERTAINTY_SIG_FIGS)
-  }
-
-  /** Formatted pieces of `value ± unc`, rounded by the uncertainty convention. */
-  private uncertainParts(value: unknown, unc: unknown, uncSf?: number) {
-    const p = this.split(value, EXACT)
-    if (!p) return null
-    const dx = this.inDisplayUnits(value, unc, p.x, p.unit)
-    if (!(dx > 0)) return null
-    // The value is rounded to the uncertainty's last decimal place.
-    return { ...formatWithUncertainty(p.x, dx, this.uncSigFigs(uncSf), this.notation), unit: p.unit }
-  }
-
-  /**
-   * TeX for an uncertainty on its own, e.g. the result of `delta F`, shown in
-   * the same unit as `like` (the value it belongs to) when given.
-   */
-  private uncertaintyTex(unc: unknown, like?: unknown, uncSf?: number): string {
-    const p = this.split(like ?? unc, EXACT)
-    if (!p) return this.valueTex(unc)
-    const dx = like === undefined ? p.x : this.inDisplayUnits(like, unc, p.x, p.unit)
-    let num = numberTex(this.formatNumber(dx, EXACT))
-    if (dx > 0) {
-      const f = formatWithUncertainty(dx, dx, this.uncSigFigs(uncSf), this.notation)
-      num = f.unc + (f.exp !== undefined ? ` \\times 10^{${f.exp}}` : '')
-    }
-    return attachUnit(num, p.unit ? unitTex(p.unit) : '')
-  }
-
-  private valueTex(value: unknown, sf: number = EXACT, unc?: unknown, uncSf?: number, forced = false): string {
-    const u = unc !== undefined ? this.uncertainParts(value, unc, uncSf) : null
-    if (u) {
-      const core = `${numberTex(u.num)} \\pm ${numberTex(u.unc)}`
-      const exp = u.exp !== undefined ? ` \\times 10^{${u.exp}}` : ''
-      const unit = u.unit ? unitTex(u.unit) : ''
-      if (!exp && !unit) return core
-      return attachUnit(`\\left(${core}\\right)${exp}`, unit)
-    }
-    const parts = this.split(value, sf, forced)
-    if (parts) return attachUnit(numberTex(parts.num), parts.unit ? unitTex(parts.unit) : '')
-    if (typeof value === 'boolean') return `\\text{${value}}`
-    if (typeof value === 'string') return stringTex(value, (text) => this.modules.reduce((t, m) => m.markupText(t), text))
-    if (isTuple(value)) return this.tupleTex(value, sf, forced)
-    if (isValueMatrix(value) || Array.isArray(value)) {
-      try {
-        return exprTex(parse(formatValue(value, this.format)))
-      } catch {
-        /* fall through */
-      }
-    }
-    return `\\text{${formatValue(value, this.format)}}`
-  }
-
-  /**
-   * A tuple as (1.0, 2.0, 3.0) m: each value at `sf` sig figs, with a unit
-   * they all share written once after the bracket, or each with its own.
-   */
-  private tupleTex(tuple: ValueMatrix, sf: number, forced: boolean): string {
-    const values = valuesOf(tuple) as unknown[]
-    // A typed tuple shows each value as typed (unless sig figs were declared).
-    const typed = forced ? undefined : this.typedSfs.get(tuple)
-    return this.valuesTex(values, values.map((_, i) => ({ sf: typed?.[i] ?? sf, forced, notation: this.notation })), this.tupleLook)
-  }
-
-  /**
-   * Values in a tuple's brackets, each at its own sig figs and notation (as
-   * unpacked names can declare). In a module's `look`, as it draws it: a vector,
-   * ⟨3.0, 4.0⟩ N, or with unit vectors, (3.0 î + 4.0 ĵ) N.
-   */
-  private valuesTex(values: unknown[], shown: { sf: number; forced: boolean; notation?: Notation }[], look?: TupleLook): string {
-    const parts = values.map((v, i) => this.inNotation(shown[i].notation, () => this.split(v, shown[i].sf, shown[i].forced)))
-    const unit = parts[0]?.unit
-    const shared = values.length > 0 && parts.every((p) => p && p.unit === unit)
-    // Each value on its own; with a shared unit, the unit is written once instead.
-    const each = values.map((v, i) => (shared
-      ? numberTex(parts[i]!.num)
-      : this.inNotation(shown[i].notation, () => this.valueTex(v, shown[i].sf, undefined, undefined, shown[i].forced))))
-    const sharedUnit = shared && unit ? unitTex(unit) : ''
-    // A tuple with a look is drawn by the module that gave it (a vector, ⟨3.0, 4.0⟩ N).
-    if (look !== undefined) {
-      for (const m of this.modules) {
-        const tex = m.tupleTex(each, sharedUnit, look)
-        if (tex !== undefined) return tex
-      }
-    }
-    return attachUnit(`\\left(${each.join(', ')}\\right)`, sharedUnit)
-  }
 
   /** A variable's value for the substitution step, at its own sig figs. */
   private variableNode(name: string): Expr {
     const shown = this.vars.get(name)?.shown
     if (shown) return rawNode(shown)
-    return this.inNotation(this.vars.get(name)?.notation, () => this.inLook(this.vars.get(name)?.look,
+    return this.display.inNotation(this.vars.get(name)?.notation, () => this.display.inLook(this.vars.get(name)?.look,
       () => this.valueNode(this.scope.get(name), this.vars.get(name)?.sf ?? EXACT, this.vars.get(name)?.declared === true)))
   }
 
@@ -506,10 +336,10 @@ export class Calculator {
   private valueNode(value: unknown, sf: number, forced = false): Expr {
     // A tuple is already bracketed, (1.0, 2.0) m; a sum of unit vectors needs brackets, unless it has a unit.
     if (isTuple(value)) {
-      return rawNode(bracketed(this.valueTex(value, sf, undefined, undefined, forced)))
+      return rawNode(bracketed(this.display.valueTex(value, sf, undefined, undefined, forced)))
     }
-    const parts = this.split(value, sf, forced)
-    if (!parts) return rawNode(`\\left(${this.valueTex(value, sf)}\\right)`)
+    const parts = this.display.split(value, sf, forced)
+    if (!parts) return rawNode(`\\left(${this.display.valueTex(value, sf)}\\right)`)
     const numTex = numberTex(parts.num)
     // A negative value is bracketed, so its sign doesn't read as an operator:
     // ½ · (−9.81 m/s²) · t², not ½ · −9.81 m/s² · t².
@@ -525,7 +355,7 @@ export class Calculator {
     // Leading spaces keep the library's output such as `\cdot` from running into a name.
     const handler = (n: Expr, options: TexOptions): string | undefined => {
       if (isConstant(n) && typeof n.value === 'number') {
-        return ` ${numberTex(literals.get(n.value) ?? formatValue(n.value, this.format))}`
+        return ` ${numberTex(literals.get(n.value) ?? formatValue(n.value, this.display.format))}`
       }
       if (isUnitCall(n)) return ` ${unitTex(unitCallText(n))}`
       if (isLitCall(n)) return ` ${numberTex(unitCallText(n))}`
@@ -660,7 +490,7 @@ export class Calculator {
       out.push({
         name: named(c.name), unit: c.unit, count: values.length, uncertainty,
         first: c.values[0].row, last: c.values.at(-1)!.row,
-        min: this.valueTex(lowest.value, lowest.sf), max: this.valueTex(highest.value, highest.sf),
+        min: this.display.valueTex(lowest.value, lowest.sf), max: this.display.valueTex(highest.value, highest.sf),
       })
     }
     return { columns: out }
@@ -923,7 +753,7 @@ export class Calculator {
     }))
     // With settings on the names, the result shows each value that way.
     if (!targets.some((t) => t.sf !== undefined || t.unit || t.notation) || !result.parts) return result
-    const parts = { ...result.parts, result: this.valuesTex(converted, shown), approx: false }
+    const parts = { ...result.parts, result: this.display.valuesTex(converted, shown), approx: false }
     return { ...result, parts, tex: layoutEquation(mode, parts, this.multiline) }
   }
 
@@ -1146,12 +976,12 @@ export class Calculator {
     // Kept as its notation; shown as its line is (with a block's .sci or .dec too).
     const notation = this.vars.get(name)?.notation
     // Each at its sig figs, or one of a typed tuple's values, as typed.
-    const typed = declared ? undefined : this.typedSfs.get(this.scope.get(name) as object)
+    const typed = declared ? undefined : this.display.typedSfs.get(this.scope.get(name) as object)
     const sfs = derived.map((d) => (d.component === undefined ? undefined : typed?.[d.component]) ?? sf)
     derived.forEach((c, i) => this.store(c.name, { value: c.value, sf: sfs[i], declared, notation }))
     if (mode === DISPLAY_MODE.sym) return result
     const rows = derived.map((c, i) =>
-      `${symbolTex(c.name)} &= ${this.inNotation(result.notation, () => this.valueTex(c.value, sfs[i], undefined, undefined, declared))}`)
+      `${symbolTex(c.name)} &= ${this.display.inNotation(result.notation, () => this.display.valueTex(c.value, sfs[i], undefined, undefined, declared))}`)
     return { ...result, tex: withRows(result.tex, symbolTex(name), rows) }
   }
 
@@ -1238,12 +1068,12 @@ export class Calculator {
     // A function call's precision comes from its expression (the measured numbers in it),
     // or its declared settings.
     const sf = returnSf ?? this.sigFigs.of(expr, literals, false)
-    if (this.autoSigFigs && this.sigFigs.lost) {
+    if (this.display.autoSigFigs && this.sigFigs.lost) {
       warnings.push('This sum or difference is smaller than the precision of the values in it, '
         + 'so it has no significant figures; one is shown.')
     }
     // With a stated uncertainty or declared sig figs, those set the precision, not trailing zeros.
-    if (this.autoSigFigs && !uncNode && ctx.declaredSf === undefined) {
+    if (this.display.autoSigFigs && !uncNode && ctx.declaredSf === undefined) {
       // Unpacking `@tuple(a, b:2) = @tuple(300 m, 90 deg)`: a value whose name declares
       // its sig figs is settled, like a single `b:2 = 90 deg`.
       const rhs = unwrap(expr)
@@ -1318,7 +1148,7 @@ export class Calculator {
     const unc = this.uncertainty.total(contributions, value)
     // A declared `2.0 kg pm 0.1 kg` keeps the uncertainty's sig figs as typed.
     const declaredUncSf = uncNode && !percent && isLiteral(expr) ? this.literalSigFigs(uncNode, literals) : undefined
-    let shownSf = unc !== undefined ? (this.uncertainParts(value, unc, declaredUncSf)?.sf ?? sf) : sf
+    let shownSf = unc !== undefined ? (this.display.uncertainParts(value, unc, declaredUncSf)?.sf ?? sf) : sf
 
     // Declared sig figs (`m:3 = …`) replace the counted ones, and beat the global
     // setting, unless the value has an uncertainty, which sets its precision instead.
@@ -1334,7 +1164,7 @@ export class Calculator {
         shownSf = declaredSf
         // A typed value shows at the declared precision: m:4 = 2 kg → 2.000 kg.
         if (isLiteral(expr) && Number.isFinite(declaredSf) && !explicitNotation) {
-          exprTex = this.valueTex(value, declaredSf, undefined, undefined, true)
+          exprTex = this.display.valueTex(value, declaredSf, undefined, undefined, true)
         }
       }
     }
@@ -1360,18 +1190,18 @@ export class Calculator {
     // shows as typed, not rounded to the fewest.
     const typedTuple = this.isTypedTuple(expr)
     if (typedTuple && isTuple(value) && unc === undefined) {
-      this.typedSfs.set(value, this.componentSigFigs(expr, literals))
+      this.display.typedSfs.set(value, this.componentSigFigs(expr, literals))
     }
     // A typed tuple is shown in the look it's given straight away: F:ijk = <3.0, 4.0> N → F = (3.0 î + 4.0 ĵ) N.
     if (ctx.look && look && typedTuple) {
-      exprTex = this.inNotation(notation, () => this.inLook(look,
-        () => this.valueTex(value, declaredSf ?? shownSf, undefined, undefined, declaredSf !== undefined)))
+      exprTex = this.display.inNotation(notation, () => this.display.inLook(look,
+        () => this.display.valueTex(value, declaredSf ?? shownSf, undefined, undefined, declaredSf !== undefined)))
     }
     // A typed value is shown in the declared notation: x:sci = 12000. m → 1.2000 × 10⁴ m.
     if (explicitNotation && isLiteral(expr) && value !== undefined) {
-      exprTex = this.inNotation(notation, () => (declaredSf !== undefined
-        ? this.valueTex(value, declaredSf, undefined, undefined, true)
-        : this.valueTex(value, shownSf, unc, declaredUncSf)))
+      exprTex = this.display.inNotation(notation, () => (declaredSf !== undefined
+        ? this.display.valueTex(value, declaredSf, undefined, undefined, true)
+        : this.display.valueTex(value, shownSf, unc, declaredUncSf)))
     }
 
     if (assigned) {
@@ -1385,21 +1215,21 @@ export class Calculator {
       })
     }
 
-    const { result, approx } = this.inNotation(notation, () => this.inLook(look, () => {
+    const { result, approx } = this.display.inNotation(notation, () => this.display.inLook(look, () => {
     let result: string | undefined
     if (ctx.asPercent && value !== undefined) {
       // Stored as the fraction (so later lines calculate with it); shown ×100 with a %.
       const pct = multiply(value as Value, PERCENT_SCALE)
       const pctUnc = unc === undefined ? undefined : multiply(unc as Value, PERCENT_SCALE)
-      const tex = this.valueTex(pct, declaredSf ?? sf, pctUnc, undefined, declaredSf !== undefined)
+      const tex = this.display.valueTex(pct, declaredSf ?? sf, pctUnc, undefined, declaredSf !== undefined)
       result = pctUnc === undefined ? `${tex}\\,\\%` : `\\left(${tex}\\right)\\,\\%`
     } else if (!isLiteral(expr) && value !== undefined) {
       result = deltaOf
-        ? this.uncertaintyTex(value, this.scope.get(deltaOf), this.vars.get(deltaOf)?.uncSf)
+        ? this.display.uncertaintyTex(value, this.scope.get(deltaOf), this.vars.get(deltaOf)?.uncSf)
         // A bare variable keeps its declared uncertainty precision: `m` → (2.0 ± 0.1) kg.
         : declaredSf !== undefined
-          ? this.valueTex(value, declaredSf, undefined, undefined, true)
-          : this.valueTex(value, sf, unc, isSymbol(bare) ? this.vars.get(bare.name)?.uncSf : undefined,
+          ? this.display.valueTex(value, declaredSf, undefined, undefined, true)
+          : this.display.valueTex(value, sf, unc, isSymbol(bare) ? this.vars.get(bare.name)?.uncSf : undefined,
             isSymbol(bare) && this.vars.get(bare.name)?.declared === true)
     }
     // ≈ before a rounded result: always with the setting on, otherwise only when
@@ -1407,7 +1237,7 @@ export class Calculator {
     let approx = false
     if (result !== undefined && unc === undefined && !deltaOf && (this.options.approxRounded || !Number.isFinite(sf))) {
       const shownValue = ctx.asPercent ? multiply(value as Value, PERCENT_SCALE) : value
-      approx = this.isRounded(shownValue, declaredSf ?? sf, declaredSf !== undefined)
+      approx = this.display.isRounded(shownValue, declaredSf ?? sf, declaredSf !== undefined)
     }
     return { result, approx }
     }))
@@ -1480,7 +1310,7 @@ export class Calculator {
   private summary(name: string, v: Variable): VariableSummary {
     let tex: string | undefined
     const typeset = () =>
-      `${v.label ?? symbolTex(name)} = ${this.valueTex(v.value, v.sf, this.uncertainty.total(v.contributions, v.value), v.uncSf, v.declared === true)}`
+      `${v.label ?? symbolTex(name)} = ${this.display.valueTex(v.value, v.sf, this.uncertainty.total(v.contributions, v.value), v.uncSf, v.declared === true)}`
     // (Not enumerable, so code that walks a list's properties doesn't typeset them all.)
     return Object.defineProperty({ name, sf: v.sf }, 'tex', { get: () => (tex ??= typeset()), enumerable: false }) as VariableSummary
   }

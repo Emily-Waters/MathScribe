@@ -176,6 +176,11 @@ export class Calculator {
     forget: (name) => this.forget(name),
     seriesRows: (base) => this.aggregates.rows(base),
     setView: (base, names) => this.views.set(base, names),
+    lookedUp: (member) => {
+      let found: string | undefined
+      for (let next = this.views.resolve(member); next; next = this.views.resolve(next)) found = next
+      return found
+    },
     clearViews: (namespace) => this.views.clear(namespace),
     newSource: () => this.nextSource++,
     evaluateLine: (text, mode) => this.evaluateLine(text, mode, false),
@@ -1204,10 +1209,13 @@ export class Calculator {
     const agg = isSymbolNode(bare) ? this.vars.get(bare.name)?.agg : undefined
     if (agg) steps.push(...this.aggregates.working(agg))
 
+    // A module's calls written as the names they come to (`\max(t)` as t_3), as a step of its own, which the values go into.
+    const named = wholeLineTraced ? shown : this.modules.reduce((n, m) => m.namedWorking(n, this.host) ?? n, shown)
+    if (named !== shown) steps.push(this.toTex(named, literals))
     // Substitution and sig figs use the values from before this line runs.
-    const usesVariables = shown.filter((n, path) => this.isValueSymbol(n, path)).length > 0
-    if (usesVariables && !isSymbolNode(bare) && !wholeLineTraced && this.options.showSubstitution) {
-      const substituted = shown.transform((n, path) =>
+    const usesVariables = named.filter((n, path) => this.isValueSymbol(n, path)).length > 0
+    if (usesVariables && !isSymbolNode(unwrap(named)) && !wholeLineTraced && this.options.showSubstitution) {
+      const substituted = named.transform((n, path) =>
         this.isValueSymbol(n, path)
           ? this.variableNode(n.name)
           : n)

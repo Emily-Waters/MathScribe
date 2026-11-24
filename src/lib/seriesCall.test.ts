@@ -177,3 +177,33 @@ describe('a series in square brackets', () => {
     expect(made('t = [1 s, 2 kg + 3 s]').error).toMatch(/^Value 2: /)
   })
 })
+
+describe('the largest and smallest of a series, max(t) and min(t)', () => {
+  const T = 't = [1.52 s, 1.48 s pm 0.01 s, 1.55 s]\n'
+  const shownLast = (source: string) => readable(lines(source).at(-1)!.tex)
+
+  it('is the member it picks, which the working names', () => {
+    expect(shownLast(`${T}w = max(t)`)).toBe('w = \\max(t) = t_3 = 1.55 s')
+    expect(shownLast(`${T}min(t)`)).toBe('\\min(t) = t_2 = (1.48 ± 0.01) s')
+  })
+
+  it('keeps the member’s sig figs and uncertainty, in a formula too', () => {
+    expect(shownLast(`${T}r = max(t) - min(t)`)).toBe('r = \\max(t)- \\min(t) = t_3- t_2 = 1.55 s- 1.48 s = (70 ± 10) ms')
+    expect(value(`${T}w = min(t) * 2`)).toBe('(2.960 ± 0.020) s')
+  })
+
+  it('names the series’ own member, from a slice or a condition', () => {
+    expect(shownLast(`${T}w = max(t[1:2])`)).toMatch(/ = t_1 = 1\.52 s$/)
+    expect(shownLast(`${T}w = min(t[t > 1.5 s])`)).toMatch(/ = t_1 = 1\.52 s$/)
+  })
+
+  it('leaves max and min of values, and the sheet’s own max, as they are', () => {
+    expect(shownLast(`${T}w = max(t[1], t[2])`)).toBe('w = \\max(t_1, t_2) = \\max(1.52 s, 1.48 s) = 1.52 s')
+    expect(value(`${T}max(x) = 2 * x\nw = max(t[1])`)).toBe('3.04 s')
+  })
+
+  it('says why it can’t pick one', () => {
+    expect(lines('x = [1.0 m, 2.0 kg]\nw = max(x)').at(-1)!.error).toBe('x\'s values don\'t all have the same units, so max(x) can\'t compare them.')
+    expect(lines('s = ["a", "b"]\nw = min(s)').at(-1)!.error).toMatch(/so they have to be numbers or quantities/)
+  })
+})

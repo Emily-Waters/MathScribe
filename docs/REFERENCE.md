@@ -451,6 +451,19 @@ t.sum
 t[2]
 ```
 
+max(t) and min(t), given a series on its own, are its largest and smallest values: the member each is, so the working says which, max(t) = t\[3\] = 1.24 s.
+
+- The member keeps its own sig figs and uncertainty. If two values are equal, the first is picked.
+- It works with a slice or a condition too, max(t\[2:4\]), naming the member of t it picks; and in a formula, max(t) - min(t).
+- Given values, max(a, b) and min(a, b) are the largest and smallest of them, as always.
+
+```
+t = [1.21 s, 1.17 s, 1.24 s pm 0.02 s]
+longest = max(t)
+shortest = min(t)
+spread = max(t) - min(t)
+```
+
 @import() opens a file chooser for a CSV file. Its rows go into the sheet under the line, folded away, and each column becomes a series named for it: t, its values t\[1\], t\[2\], …. A unit in a header, t (s), goes with that column.
 
 - The first row names the columns; a unit in brackets, t (s) or t \[s\], goes with every value in it. Values keep their sig figs as typed; commas, tabs or semicolons separate them, and empty cells are skipped.

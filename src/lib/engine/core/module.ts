@@ -65,6 +65,8 @@ export interface ModuleHost {
   seriesRows(base: string): Map<number, string>
   /** Make `base` a series that looks up these variables (a selection; see Views), or forget those under a namespace. */
   setView(base: string, names: (string | undefined)[]): void
+  /** The variable a lookup's member is, through every lookup (a slice's, a condition's): t[2:3]'s second, t__3; undefined if it isn't one. */
+  lookedUp(member: string): string | undefined
   clearViews(namespace: string): void
   /** A new source of uncertainty, uncorrelated with every other. */
   newSource(): number
@@ -493,6 +495,16 @@ export abstract class EngineModule {
    * (Used as written, as mathjs's own would be: a leading space keeps it apart from what's before it, as in a sum.)
    */
   functionTex(_node: FunctionNode, _tex: (n: MathNode) => string, _host: ModuleHost): string | undefined {
+    return undefined
+  }
+
+  /**
+   * A line's expression with this module's calls in it written as the names
+   * they come to, for a step of the working before the values go in: `max(t)`
+   * as t_3, the member it picks (`\max(t) = t_3 = 1.55 s`). The values are then
+   * put into this. Undefined if it has none of them.
+   */
+  namedWorking(_node: MathNode, _host: ModuleHost): MathNode | undefined {
     return undefined
   }
 

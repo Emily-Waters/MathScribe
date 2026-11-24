@@ -643,6 +643,13 @@ exports[`the Reference tab’s examples > Repeated measurements: t = [0.10 s, 0.
 5: n_x_p = 3"
 `;
 
+exports[`the Reference tab’s examples > Repeated measurements: t = [1.21 s, 1.17 s, 1.24 s pm 0.02 s] 1`] = `
+"1: t = (1.21,\\ 1.17,\\ 1.24 ± 0.02) s\\quad \\text3 values
+2: longest = \\max(t) = t_3 = (1.24 ± 0.02) s
+3: shortest = \\min(t) = t_2 = 1.17 s
+4: spread = \\max(t)- \\min(t) = t_3- t_2 = 1.24 s- 1.17 s = (70 ± 20) ms"
+`;
+
 exports[`the Reference tab’s examples > Repeated measurements: t = [1.21 s, 1.17 s, 1.24 s] 1`] = `
 "1: t = (1.21,\\ 1.17,\\ 1.24) s\\quad \\text3 values
 2: t = (1.21,\\ 1.17,\\ 1.24) s\\quad \\text3 values

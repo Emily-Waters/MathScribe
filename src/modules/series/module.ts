@@ -18,10 +18,12 @@ import { PlotForm } from './plot.ts'
 import { SeriesForm, SeriesShownForm, UnpackedSeriesForm } from './series.ts'
 import { TableForm } from './table.ts'
 import { WhereStep } from './where.ts'
+import { ExtremeStep, PICKED_FUNCTIONS, namedPicks, pickedTex } from './extremes.ts'
 import { tableMenu } from './tableMenu.ts'
 import { memberLabelsExtension } from './memberLabels.ts'
 import { SERIES_TOPICS } from './language.ts'
-import type { PlacedTopic } from '../../lib/plugin.ts'
+import { math, type ModuleHost, type PlacedTopic } from '../../lib/plugin.ts'
+import type { FunctionNode, MathNode } from 'mathjs'
 
 /** The series module's kinds of block (one object, as blockKinds asks). */
 const SERIES_BLOCK_KINDS: Readonly<Record<string, ModuleBlockKind>> = {
@@ -39,8 +41,26 @@ export class SeriesModule extends EngineModule {
     return SERIES_TOPICS
   }
 
-  /** The rows of a series where a condition holds, `x[t > 0.2 s]`, read as the series they make (where.ts). */
-  override readonly lineSteps: readonly LineStep[] = [new WhereStep()]
+  /**
+   * The rows of a series where a condition holds, `x[t > 0.2 s]`, read as the series they make (where.ts);
+   * and the largest or smallest of a series' values, `max(t)`, as the member it is (extremes.ts).
+   */
+  override readonly lineSteps: readonly LineStep[] = [new WhereStep(), new ExtremeStep()]
+
+  /** The functions `max(t)` and `min(t)` stand for once they've picked their member (extremes.ts). */
+  override install(): void {
+    math.import(PICKED_FUNCTIONS)
+  }
+
+  /** `max(t)` written as it was typed, though it stands for the member it picked. */
+  override functionTex(node: FunctionNode): string | undefined {
+    return pickedTex(node)
+  }
+
+  /** In the working, `max(t)` is the member it picked, t_3, before its value goes in. */
+  override namedWorking(node: MathNode, host: ModuleHost): MathNode | undefined {
+    return namedPicks(node, host)
+  }
 
   override readonly lineForms: readonly LineForm[] = [new TableForm(), new PlotForm(), new SeriesForm(), new UnpackedSeriesForm(), new SeriesShownForm()]
 

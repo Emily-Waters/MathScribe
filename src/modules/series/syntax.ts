@@ -1,5 +1,5 @@
 /** The series module's syntax: `@table(…)` and `@plot(…)`, each a line of its own. (A series itself is in square brackets: series.ts.) */
-import { builtinOpening, NAMED } from '../../lib/plugin.ts'
+import { builtinFunctionName, builtinOpening, NAMED, words, type WordOf } from '../../lib/plugin.ts'
 
 /** The series module's functions, each written after @: `@table(t, x)`. */
 export const SERIES_CALL = {
@@ -16,6 +16,20 @@ export const TABLE_CALL = new RegExp(String.raw`^${builtinOpening(SERIES_CALL.ta
  */
 export const PLOT_CALL = new RegExp(String.raw`^${NAMED}?${builtinOpening(SERIES_CALL.plot)}(.*)\)$`)
 
+
+/** mathjs's functions that, given a series on its own, `max(t)`, pick one of its members (extremes.ts). */
+export const SERIES_EXTREME = words({ max: 'max', min: 'min' })
+export type SeriesExtreme = WordOf<typeof SERIES_EXTREME>
+
+/**
+ * The function each stands for once it's picked its member, `max(t)` as
+ * builtin__seriesMax(t__3): it gives the member's value, and is written as the
+ * call was typed (a name the sheet can't write, so its own functions never clash).
+ */
+export const PICKED_FUNCTION = {
+  [SERIES_EXTREME.max]: builtinFunctionName('seriesMax'),
+  [SERIES_EXTREME.min]: builtinFunctionName('seriesMin'),
+} as const satisfies Record<SeriesExtreme, string>
 
 /** A series' values spread in place, `[...x, 11 s]`, or the rest of them gathered, `[a, ...rest] = x`. */
 export const SPREAD = '...'

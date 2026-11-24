@@ -10,6 +10,7 @@ import {
   CAPTION_KIND, EngineModule, type Extension, type LineForm, type LineStep, LineFormMember, type Member, type ModuleBlockKind, type ModuleFigureKind, type ModuleGrammar,
 } from '../../lib/plugin.ts'
 import { PLOT_FIGURE } from './plotFigure.ts'
+import { fitMemberTex, fitMessage } from './fitNames.ts'
 import { SERIES_GRAMMAR } from './grammar.ts'
 import { TABLE_PREAMBLE, TableConstruct, usesTables } from './tableBlock.ts'
 import { SERIES_BLOCK, SERIES_FIGURE, type TableData } from './tableData.ts'
@@ -87,6 +88,16 @@ export class SeriesModule extends EngineModule {
   /** A plot, `@plot(…)`, as a figure above its line's equations (plotFigure.ts). */
   override figureKinds(): Readonly<Record<string, ModuleFigureKind>> {
     return SERIES_FIGURE_KINDS
+  }
+
+  /** A named plot's missing p.slope explained: a plot has one only with a fit (fitNames.ts). */
+  override explainMessage(message: string): string | undefined {
+    return fitMessage(message)
+  }
+
+  /** A named plot's R² and χ² as written by hand, p.r2 → R²_p (fitNames.ts). */
+  override memberTex(member: string, ns: string): string | undefined {
+    return fitMemberTex(member, ns)
   }
 
   /** What a document with a table in it needs: tabularx, float and caption. */

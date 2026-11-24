@@ -1,7 +1,7 @@
 /** What evaluating a line gives back, and how its equation is laid out. */
 import { type MathNode } from 'mathjs'
 import { PERCENT, KEYWORD, DISPLAY_MODE, SIGIL, words, type DisplayMode, type Notation, type Precision, type WordOf } from '../../syntax.ts'
-import { FIT, seriesMemberName } from '../../sheet/names.ts'
+import { seriesMemberName } from '../../sheet/names.ts'
 import { FunctionMember, builtinAt } from '../../builtins.ts'
 import type { VariableSummary } from '../../sheet/values.ts'
 import { math } from './math.ts'
@@ -173,18 +173,6 @@ export class ExplainedError extends Error {}
 /** An error nothing expected, as a message for its line. */
 export const unexpectedError = (e: unknown): string =>
   `This couldn't be worked out: ${e instanceof Error ? e.message : String(e)}`
-
-/** A missing p.slope (or intercept, r2, chi2) explained: a plot has one only with a fit. */
-export function fitHint(message: string): string {
-  const m = MISSING_FIT_MEMBER.exec(message)
-  if (!m) return message
-  return m[1] === FIT.chi2
-    ? `${message}: a plot has a χ² only for a weighted fit (fit linear, with an uncertainty on every y value).`
-    : `${message}: a plot has a slope, intercept and R² only with a fit. Add fit linear to it (or choose Fit in its ⚙).`
-}
-
-/** mathjs's message for a named plot's fit member that isn't there (1: which). */
-export const MISSING_FIT_MEMBER = new RegExp(String.raw`^Undefined symbol \S+\.(${Object.values(FIT).join('|')})$`)
 
 /** A series' first and last members as Definitions (just the one, if that's all it has). */
 export const seriesDefinitions = (base: string, count: number): Definition[] => (count > 1

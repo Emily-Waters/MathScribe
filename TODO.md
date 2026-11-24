@@ -298,9 +298,11 @@ tests, or the Create prompt:
            plotView.tsx, plotFigure.ts); plotImage.ts became the generic
            figures.ts; Word's pictures are named Figure n (media/figureN.png).
            Golden tests and the visual check's pages unchanged.
-         - fits: `FIT` (sheet/names.ts), `fitHint` and `MISSING_FIT_MEMBER`
-           (results.ts), R²/χ² in tex.ts, with hooks such as
-           `explainError(message)` and `memberTex(namespace, member)`;
+         - ~~fits~~ (done 2026-11-23): `FIT`, the missing-fit message and
+           R²/χ²'s typesetting are the series module's (syntax.ts,
+           fitNames.ts), through two new hooks, `EngineModule.explainMessage`
+           and `memberTex`. (fitNames.ts still matches mathjs's "Undefined
+           symbol" text: step 2's typed errors replace that.)
          - solved names: `parseSolvedName` / `HIDDEN_PREFIX.solved`
            (sheet/names.ts, tex.ts), behind a hook such as `hiddenNameTex`;
          - series' syntax in the core's messages: the "square brackets make a

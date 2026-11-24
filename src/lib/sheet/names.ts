@@ -270,16 +270,3 @@ export function typedName(name: string): string {
 
 /** Inside names in a message written back as typed: a__x_1 → a.x_1. */
 export const readableMembers = (text: string) => text.replace(new RegExp(String.raw`\b${NAME}`, 'g'), typedName)
-
-// ---------------------------------------------------------------------------
-// A named plot's fit
-// ---------------------------------------------------------------------------
-
-/** What a named plot's fit holds: p.slope, p.intercept, p.r2, p.chi2 (a weighted fit's). */
-export const FIT = {
-  slope: 'slope',
-  intercept: 'intercept',
-  r2: 'r2',
-  chi2: 'chi2',
-} as const
-export type FitMember = (typeof FIT)[keyof typeof FIT]

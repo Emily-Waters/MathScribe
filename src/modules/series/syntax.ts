@@ -16,6 +16,9 @@ export const TABLE_CALL = new RegExp(String.raw`^${builtinOpening(SERIES_CALL.ta
  */
 export const PLOT_CALL = new RegExp(String.raw`^${NAMED}?${builtinOpening(SERIES_CALL.plot)}(.*)\)$`)
 
+/** What a named plot's fit holds: p.slope, p.intercept, p.r2, p.chi2 (a weighted fit's). */
+export const FIT = words({ slope: 'slope', intercept: 'intercept', r2: 'r2', chi2: 'chi2' })
+export type FitMember = WordOf<typeof FIT>
 
 /** mathjs's functions that, given a series on its own, `max(t)`, pick one of its members (extremes.ts). */
 export const SERIES_EXTREME = words({ max: 'max', min: 'min' })

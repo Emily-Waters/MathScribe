@@ -24,13 +24,13 @@ import type { CsvColumn } from '../../data/csv.ts'
 
 import { isTuple, math } from './math.ts'
 import {
-  EngineModule, LINE_STAGE, LINE_STAGES, LineStep, inDependencyOrder, installModule, moduleReadableMessage,
+  EngineModule, LINE_STAGE, LINE_STAGES, LineStep, inDependencyOrder, installModule, moduleExplainedMessage, moduleReadableMessage,
   type DerivedVariable, type LineInProgress, type LineStage, type LookSetting, type ModuleHost, type TupleLook,
 } from './module.ts'
 import { strayLineFormCall } from './builtinCalls.ts'
 import { BUILTIN_CONSTANT_NAMES } from './literals.ts'
 import { formulaSides, preprocess, typedNumbers } from './writer.ts'
-import { AUTO_PRECISION, UNCERTAINTY_WORKING, ExplainedError, builtinCallHint, FIXED_UNCERTAINTY_SIG_FIGS, type CalcOptions, type EquationParts, layoutEquation, type TraceLine, type CalcResult, unexpectedError, fitHint, type DataColumn, type LineNotation, type LineResult, type ParsedLine, TO_PERCENT, RAW, rawNode, readableUnitError, UNDEFINED_SYMBOL } from './results.ts'
+import { AUTO_PRECISION, UNCERTAINTY_WORKING, ExplainedError, builtinCallHint, FIXED_UNCERTAINTY_SIG_FIGS, type CalcOptions, type EquationParts, layoutEquation, type TraceLine, type CalcResult, unexpectedError, type DataColumn, type LineNotation, type LineResult, type ParsedLine, TO_PERCENT, RAW, rawNode, readableUnitError, UNDEFINED_SYMBOL } from './results.ts'
 import { NAME_THEN_SETTINGS, expandParenPm, splitPm } from './uncertainty.ts'
 import { symbolTex, numberTex, unitTex, attachUnit, isUnitCall, unitCallText, isLitCall, CASE_WORDS, caseTex, splitUnit } from './tex.ts'
 import { unwrap, isLiteral, isTupleLiteral, isConversion } from './nodes.ts'
@@ -828,9 +828,10 @@ export class Calculator {
       if (internal) return { tex: '', error: internal }
       const { tex, error, warning, info, trace, figure, block, defines, parts } = this.evaluateLine(this.rewriteLine(input), mode, explicit)
       // Messages name a namespace's members as typed, a.x_1 (not a__x_1), and a module's inside names as the sheet does.
-      // (And one of MathScribe's functions written without its @ is explained, and a series where a value was wanted.)
+      // (And it's explained in a module's terms, if one has something to say: a named plot's missing p.slope; one of
+      // MathScribe's functions written without its @; a series where a value was wanted.)
       const readable = (s: string | undefined) => (s === undefined ? s
-        : builtinCallHint(moduleReadableMessage(this.seriesHint(s.includes(JOIN) ? fitHint(readableMembers(s)) : s))))
+        : builtinCallHint(moduleReadableMessage(this.seriesHint(moduleExplainedMessage(s.includes(JOIN) ? readableMembers(s) : s)))))
       // Brackets by nesting, ( ) inside [ ] inside { }, once each equation is finished.
       return {
         tex: nestBrackets(tex), error: readable(error), warning: readable(warning), info: readable(info), figure, block, defines,

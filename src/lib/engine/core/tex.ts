@@ -3,10 +3,10 @@ import { isConstantNode, isFunctionNode, type FunctionNode, type MathNode } from
 import { AGGREGATE_KIND } from '../../sheet/values.ts'
 import { builtinConstant } from '../../builtins.ts'
 import { GREEK_BY_CHAR, GREEK_BY_NAME, GREEK_CHARS, SERIES_SUFFIXES } from '../../syntax.ts'
-import { FIT, JOIN, parseConstantRefName, parseMemberName, parseNumberedName, parseSeriesStatName, parseSliceName, typedSlice, describedName, parseSolvedName, parseUncertaintyName } from '../../sheet/names.ts'
+import { JOIN, parseConstantRefName, parseMemberName, parseNumberedName, parseSeriesStatName, parseSliceName, typedSlice, describedName, parseSolvedName, parseUncertaintyName } from '../../sheet/names.ts'
 import { FN, UNIT_LOOKS } from '../../maths/mathjsNames.ts'
 import { math } from './math.ts'
-import { isLabelUnit, labelUnitTex, moduleNameSubscriptTex } from './module.ts'
+import { isLabelUnit, labelUnitTex, moduleMemberTex, moduleNameSubscriptTex } from './module.ts'
 
 /** In unitTex: between a unit and the label unit after it (mol EDTA), a space rather than a dot. */
 export const LABEL_GAP = '~'
@@ -88,9 +88,9 @@ export function symbolTex(name: string): string {
   if (member) {
     // (A namespace in a module's notation is drawn as it: a substance's, H2SO4.m, as m with H₂SO₄ below.)
     const ns = moduleNameSubscriptTex(member.namespace, true) ?? namePart(member.namespace)
-    // A named plot's fit: p.r2 → R²_p, p.chi2 → χ²_ν,p.
-    if (member.member === FIT.r2) return `R^{2}_{${ns}}`
-    if (member.member === FIT.chi2) return `\\chi^{2}_{\\nu,${ns}}`
+    // A member a module typesets its own way (a named plot's fit: p.r2 → R²_p).
+    const own = moduleMemberTex(member.member, ns)
+    if (own !== undefined) return own
     // A member's member, H2SO4.H.n: the last part, with the others below it, innermost first (n with H, H₂SO₄).
     const inner = member.member.split(JOIN)
     if (inner.length > 1) {

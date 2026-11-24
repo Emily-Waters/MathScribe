@@ -13,7 +13,7 @@
  */
 import type { Unit } from 'mathjs'
 import {
-  type Definition, EXACT, FIT, type FormLine, IS_NAME, JOIN, LineForm, type LineResult,
+  type Definition, EXACT, type FormLine, IS_NAME, JOIN, LineForm, type LineResult,
   magnitudeOf, math, memberName, type ModuleHost, normalise, parseMemberName,
   parseSliceName, RESERVED_NAMESPACES, whereOf, seriesDefinitions, splitArgs, SUBSCRIPT, symbolTex,
 } from '../../lib/plugin.ts'
@@ -22,7 +22,7 @@ import { SERIES_FIGURE } from './tableData.ts'
 import { splitCallArgs } from './tableSettings.ts'
 import { PLOT_FIT, parsePlotSettings } from './plotSettings.ts'
 import { rowErrors, seriesColumns, type SeriesColumn } from './columns.ts'
-import { PLOT_CALL } from './syntax.ts'
+import { FIT, PLOT_CALL } from './syntax.ts'
 
 /** The digits a fit's R² is shown to, and its reduced χ²'s sig figs. */
 const FIT_DIGITS = { r2: 4, chi2: 2 } as const

@@ -433,6 +433,24 @@ export abstract class EngineModule {
     return message
   }
 
+  /**
+   * A line's message (its names as the sheet wrote them already) explained in
+   * this module's terms, if it has something to say: a named plot's missing
+   * `p.slope`, which a plot has only with a fit. Undefined leaves it to the next.
+   */
+  explainMessage(_message: string): string | undefined {
+    return undefined
+  }
+
+  /**
+   * A namespace's member as this module typesets it, given the namespace as
+   * TeX (`ns`): a named plot's fit, `p.r2` → R²_p. Undefined leaves it as any
+   * member is typeset (x_{a}).
+   */
+  memberTex(_member: string, _ns: string): string | undefined {
+    return undefined
+  }
+
   // -------------------------------------------------------------------------
   // Blocks of its own, and the editor
   // -------------------------------------------------------------------------
@@ -709,6 +727,14 @@ export const moduleLanguageTopics = (): PlacedTopic[] => shared().flatMap((m) =>
 
 
 export const moduleReadableMessage = (message: string) => shared().reduce((s, m) => m.readableMessage(s), message)
+
+/** A message as the first module with something to say explains it (EngineModule.explainMessage), or as it is. */
+export const moduleExplainedMessage = (message: string) =>
+  shared().map((m) => m.explainMessage(message)).find((s) => s !== undefined) ?? message
+
+/** A namespace's member as a module typesets it (EngineModule.memberTex), if one does. */
+export const moduleMemberTex = (member: string, ns: string) =>
+  shared().map((m) => m.memberTex(member, ns)).find((tex) => tex !== undefined)
 
 export const unitMismatchNotes = () => shared().map((m) => m.unitMismatchNote).filter((n) => n !== undefined)
 

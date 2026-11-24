@@ -5,7 +5,7 @@
  */
 import { MEMBER_DOT, MEMBER_INDEX, TERM_KIND, settingsTopic, type PlacedTopic, type SeriesSuffix } from '../../lib/plugin.ts'
 
-/** A series' statistics, as members of it: `t.avg`. (`t.mean` works too, but `.avg` is the one suggested.) */
+/** A series' statistics, as members of it: `t.avg`. */
 const SERIES_STAT = { sum: 'sum', avg: 'avg', count: 'count', std: 'std', sem: 'sem' } as const satisfies Record<string, SeriesSuffix>
 
 /** A statistic's term, as it follows the series' name: `.avg`. */

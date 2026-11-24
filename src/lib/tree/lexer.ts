@@ -451,8 +451,6 @@ const STRING_AT = /"(?:[^"\\]|\\.)*"/
 const QUOTE = '"'
 /** Words with a meaning of their own: mathjs's named delimiters, MathScribe's keywords, and `delta F`. */
 const KEYWORDS: ReadonlySet<string> = new Set<string>([...MATHJS_NAMED_DELIMITERS, ...KEYWORD.words, ...UNCERTAINTY_WORDS])
-/** `±` or `+-`: an uncertainty (as `pm`). */
-const PLUS_MINUS = ['±', '+-'] as const
 /** A word ends here (no more name characters after it). */
 const WORD_END = new RegExp(String.raw`(?!${NAME_CHAR})`, 'y')
 
@@ -488,13 +486,6 @@ const CORE_RULES: LexRule[] = [
       const m = NUMBER.exec(state.text)
       if (!m) return undefined
       return withUnit(token(TOKEN_KIND.number, m[0]), m[0].length, pos, state)
-    },
-  },
-  {
-    describes: '± or +-: an uncertainty, as pm',
-    read: (pos, { text }) => {
-      const s = PLUS_MINUS.find((p) => text.startsWith(p, pos))
-      return s ? one(token(TOKEN_KIND.keyword, s), s.length) : undefined
     },
   },
   {

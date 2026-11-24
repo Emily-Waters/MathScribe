@@ -256,11 +256,14 @@ tests, or the Create prompt:
       variable or metres by where it is; `delta E` and `ΔE` aren't the same.
       Look at saying so plainly when a sheet shadows or trips over one, rather
       than quietly reading it one way.
-- [ ] `[low]` **One canonical spelling for each thing.** `pm` and `±` both
-      write an uncertainty (also `+-` is sometimes written, which isn't read);
-      an import's uncertainty columns can be named several ways. Pick one form
-      to use in every example, the Reference and the Create prompt, so the
-      sheets people and AI write stay alike (the others still read).
+- [ ] `[low]` **An import's uncertainty columns, named one way.** `csv.ts`
+      reads `dx`, `δx`, `σx`, `delta_x`, `sigma_x`, `x_unc` and `x_err` as x's
+      uncertainties. A CSV's headers often come from elsewhere (a logger, a
+      spreadsheet), so decide whether to keep one name or treat the headers
+      as outside data and read them all.
+- [ ] `[low]` **`2.0 +- 0.1` is quietly `2.0 + (-0.1)`.** With `pm` the only
+      way to write an uncertainty, `+-` is now read as mathjs reads it. It
+      goes with "Clear errors for names that are taken" above.
 
 ## 8. Architecture and polish
 

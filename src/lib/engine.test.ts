@@ -210,7 +210,7 @@ describe('to percent', () => {
   })
 
   it('scales an uncertainty too', () => {
-    expect(value('g = (0.120 ± 0.005) to percent')).toBe('(12.0 ± 0.5) %')
+    expect(value('g = (0.120 pm 0.005) to percent')).toBe('(12.0 ± 0.5) %')
   })
 })
 

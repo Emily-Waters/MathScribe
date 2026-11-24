@@ -56,9 +56,10 @@ describe('the expression lexer', () => {
     )
   })
 
-  it('reads keywords, strings, ± and what it doesn’t know', () => {
+  it('reads keywords, strings and what it doesn’t know (± is shown, never written: pm)', () => {
     expect(lexed('a mod b')).toBe(`${TOKEN_KIND.symbol}:a ${TOKEN_KIND.keyword}:mod ${TOKEN_KIND.symbol}:b`)
-    expect(lexed('x ± 1')).toBe(`${TOKEN_KIND.symbol}:x ${TOKEN_KIND.keyword}:± ${TOKEN_KIND.number}:1`)
+    expect(lexed('x pm 1')).toBe(`${TOKEN_KIND.symbol}:x ${TOKEN_KIND.keyword}:pm ${TOKEN_KIND.number}:1`)
+    expect(lexed('x ± 1')).toBe(`${TOKEN_KIND.symbol}:x ${TOKEN_KIND.unknown}:± ${TOKEN_KIND.number}:1`)
     expect(lexed('"hi there"')).toBe(`${TOKEN_KIND.string}:"hi there"`)
     expect(lexed('x $ y')).toBe(`${TOKEN_KIND.symbol}:x ${TOKEN_KIND.unknown}:$ ${TOKEN_KIND.symbol}:y`)
   })

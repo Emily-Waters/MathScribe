@@ -45,8 +45,8 @@ describe('what the language has, each in the tree (so nothing’s left undescrib
     expect(names(TERM_KIND.setting)).toEqual(expect.arrayContaining([EXACT_SETTING, ...NOTATION.words, PERCENT]))
   })
 
-  it('every statistic of a series is a term (`.mean` aside: `.avg` is the one suggested), and the series and its members', () => {
-    const suffixes = Object.keys(SERIES_SUFFIXES).filter((s) => s !== 'mean').map((s) => `${MEMBER_DOT}${s}`)
+  it('every statistic of a series is a term, and the series and its members', () => {
+    const suffixes = Object.keys(SERIES_SUFFIXES).map((s) => `${MEMBER_DOT}${s}`)
     expect(names(TERM_KIND.seriesName)).toEqual(expect.arrayContaining(['', `${MEMBER_INDEX.open}1${MEMBER_INDEX.close}`, ...suffixes]))
   })
 

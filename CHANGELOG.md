@@ -978,6 +978,30 @@ active task list stays lean while preserving the full paper trail.
 
 ## Sheet schema, structure, and language tree
 
+- [x] `[low]` **`t.mean` beside `t.avg`.** `SERIES_SUFFIXES`
+  (`src/lib/syntax/settings.ts`) reads both as a series' mean; the
+  Reference shows only `.avg`. Keep one (one way to write each thing).
+  Resolved (2026-11-23, Emily: "yes"): `.avg` is the only spelling;
+  `mean` is gone from `SERIES_SUFFIXES`, so `t.mean` is no longer a
+  statistic. The language tree test no longer sets `.mean` aside. Golden
+  tests unchanged (no sheet used `.mean`).
+
+- [x] `[low]` **One canonical spelling for each thing.** `pm` and `±` both
+  write an uncertainty (also `+-` is sometimes written, which isn't read);
+  an import's uncertainty columns can be named several ways. Pick one form
+  to use in every example, the Reference and the Create prompt, so the
+  sheets people and AI write stay alike (the others still read).
+  Resolved (2026-11-23, Emily: "use only pm for declaring uncertainty";
+  stick to single canonical ways of writing things as a principle): `pm`
+  is the only way to write an uncertainty; `±` is how one is shown. The
+  lexer's `±`/`+-` rule is gone (`±` is now an unknown token), and
+  `PAREN_PM` and `splitPm` read only `pm`. The Reference's Uncertainty
+  entry no longer offers the others. The others stop being read rather
+  than still reading, per the principle now in CLAUDE.md ("One way to
+  write each thing"). Golden tests unchanged. The remaining duplicate
+  spellings found (`.mean` beside `.avg`, the import's uncertainty column
+  names, `+-` now quietly read as `+ -`) are their own to-dos in section 7.
+
 - [x] `[medium]` **One way to write a comment, and `#` only for headings.** `#`
   is now a heading on a line of its own, a note after a calculation
   (`  # weight`) and a display command (`#sym`, `#val`, `#hide`,

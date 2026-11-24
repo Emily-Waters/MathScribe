@@ -472,9 +472,9 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
     title: 'Uncertainty',
     entries: [
       {
-        explain: 'pm (or ±) gives a value an uncertainty.',
+        explain: 'pm gives a value an uncertainty; it is shown as ±.',
         terms: [
-          { kind: TERM_KIND.keyword, name: KEYWORD.pm, summary: 'An uncertainty: 2.0 kg pm 0.1 kg (also ± or +-)' },
+          { kind: TERM_KIND.keyword, name: KEYWORD.pm, summary: 'An uncertainty: 2.0 kg pm 0.1 kg' },
         ],
         rules: [
           'Write pm only where a value is defined, never inside a function\'s brackets: it propagates by itself.',

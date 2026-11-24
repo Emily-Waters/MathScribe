@@ -381,11 +381,11 @@ c = cos(theta)
 
 ## Uncertainty
 
-pm (or ±) gives a value an uncertainty.
+pm gives a value an uncertainty; it is shown as ±.
 
 | Written | Does |
 | --- | --- |
-| `pm` | An uncertainty: 2.0 kg pm 0.1 kg (also ± or +-) |
+| `pm` | An uncertainty: 2.0 kg pm 0.1 kg |
 
 - Write pm only where a value is defined, never inside a function's brackets: it propagates by itself.
 - (2.0 pm 0.1) kg brackets it; 3.50 m pm 0.05 takes the value's unit. A value without pm has none.

@@ -68,7 +68,6 @@ export type UncertaintyWord = typeof UNCERTAINTY_WORDS[number]
 export const SERIES_SUFFIXES = {
   sum: 'sum',
   avg: 'mean',
-  mean: 'mean',
   std: 'std',
   sem: 'sem',
   count: 'count',

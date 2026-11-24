@@ -1,7 +1,7 @@
 /**
  * Uncertainty syntax:
  *
- *   m = 2.0 kg pm 0.1 kg     (also ± or +-)
+ *   m = 2.0 kg pm 0.1 kg     (pm only: ± is how a result is shown, not written)
  *   m = (2.0 pm 0.1) kg
  *   m = 2.0 kg pm 0.1        uncertainty takes the value's unit
  *   m = 2.0 kg pm 5%         relative uncertainty
@@ -20,7 +20,7 @@ export const NAME_THEN_SETTINGS = new RegExp(String.raw`^(${NAME})((?::[^:\s]+)+
 export const DELTA_REF = new RegExp(String.raw`\b(${UNCERTAINTY_WORDS.join('|')})\s+(${NAME})`, 'g')
 
 /** `(2.0 pm 0.1)`: a bracketed value with its uncertainty (1: value, 2: uncertainty, 3: `%` if relative). */
-export const PAREN_PM = new RegExp(String.raw`\(\s*([-+]?[\d.]+(?:[eE][+-]?\d+)?)\s*(?:${KEYWORD.pm}\b|±|\+-)\s*([\d.]+(?:[eE][+-]?\d+)?)(%?)\s*\)`, 'g')
+export const PAREN_PM = new RegExp(String.raw`\(\s*([-+]?[\d.]+(?:[eE][+-]?\d+)?)\s*${KEYWORD.pm}\b\s*([\d.]+(?:[eE][+-]?\d+)?)(%?)\s*\)`, 'g')
 
 /** `(2.0 pm 0.1) kg` → `2.0 kg pm 0.1 kg` (the unit as typed, with what's part of it: `mol {EDTA}`). */
 export function expandParenPm(src: string): string {
@@ -36,7 +36,7 @@ export function expandParenPm(src: string): string {
   return out + src.slice(last)
 }
 
-/** Split `value pm uncertainty` at a top-level pm / ± / +-. */
+/** Split `value pm uncertainty` at a top-level pm. */
 export function splitPm(src: string): [string, string] | null {
   let depth = 0
   for (let i = 0; i < src.length; i++) {
@@ -44,11 +44,9 @@ export function splitPm(src: string): [string, string] | null {
     if (c === '(' || c === '[') depth++
     else if (c === ')' || c === ']') depth--
     if (depth !== 0) continue
-    let len = 0
-    if (c === '±') len = 1
-    else if (c === '+' && src[i + 1] === '-') len = 2
-    else if (c === 'p' && PM_WORD.test(src.slice(i)) && (i === 0 || !NAME_CHAR_RE.test(src[i - 1]))) len = 2
-    if (len) return [src.slice(0, i).trim(), src.slice(i + len).trim()]
+    if (PM_WORD.test(src.slice(i)) && (i === 0 || !NAME_CHAR_RE.test(src[i - 1]))) {
+      return [src.slice(0, i).trim(), src.slice(i + KEYWORD.pm.length).trim()]
+    }
   }
   return null
 }

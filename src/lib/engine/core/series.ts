@@ -8,7 +8,7 @@ import { parseSeriesStatName } from '../../sheet/names.ts'
 //
 // Given a series a (a[1], a[2], a[3], as a__1, a__2, a__3):
 //   a.sum     sum of the series
-//   a.avg     mean (also a.mean), ± the standard error σ/√n
+//   a.avg     mean, ± the standard error σ/√n
 //   a.std     sample standard deviation σ (n − 1)
 //   a.sem     standard error of the mean, σ/√n
 //   a.count   number of values

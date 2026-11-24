@@ -3,16 +3,18 @@
  * its R² and χ² typeset as they're written by hand, and a missing `p.slope`
  * explained (the series module's EngineModule.memberTex and explainMessage).
  */
+import { MATHS_ERROR, mathsError } from '../../lib/plugin.ts'
 import { FIT } from './syntax.ts'
 
-/** mathjs's message for a named plot's fit member that isn't there (1: which). */
-const MISSING_FIT_MEMBER = new RegExp(String.raw`^Undefined symbol \S+\.(${FIT.alternation})$`)
+/** A named plot's fit member, as a message names it once its names are as typed: p.slope (1: which). */
+const FIT_MEMBER = new RegExp(String.raw`^\S+\.(${FIT.alternation})$`)
 
 /** A missing p.slope (or intercept, r2, chi2) explained: a plot has one only with a fit. */
 export function fitMessage(message: string): string | undefined {
-  const m = MISSING_FIT_MEMBER.exec(message)
-  if (!m) return undefined
-  return m[1] === FIT.chi2
+  const error = mathsError(message)
+  const member = error.kind === MATHS_ERROR.undefinedName ? FIT_MEMBER.exec(error.name)?.[1] : undefined
+  if (!member) return undefined
+  return member === FIT.chi2
     ? `${message}: a plot has a χ² only for a weighted fit (fit linear, with an uncertainty on every y value).`
     : `${message}: a plot has a slope, intercept and R² only with a fit. Add fit linear to it (or choose Fit in its ⚙).`
 }

@@ -17,6 +17,7 @@ import {
   type FunctionNode, type MathNode, type MathType, type Matrix, type OperatorNode, type ParenthesisNode,
   type SymbolNode, type Unit,
 } from 'mathjs'
+import { words } from '../../syntax/patterns.ts'
 
 /** The library's instance: the one every sheet works with, so units and functions added to it work everywhere. */
 export const math = create(all)
@@ -151,6 +152,57 @@ export const UNIT_LOOKS: Readonly<Record<string, { tex: string; text: string }>>
   ohm: { tex: '\\Omega', text: 'Ω' },
   angstrom: { tex: '\\text{\\AA}', text: 'Å' },
   angstroms: { tex: '\\text{\\AA}', text: 'Å' },
+}
+
+// ---------------------------------------------------------------------------
+// What went wrong, as MathScribe reads it
+// ---------------------------------------------------------------------------
+
+/** Each kind of problem the library reports that MathScribe says something of its own about. */
+export const MATHS_ERROR = words({
+  /** A name there's nothing of: `x` with no value. */
+  undefinedName: 'undefinedName',
+  /** A call to a function there's none of: `table(t)`. */
+  undefinedFunction: 'undefinedFunction',
+  /** Values in different units added, subtracted or compared (or one with a unit and one without). */
+  unitsDiffer: 'unitsDiffer',
+  /** A value converted to a unit of another kind: `2 m to s` (`to`: the unit asked for; `from`: the value's, '' for none). */
+  cannotConvert: 'cannotConvert',
+  /** Anything else: its message, as the library says it. */
+  other: 'other',
+})
+
+/** A problem the library reported, by kind, with what MathScribe needs to say of it. */
+export type MathsError =
+  | { readonly kind: typeof MATHS_ERROR.undefinedName; readonly name: string }
+  | { readonly kind: typeof MATHS_ERROR.undefinedFunction; readonly name: string }
+  | { readonly kind: typeof MATHS_ERROR.unitsDiffer }
+  | { readonly kind: typeof MATHS_ERROR.cannotConvert; readonly to: string; readonly from: string }
+  | { readonly kind: typeof MATHS_ERROR.other; readonly message: string }
+
+/** mathjs's wording of each (its messages are the only way it says which). */
+const MATHJS_SAYS = {
+  undefinedName: /^Undefined symbol (\S+)$/,
+  undefinedFunction: /^Undefined function (\S+)$/,
+  unitsDiffer: /^Units do not match$/,
+  cannotConvert: /^Units do not match \('(.+)' != '[-+\d.e]+\s*(.*)'\)$/,
+} as const
+
+/**
+ * A problem the library reported, by its kind: from the error it threw, or a
+ * message that is (or was) its message as it stands, whose names MathScribe may
+ * have written as the sheet does already (`Undefined symbol p.slope`).
+ */
+export function mathsError(problem: unknown): MathsError {
+  const message = problem instanceof Error ? problem.message : String(problem)
+  const name = MATHJS_SAYS.undefinedName.exec(message)?.[1]
+  if (name !== undefined) return { kind: MATHS_ERROR.undefinedName, name }
+  const fn = MATHJS_SAYS.undefinedFunction.exec(message)?.[1]
+  if (fn !== undefined) return { kind: MATHS_ERROR.undefinedFunction, name: fn }
+  if (MATHJS_SAYS.unitsDiffer.test(message)) return { kind: MATHS_ERROR.unitsDiffer }
+  const conversion = MATHJS_SAYS.cannotConvert.exec(message)
+  if (conversion) return { kind: MATHS_ERROR.cannotConvert, to: conversion[1], from: conversion[2] }
+  return { kind: MATHS_ERROR.other, message }
 }
 
 /** Whether an expression is one of these operators: `isOp(n, OP.add, OP.subtract)`. */

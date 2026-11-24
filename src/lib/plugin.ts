@@ -75,7 +75,7 @@ export type { Contributions } from './sheet/values.ts'
 
 // Working lines out: mathjs, values, results, and writing them.
 export { isTuple, math } from './engine/core/math.ts'
-export { BASE_DIMENSION, FN, OP, OP_SYMBOL, UNIT, UNIT_LOOKS } from './maths/library/index.ts'
+export { BASE_DIMENSION, FN, MATHS_ERROR, OP, OP_SYMBOL, UNIT, UNIT_LOOKS, mathsError, type MathsError } from './maths/library/index.ts'
 export { EXACT } from './maths/sigfigs.ts'
 export { POLYNOMIAL_KIND, Solver, contains, countOccurrences, matchingParen, splitArgs, splitEquation } from './maths/solve.ts'
 export { isRealValue, magnitudeOf, normalise, sameValue, withMagnitude } from './engine/core/normalise.ts'

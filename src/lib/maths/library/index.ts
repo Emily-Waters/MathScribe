@@ -11,4 +11,5 @@ export {
   isAssign, isCall, isComparisonChain, isConditional, isConstant, isFunctionAssign, isOp, isOperator, isParen, isQuantity,
   isSymbol, isValueMatrix,
   BASE_DIMENSION, COMPARISONS, FN, LIBRARY_IN, MATH_CONSTANT, OP, OP_SYMBOL, UNIT, UNIT_LOOKS, type Op,
+  MATHS_ERROR, mathsError, type MathsError,
 } from './mathjs.ts'

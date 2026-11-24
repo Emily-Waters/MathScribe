@@ -325,7 +325,14 @@ tests, or the Create prompt:
          interface); quantities only through functions (`magnitude(q, 'm')`,
          not `q.toNumber('m')`); sub-steps (1) the folder, instance, names,
          types and guards, with the boundary rule and a shrinking list of
-         files still using mathjs, ~~done 2026-11-23~~; (2) typed errors;
+         files still using mathjs, ~~done 2026-11-23~~; (2) typed errors,
+         ~~done 2026-11-23~~ (`mathsError(problem)`: a `MathsError` by kind,
+         undefinedName, undefinedFunction, unitsDiffer, cannotConvert or other;
+         the adapter alone knows mathjs's wording, and library.test.ts runs
+         mathjs so a reworded message fails there. It reads a thrown error or a
+         message, since most errors are text by the time they're explained;
+         once evaluating goes through the interface, in (4), the adapter can
+         throw them typed);
          (3) values; (4) expressions and the writer's `source.*`; (5) algebra;
          (6) the module API and the modules.
          **Maths library behind one interface**: a folder (e.g.

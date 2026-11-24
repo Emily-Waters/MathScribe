@@ -17,7 +17,7 @@ import { SigFigs } from './sigFigs.ts'
 import { Propagation } from './propagation.ts'
 import { SeriesAggregates, seriesInMaths } from './aggregates.ts'
 import { SheetFunctions } from './sheetFunctions.ts'
-import { FN, OP, OP_SYMBOL, UNIT, isOp } from '../../maths/library/index.ts'
+import { FN, MATHS_ERROR, OP, OP_SYMBOL, UNIT, isOp, mathsError } from '../../maths/library/index.ts'
 
 import { nestBrackets } from '../../maths/brackets.ts'
 import type { CsvColumn } from '../../data/csv.ts'
@@ -30,7 +30,7 @@ import {
 import { strayLineFormCall } from './builtinCalls.ts'
 import { BUILTIN_CONSTANT_NAMES } from './literals.ts'
 import { formulaSides, preprocess, typedNumbers } from './writer.ts'
-import { AUTO_PRECISION, UNCERTAINTY_WORKING, ExplainedError, builtinCallHint, FIXED_UNCERTAINTY_SIG_FIGS, type CalcOptions, type EquationParts, layoutEquation, type TraceLine, type CalcResult, unexpectedError, type DataColumn, type LineNotation, type LineResult, type ParsedLine, TO_PERCENT, RAW, rawNode, readableUnitError, UNDEFINED_SYMBOL } from './results.ts'
+import { AUTO_PRECISION, UNCERTAINTY_WORKING, ExplainedError, builtinCallHint, FIXED_UNCERTAINTY_SIG_FIGS, type CalcOptions, type EquationParts, layoutEquation, type TraceLine, type CalcResult, unexpectedError, type DataColumn, type LineNotation, type LineResult, type ParsedLine, TO_PERCENT, RAW, rawNode, readableUnitError } from './results.ts'
 import { NAME_THEN_SETTINGS, expandParenPm, splitPm } from './uncertainty.ts'
 import { symbolTex, numberTex, unitTex, attachUnit, isUnitCall, unitCallText, isLitCall, CASE_WORDS, caseTex, splitUnit } from './tex.ts'
 import { unwrap, isLiteral, isTupleLiteral, isConversion } from './nodes.ts'
@@ -812,8 +812,9 @@ export class Calculator {
    */
   /** mathjs's message for a name that's a series, not a value (`2 * t`), explained: what to write instead (seriesInMaths). */
   private seriesHint(message: string): string {
-    const typed = UNDEFINED_SYMBOL.exec(message)?.[1]
-    if (!typed) return message
+    const error = mathsError(message)
+    if (error.kind !== MATHS_ERROR.undefinedName) return message
+    const typed = error.name
     const count = this.aggregates.members(expandDots(typed)).length
     return count ? seriesInMaths(expandDots(typed), count) : message
   }
@@ -1295,7 +1296,7 @@ export class Calculator {
     } catch (e) {
       const message = e instanceof RangeError
         ? 'A function here calls itself without end, so it never finishes.'
-        : readableUnitError((e as Error).message)
+        : readableUnitError(e)
       return { tex: layoutEquation(DISPLAY_MODE.full, parts(), multiline), error: message, warning, trace, info: ctx.info }
     }
     if (ctx.asPercent && math.isUnit(value)) {

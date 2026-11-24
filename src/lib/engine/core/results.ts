@@ -5,6 +5,7 @@ import { seriesMemberName } from '../../sheet/names.ts'
 import { FunctionMember, builtinAt } from '../../builtins.ts'
 import type { VariableSummary } from '../../sheet/values.ts'
 import { math } from './math.ts'
+import { MATHS_ERROR, mathsError } from '../../maths/library/index.ts'
 import { moduleReadableMessage, unitMismatchNotes, type LookSetting } from './module.ts'
 
 /**
@@ -151,20 +152,14 @@ export interface Definition {
   members?: number
 }
 
-/** mathjs's message for a name there's nothing of (1: the name, as typed). */
-export const UNDEFINED_SYMBOL = /^Undefined symbol (\S+)$/
-
-/** mathjs's message for a call to a function there's none of (1: its name). */
-const UNDEFINED_FUNCTION = /^Undefined function (\S+)$/
-
 /**
  * A call to a function there's none of, explained when it's one of MathScribe's
  * written without its @: `table(t, x)` → write @table(t, x).
  */
 export function builtinCallHint(message: string): string {
-  const name = UNDEFINED_FUNCTION.exec(message)?.[1]
-  if (!name || !(builtinAt([name]) instanceof FunctionMember)) return message
-  return `There's no function ${name}: MathScribe's is written with an @, as ${SIGIL}${name}(…).`
+  const error = mathsError(message)
+  if (error.kind !== MATHS_ERROR.undefinedFunction || !(builtinAt([error.name]) instanceof FunctionMember)) return message
+  return `There's no function ${error.name}: MathScribe's is written with an @, as ${SIGIL}${error.name}(…).`
 }
 
 /** A problem with a line, explained as it should be shown (not an unexpected error's message). */
@@ -252,18 +247,17 @@ export const rawNode = (tex: string) => new math.SymbolNode(RAW + tex)
 export const STEP = 1e-4
 
 /**
- * mathjs's unit errors, said plainly. "Units do not match ('J' != '3454.93
- * (kg m^2) / (s^4 A)')" comes from converting with `to`: it becomes "This is
- * in (kg m^2) / (s^4 A), which can't be converted to J." On its own, it comes
- * from adding or comparing values in different units.
+ * The library's unit errors, said plainly: a value converted with `to` to a
+ * unit of another kind ("This is in (kg m^2) / (s^4 A), which can't be
+ * converted to J."), or values in different units added or compared.
  */
-export function readableUnitError(message: string): string {
-  const conversion = /^Units do not match \('(.+)' != '[-+\d.e]+\s*(.*)'\)$/.exec(message)
-  if (conversion) {
-    return `This is in ${conversion[2] || 'no unit'}, which can't be converted to ${conversion[1]}. Check the units of the values it uses.`
+export function readableUnitError(problem: unknown): string {
+  const error = mathsError(problem)
+  if (error.kind === MATHS_ERROR.cannotConvert) {
+    return `This is in ${error.from || 'no unit'}, which can't be converted to ${error.to}. Check the units of the values it uses.`
   }
-  if (message === 'Units do not match') {
+  if (error.kind === MATHS_ERROR.unitsDiffer) {
     return ['The units don\'t match: values in different units (or one with a unit and one without) can\'t be added, subtracted or compared.', ...unitMismatchNotes()].join(' ')
   }
-  return moduleReadableMessage(message)
+  return moduleReadableMessage(problem instanceof Error ? problem.message : String(problem))
 }

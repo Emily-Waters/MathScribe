@@ -5,7 +5,8 @@
  * expression. (Showing a call's working runs the Calculator's line evaluator
  * again, inside the function, so that stays in the Calculator: traceCall.)
  */
-import { isFunctionNode, type EvalFunction, type FunctionNode, type MathNode, type MathType } from 'mathjs'
+import { isFunctionNode, type EvalFunction, type FunctionNode, type MathNode } from 'mathjs'
+import { multiply, type Value } from '../../maths/library/index.ts'
 import { math } from './math.ts'
 import { parameterDeltas } from './propagation.ts'
 import { argumentUncertaintyName } from '../../sheet/names.ts'
@@ -175,7 +176,7 @@ export class SheetFunctions {
       params.forEach((p, i) => local.set(p, castArgument(p, casts[i], args[i])))
       deltas.forEach((d, k) => local.set(d.hidden, withUncertainties
         ? given[params.length + k]
-        : math.multiply(args[d.param] as MathType, 0)))
+        : multiply(args[d.param] as Value, 0)))
       const v = code.evaluate(local)
       return returnUnit ? toDisplayUnit(v, returnUnit) : v
     }

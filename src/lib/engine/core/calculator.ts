@@ -3,7 +3,7 @@
  * shared scope so variables defined on one line are usable on later lines,
  * and produces LaTeX for each line (symbolic = substituted = result).
  */
-import { isAssignmentNode, isConditionalNode, isConstantNode, isFunctionAssignmentNode, isFunctionNode, isOperatorNode, isSymbolNode, type FunctionNode, type MathNode, type MathType, type SymbolNode, type Unit } from 'mathjs'
+import { isAssignmentNode, isConditionalNode, isConstantNode, isFunctionAssignmentNode, isFunctionNode, isOperatorNode, isSymbolNode, type FunctionNode, type MathNode, type SymbolNode } from 'mathjs'
 import { EXACT, MAX_DIGITS, countSigFigs, formatExact, formatSigFigs, formatWithUncertainty } from '../../maths/sigfigs.ts'
 import { AGGREGATE_KIND, Variable, type Contributions, type VariableFields, type VariableSummary } from '../../sheet/values.ts'
 import { BUILTINS, isReservedConstantName } from '../../builtins.ts'
@@ -17,7 +17,10 @@ import { SigFigs } from './sigFigs.ts'
 import { Propagation } from './propagation.ts'
 import { SeriesAggregates, seriesInMaths } from './aggregates.ts'
 import { SheetFunctions } from './sheetFunctions.ts'
-import { FN, MATHS_ERROR, OP, OP_SYMBOL, UNIT, isOp, mathsError } from '../../maths/library/index.ts'
+import {
+  FN, MATHS_ERROR, OP, OP_SYMBOL, UNIT, abs, fixPrefix, formatValue, isOp, isQuantity, isValueMatrix, magnitude, mapValues, mathsError,
+  multiply, quantity, sameDimension, unitText, valuesOf, withFixedPrefix, type Quantity, type Value, type ValueMatrix,
+} from '../../maths/library/index.ts'
 
 import { nestBrackets } from '../../maths/brackets.ts'
 import type { CsvColumn } from '../../data/csv.ts'
@@ -231,12 +234,7 @@ export class Calculator {
   /** Evaluate `node`; a value typed with a unit (`1.00e-10 m`) keeps that unit for display. */
   private typedValue(node: MathNode): unknown {
     const v = node.compile().evaluate(this.scope) as unknown
-    if (isLiteral(node) && math.isUnit(v)) {
-      const u = (v as Unit).clone()
-      u.fixPrefix = true
-      return u
-    }
-    return v
+    return isLiteral(node) && isQuantity(v) ? withFixedPrefix(v) : v
   }
 
   /** Whether showing `value` at `sf` sig figs drops digits (ignoring floating-point noise). */
@@ -254,7 +252,7 @@ export class Calculator {
   private formatNumber(x: number, sf: number, forced = false): string {
     if ((this.autoSigFigs || forced) && Number.isFinite(sf)) return formatSigFigs(x, sf, this.notation)
     if (this.notation) return formatExact(x, this.format.precision, this.notation)
-    return math.format(x, this.format)
+    return formatValue(x, this.format)
   }
 
   /** Run `fn` with numbers formatted in `notation` (undefined: the default). */
@@ -365,9 +363,9 @@ export class Calculator {
   /** Split a value into its number (in display units), formatted number, and unit. */
   private split(value: unknown, sf: number, forced = false): { x: number; num: string; unit?: string } | null {
     if (typeof value === 'number') return { x: value, num: this.formatNumber(value, sf, forced) }
-    if (math.isUnit(value)) {
-      // Full precision first (mathjs picks the unit prefix), then round ourselves.
-      const s = math.format(displayUnit(value as Unit), { precision: MAX_DIGITS })
+    if (isQuantity(value)) {
+      // Full precision first (the library picks the unit prefix), then round ourselves.
+      const s = formatValue(displayUnit(value), { precision: MAX_DIGITS })
       const m = /^(\S+)\s+(.+)$/.exec(s)
       if (!m) return null
       const x = Number(m[1])
@@ -378,11 +376,11 @@ export class Calculator {
 
   /** An uncertainty expressed in the same display unit as its value. */
   private inDisplayUnits(value: unknown, unc: unknown, x: number, unit?: string): number {
-    if (!math.isUnit(value)) return Math.abs(Number(unc))
+    if (!isQuantity(value)) return Math.abs(Number(unc))
     const si = magnitudeOf(value)
     if (si) return Math.abs((magnitudeOf(unc) * x) / si)
     try {
-      return Math.abs((unc as Unit).toNumber(unit ?? ''))
+      return Math.abs(magnitude(unc as Quantity, unit ?? ''))
     } catch {
       return Math.abs(magnitudeOf(unc))
     }
@@ -433,22 +431,22 @@ export class Calculator {
     if (typeof value === 'boolean') return `\\text{${value}}`
     if (typeof value === 'string') return stringTex(value, (text) => this.modules.reduce((t, m) => m.markupText(t), text))
     if (isTuple(value)) return this.tupleTex(value, sf, forced)
-    if (math.isMatrix(value) || Array.isArray(value)) {
+    if (isValueMatrix(value) || Array.isArray(value)) {
       try {
-        return math.parse(math.format(value, this.format)).toTex()
+        return math.parse(formatValue(value, this.format)).toTex()
       } catch {
         /* fall through */
       }
     }
-    return `\\text{${math.format(value, this.format)}}`
+    return `\\text{${formatValue(value, this.format)}}`
   }
 
   /**
    * A tuple as (1.0, 2.0, 3.0) m: each value at `sf` sig figs, with a unit
    * they all share written once after the bracket, or each with its own.
    */
-  private tupleTex(tuple: math.Matrix, sf: number, forced: boolean): string {
-    const values = tuple.toArray() as unknown[]
+  private tupleTex(tuple: ValueMatrix, sf: number, forced: boolean): string {
+    const values = valuesOf(tuple) as unknown[]
     // A typed tuple shows each value as typed (unless sig figs were declared).
     const typed = forced ? undefined : this.typedSfs.get(tuple)
     return this.valuesTex(values, values.map((_, i) => ({ sf: typed?.[i] ?? sf, forced, notation: this.notation })), this.tupleLook)
@@ -526,7 +524,7 @@ export class Calculator {
     // Leading spaces keep mathjs output such as `\cdot` from running into a name.
     const handler = (n: MathNode, options: object): string | undefined => {
       if (isConstantNode(n) && typeof n.value === 'number') {
-        return ` ${numberTex(literals.get(n.value) ?? math.format(n.value, this.format))}`
+        return ` ${numberTex(literals.get(n.value) ?? formatValue(n.value, this.format))}`
       }
       if (isUnitCall(n)) return ` ${unitTex(unitCallText(n))}`
       if (isLitCall(n)) return ` ${numberTex(unitCallText(n))}`
@@ -903,7 +901,7 @@ export class Calculator {
     if (!isTuple(value)) {
       return { ...result, error: `The right-hand side isn't a tuple, so it can't be unpacked into ${names.join(', ')}.` }
     }
-    const values = value.toArray() as unknown[]
+    const values = valuesOf(value) as unknown[]
     if (values.length !== names.length) {
       return {
         ...result,
@@ -1281,15 +1279,10 @@ export class Calculator {
       }
       // A value typed with a unit keeps that unit wherever it's shown (L = 1.00e-10 m
       // stays in m, not 100 pm), as a conversion's result does.
-      if (isLiteral(expr) && math.isUnit(value)) (value as Unit).fixPrefix = true
+      if (isLiteral(expr) && isQuantity(value)) fixPrefix(value)
       // So does each value of a typed tuple (a vector): <3000., 4000.> N stays in N, not kN.
       if (this.isTypedTuple(expr) && isTuple(value)) {
-        value = math.map(value, (v: MathType) => {
-          if (!math.isUnit(v)) return v
-          const u = (v as Unit).clone()
-          u.fixPrefix = true
-          return u
-        })
+        value = mapValues(value, (v) => (isQuantity(v) ? withFixedPrefix(v) : v))
       }
       contributions = this.uncertainty.propagate(worked)
       if (uncNode) contributions.set(this.nextSource++, this.declaredUncertainty(uncNode, value, percent))
@@ -1299,24 +1292,24 @@ export class Calculator {
         : readableUnitError(e)
       return { tex: layoutEquation(DISPLAY_MODE.full, parts(), multiline), error: message, warning, trace, info: ctx.info }
     }
-    if (ctx.asPercent && math.isUnit(value)) {
-      const u = value as Unit
-      if (!u.equalBase(math.unit('m/m'))) {
+    if (ctx.asPercent && isQuantity(value)) {
+      const u = value
+      if (!sameDimension(u, quantity('m/m'))) {
         return {
           tex: layoutEquation(DISPLAY_MODE.full, parts(), multiline), warning, trace, info: ctx.info,
-          error: `This has units of ${u.formatUnits()}, so it can't be a percent: only a unitless `
+          error: `This has units of ${unitText(u)}, so it can't be a percent: only a unitless `
             + 'fraction can. (A density like 4πr²ψ² needs multiplying by a Δr first.)',
         }
       }
-      value = u.toNumber('')
+      value = magnitude(u, '')
     }
     // `phi:deg = …`: the result in that unit (a unitless angle counts as radians).
     if (ctx.displayUnit && value !== undefined) {
       try {
-        const angle = !math.isUnit(value) && !math.isMatrix(value) && isAngleUnit(ctx.displayUnit)
+        const angle = !isQuantity(value) && !isValueMatrix(value) && isAngleUnit(ctx.displayUnit)
         value = toDisplayUnit(value, ctx.displayUnit)
         if (angle) {
-          contributions = new Map([...contributions].map(([k, c]) => [k, math.unit(c as number, UNIT.radian)]))
+          contributions = new Map([...contributions].map(([k, c]) => [k, quantity(c as number, UNIT.radian)]))
         }
       } catch (e) {
         return { tex: layoutEquation(DISPLAY_MODE.full, parts(), multiline), warning, trace, info: ctx.info, error: (e as Error).message }
@@ -1396,8 +1389,8 @@ export class Calculator {
     let result: string | undefined
     if (ctx.asPercent && value !== undefined) {
       // Stored as the fraction (so later lines calculate with it); shown ×100 with a %.
-      const pct = math.multiply(value as MathType, PERCENT_SCALE)
-      const pctUnc = unc === undefined ? undefined : math.multiply(unc as MathType, PERCENT_SCALE)
+      const pct = multiply(value as Value, PERCENT_SCALE)
+      const pctUnc = unc === undefined ? undefined : multiply(unc as Value, PERCENT_SCALE)
       const tex = this.valueTex(pct, declaredSf ?? sf, pctUnc, undefined, declaredSf !== undefined)
       result = pctUnc === undefined ? `${tex}\\,\\%` : `\\left(${tex}\\right)\\,\\%`
     } else if (!isLiteral(expr) && value !== undefined) {
@@ -1413,7 +1406,7 @@ export class Calculator {
     // every input is exact (1/3 ≈ 0.333). A value with ± already states its precision.
     let approx = false
     if (result !== undefined && unc === undefined && !deltaOf && (this.options.approxRounded || !Number.isFinite(sf))) {
-      const shownValue = ctx.asPercent ? math.multiply(value as MathType, PERCENT_SCALE) : value
+      const shownValue = ctx.asPercent ? multiply(value as Value, PERCENT_SCALE) : value
       approx = this.isRounded(shownValue, declaredSf ?? sf, declaredSf !== undefined)
     }
     return { result, approx }
@@ -1449,14 +1442,14 @@ export class Calculator {
     let u = uncNode.compile().evaluate(this.scope) as unknown
     if (percent) {
       if (typeof u !== 'number') throw new Error('A percentage uncertainty must be a plain number, like pm 5%.')
-      return math.multiply(math.abs(value as MathType) as MathType, u / PERCENT_SCALE)
+      return multiply(abs(value as Value), u / PERCENT_SCALE)
     }
     // `2.0 kg pm 0.1`: the uncertainty takes the value's unit.
-    if (math.isUnit(value) && typeof u === 'number') u = math.multiply(u, math.unit((value as Unit).formatUnits()))
-    if (math.isUnit(value) !== math.isUnit(u) || (math.isUnit(u) && !(u as Unit).equalBase(value as Unit))) {
+    if (isQuantity(value) && typeof u === 'number') u = multiply(u, quantity(unitText(value)))
+    if (isQuantity(value) !== isQuantity(u) || (isQuantity(u) && !sameDimension(u, value as Quantity))) {
       throw new Error('The uncertainty must have the same units as the value.')
     }
-    return math.abs(u as MathType)
+    return abs(u as Value)
   }
 
   /** Enter a nested block. */

@@ -13,7 +13,7 @@
  * Every variable is stored the same way, whatever its value's kind, and asked
  * the same questions; what's particular to a kind is decided from its kind.
  */
-import { isMatrix, isUnit, type MathNode, type Matrix } from 'mathjs'
+import { isQuantity, isValueMatrix, type Expr } from '../maths/library/index.ts'
 import type { Notation } from '../syntax.ts'
 import { SERIES_STAT } from '../syntax.ts'
 
@@ -34,12 +34,12 @@ export type ValueKind = (typeof VALUE_KIND)[keyof typeof VALUE_KIND]
 export function valueKind(value: unknown): ValueKind {
   if (typeof value === 'function') return VALUE_KIND.callable
   if (typeof value === 'boolean') return VALUE_KIND.condition
-  if (isMatrix(value as Matrix)) return VALUE_KIND.tuple
+  if (isValueMatrix(value)) return VALUE_KIND.tuple
   return VALUE_KIND.quantity
 }
 
 /** Whether a value is a quantity with a unit (not a plain number). */
-export const hasUnit = (value: unknown) => isUnit(value)
+export const hasUnit = (value: unknown) => isQuantity(value)
 
 // ---------------------------------------------------------------------------
 // What's kept about a value
@@ -83,7 +83,7 @@ export interface VariableFields {
   /** How to show it in substitutions, if not as its value (`theta = pi/4` as π/4). */
   shown?: string
   /** Its defining expression, for ΔX working. */
-  def?: MathNode
+  def?: Expr
   /** The series statistic it stands for, if it's one (t_avg). */
   agg?: Aggregate
   /** Its display name, as LaTeX (`n_Na:"Moles of {Na^+}"`), shown instead of its name. */
@@ -102,7 +102,7 @@ export class Variable implements VariableFields {
   declare readonly notation?: Notation
   declare readonly look?: string
   declare readonly shown?: string
-  declare readonly def?: MathNode
+  declare readonly def?: Expr
   declare readonly agg?: Aggregate
   declare readonly label?: string
   declare readonly symbol?: string

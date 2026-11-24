@@ -1,11 +1,11 @@
 /** Names, numbers and units as LaTeX. */
-import { isConstantNode, isFunctionNode, type FunctionNode, type MathNode } from 'mathjs'
 import { AGGREGATE_KIND } from '../../sheet/values.ts'
 import { builtinConstant } from '../../builtins.ts'
 import { GREEK_BY_CHAR, GREEK_BY_NAME, GREEK_CHARS, SERIES_SUFFIXES } from '../../syntax.ts'
 import { JOIN, parseConstantRefName, parseMemberName, parseNumberedName, parseSeriesStatName, parseSliceName, typedSlice, describedName, parseHeldName, parseUncertaintyName } from '../../sheet/names.ts'
-import { FN, UNIT_LOOKS } from '../../maths/library/index.ts'
-import { math } from './math.ts'
+import {
+  FN, UNIT_LOOKS, isCall, isConstant, quantity, unitParts, type CallExpr, type ConstantExpr, type Expr,
+} from '../../maths/library/index.ts'
 import { isLabelUnit, labelUnitTex, moduleMemberTex, moduleNameSubscriptTex } from './module.ts'
 
 /** In unitTex: between a unit and the label unit after it (mol EDTA), a space rather than a dot. */
@@ -144,8 +144,8 @@ export function hasMicroPrefix(name: string): boolean {
   let micro = microUnits.get(name)
   if (micro === undefined) {
     try {
-      const parts = math.unit(1, name).units
-      micro = parts.length === 1 && (parts[0].prefix as unknown as { name: string }).name === 'u'
+      const parts = unitParts(quantity(1, name))
+      micro = parts.length === 1 && parts[0].prefix === 'u'
     } catch {
       micro = false
     }
@@ -176,7 +176,7 @@ export function unitTex(s: string): string {
     if (label !== undefined) return label
     const look = UNIT_LOOKS[tok]
     if (look) return look.tex
-    // The micro prefix, u in mathjs, as µ: um → µm.
+    // The micro prefix, u in the library, as µ: um → µm.
     if (hasMicroPrefix(tok)) return `\\mu\\mathrm{${tok.slice(1)}}`
     return `\\mathrm{${tok}}`
   })
@@ -192,7 +192,7 @@ export function unitTex(s: string): string {
 /** A unit with one division in it, at the top (1: above the line, 2: below it). */
 const STACKED_UNIT = /^([^/()]+)\/([^/]+)$/
 
-/** A unit as mathjs writes one with one division, either side bracketed or not: `kg / m^3`, `(g H2O) / (mol H2O)` (1: above, 2: below). */
+/** A unit as the library writes one with one division, either side bracketed or not: `kg / m^3`, `(g H2O) / (mol H2O)` (1: above, 2: below). */
 const DIVIDED_UNIT = /^\(?([^/()]+)\)?\/\(?([^/()]+)\)?$/
 
 /** A unit's parts above and below its line, if it has one (`kg / m^3`, `(g H2O) / (mol H2O)`); undefined if not. */
@@ -204,7 +204,7 @@ export function splitUnit(s: string): { above: string; below: string } | undefin
 /** The words of a piecewise value's cases: `x, if x > 0`, `0, otherwise`. */
 export const CASE_WORDS = { if: 'if ', otherwise: 'otherwise' } as const
 
-/** One case of a piecewise value, as mathjs writes them: its value, then when it applies. */
+/** One case of a piecewise value, as the library writes them: its value, then when it applies. */
 export const caseTex = (value: string, when: string) => `{${value.trim()}}, &\\quad{${when}}`
 
 /** The words before the unit a function's results are shown in, said after its equation. */
@@ -224,13 +224,13 @@ export function attachUnit(num: string, unit: string): string {
   return /\^\{[^{}]*\}\s*$/.test(num) ? `${num}{}${unit}` : `${num}${unit}`
 }
 
-/** A unit as mathjs reads it: unit("kg"). */
-export const isUnitCall = (n: MathNode | undefined): n is FunctionNode =>
-  !!n && isFunctionNode(n) && n.fn.name === FN.unit && isConstantNode(n.args[0])
+/** A unit as the library reads it: unit("kg"). */
+export const isUnitCall = (n: Expr | undefined): n is CallExpr =>
+  !!n && isCall(n) && n.fn.name === FN.unit && isConstant(n.args[0])
 
 /** The unit inside unit("kg"). */
-export const unitCallText = (n: FunctionNode) => String((n.args[0] as math.ConstantNode).value)
+export const unitCallText = (n: CallExpr) => String((n.args[0] as ConstantExpr).value)
 
 /** A number kept as typed: lit("2.00"). */
-export const isLitCall = (n: MathNode | undefined): n is FunctionNode =>
-  !!n && isFunctionNode(n) && n.fn.name === FN.literal && isConstantNode(n.args[0])
+export const isLitCall = (n: Expr | undefined): n is CallExpr =>
+  !!n && isCall(n) && n.fn.name === FN.literal && isConstant(n.args[0])

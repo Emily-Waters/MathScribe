@@ -5,12 +5,13 @@
  * now, with their sig figs, uncertainty and working. (Reading an aggregate's
  * name is series.ts.)
  */
-import type { MathNode, MathType, Unit } from 'mathjs'
+import {
+  add, convert, divide, isLibraryFunction, isQuantity, sameDimension, unitText, withBaseMagnitude, type Expr, type Value,
+} from '../../maths/library/index.ts'
 import { EXACT, uncertaintySigFigs, lastPlace, sigFigsFromPlace } from '../../maths/sigfigs.ts'
 import { AGGREGATE_KIND, type Aggregate, type Contributions, type VariableFields } from '../../sheet/values.ts'
 import { isUncertaintyName, parseNumberedName, seriesMemberName, seriesStatName, typedName } from '../../sheet/names.ts'
 import { SERIES_STAT_SUFFIX } from '../../syntax.ts'
-import { math } from './math.ts'
 import { BUILTIN_CONSTANT_NAMES } from './literals.ts'
 import { calleesIn, symbolsIn } from './memberAccess.ts'
 import { parseAggregateName } from './series.ts'
@@ -44,9 +45,9 @@ export interface AggregatesHost {
   /** A value's number in its display unit, if it has one. */
   displayNumber(value: unknown): number | undefined
   /** An expression as LaTeX. */
-  tex(node: MathNode): string
+  tex(node: Expr): string
   /** A variable's value for the substitution step, at its own sig figs. */
-  variableNode(name: string): MathNode
+  variableNode(name: string): Expr
   /** An uncertainty on its own as LaTeX, in the unit of the value it belongs to. */
   uncertaintyTex(unc: unknown, like?: unknown, uncSf?: number): string
   /** Whether working shows the values substituted in. */
@@ -112,11 +113,11 @@ export class SeriesAggregates {
   /**
    * A series' name in a line's maths, where a value is wanted, explained: the
    * series isn't a value (seriesInMaths). Not when the line calls a function
-   * there's none of, whose error comes first. (Left to mathjs, `2 * t` would
+   * there's none of, whose error comes first. (Left to the library, `2 * t` would
    * read t as tonnes.)
    */
   seriesAsValue(line: string, skip?: string): string | undefined {
-    const unknownCall = calleesIn(line).some((f) => !this.host.has(f) && typeof (math as unknown as Record<string, unknown>)[f] !== 'function')
+    const unknownCall = calleesIn(line).some((f) => !this.host.has(f) && !isLibraryFunction(f))
     if (unknownCall) return undefined
     for (const name of new Set(symbolsIn(line))) {
       if (name === skip || this.host.has(name)) continue
@@ -128,16 +129,16 @@ export class SeriesAggregates {
 
   private define(name: string, agg: Aggregate): void {
     const values = agg.members.map((n) => this.host.value(n))
-    if (values.some((v) => typeof v !== 'number' && !math.isUnit(v))) {
+    if (values.some((v) => typeof v !== 'number' && !isQuantity(v))) {
       throw new Error('only numbers and quantities can be combined.')
     }
     const n = values.length
     const first = values[0]
-    if (values.some((v) => math.isUnit(v) !== math.isUnit(first)
-      || (math.isUnit(v) && !(v as Unit).equalBase(first as Unit)))) {
+    if (values.some((v) => isQuantity(v) !== isQuantity(first)
+      || (isQuantity(v) && !sameDimension(v, first as never)))) {
       throw new Error(`${agg.members.join(', ')} don't all have the same units.`)
     }
-    const total = values.reduce((acc, v) => math.add(acc as MathType, v as MathType))
+    const total = values.reduce((acc, v) => add(acc as Value, v as Value))
 
     let value: unknown
     let contributions: Contributions = new Map()
@@ -152,7 +153,7 @@ export class SeriesAggregates {
         sf = this.seriesSigFigs(agg.members, total)
         break
       case AGGREGATE_KIND.mean:
-        value = math.divide(total as MathType, n)
+        value = divide(total as Value, n)
         sf = this.seriesSigFigs(agg.members, total)
         // Standard error σ/√n, as one source shared by every use of this mean.
         if (n >= 2) contributions = new Map([[this.source(agg.base), standardError(values)]])
@@ -166,8 +167,8 @@ export class SeriesAggregates {
         break
     }
     // Show sums, means and spreads in the members' own unit (s, not ms).
-    value = math.isUnit(value) && math.isUnit(first)
-      ? (value as Unit).to((first as Unit).formatUnits())
+    value = isQuantity(value) && isQuantity(first)
+      ? convert(value, unitText(first))
       : normalise(value, true)
     const unc = this.host.totalUncertainty(contributions, value)
     if (unc !== undefined) sf = this.host.uncertainSigFigs(value, unc) ?? sf
@@ -180,7 +181,7 @@ export class SeriesAggregates {
     const out: Contributions = new Map()
     for (const m of members) {
       for (const [source, c] of this.host.variables().get(m)?.contributions ?? []) {
-        out.set(source, out.has(source) ? math.add(out.get(source) as MathType, c as MathType) : c)
+        out.set(source, out.has(source) ? add(out.get(source) as Value, c as Value) : c)
       }
     }
     return out
@@ -242,7 +243,7 @@ export class SeriesAggregates {
       const values = agg.members.map((m) => this.host.value(m))
       const s = stdDev(values)
       // σ to 2 sig figs here, so the division visibly gives the result.
-      const sTex = this.host.uncertaintyTex(s, math.isUnit(values[0]) ? values[0] : undefined, WORKING_SIGMA_SIG_FIGS)
+      const sTex = this.host.uncertaintyTex(s, isQuantity(values[0]) ? values[0] : undefined, WORKING_SIGMA_SIG_FIGS)
       steps.push(`\\frac{${sTex}}{\\sqrt{${n}}}`)
     }
     return steps
@@ -264,13 +265,10 @@ function stdDev(values: unknown[]): unknown {
   const xs = values.map(magnitudeOf)
   const mean = xs.reduce((a, b) => a + b, 0) / xs.length
   const s = Math.sqrt(xs.reduce((acc, x) => acc + (x - mean) ** 2, 0) / (xs.length - 1))
-  if (!math.isUnit(values[0])) return s
-  const u = (values[0] as Unit).clone()
-  u.value = s
-  return u
+  return isQuantity(values[0]) ? withBaseMagnitude(values[0], s) : s
 }
 
 /** Standard error of the mean, σ/√n. */
 function standardError(values: unknown[]): unknown {
-  return math.divide(stdDev(values) as MathType, Math.sqrt(values.length))
+  return divide(stdDev(values) as Value, Math.sqrt(values.length))
 }

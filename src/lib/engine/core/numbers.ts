@@ -1,7 +1,6 @@
 /** Numerical settings (digits shown, tolerances) and function parameters. */
-import { type MathType, type Unit } from 'mathjs'
 import { NAME, KEYWORD } from '../../syntax.ts'
-import { math } from './math.ts'
+import { convert, formatValue, isQuantity, quantity } from '../../maths/library/index.ts'
 
 // ---------------------------------------------------------------------------
 // Numerical settings: digits shown, and the tolerances comparisons allow
@@ -16,7 +15,7 @@ export const BRIEF_DIGITS = 4
 /** Digits for a value that has no sig-fig count (an exact value, a matrix), with sig figs on Auto. */
 export const EXACT_DISPLAY_DIGITS = 6
 
-/** Plain digits from 10⁻³ up to 10⁶; scientific notation outside that (mathjs's format bounds). */
+/** Plain digits from 10⁻³ up to 10⁶; scientific notation outside that (the library's format bounds). */
 export const FIXED_FORMAT = { lowerExp: -3, upperExp: 6 }
 
 /** Two values this close, relative to their size, are the same value. */
@@ -50,10 +49,10 @@ export function parseParam(spec: string): { name: string; unit?: string } | null
   return m ? { name: m[1], unit: m[2] } : null
 }
 
-/** Whether mathjs reads some text as a unit. */
+/** Whether the maths library reads some text as a unit. */
 export function isValidUnit(text: string): boolean {
   try {
-    return math.isUnit(math.unit(text))
+    return isQuantity(quantity(text))
   } catch {
     return false
   }
@@ -62,14 +61,14 @@ export function isValidUnit(text: string): boolean {
 /** A cast parameter's argument, converted to its unit; errors say what didn't fit. */
 export function castArgument(param: string, unit: string | undefined, value: unknown): unknown {
   if (unit === undefined) return value
-  if (!math.isUnit(value)) {
+  if (!isQuantity(value)) {
     throw new Error(`${param} is cast to ${unit}, so it needs a value with a unit, `
-      + `but was given ${math.format(value as MathType, { precision: MESSAGE_DIGITS })}.`)
+      + `but was given ${formatValue(value, { precision: MESSAGE_DIGITS })}.`)
   }
   try {
-    return (value as Unit).to(unit)
+    return convert(value, unit)
   } catch {
     throw new Error(`${param} is cast to ${unit}, but was given `
-      + `${math.format(value as Unit, { precision: MESSAGE_DIGITS })}, which can't be converted to ${unit}.`)
+      + `${formatValue(value, { precision: MESSAGE_DIGITS })}, which can't be converted to ${unit}.`)
   }
 }

@@ -4,12 +4,12 @@
  * as a hidden variable holding F's uncertainty, and the working shown for it.
  * (The syntax of uncertainties, `pm` and `delta F`, is uncertainty.ts.)
  */
-import { isConstantNode, isSymbolNode, type FunctionNode, type MathNode, type MathType, type SymbolNode, type Unit } from 'mathjs'
+import { isConstantNode, isSymbolNode, type FunctionNode, type MathNode, type SymbolNode } from 'mathjs'
 import { uncertaintySigFigs } from '../../maths/sigfigs.ts'
 import type { Contributions, Variable, VariableFields } from '../../sheet/values.ts'
 import { isArgumentUncertaintyName, isUncertaintyName, uncertaintyName } from '../../sheet/names.ts'
 import type { UncertaintyWord } from '../../syntax.ts'
-import { OP, isOp } from '../../maths/library/index.ts'
+import { OP, add, divide, isOp, isQuantity, multiply, subtract, withBaseMagnitude, type Value } from '../../maths/library/index.ts'
 import { math } from './math.ts'
 import { STEP, UNCERTAINTY_WORKING, type UncertaintyWorking } from './results.ts'
 import { isSumOfInputs, powerTex, productPowers } from './uncertaintyForms.ts'
@@ -92,17 +92,12 @@ export class Propagation {
     for (const c of contributions.values()) sumSq += magnitudeOf(c) ** 2
     const t = Math.sqrt(sumSq)
     if (!(t > 0)) return undefined
-    if (math.isUnit(like)) {
-      const u = (like as Unit).clone()
-      u.value = t
-      return u
-    }
-    return t
+    return isQuantity(like) ? withBaseMagnitude(like, t) : t
   }
 
   /** The uncertainty of an expression worked out as `value` (a call's argument), or a zero like it if it has none. */
   uncertaintyOf(expr: MathNode, value: unknown): unknown {
-    return this.total(this.propagate(expr), value) ?? math.multiply(value as MathType, 0)
+    return this.total(this.propagate(expr), value) ?? multiply(value as Value, 0)
   }
 
   /** A variable's combined uncertainty, if it has one. */
@@ -139,16 +134,15 @@ export class Propagation {
       for (const n of inputs) {
         const d = contributionsOf(n).get(source)
         if (d === undefined) continue
-        const v = this.host.value(n) as MathType
-        const step = math.multiply(d as MathType, STEP) as MathType
-        plus.set(n, math.add(v, step))
-        minus.set(n, math.subtract(v, step))
+        const v = this.host.value(n) as Value
+        const step = multiply(d as Value, STEP)
+        plus.set(n, add(v, step))
+        minus.set(n, subtract(v, step))
       }
       const [up, down] = [code.evaluate(plus), code.evaluate(minus)]
       // (A word, `"AGREE"`, has no uncertainty, whatever it was chosen by.)
       if (typeof up === 'string' || typeof down === 'string') return new Map()
-      const diff = math.subtract(up as MathType, down as MathType) as MathType
-      out.set(source, math.divide(diff, 2 * STEP))
+      out.set(source, divide(subtract(up as Value, down as Value), 2 * STEP))
     }
     return out
   }
@@ -161,7 +155,7 @@ export class Propagation {
     return line.replace(DELTA_REF, (match, letter: UncertaintyWord, name: string) => {
       if (!this.host.has(name) || typeof this.host.value(name) === 'function') return match
       const value = this.host.value(name)
-      const unc = this.totalOf(name) ?? math.multiply(value as MathType, 0)
+      const unc = this.totalOf(name) ?? multiply(value as Value, 0)
       const hidden = uncertaintyName(letter, name)
       this.host.store(hidden, { value: unc, sf: uncertaintySigFigs(this.host.displayNumber(unc) ?? 0) })
       return hidden

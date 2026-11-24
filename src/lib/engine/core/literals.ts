@@ -1,7 +1,8 @@
 /** Unit literals (`9.81 m/s^2` as a number times a unit) and numbers kept as typed. */
 import { NAME, NAME_CHAR, KEYWORD } from '../../syntax.ts'
-import { LIBRARY_IN } from '../../maths/library/index.ts'
-import { math } from './math.ts'
+import {
+  LIBRARY_IN, convert, formatValue, inSI, isValuelessUnit, quantity, sameDimension, unitNames as libraryUnitNames, unitParts, unitText,
+} from '../../maths/library/index.ts'
 import { DERIVED_UNITS } from './normalise.ts'
 import { MESSAGE_DIGITS } from './numbers.ts'
 
@@ -38,7 +39,7 @@ export function isUnitName(id: string): boolean {
   id = withMicroPrefix(id)
   if (UNIT_DENYLIST.has(id)) return false
   try {
-    return math.Unit.isValuelessUnit(id)
+    return isValuelessUnit(id)
   } catch {
     return false
   }
@@ -50,9 +51,9 @@ export const COMMON_PREFIXED = [
   'kHz', 'MHz', 'GHz', 'mA', 'kV', 'mV', 'kW', 'MW', 'ms', 'us', 'ns', 'kmol', 'mmol', 'keV', 'MeV',
 ]
 
-/** Unit names for completions: mathjs's units plus common prefixed ones. */
+/** Unit names for completions: the library's units plus common prefixed ones. */
 export function unitNames(): string[] {
-  const units = Object.keys(math.Unit.UNITS)
+  const units = libraryUnitNames()
   const known = new Set(units)
   // Leave out plural spellings (angstroms, hours) when the singular is there too.
   const singular = units.filter((u) => !(u.length > 3 && u.endsWith('s') && known.has(u.slice(0, -1))))
@@ -63,13 +64,13 @@ export function unitNames(): string[] {
 export function describeUnit(name: string): string | null {
   if (!isUnitName(name)) return null
   try {
-    const u = math.unit(1, name)
+    const u = quantity(1, name)
     // Temperature scales have an offset: "1 degC = 274.15 K" would mislead.
-    if (u.units.some((p) => p.unit.offset)) return null
-    const si = u.toSI()
+    if (unitParts(u).some((p) => p.offset)) return null
+    const si = inSI(u)
     // In a derived unit where one fits (1 eV = 1.6e-19 J), else in base units (1 N = 1 kg m/s^2).
-    const derived = DERIVED_UNITS.find((d) => si.equalBase(d) && d.formatUnits() !== name)
-    const text = math.format(derived ? si.to(derived.formatUnits()) : si, { precision: MESSAGE_DIGITS })
+    const derived = DERIVED_UNITS.find((d) => sameDimension(si, d) && unitText(d) !== name)
+    const text = formatValue(derived ? convert(si, unitText(derived)) : si, { precision: MESSAGE_DIGITS })
     return text === `1 ${name}` ? null : `1 ${name} = ${text}`
   } catch {
     return null

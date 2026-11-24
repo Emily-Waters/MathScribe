@@ -1,11 +1,11 @@
 /** Settings on an assigned name (`m:3:deg`, display names), and names being unpacked. */
-import { type MathType, type Unit } from 'mathjs'
 import { EXACT_SETTING, NOTATION, PERCENT, LABEL_QUOTE, TEMPLATE_USE, type Notation, type Precision } from '../../syntax.ts'
 import { NODE_KIND } from '../../tree/nodes.ts'
 import { assignedOf, lineShape } from '../../tree/shapes.ts'
-import { UNIT } from '../../maths/library/index.ts'
+import {
+  UNIT, convert, formatValue, isQuantity, isValueMatrix, mapValues, quantity, sameDimension, type Value,
+} from '../../maths/library/index.ts'
 import { SETTING_PLACE, isModuleLineSetting, moduleSettingProblem } from './module.ts'
-import { math } from './math.ts'
 import { BRIEF_DIGITS, isValidUnit } from './numbers.ts'
 
 /**
@@ -31,14 +31,14 @@ export interface Declaration {
 /** Whether a unit measures angles. */
 export const isAngleUnit = (unit: string) => {
   try {
-    return math.unit(unit).equalBase(math.unit(UNIT.radian))
+    return sameDimension(quantity(unit), quantity(UNIT.radian))
   } catch {
     return false
   }
 }
 
 /** A value in brief, for an error message. */
-export const formatted = (v: unknown) => math.format(v as MathType, { precision: BRIEF_DIGITS })
+export const formatted = (v: unknown) => formatValue(v, { precision: BRIEF_DIGITS })
 
 /**
  * `value` in `unit`, for `phi:deg = …`. A unitless value can only be shown in an
@@ -46,16 +46,16 @@ export const formatted = (v: unknown) => math.format(v as MathType, { precision:
  * Tuples are converted element by element.
  */
 export function toDisplayUnit(value: unknown, unit: string): unknown {
-  if (math.isMatrix(value)) return math.map(value, (v: MathType) => toDisplayUnit(v, unit) as MathType)
-  if (math.isUnit(value)) {
+  if (isValueMatrix(value)) return mapValues(value, (v) => toDisplayUnit(v, unit) as Value)
+  if (isQuantity(value)) {
     try {
-      return (value as Unit).to(unit)
+      return convert(value, unit)
     } catch {
       throw new Error(`${formatted(value)} can't be shown in ${unit}: the units don't match.`)
     }
   }
   if (typeof value === 'number') {
-    if (isAngleUnit(unit)) return math.unit(value, UNIT.radian).to(unit)
+    if (isAngleUnit(unit)) return convert(quantity(value, UNIT.radian), unit)
     throw new Error(`${formatted(value)} has no unit, so it can't be shown in ${unit} `
       + '(only an angle in radians, from atan or asin for example, can be given a unit this way).')
   }

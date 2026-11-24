@@ -1,7 +1,10 @@
 /** Units tidied after a calculation, and quantities shown in them. */
-import { type MathType, type Unit } from 'mathjs'
-import { UNIT } from '../../maths/library/index.ts'
-import { math } from './math.ts'
+import {
+  UNIT, baseMagnitude, bestPrefix, convert, copyQuantity, hasFixedPrefix, inSI, isQuantity, keepUnitsAsGiven, magnitude, multiply,
+  quantity, sameDimension, unitParts, unitText, withBaseMagnitude, withFixedPrefix, type Quantity, type UnitPart,
+} from '../../maths/library/index.ts'
+// (The engine's additions to the library, before any unit is read here: molarity, M, among them.)
+import './math.ts'
 import { isLabelUnit } from './module.ts'
 import { SAME_VALUE_TOLERANCE, TINY } from './numbers.ts'
 
@@ -10,123 +13,117 @@ import { SAME_VALUE_TOLERANCE, TINY } from './numbers.ts'
 // ---------------------------------------------------------------------------
 
 /** Derived SI units preferred over base-unit combinations (kg m/s^2 → N). */
-export const DERIVED_UNITS = ['N', 'J', 'W', 'Pa', 'C', 'V', 'ohm', 'F', 'T', 'Wb', 'H', UNIT.molar].map((u) => math.unit(u))
+export const DERIVED_UNITS = ['N', 'J', 'W', 'Pa', 'C', 'V', 'ohm', 'F', 'T', 'Wb', 'H', UNIT.molar].map((u) => quantity(u))
 
 /**
  * Units of more than one name that are kept as they are rather than turned into
  * SI, because they're how the quantity is always written: a molar mass in g/mol
  * (not 0.018015 kg/mol).
  */
-export const CONVENTIONAL_UNITS: ReadonlySet<string> = new Set([`${UNIT.gram}/${UNIT.mole}`].map((u) => math.unit(u).formatUnits()))
+export const CONVENTIONAL_UNITS: ReadonlySet<string> = new Set([`${UNIT.gram}/${UNIT.mole}`].map((u) => unitText(quantity(u))))
 
 /** How many unit names a unit is written with (`kg m/s^2` → 3). */
 export const unitTokens = (s: string) => (s.match(/[A-Za-z]+/g) ?? []).length
 
 /**
  * Computed quantities can carry awkward units (N/kg, or kg^0.5 N^0.5 after a
- * sqrt), and mathjs shares unit internals between values, so a later `to`
+ * sqrt), and the library shares unit internals between values, so a later `to`
  * conversion can mutate an earlier variable. Every computed unit is therefore
  * replaced by a fresh, tidy copy: kept as-is if already a single unit, at any
  * power (6 km, 19.62 N, 0.688 Å^-1.5), otherwise converted to SI and then to a
  * derived unit if one fits.
  */
 /**
- * mathjs doesn't combine repeats of one unit (Å^2 · Å^-3 stays `angstrom^2 / angstrom^3`).
+ * The library doesn't combine repeats of one unit (Å^2 · Å^-3 stays `angstrom^2 / angstrom^3`).
  * If every part is the same unit, return it as one power of that unit (Å^-1); else null.
  */
-export function mergeLikeUnits(u: Unit): Unit | null {
-  const parts = u.units
+export function mergeLikeUnits(u: Quantity): Quantity | null {
+  const parts = unitParts(u)
   if (parts.length < 2) return null
-  // (mathjs's types call `prefix` a string; at runtime it's a { name } object.)
-  const symbol = (p: (typeof parts)[number]) =>
-    `${(p.prefix as unknown as { name?: string } | undefined)?.name ?? ''}${p.unit.name}`
+  const symbol = (p: UnitPart) => `${p.prefix}${p.name}`
   const first = symbol(parts[0])
   if (!parts.every((p) => symbol(p) === first)) return null
   const power = Number(parts.reduce((sum, p) => sum + p.power, 0).toPrecision(12))
   if (power === 0) return null
   try {
-    return u.to(power === 1 ? first : `${first}^${power}`)
+    return convert(u, power === 1 ? first : `${first}^${power}`)
   } catch {
     return null
   }
 }
 
 /** A mass, for telling one when it's worked out. */
-export const GRAMS = math.unit(UNIT.gram)
+export const GRAMS = quantity(UNIT.gram)
 
 /** A computed quantity in tidy units (see above); `keepUnits` leaves a chosen unit alone. */
 export function normalise(value: unknown, keepUnits: boolean): unknown {
-  if (!math.isUnit(value)) return value
-  const u = value as Unit
+  if (!isQuantity(value)) return value
+  const u = value
+  const parts = unitParts(u)
   // Label units (a species, mol EDTA) aren't SI: set them aside, tidy the rest, and put them back.
   // (Each label unit is worth exactly 1, so the number in the other units is the same.)
-  if (u.units.some((p) => isLabelUnit(p.unit.name))) {
-    const part = (p: Unit['units'][number]) =>
-      `${(p.prefix as unknown as { name?: string } | undefined)?.name ?? ''}${p.unit.name}${p.power === 1 ? '' : `^${p.power}`}`
+  if (parts.some((p) => isLabelUnit(p.name))) {
+    const part = (p: UnitPart) => `${p.prefix}${p.name}${p.power === 1 ? '' : `^${p.power}`}`
     // Each label once, its powers added up: mol EDTA × (mol X / mol EDTA) is mol X.
     const powers = new Map<string, number>()
-    for (const p of u.units) if (isLabelUnit(p.unit.name)) powers.set(p.unit.name, (powers.get(p.unit.name) ?? 0) + p.power)
+    for (const p of parts) if (isLabelUnit(p.name)) powers.set(p.name, (powers.get(p.name) ?? 0) + p.power)
     const labels = [...powers].filter(([, power]) => power !== 0)
       .map(([name, power]) => (power === 1 ? name : `${name}^${power}`)).join(' ')
-    const others = u.units.filter((p) => !isLabelUnit(p.unit.name)).map(part).join(' ')
-    const number = u.toNumber(u.formatUnits())
-    const tidy = others ? normalise(math.unit(number, others), keepUnits) : number
+    const others = parts.filter((p) => !isLabelUnit(p.name)).map(part).join(' ')
+    const number = magnitude(u, unitText(u))
+    const tidy = others ? normalise(quantity(number, others), keepUnits) : number
     if (!labels) return tidy
-    const result = math.multiply(tidy as MathType, math.unit(1, labels)) as Unit
-    // (Shown as made: left to itself, mathjs would re-simplify it to SI when formatting.)
-    result.skipAutomaticSimplification = true
-    return result
+    // (Shown as made: left to itself, the library would re-simplify it to SI when formatting.)
+    return keepUnitsAsGiven(multiply(tidy as number | Quantity, quantity(1, labels)) as Quantity)
   }
-  const units = u.formatUnits()
-  if (keepUnits || unitTokens(units) <= 1 || CONVENTIONAL_UNITS.has(units)) return u.clone()
+  const units = unitText(u)
+  if (keepUnits || unitTokens(units) <= 1 || CONVENTIONAL_UNITS.has(units)) return copyQuantity(u)
   const merged = mergeLikeUnits(u)
   if (merged) return merged
-  const si = u.toSI()
+  const si = inSI(u)
   // A mass worked out from grams stays in grams: mol × g/mol is 5.00 g, not 0.00500 kg.
-  if (si.equalBase(GRAMS) && u.units.some((p) => p.unit.name === UNIT.gram)) return si.to(UNIT.gram)
-  const derived = DERIVED_UNITS.find((d) => si.equalBase(d))
-  return derived ? si.to(derived.formatUnits()) : si
+  if (sameDimension(si, GRAMS) && parts.some((p) => p.name === UNIT.gram)) return convert(si, UNIT.gram)
+  const derived = DERIVED_UNITS.find((d) => sameDimension(si, d))
+  return derived ? convert(si, unitText(derived)) : si
 }
 
 /** Prefixes people expect to read: pico to tera, plus centi. */
 export const COMMON_PREFIXES = new Set(['', 'p', 'n', 'u', 'm', 'c', 'k', 'M', 'G', 'T'])
 
 /**
- * The quantity as it should be displayed. mathjs picks a "best" prefix when
+ * The quantity as it should be displayed. The library picks a "best" prefix when
  * formatting, which for tiny or huge values can be an obscure one
  * (9.11e-31 kg → 0.911 rg, ronto-grams). Then keep the unit's own prefix
  * instead, shown in scientific notation.
  */
-export function displayUnit(u: Unit): Unit {
-  if (u.fixPrefix || !u.units.length) return u
-  // mathjs's own choice, the same one format() makes (an internal method).
-  let best: { name: string } | undefined
+export function displayUnit(u: Quantity): Quantity {
+  if (hasFixedPrefix(u) || !unitParts(u).length) return u
+  // The library's own choice, the same one formatting makes.
+  let best: string | undefined
   try {
-    best = (u.clone() as unknown as { _bestPrefix?: () => { name: string } | undefined })._bestPrefix?.()
+    best = bestPrefix(u)
   } catch {
-    return u // e.g. Å^-1.5: mathjs doesn't re-prefix fractional powers either
+    return u // e.g. Å^-1.5: the library doesn't re-prefix fractional powers either
   }
-  if (!best || COMMON_PREFIXES.has(best.name)) return u
-  const fixed = u.clone()
-  fixed.fixPrefix = true
-  return fixed
+  if (best === undefined || COMMON_PREFIXES.has(best)) return u
+  return withFixedPrefix(u)
 }
 
 /** SI magnitude of a number or quantity. */
-export const magnitudeOf = (v: unknown): number => (math.isUnit(v) ? ((v as Unit).value ?? NaN) : Number(v))
+export const magnitudeOf = (v: unknown): number => (isQuantity(v) ? (baseMagnitude(v) ?? NaN) : Number(v))
 
 /** A quantity like `like` but with SI magnitude `si` (or just `si` for plain numbers). */
 export function withMagnitude(like: unknown, si: number): unknown {
-  if (!math.isUnit(like)) return si
-  const u = (like as Unit).clone()
-  u.value = si
-  return u
+  return isQuantity(like) ? withBaseMagnitude(like, si) : si
 }
 
 /** A finite real number or quantity (not complex, NaN or infinite). */
-export const isRealValue = (v: unknown) =>
-  (typeof v === 'number' && Number.isFinite(v))
-  || (math.isUnit(v) && typeof (v as Unit).value === 'number' && Number.isFinite((v as Unit).value))
+export const isRealValue = (v: unknown) => {
+  if (typeof v === 'number') return Number.isFinite(v)
+  if (!isQuantity(v)) return false
+  const base = baseMagnitude(v)
+  return typeof base === 'number' && Number.isFinite(base)
+}
 
 /** Whether two values are the same, give or take floating-point noise. */
 export const sameValue = (a: unknown, b: unknown) => {

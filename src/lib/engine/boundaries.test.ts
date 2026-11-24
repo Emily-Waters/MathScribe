@@ -151,10 +151,8 @@ const importsLibrary = (path: string) => [...(SOURCES.get(path) ?? '').matchAll(
  * that takes files off this list, until it's empty.
  */
 const STILL_USING_LIBRARY: ReadonlySet<string> = new Set([
-  'lib/engine/core/aggregates.ts', 'lib/engine/core/calculator.ts', 'lib/engine/core/declarations.ts', 'lib/engine/core/math.ts',
-  'lib/engine/core/module.ts', 'lib/engine/core/normalise.ts', 'lib/engine/core/numbers.ts', 'lib/engine/core/products.ts',
-  'lib/engine/core/propagation.ts', 'lib/engine/core/results.ts', 'lib/engine/core/sheetConstants.ts', 'lib/engine/core/sheetFunctions.ts',
-  'lib/engine/core/sigFigs.ts', 'lib/engine/core/tex.ts', 'lib/engine/core/uncertaintyForms.ts', 'lib/maths/solve.ts', 'lib/sheet/values.ts',
+  'lib/engine/core/calculator.ts', 'lib/engine/core/module.ts', 'lib/engine/core/products.ts', 'lib/engine/core/propagation.ts',
+  'lib/engine/core/results.ts', 'lib/engine/core/sheetFunctions.ts', 'lib/engine/core/uncertaintyForms.ts', 'lib/maths/solve.ts',
   'modules/chemistry/module.ts', 'modules/chemistry/species.ts', 'modules/chemistry/substance.ts', 'modules/chemistry/writers.ts',
   'modules/series/extremes.ts', 'modules/series/module.ts', 'modules/series/plot.ts', 'modules/solve/solve.ts', 'modules/solve/system.ts',
   'modules/vectors/module.ts',

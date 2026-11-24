@@ -333,7 +333,13 @@ tests, or the Create prompt:
          message, since most errors are text by the time they're explained;
          once evaluating goes through the interface, in (4), the adapter can
          throw them typed);
-         (3) values; (4) expressions and the writer's `source.*`; (5) algebra;
+         (3) values, ~~done 2026-11-23~~ (quantities, tuples, arithmetic,
+         formatting, and adding units and functions to the library, all as
+         the interface's functions: no `Unit`, `Matrix` or `math.*` value call
+         left outside the adapter in src/lib; math.ts's additions use
+         `defineFunctions`/`defineUnit`/`libraryFunction`. Nine files off the
+         list: aggregates, declarations, math, normalise, numbers,
+         sheetConstants, sigFigs, tex, sheet/values); (4) expressions and the writer's `source.*`; (5) algebra;
          (6) the module API and the modules.
          **Maths library behind one interface**: a folder (e.g.
          `src/lib/maths/mathjs/`) the only one importing `mathjs`, enforced in

@@ -13,7 +13,7 @@
 import {
   all, create, isAssignmentNode, isConditionalNode, isConstantNode, isFunctionAssignmentNode, isFunctionNode, isMatrix,
   isOperatorNode, isParenthesisNode, isRelationalNode, isSymbolNode, isUnit,
-  type AssignmentNode, type ConditionalNode, type ConstantNode, type EvalFunction, type FunctionAssignmentNode,
+  type AssignmentNode, type ConditionalNode, type ConstantNode, type EvalFunction, type FormatOptions, type FunctionAssignmentNode,
   type FunctionNode, type MathNode, type MathType, type Matrix, type OperatorNode, type ParenthesisNode,
   type SymbolNode, type Unit,
 } from 'mathjs'
@@ -152,6 +152,145 @@ export const UNIT_LOOKS: Readonly<Record<string, { tex: string; text: string }>>
   ohm: { tex: '\\Omega', text: 'Ω' },
   angstrom: { tex: '\\text{\\AA}', text: 'Å' },
   angstroms: { tex: '\\text{\\AA}', text: 'Å' },
+}
+
+// ---------------------------------------------------------------------------
+// Values: quantities, tuples and arithmetic
+// ---------------------------------------------------------------------------
+
+/** A one-dimensional matrix: a tuple like (x, y, z). */
+export const isTuple = (v: unknown): v is ValueMatrix => isMatrix(v) && (v as Matrix).size().length === 1
+
+/** A quantity: a number in a unit, `quantity(9.81, 'm/s^2')`, or a unit's text alone, `quantity('m/s^2')` (one of it). */
+export function quantity(value: number | string, unit?: string): Quantity {
+  return unit === undefined ? math.unit(value as string) : math.unit(value as number, unit)
+}
+
+/** A quantity's number in a unit (`magnitude(q, 'cm')`), or in its own (no unit given; '' for a unitless one). */
+export const magnitude = (q: Quantity, unit?: string): number => q.toNumber(unit)
+
+/** A quantity's number in its unit's base, the SI units its dimension is made of (null if it has none). */
+export const baseMagnitude = (q: Quantity): number | null => q.value
+
+/** A quantity in another unit of its kind, by its text or as another quantity's. */
+export const convert = (q: Quantity, unit: string | Quantity): Quantity => q.to(unit as string)
+
+/** A quantity's unit, as text: `m/s^2`. */
+export const unitText = (q: Quantity): string => q.formatUnits()
+
+/** Whether two quantities are of one kind (a length and a length), whatever their units. */
+export const sameDimension = (a: Quantity, b: Quantity): boolean => a.equalBase(b)
+
+/**
+ * One unit of a quantity's, with its power: `m` and `s`, -2, of m/s^2; its
+ * prefix (`k` of km, '' for none); `offset`: one with a zero of its own (°C).
+ */
+export interface UnitPart {
+  readonly name: string
+  readonly prefix: string
+  readonly power: number
+  readonly offset: boolean
+}
+
+/** A quantity's units, each with its power. */
+export const unitParts = (q: Quantity): UnitPart[] => q.units.map((p) => ({
+  name: p.unit.name,
+  // (mathjs's types call `prefix` a string; at runtime it's a { name } object.)
+  prefix: (p.prefix as unknown as { name?: string } | undefined)?.name ?? '',
+  power: p.power,
+  offset: !!p.unit.offset,
+}))
+
+/** A copy of a quantity with another number in its unit's base (baseMagnitude). */
+export function withBaseMagnitude(q: Quantity, base: number): Quantity {
+  const u = q.clone()
+  u.value = base
+  return u
+}
+
+/** A quantity in SI units. */
+export const inSI = (q: Quantity): Quantity => q.toSI()
+
+/** A copy of a quantity, to change without changing it. */
+export const copyQuantity = (q: Quantity): Quantity => q.clone()
+
+/** Whether a quantity keeps the prefix it has (5.0 mm stays in mm), rather than the library choosing one. */
+export const hasFixedPrefix = (q: Quantity): boolean => q.fixPrefix
+
+/** Keep a quantity's prefix as it is, from now on: this quantity, not a copy. */
+export function fixPrefix(q: Quantity): void {
+  q.fixPrefix = true
+}
+
+/** A copy of a quantity that keeps the prefix it has. */
+export function withFixedPrefix(q: Quantity): Quantity {
+  const u = q.clone()
+  u.fixPrefix = true
+  return u
+}
+
+/** Keep a quantity's units as they're given, from now on (mol EDTA stays so, not simplified): this quantity, not a copy. */
+export function keepUnitsAsGiven(q: Quantity): Quantity {
+  q.skipAutomaticSimplification = true
+  return q
+}
+
+/** The prefix the library would choose for a quantity's value (k for 1500 m), if any. */
+export const bestPrefix = (q: Quantity): string | undefined =>
+  (q.clone() as unknown as { _bestPrefix?: () => { name: string } | undefined })._bestPrefix?.()?.name
+
+/** Every unit the library knows, by name. */
+export const unitNames = (): string[] => Object.keys(math.Unit.UNITS)
+
+/** Whether a unit's name is one the library knows without a number (a unit of its own, `m`, not `mm`'s prefix). */
+export const isValuelessUnit = (name: string): boolean => math.Unit.isValuelessUnit(name)
+
+/** How a value is written as text: its significant digits, its notation. */
+export type ValueFormat = FormatOptions
+
+/** A value as text, `9.81 m / s^2`, as the library writes it. */
+export const formatValue = (v: unknown, format?: ValueFormat | number): string => math.format(v as MathType, format as FormatOptions)
+
+/** A tuple of values. */
+export const tupleOf = (values: readonly Value[]): ValueMatrix => math.matrix(values as never)
+
+/** A matrix's values, in order. */
+export const valuesOf = (m: ValueMatrix): Value[] => m.toArray() as Value[]
+
+/** A matrix with each value changed. */
+export const mapValues = (m: ValueMatrix, fn: (v: Value) => Value): ValueMatrix => math.map(m, fn as never) as ValueMatrix
+
+export const add = (a: Value, b: Value): Value => math.add(a as never, b as never) as Value
+export const subtract = (a: Value, b: Value): Value => math.subtract(a as never, b as never) as Value
+export const multiply = (a: Value, b: Value): Value => math.multiply(a as never, b as never) as Value
+export const divide = (a: Value, b: Value): Value => math.divide(a as never, b as never) as Value
+export const abs = (v: Value): Value => math.abs(v as never) as Value
+export const sqrt = (v: Value): Value => math.sqrt(v as never) as Value
+export const isZero = (v: Value): boolean => math.isZero(v as never) as boolean
+export const larger = (a: Value, b: Value): boolean => math.larger(a as never, b as never) as boolean
+export const smaller = (a: Value, b: Value): boolean => math.smaller(a as never, b as never) as boolean
+
+// ---------------------------------------------------------------------------
+// Adding to the library: units and functions
+// ---------------------------------------------------------------------------
+
+/** A function as the library holds it: what it does, and how it's written in LaTeX, if it says. */
+export type LibraryFunction = ((...args: never[]) => unknown) & { toTex?: unknown }
+
+/** The library's function of a name, as it is now (to wrap it, or call it as it was). */
+export const libraryFunction = (name: string): LibraryFunction => math[name as keyof typeof math] as unknown as LibraryFunction
+
+/** Whether the library has a function of a name (`sqrt`), its own or one added to it. */
+export const isLibraryFunction = (name: string): boolean => typeof (math as unknown as Record<string, unknown>)[name] === 'function'
+
+/** Add functions to the library, by name; `replace`: in place of its own of those names. */
+export function defineFunctions(functions: Readonly<Record<string, unknown>>, replace = false): void {
+  math.import(functions as never, replace ? { override: true } : {})
+}
+
+/** Add a unit to the library: its name, what it is in others (`1 mol/L`), and whether prefixes go before it (mM). */
+export function defineUnit(name: string, definition: string, prefixes: boolean): void {
+  math.createUnit(name, { definition, prefixes: prefixes ? 'short' : 'none' })
 }
 
 // ---------------------------------------------------------------------------

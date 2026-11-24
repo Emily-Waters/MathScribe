@@ -5,7 +5,7 @@
  * constant at the precision asked for. (The built-in constants themselves are
  * in constants.ts and the `@` tree, builtins.ts.)
  */
-import type { Unit } from 'mathjs'
+import { convert, formatValue, isQuantity, quantity } from '../../maths/library/index.ts'
 import { MAX_DIGITS, countSigFigs } from '../../maths/sigfigs.ts'
 import type { VariableFields } from '../../sheet/values.ts'
 import { DEFAULT_CONSTANT_SIG_FIGS, isNamespaceConstant, suggestConstant, type BuiltinConstant, type NamespaceConstant } from '../../constants.ts'
@@ -14,7 +14,6 @@ import { CONSTANTS_BLOCK, CONSTANT_WRITTEN, EXACT_SETTING, SIGIL, type Precision
 import { constantKey, constantRefName, typedConstant } from '../../sheet/names.ts'
 import { TOKEN_KIND } from '../../tree/nodes.ts'
 import { lexExpression } from '../../tree/lexer.ts'
-import { math } from './math.ts'
 import { lineTokens } from './memberAccess.ts'
 import { expandNamespaceCalls } from './builtinCalls.ts'
 import type { CustomConstant } from './functions.ts'
@@ -30,9 +29,9 @@ export interface ConstantsHost {
 /** A number or quantity rounded to `digits` sig figs, in its own display unit. */
 export function roundTo(value: unknown, digits: number): unknown {
   if (typeof value === 'number') return Number(value.toPrecision(digits))
-  if (!math.isUnit(value)) return value
-  const m = /^(\S+)\s+(.+)$/.exec(math.format(value as Unit, { precision: MAX_DIGITS }))
-  return m ? math.unit(Number(Number(m[1]).toPrecision(digits)), m[2]).to(m[2]) : value
+  if (!isQuantity(value)) return value
+  const m = /^(\S+)\s+(.+)$/.exec(formatValue(value, { precision: MAX_DIGITS }))
+  return m ? convert(quantity(Number(Number(m[1]).toPrecision(digits)), m[2]), m[2]) : value
 }
 
 export class SheetConstants {
@@ -102,13 +101,13 @@ export class SheetConstants {
       // Built-ins stay in their own unit (1.602e-19 C, not 160.2 zC).
       let full = custom
         ? custom.value
-        : builtin!.unit ? math.unit(builtin!.value, builtin!.unit).to(builtin!.unit) : builtin!.value
+        : builtin!.unit ? convert(quantity(builtin!.value, builtin!.unit), builtin!.unit) : builtin!.value
       // A sheet-wide `@name to unit` converts before rounding, so `@a_0:3 to angstrom` is 0.529 Å.
       // (If the unit doesn't fit, the declaration line itself reports the error.)
       const unit = this.unit.get(name)
-      if (unit && math.isUnit(full)) {
+      if (unit && isQuantity(full)) {
         try {
-          full = (full as Unit).to(unit)
+          full = convert(full, unit)
         } catch { /* reported on the declaration line */ }
       }
       const exact = digits === EXACT_SETTING || !Number.isFinite(digits)

@@ -2,7 +2,7 @@
 import { EXACT, countSigFigs, formatWithUncertainty, isMeasuredLiteral } from '../../maths/sigfigs.ts'
 import { seriesMemberName } from '../../sheet/names.ts'
 import type { CsvColumn } from '../../data/csv.ts'
-import { math } from './math.ts'
+import { baseMagnitude, fixPrefix, magnitude, quantity, sameDimension, unitParts, withBaseMagnitude } from '../../maths/library/index.ts'
 import { PERCENT_SCALE, isValidUnit } from './numbers.ts'
 
 /** An imported value, ready to store: its variable's name, value (with the column's unit) and sig figs. */
@@ -23,7 +23,7 @@ export function uncertaintyUnitError(c: CsvColumn): string | undefined {
   const where = `Column ${u.column}, the uncertainties of ${c.name},`
   if (!isValidUnit(u.unit)) return `${where} has a unit MathScribe doesn't know: "${u.unit}".`
   if (!c.unit) return `${where} has a unit (${u.unit}) but ${c.name} doesn't: give ${c.name} its unit too, or take it off ${u.column}.`
-  if (!math.unit(u.unit).equalBase(math.unit(c.unit))) return `${where} is in ${u.unit}, which doesn't convert to ${c.name}'s ${c.unit}.`
+  if (!sameDimension(quantity(u.unit), quantity(c.unit))) return `${where} is in ${u.unit}, which doesn't convert to ${c.name}'s ${c.unit}.`
   return undefined
 }
 
@@ -37,14 +37,14 @@ export function dataUncertainty(c: CsvColumn, x: number, text: string): { unc: u
   if (u.percent) {
     const dx = (Math.abs(x) * n) / PERCENT_SCALE
     if (!c.unit) return { unc: dx, dx }
-    const q = math.unit(dx, c.unit)
-    q.fixPrefix = true
+    const q = quantity(dx, c.unit)
+    fixPrefix(q)
     return { unc: q, dx }
   }
   if (!c.unit) return { unc: n, dx: n }
-  const q = math.unit(n, u.unit ?? c.unit)
-  q.fixPrefix = true
-  return { unc: q, dx: u.unit && u.unit !== c.unit ? q.toNumber(c.unit) : n }
+  const q = quantity(n, u.unit ?? c.unit)
+  fixPrefix(q)
+  return { unc: q, dx: u.unit && u.unit !== c.unit ? magnitude(q, c.unit) : n }
 }
 
 /**
@@ -60,8 +60,8 @@ export function columnValues(c: CsvColumn) {
   if (made) return made
   // The column's unit, read once: each value is a copy of one unit of it, scaled.
   // (A unit with an offset, like degC, doesn't scale, so each of those is made afresh.)
-  const one = c.unit ? math.unit(1, c.unit) : undefined
-  const scales = one !== undefined && !one.units.some((p) => p.unit.offset)
+  const one = c.unit ? quantity(1, c.unit) : undefined
+  const scales = one !== undefined && !unitParts(one).some((p) => p.offset)
   let lowest: DataValue | undefined
   let highest: DataValue | undefined
   let low = Infinity
@@ -70,9 +70,8 @@ export function columnValues(c: CsvColumn) {
     const x = Number(text)
     let value: unknown = x
     if (c.unit) {
-      const u = scales ? one!.clone() : math.unit(x, c.unit)
-      if (scales) u.value = (one!.value as number) * x
-      u.fixPrefix = true
+      const u = scales ? withBaseMagnitude(one!, (baseMagnitude(one!) as number) * x) : quantity(x, c.unit)
+      fixPrefix(u)
       value = u
     }
     // A whole number without a unit is exact, as when it's typed in a sheet.

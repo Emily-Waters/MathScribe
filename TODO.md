@@ -318,7 +318,17 @@ tests, or the Create prompt:
          Left, for step 2: `src/lib/maths/solve.ts` (the `Solver`, polynomials,
          isolating an unknown) is maths the solve module uses, built on mathjs's
          `simplify`/`derivative`; it moves with the adapter.
-      2. **Maths library behind one interface**: a folder (e.g.
+      2. Decided 2026-11-23 (Emily, all four): the folder is
+         `src/lib/maths/library/`, `index.ts` the interface and `mathjs.ts` the
+         adapter; an expression keeps mathjs's node shape as MathScribe's
+         contract (our type names, built and checked only through the
+         interface); quantities only through functions (`magnitude(q, 'm')`,
+         not `q.toNumber('m')`); sub-steps (1) the folder, instance, names,
+         types and guards, with the boundary rule and a shrinking list of
+         files still using mathjs, ~~done 2026-11-23~~; (2) typed errors;
+         (3) values; (4) expressions and the writer's `source.*`; (5) algebra;
+         (6) the module API and the modules.
+         **Maths library behind one interface**: a folder (e.g.
          `src/lib/maths/mathjs/`) the only one importing `mathjs`, enforced in
          `boundaries.test.ts`. It offers named operations (parse, evaluate,
          units, node guards and builders, TeX, derivative, simplify) under

@@ -132,6 +132,60 @@ describe('the engine and the modules, from the rest of the app', () => {
   })
 })
 
+/** The maths library's adapter (the only file that knows which library it is), and its interface. */
+const LIBRARY_ADAPTER = 'lib/maths/library/mathjs.ts'
+const LIBRARY_INTERFACE = 'lib/maths/library/index.ts'
+
+/** The library's package. */
+const LIBRARY_PACKAGE = 'mathjs'
+
+/** Every import of a package by a file, type-only ones too (a type is as much the library's as a function). */
+const PACKAGE_IMPORT = /^(?:import|export)\b[^'"]*?(?:from\s+)?['"]([^'"./][^'"]*)['"]/gm
+
+/** Whether a file imports the library's package, a type of it or anything else. */
+const importsLibrary = (path: string) => [...(SOURCES.get(path) ?? '').matchAll(PACKAGE_IMPORT)].some((m) => m[1] === LIBRARY_PACKAGE)
+
+/**
+ * The files that still use the library directly, while the code moves behind
+ * its interface (TODO.md, "Maths library behind one interface"): each step of
+ * that takes files off this list, until it's empty.
+ */
+const STILL_USING_LIBRARY: ReadonlySet<string> = new Set([
+  'lib/engine/core/aggregates.ts', 'lib/engine/core/calculator.ts', 'lib/engine/core/declarations.ts', 'lib/engine/core/math.ts',
+  'lib/engine/core/module.ts', 'lib/engine/core/normalise.ts', 'lib/engine/core/numbers.ts', 'lib/engine/core/products.ts',
+  'lib/engine/core/propagation.ts', 'lib/engine/core/results.ts', 'lib/engine/core/sheetConstants.ts', 'lib/engine/core/sheetFunctions.ts',
+  'lib/engine/core/sigFigs.ts', 'lib/engine/core/tex.ts', 'lib/engine/core/uncertaintyForms.ts', 'lib/maths/solve.ts', 'lib/sheet/values.ts',
+  'modules/chemistry/module.ts', 'modules/chemistry/species.ts', 'modules/chemistry/substance.ts', 'modules/chemistry/writers.ts',
+  'modules/series/extremes.ts', 'modules/series/module.ts', 'modules/series/plot.ts', 'modules/solve/solve.ts', 'modules/solve/system.ts',
+  'modules/vectors/module.ts',
+])
+
+/** The files that reach the adapter itself, besides the interface: the instance, while the code moves (engine/core/math.ts). */
+const REACHING_ADAPTER: ReadonlySet<string> = new Set(['lib/engine/core/math.ts'])
+
+describe('the maths library', () => {
+  it('finds the files that import it', () => {
+    expect(importsLibrary(LIBRARY_ADAPTER)).toBe(true)
+    expect(importsLibrary(LIBRARY_INTERFACE)).toBe(false)
+  })
+
+  // Only the adapter knows which library it is: everything else uses the interface, MathScribe's own names, so a
+  // change of library is the adapter's alone.
+  it('is imported only by its adapter (and the files not moved behind its interface yet)', () => {
+    const using = [...SOURCES.keys()].filter((p) => p !== LIBRARY_ADAPTER && importsLibrary(p) && !STILL_USING_LIBRARY.has(p))
+    expect(using).toEqual([])
+  })
+
+  it('has no file on the list of those still using it that doesn\'t (take it off the list)', () => {
+    expect([...STILL_USING_LIBRARY].filter((p) => !importsLibrary(p))).toEqual([])
+  })
+
+  it('has its adapter reached only through its interface', () => {
+    const reaching = [...SOURCES.keys()].filter((p) => p !== LIBRARY_INTERFACE && !REACHING_ADAPTER.has(p) && importsOf(p).includes(LIBRARY_ADAPTER))
+    expect(reaching).toEqual([])
+  })
+})
+
 /** Each module class's folder, by the class's name (from the file declaring it). */
 const MODULE_FOLDERS = new Map([...SOURCES].flatMap(([path, source]) => {
   const declared = /export class (\w+) extends EngineModule/.exec(source)

@@ -20,7 +20,7 @@ import {
   type MathJsInstance,
   type MathNode,
 } from 'mathjs'
-import { FN, MATH_CONSTANT, OP, OP_SYMBOL, isOp } from './mathjsNames.ts'
+import { FN, MATH_CONSTANT, OP, OP_SYMBOL, isOp } from './library/index.ts'
 
 /** What kind of polynomial @solve(…) found f to be in x. */
 export const POLYNOMIAL_KIND = { linear: 'linear', quadratic: 'quadratic' } as const

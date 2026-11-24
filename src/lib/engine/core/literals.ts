@@ -1,6 +1,6 @@
 /** Unit literals (`9.81 m/s^2` as a number times a unit) and numbers kept as typed. */
 import { NAME, NAME_CHAR, KEYWORD } from '../../syntax.ts'
-import { MATHJS_IN } from '../../maths/mathjsNames.ts'
+import { LIBRARY_IN } from '../../maths/library/index.ts'
 import { math } from './math.ts'
 import { DERIVED_UNITS } from './normalise.ts'
 import { MESSAGE_DIGITS } from './numbers.ts'
@@ -116,7 +116,7 @@ export function readUnit(src: string, pos: number): { text: string; end: number 
 /** Every name in a line that isn't a call: not part of a longer name, or after `.` or `\`. */
 export const NAME_IN_LINE = new RegExp(String.raw`(?<!${NAME_CHAR}|[\\.])(${NAME})(?!${NAME_CHAR}|\()`, 'g')
 /** After a unit, another term (a name or a bracket), not `to` or `in`: `1/2 m v^2`. */
-export const MORE_TERMS = new RegExp(String.raw`^[ \t]+(?!(?:${KEYWORD.to}|${MATHJS_IN})(?!${NAME_CHAR}))(?:${NAME_CHAR}|\()`)
+export const MORE_TERMS = new RegExp(String.raw`^[ \t]+(?!(?:${KEYWORD.to}|${LIBRARY_IN})(?!${NAME_CHAR}))(?:${NAME_CHAR}|\()`)
 /** `pm` as a word (not the start of a name like `pmax`). */
 export const PM_WORD = new RegExp(`^${KEYWORD.pm}(?!${NAME_CHAR})`)
 /** A character that can be part of a name. */

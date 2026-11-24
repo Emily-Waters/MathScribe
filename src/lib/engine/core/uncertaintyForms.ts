@@ -6,7 +6,7 @@
  * other formula is neither, and its working is by derivatives.
  */
 import { isFunctionNode, isParenthesisNode, isSymbolNode, type MathNode } from 'mathjs'
-import { OP, isOp } from '../../maths/mathjsNames.ts'
+import { OP, isOp } from '../../maths/library/index.ts'
 
 /** The function a square root is, as mathjs names it (`sqrt(A)` is A to the ½). */
 const SQRT = 'sqrt'

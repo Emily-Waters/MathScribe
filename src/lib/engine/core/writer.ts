@@ -12,7 +12,7 @@
  * A part no one writes is written as it's typed; a node, as its parts.
  */
 import { CALL, KEYWORD, SIGIL } from '../../syntax.ts'
-import { FN } from '../../maths/mathjsNames.ts'
+import { FN } from '../../maths/library/index.ts'
 import { closesBracket, lexExpression, opensBracket } from '../../tree/lexer.ts'
 import { ASSIGN } from '../../tree/shapes.ts'
 import { textOf } from '../../tree/codec.ts'

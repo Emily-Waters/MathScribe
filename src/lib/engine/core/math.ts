@@ -1,12 +1,14 @@
-/** The engine's own mathjs instance, and the functions it adds to it or replaces. */
-import { all, create, type MathType, type Unit } from 'mathjs'
-import { FN, OP, UNIT } from '../../maths/mathjsNames.ts'
+/** The engine's maths library instance, and the functions it adds to it or replaces. */
+import type { MathType, Unit } from 'mathjs'
+import { FN, OP, UNIT } from '../../maths/library/index.ts'
+// (The instance itself, while the code moves behind the library's interface: TODO.md, "Maths library behind one interface".)
+import { math } from '../../maths/library/mathjs.ts'
 import { INV_FUNCTION, TUPLE_FUNCTION } from '../../sheet/names.ts'
 import { CALL, SIGIL } from '../../syntax.ts'
 import { isLabelUnit } from './module.ts'
 
-/** Our own mathjs instance, with the functions below added or replaced. */
-export const math = create(all)
+/** The library's instance, with the functions below added or replaced. */
+export { math }
 
 /** A one-dimensional matrix: a tuple like (x, y, z). */
 export const isTuple = (v: unknown): v is math.Matrix =>

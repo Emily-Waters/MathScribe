@@ -1,6 +1,6 @@
 /** Units tidied after a calculation, and quantities shown in them. */
 import { type MathType, type Unit } from 'mathjs'
-import { UNIT } from '../../maths/mathjsNames.ts'
+import { UNIT } from '../../maths/library/index.ts'
 import { math } from './math.ts'
 import { isLabelUnit } from './module.ts'
 import { SAME_VALUE_TOLERANCE, TINY } from './numbers.ts'

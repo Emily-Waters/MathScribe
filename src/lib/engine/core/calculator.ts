@@ -17,7 +17,7 @@ import { SigFigs } from './sigFigs.ts'
 import { Propagation } from './propagation.ts'
 import { SeriesAggregates, seriesInMaths } from './aggregates.ts'
 import { SheetFunctions } from './sheetFunctions.ts'
-import { FN, OP, OP_SYMBOL, UNIT, isOp } from '../../maths/mathjsNames.ts'
+import { FN, OP, OP_SYMBOL, UNIT, isOp } from '../../maths/library/index.ts'
 
 import { nestBrackets } from '../../maths/brackets.ts'
 import type { CsvColumn } from '../../data/csv.ts'

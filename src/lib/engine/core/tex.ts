@@ -4,7 +4,7 @@ import { AGGREGATE_KIND } from '../../sheet/values.ts'
 import { builtinConstant } from '../../builtins.ts'
 import { GREEK_BY_CHAR, GREEK_BY_NAME, GREEK_CHARS, SERIES_SUFFIXES } from '../../syntax.ts'
 import { JOIN, parseConstantRefName, parseMemberName, parseNumberedName, parseSeriesStatName, parseSliceName, typedSlice, describedName, parseHeldName, parseUncertaintyName } from '../../sheet/names.ts'
-import { FN, UNIT_LOOKS } from '../../maths/mathjsNames.ts'
+import { FN, UNIT_LOOKS } from '../../maths/library/index.ts'
 import { math } from './math.ts'
 import { isLabelUnit, labelUnitTex, moduleMemberTex, moduleNameSubscriptTex } from './module.ts'
 

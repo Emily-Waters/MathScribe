@@ -5,7 +5,7 @@
  * needed: (2.0 s)², × (−1.5 m/s).
  */
 import { isConstantNode, isFunctionNode, isOperatorNode, isSymbolNode, type MathNode } from 'mathjs'
-import { MATH_CONSTANT, OP, isOp } from '../../maths/mathjsNames.ts'
+import { MATH_CONSTANT, OP, isOp } from '../../maths/library/index.ts'
 import { RAW } from './results.ts'
 import { INV_FUNCTION } from '../../sheet/names.ts'
 import { symbolTex, isUnitCall, unitCallText, isLitCall } from './tex.ts'

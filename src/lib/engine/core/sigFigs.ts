@@ -6,7 +6,7 @@
  */
 import { isConstantNode, isFunctionNode, isOperatorNode, isParenthesisNode, isSymbolNode, type MathNode, type Unit } from 'mathjs'
 import { EXACT, countSigFigs, hasAmbiguousZeros, isMeasuredLiteral, lastPlace, sigFigsFromPlace } from '../../maths/sigfigs.ts'
-import { COMPARISONS, OP, isOp } from '../../maths/mathjsNames.ts'
+import { COMPARISONS, OP, isOp } from '../../maths/library/index.ts'
 import { math } from './math.ts'
 import { isLitCall, isUnitCall, unitCallText } from './tex.ts'
 import { isPureNumber, unwrap } from './nodes.ts'

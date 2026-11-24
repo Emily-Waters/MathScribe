@@ -7,7 +7,7 @@
  */
 import { TITLE_SEGMENT, titleSegments } from './textSegments.ts'
 import { ALIGN, type Align } from './alignment.ts'
-import { CAPTION_KIND, type CaptionKind } from '../sheet/blocks.ts'
+import type { CaptionKind } from '../sheet/blocks.ts'
 
 // (How a paragraph lines up, for a module's constructs: ALIGN.center.)
 export { ALIGN, type Align }
@@ -210,8 +210,6 @@ export interface Ctx {
   captions: Map<string, number>
 }
 
-// (What a caption names its kind with, `Table 1: …`: the blocks' own, sheet/blocks.ts.)
-export { CAPTION_KIND, type CaptionKind }
 
 /**
  * A caption, `Table 2: Runs`, as Word writes one: in its Caption style, its

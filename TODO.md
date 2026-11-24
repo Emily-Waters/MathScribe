@@ -303,11 +303,21 @@ tests, or the Create prompt:
            fitNames.ts), through two new hooks, `EngineModule.explainMessage`
            and `memberTex`. (fitNames.ts still matches mathjs's "Undefined
            symbol" text: step 2's typed errors replace that.)
-         - solved names: `parseSolvedName` / `HIDDEN_PREFIX.solved`
-           (sheet/names.ts, tex.ts), behind a hook such as `hiddenNameTex`;
-         - series' syntax in the core's messages: the "square brackets make a
-           series" error (calculator.ts) is the series module's to say.
+         - ~~solved names~~ (done 2026-11-23): no hook needed. The core's
+           hidden name is generic now, a value a module holds for itself and
+           shows as the name it stands for (`heldName`, held__x; `solved` no
+           longer a reserved namespace, `held` is). @solve uses it.
+         - ~~the "square brackets make a series" error~~ (done 2026-11-23): a
+           series module step at the `check` stage (brackets.ts). It now runs
+           after the core's two checks at that stage, so a line that's wrong
+           both ways (`w = t * [1, 2]`) gets the series-as-value message.
            (`seriesHint`, statistics and lookups stay core: series are.)
+         - ~~caption kinds~~ (done 2026-11-23): `CAPTION_KIND.table` was the
+           core's; `CaptionKind` is a string now, `Table` the series module's
+           (`TABLE_CAPTION`).
+         Left, for step 2: `src/lib/maths/solve.ts` (the `Solver`, polynomials,
+         isolating an unknown) is maths the solve module uses, built on mathjs's
+         `simplify`/`derivative`; it moves with the adapter.
       2. **Maths library behind one interface**: a folder (e.g.
          `src/lib/maths/mathjs/`) the only one importing `mathjs`, enforced in
          `boundaries.test.ts`. It offers named operations (parse, evaluate,

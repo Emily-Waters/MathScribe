@@ -3,7 +3,7 @@ import { isConstantNode, isFunctionNode, type FunctionNode, type MathNode } from
 import { AGGREGATE_KIND } from '../../sheet/values.ts'
 import { builtinConstant } from '../../builtins.ts'
 import { GREEK_BY_CHAR, GREEK_BY_NAME, GREEK_CHARS, SERIES_SUFFIXES } from '../../syntax.ts'
-import { JOIN, parseConstantRefName, parseMemberName, parseNumberedName, parseSeriesStatName, parseSliceName, typedSlice, describedName, parseSolvedName, parseUncertaintyName } from '../../sheet/names.ts'
+import { JOIN, parseConstantRefName, parseMemberName, parseNumberedName, parseSeriesStatName, parseSliceName, typedSlice, describedName, parseHeldName, parseUncertaintyName } from '../../sheet/names.ts'
 import { FN, UNIT_LOOKS } from '../../maths/mathjsNames.ts'
 import { math } from './math.ts'
 import { isLabelUnit, labelUnitTex, moduleMemberTex, moduleNameSubscriptTex } from './module.ts'
@@ -47,8 +47,9 @@ export function symbolTex(name: string): string {
   if (unc) return `\\${unc.letter} ${symbolTex(unc.of)}`
   const constant = parseConstantRefName(name)
   if (constant) return builtinConstant(constant)?.tex ?? symbolTex(constant)
-  const solved = parseSolvedName(name)
-  if (solved) return symbolTex(solved)
+  // A value a module holds for itself, shown as the name it stands for (@solve's answer, held__x → x).
+  const held = parseHeldName(name)
+  if (held) return symbolTex(held)
   // A name made for something written another way (the rows where a condition holds), as it said it's typeset.
   const said = describedName(name)
   if (said) return said.tex

@@ -5,7 +5,7 @@
  *
  *   delta__F          F's uncertainty, `delta F` (δF; Delta__F is ΔF)
  *   at__c__5          the constant @c at 5 sig figs (at__c__x: @c:exact)
- *   solved__x         an unknown worked out by @solve(…)
+ *   held__x           a value a module holds for itself, shown as x (@solve's answer)
  *   unpacked__3       a tuple while `@tuple(a, b) = …` unpacks it
  *   unpacked__column2_5   row 5 of a table's unnamed column 2
  *   argument__3       the uncertainty of an argument a function's body asks for (`delta A`)
@@ -29,7 +29,8 @@ export const JOIN = '__'
 /** The first part of each kind of hidden name (besides uncertainties, which start with the word typed). */
 export const HIDDEN_PREFIX = {
   constant: 'at',
-  solved: 'solved',
+  /** A value a module holds for itself, shown as the name it stands for: held__x. */
+  held: 'held',
   unpacked: 'unpacked',
   /** A value put into text, `{{c_Na}}`, while it's worked out. */
   inline: 'inline',
@@ -71,8 +72,11 @@ export const TUPLE_FUNCTION = builtinFunctionName(CALL.tuple)
 /** The function `@inv(x)` works 1/x out with. */
 export const INV_FUNCTION = builtinFunctionName(CALL.inv)
 
-/** An unknown @solve(…) worked out: x → solved__x. */
-export const solvedName = (x: string) => `${HIDDEN_PREFIX.solved}${JOIN}${x}`
+/**
+ * A value a module holds for itself, typeset as `x` and not listed as one of
+ * the sheet's variables: x → held__x (@solve's answer, before it's assigned).
+ */
+export const heldName = (x: string) => `${HIDDEN_PREFIX.held}${JOIN}${x}`
 
 /** A tuple being unpacked (the `id`th). */
 export const unpackedName = (id: number) => `${HIDDEN_PREFIX.unpacked}${JOIN}${id}`
@@ -188,7 +192,7 @@ export function sliceOf<T>(members: readonly (readonly [number, T])[], spec: Sli
 
 const UNCERTAINTY_NAME = new RegExp(`^(${UNCERTAINTY_WORDS.join('|')})${JOIN}(.+)$`)
 const CONSTANT_NAME = new RegExp(String.raw`^${HIDDEN_PREFIX.constant}${JOIN}(.+)${JOIN}(?:\d+|${EXACT_MARK})$`)
-const SOLVED_NAME = new RegExp(`^${HIDDEN_PREFIX.solved}${JOIN}(.+)$`)
+const HELD_NAME = new RegExp(`^${HIDDEN_PREFIX.held}${JOIN}(.+)$`)
 const UNPACKED_START = `${HIDDEN_PREFIX.unpacked}${JOIN}`
 
 /** A series' statistic, `t.avg` as t__avg (1: the series, 2: the statistic). */
@@ -214,8 +218,8 @@ export const isUncertaintyName = (name: string) => parseUncertaintyName(name) !=
 /** The constant a hidden name holds (null if it isn't one). */
 export const parseConstantRefName = (name: string): string | null => CONSTANT_NAME.exec(name)?.[1] ?? null
 
-/** The unknown a hidden name holds (null if it isn't one). */
-export const parseSolvedName = (name: string): string | null => SOLVED_NAME.exec(name)?.[1] ?? null
+/** The name a held value is shown as (null if it isn't one): held__x → x. */
+export const parseHeldName = (name: string): string | null => HELD_NAME.exec(name)?.[1] ?? null
 
 export const isUnpackedName = (name: string) => name.startsWith(UNPACKED_START)
 
@@ -227,7 +231,7 @@ export function parseSeriesStatName(name: string): { base: string; suffix: Serie
 
 /** Hidden variables: made for the sheet's own use, not listed as its variables. */
 export const isHiddenName = (name: string) =>
-  isUncertaintyName(name) || parseConstantRefName(name) !== null || parseSolvedName(name) !== null || isUnpackedName(name)
+  isUncertaintyName(name) || parseConstantRefName(name) !== null || parseHeldName(name) !== null || isUnpackedName(name)
   || name === INLINE_VALUE_NAME || isArgumentUncertaintyName(name)
 
 /** Whether a name is an argument's uncertainty, as a call is given it (argument__3). */

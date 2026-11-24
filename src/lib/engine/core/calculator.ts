@@ -10,7 +10,7 @@ import { BUILTINS, isReservedConstantName } from '../../builtins.ts'
 import { stringTex } from './text.ts'
 import { EXACT_SETTING, IS_NAME, MEMBER_DOT, PERCENT, DISPLAY_MODE, CONSTANTS_BLOCK, LABEL_WORDS, SIGIL, UNCERTAINTY_WORDS, type DisplayMode, type Notation, type Precision } from '../../syntax.ts'
 import { INLINE_VALUE_NAME, INV_FUNCTION, JOIN, TUPLE_FUNCTION, RESERVED_NAMESPACES, isHiddenName, memberName, parseUncertaintyName, readableMembers, unpackedName, uncertaintyName } from '../../sheet/names.ts'
-import { expandDots, hasBracketList } from './memberAccess.ts'
+import { expandDots } from './memberAccess.ts'
 import { SheetConstants } from './sheetConstants.ts'
 import { DisplayNames } from './displayNames.ts'
 import { SigFigs } from './sigFigs.ts'
@@ -1002,10 +1002,6 @@ export class Calculator {
         const stray = strayLineFormCall(line.text)
         return stray ? { tex: '', error: stray } : undefined
       }),
-      // Square brackets that aren't a series' or a member's: `x = 2 * [1, 2]` (a series is a line of its own).
-      step(LINE_STAGE.check, (line) => (hasBracketList(line.text)
-        ? { tex: '', error: `Square brackets make a series, on a line that names it: t = [1.0 s, 2.0 s]. In a formula, use one of its values, t[2], or a statistic of them, t.avg.` }
-        : undefined)),
       // A series where a value is wanted: `w = 2 * t`.
       step(LINE_STAGE.check, (line) => {
         const shape = line.shape

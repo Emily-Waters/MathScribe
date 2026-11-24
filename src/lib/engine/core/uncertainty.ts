@@ -7,7 +7,7 @@
  *   m = 2.0 kg pm 5%         relative uncertainty
  *   delta F / Delta F        the uncertainty of F, rendered δF / ΔF as typed
  *
- * (Each delta F, @c and solved unknown is held in a hidden variable: see names.ts.)
+ * (Each delta F, @c and value a module holds, such as @solve's answer, is in a hidden variable: see names.ts.)
  */
 import { NAME, KEYWORD, UNCERTAINTY_WORDS } from '../../syntax.ts'
 import { PM_WORD, NAME_CHAR_RE } from './literals.ts'

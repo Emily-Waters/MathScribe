@@ -30,14 +30,6 @@ export function lineTokens(parts: readonly Part[], out: LineToken[] = [], calls 
 export const symbolsIn = (text: string): string[] =>
   lineTokens(lexExpression(text)).filter((l) => l.token.t === TOKEN_KIND.symbol && !l.callee).map((l) => l.token.text)
 
-/**
- * Whether a line's maths has square brackets left in it once its members are
- * read (expandDots): a list, `[1, 2]`, which only a series' own line can be.
- */
-export const hasBracketList = (text: string): boolean =>
-  text.includes(MEMBER_INDEX.open)
-  && lineTokens(lexExpression(text)).some((l) => l.token.t === TOKEN_KIND.delimiter && l.token.text === MEMBER_INDEX.open)
-
 /** The names a line's maths calls, as the tree reads them: `f` and `sqrt` in `f(x) + sqrt(2)`. */
 export const calleesIn = (text: string): string[] =>
   lineTokens(lexExpression(text)).filter((l) => l.token.t === TOKEN_KIND.symbol && l.callee).map((l) => l.token.text)

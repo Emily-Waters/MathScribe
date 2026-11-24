@@ -48,7 +48,7 @@ export { BlockMember, ConstantMember, FunctionMember, LineFormMember, Namespace,
 export { isNamespaceConstant, type BuiltinConstant, type NamespaceConstant } from './constants.ts'
 export {
   JOIN, RESERVED_NAMESPACES, builtinFunctionName, memberName, parseMemberName, parseNumberedName, readableMembers,
-  SLICE_COLON, describeName, parseSliceName, seriesMemberName, seriesStatName, solvedName, typedName, whereName, whereOf,
+  SLICE_COLON, describeName, parseSliceName, seriesMemberName, seriesStatName, heldName, typedName, whereName, whereOf,
   unpackedColumnName,
 } from './sheet/names.ts'
 
@@ -70,7 +70,7 @@ export { ASSIGN, SEPARATOR, SETTING_MARK, lineShape, soleCall } from './tree/sha
 // Reading a sheet into blocks.
 export { NodeReader, SheetWideReader, bodyLines, type ReadsLines, type TreeItem } from './reading/reader.ts'
 export type { SheetReader } from './reading/sheetReader.ts'
-export { BLOCK_KIND, CAPTION_KIND, SYMBOL_KIND, type CaptionKind, type CardBlock, type CardEntry, type CustomBlock, type DefinedName } from './sheet/blocks.ts'
+export { BLOCK_KIND, SYMBOL_KIND, type CaptionKind, type CardBlock, type CardEntry, type CustomBlock, type DefinedName } from './sheet/blocks.ts'
 export type { Contributions } from './sheet/values.ts'
 
 // Working lines out: mathjs, values, results, and writing them.

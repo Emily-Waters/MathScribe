@@ -29,7 +29,7 @@ import {
   BLOCK_KIND, Construct, docxKit, latexKit, type CustomBlock, type DocxOut, type LatexOut,
 } from '../../lib/plugin.ts'
 import { TABLE_LINE } from './tableSettings.ts'
-import { TABLE_TEX, type TableData } from './tableData.ts'
+import { TABLE_CAPTION, TABLE_TEX, type TableData } from './tableData.ts'
 
 /** Each column of a table but its first: centred, the columns sharing the width. */
 const CENTRED_COLUMN = '>{\\centering\\arraybackslash}X'
@@ -187,7 +187,7 @@ export function tableDocx(data: TableData, note: string | undefined, ctx: docxKi
     + `${headerRow}${body.join('')}</w:tbl>`
   const noteSize = docxKit.fontSizeOf(ctx.o) - docxKit.NOTE_SIZE_STEP
   return [
-    ...(title === undefined ? [] : [docxKit.caption(ctx, docxKit.CAPTION_KIND.table, title)]),
+    ...(title === undefined ? [] : [docxKit.caption(ctx, TABLE_CAPTION, title)]),
     { xml: table },
     // Its note under it, or a gap after it (two tables in a row would otherwise merge).
     note ? { props: { jc: ALIGN.center }, content: docxKit.titleRuns(note, { ...docxKit.NOTE, size: noteSize }) } : { props: { after: 0 }, content: '' },

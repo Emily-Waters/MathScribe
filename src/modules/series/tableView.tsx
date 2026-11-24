@@ -4,8 +4,8 @@
  * others centred, the header bold, its lines as its settings say, its note under
  * it, and the line's messages.
  */
-import { BlockMessages, CAPTION_KIND, Tex, Title, useCaptionNumber, useLineLink, type CustomBlock } from '../../lib/plugin.ts'
-import { TABLE_TEX, type TableData } from './tableData.ts'
+import { BlockMessages, Tex, Title, useCaptionNumber, useLineLink, type CustomBlock } from '../../lib/plugin.ts'
+import { TABLE_CAPTION, TABLE_TEX, type TableData } from './tableData.ts'
 import './tableView.css'
 
 /** The whole of something, in percent (a column's share of the width). */
@@ -42,7 +42,7 @@ export function TableView({ block }: { block: CustomBlock }) {
       {title !== undefined && (
         <p className="ms-table__caption">
           {/* (Numbered as the exports number it: `Table 2: Runs`.) */}
-          {number !== undefined && <span>{`${CAPTION_KIND.table} ${number}: `}</span>}
+          {number !== undefined && <span>{`${TABLE_CAPTION} ${number}: `}</span>}
           <Title text={title} />
         </p>
       )}

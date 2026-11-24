@@ -8,7 +8,7 @@ import type { MathNode, Unit } from 'mathjs'
 import {
   contains, type Contributions, CONVERSION_TAIL, countOccurrences, EXACT, FN, type FormLine, IS_NAME, isRealValue,
   LINE_STAGE, LineForm, type LineResult, magnitudeOf, matchingParen, math, type ModuleHost, normalise, OP, OP_SYMBOL,
-  POLYNOMIAL_KIND, type PreparedLine, preprocess, sameValue, solvedName, Solver, splitArgs, splitEquation, symbolTex,
+  POLYNOMIAL_KIND, type PreparedLine, preprocess, sameValue, heldName, Solver, splitArgs, splitEquation, symbolTex,
   type TraceLine, UNIT, withMagnitude,
 } from '../../lib/plugin.ts'
 import { SOLVE_CALL } from './syntax.ts'
@@ -229,7 +229,7 @@ function solveNumerically(
   })
 
   // Hold the answer in a hidden variable, shown as x itself.
-  const hidden = solvedName(x)
+  const hidden = heldName(x)
   host.store(hidden, { value, sf, contributions })
   return finish(new math.SymbolNode(hidden), value)
 }

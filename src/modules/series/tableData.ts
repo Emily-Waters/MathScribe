@@ -9,6 +9,9 @@ import { TABLE_LINE, type TableLines } from './tableSettings.ts'
 /** The series module's kinds of block, by type. */
 export const SERIES_BLOCK = { table: 'series.table' } as const
 
+/** What a table's numbered caption names its kind with: `Table 2: Runs`. */
+export const TABLE_CAPTION = 'Table'
+
 /** The series module's kinds of figure (a drawing above a line's equations), by type: a plot (plotFigure.ts). */
 export const SERIES_FIGURE = { plot: 'series.plot' } as const
 

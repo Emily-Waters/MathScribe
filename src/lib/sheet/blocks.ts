@@ -281,12 +281,12 @@ export interface CustomBlock<D = unknown> extends BlockBase, Spans, Noted, Fault
 }
 
 /**
- * The kinds of numbered caption a document has, as each is named: `Table 2:
- * Runs`. A module's kind of block says which its blocks have (ModuleBlockKind's
- * `caption`), and each output numbers them in the order they're written.
+ * A kind of numbered caption, as it's named: `Table` in `Table 2: Runs`. A
+ * module's kind of block says which its blocks have (ModuleBlockKind's
+ * `caption`; the series module's tables, `Table`), and each output numbers
+ * each kind in the order they're written.
  */
-export const CAPTION_KIND = { table: 'Table' } as const
-export type CaptionKind = (typeof CAPTION_KIND)[keyof typeof CAPTION_KIND]
+export type CaptionKind = string
 
 /** Any block of a sheet. */
 export type Block =

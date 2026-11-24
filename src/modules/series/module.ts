@@ -7,13 +7,14 @@
  * ModuleHost.
  */
 import {
-  CAPTION_KIND, EngineModule, type Extension, type LineForm, type LineStep, LineFormMember, type Member, type ModuleBlockKind, type ModuleFigureKind, type ModuleGrammar,
+  EngineModule, type Extension, type LineForm, type LineStep, LineFormMember, type Member, type ModuleBlockKind, type ModuleFigureKind, type ModuleGrammar,
 } from '../../lib/plugin.ts'
 import { PLOT_FIGURE } from './plotFigure.ts'
 import { fitMemberTex, fitMessage } from './fitNames.ts'
+import { StrayBracketsStep } from './brackets.ts'
 import { SERIES_GRAMMAR } from './grammar.ts'
 import { TABLE_PREAMBLE, TableConstruct, usesTables } from './tableBlock.ts'
-import { SERIES_BLOCK, SERIES_FIGURE, type TableData } from './tableData.ts'
+import { SERIES_BLOCK, SERIES_FIGURE, TABLE_CAPTION, type TableData } from './tableData.ts'
 import { TableView } from './tableView.tsx'
 import { SERIES_CALL } from './syntax.ts'
 import { PlotForm } from './plot.ts'
@@ -33,7 +34,7 @@ const SERIES_BLOCK_KINDS: Readonly<Record<string, ModuleBlockKind>> = {
     construct: new TableConstruct(),
     view: TableView,
     // (A table with a title has a numbered caption: `Table 2: Runs`.)
-    caption: (block) => ((block.data as TableData).title === undefined ? undefined : CAPTION_KIND.table),
+    caption: (block) => ((block.data as TableData).title === undefined ? undefined : TABLE_CAPTION),
   },
 }
 
@@ -48,9 +49,10 @@ export class SeriesModule extends EngineModule {
 
   /**
    * The rows of a series where a condition holds, `x[t > 0.2 s]`, read as the series they make (where.ts);
-   * and the largest or smallest of a series' values, `max(t)`, as the member it is (extremes.ts).
+   * the largest or smallest of a series' values, `max(t)`, as the member it is (extremes.ts); and a list's
+   * square brackets in a line's maths, said plainly (brackets.ts).
    */
-  override readonly lineSteps: readonly LineStep[] = [new WhereStep(), new ExtremeStep()]
+  override readonly lineSteps: readonly LineStep[] = [new WhereStep(), new ExtremeStep(), new StrayBracketsStep()]
 
   /** The functions `max(t)` and `min(t)` stand for once they've picked their member (extremes.ts). */
   override install(): void {

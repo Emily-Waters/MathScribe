@@ -4,10 +4,9 @@
  * `expect(value('F = 2.00 kg * 9.81 m/s^2')).toBe('19.6 N')`.
  */
 import { evaluateSheet, type Sheet } from '../lib/sheet/document.ts'
-import { BLOCK_KIND, isContainer, type Block } from '../lib/sheet/blocks.ts'
+import { BLOCK_KIND, isContainer, type Block, type CalcBlock } from '../lib/sheet/blocks.ts'
 import { moduleBlockKind, type CalcOptions } from '../lib/engine/index.ts'
-import { SERIES_BLOCK, tableTex, type TableData } from '../modules/series/public.ts'
-import type { PlotData } from '../lib/output/plot.ts'
+import { SERIES_BLOCK, SERIES_FIGURE, tableTex, type PlotData, type TableData } from '../modules/series/public.ts'
 import { EXAMPLE_CALC_OPTIONS } from '../config.ts'
 import { CONSTANTS_TITLE } from '../lib/reading/readers.ts'
 import { FORMULA_TITLE } from '../modules/formula/public.ts'
@@ -28,9 +27,13 @@ export interface Line {
   info?: string
   hidden?: boolean
   trace?: { tex: string }[]
-  /** A @plot() line's graph. */
+  /** A @plot() line's graph (its figure's data). */
   plot?: PlotData
 }
+
+/** A calculation as a Line: a plot's figure as its `plot`. */
+const lineOf = (b: CalcBlock): Line =>
+  (b.figure?.type === SERIES_FIGURE.plot ? { ...b, plot: b.figure.data as PlotData } : b)
 
 /** A sheet, evaluated. */
 export function sheet(source: string, options: Partial<CalcOptions> = {}): Sheet {
@@ -45,7 +48,7 @@ export function sheet(source: string, options: Partial<CalcOptions> = {}): Sheet
 export function lines(source: string, options: Partial<CalcOptions> = {}): Line[] {
   const out: Line[] = []
   const visit = (b: Block) => {
-    if (b.kind === BLOCK_KIND.calc) out.push(b)
+    if (b.kind === BLOCK_KIND.calc) out.push(lineOf(b))
     else if (b.kind === BLOCK_KIND.custom && b.source !== undefined) {
       const { line, source: text, error, warning, info, hidden } = b
       const tex = b.type === SERIES_BLOCK.table ? tableTex(b.data as TableData) : moduleBlockKind(b.type)?.construct.equation(b)?.tex ?? ''

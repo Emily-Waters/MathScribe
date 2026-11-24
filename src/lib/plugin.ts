@@ -37,7 +37,7 @@ export { settingsTopic, type SettingsTopicPlace } from './language/reference.ts'
 export {
   EngineModule, LINE_STAGE, LINE_STAGES, LineForm, LineStep, SETTING_PLACE, registerModules,
   type DerivedVariable, type InstallableModule, type LineInProgress, type LineStage, type ModuleBlockKind, type ModuleClass, type FormLine, type LookSetting, type ModuleGrammar, type ModuleHost, type PreparedLine, type SettingPlace,
-  type TupleLook,
+  type TupleLook, type FigurePicture, type ModuleFigureKind,
 } from './engine/core/module.ts'
 // (markupText: text with every module's notation in it as inline maths, as a sheet's text and titles have it: `{KCl}` a formula.)
 export { markupText } from './engine/core/module.ts'
@@ -75,12 +75,12 @@ export type { Contributions } from './sheet/values.ts'
 
 // Working lines out: mathjs, values, results, and writing them.
 export { isTuple, math } from './engine/core/math.ts'
-export { BASE_DIMENSION, FN, OP, OP_SYMBOL, UNIT } from './maths/mathjsNames.ts'
+export { BASE_DIMENSION, FN, OP, OP_SYMBOL, UNIT, UNIT_LOOKS } from './maths/mathjsNames.ts'
 export { EXACT } from './maths/sigfigs.ts'
 export { POLYNOMIAL_KIND, Solver, contains, countOccurrences, matchingParen, splitArgs, splitEquation } from './maths/solve.ts'
 export { isRealValue, magnitudeOf, normalise, sameValue, withMagnitude } from './engine/core/normalise.ts'
 export {
-  ExplainedError, readableUnitError, seriesDefinitions, type Definition, type LineResult, type TraceLine,
+  ExplainedError, readableUnitError, seriesDefinitions, type Definition, type LineResult, type ResultBlock, type TraceLine,
 } from './engine/core/results.ts'
 export { CONVERSION_TAIL, NAME_IN_LINE } from './engine/core/literals.ts'
 export {
@@ -94,10 +94,8 @@ export { attachUnit, isLitCall, isUnitCall, numberTex, symbolTex, unitCallText, 
 // (nestBrackets: an equation's grouping brackets by how deep they go, as every line's are, for LaTeX a module builds itself.)
 export { nestBrackets } from './maths/brackets.ts'
 export { outsideMaths } from './engine/core/text.ts'
-// (plotScales: a plot's axes as they'll be drawn, for a plot that draws something across its x axis.)
-export { linearFit, type LinearFit, type PlotData, type PlotPoint, type PlotSeries, plotScales } from './output/plot.ts'
-
 // A module's own kinds of block: a construct for the exports, and a view for the Rendered tab.
+// (And of figure, a drawing above a line's equation: ModuleFigureKind, from the engine.)
 export { Construct, type DocxOut, type LatexOut } from './output/constructs/construct.ts'
 export * as latexKit from './output/latexKit.ts'
 export * as docxKit from './output/docxKit.ts'

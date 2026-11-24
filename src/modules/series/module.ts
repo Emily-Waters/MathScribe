@@ -7,11 +7,12 @@
  * ModuleHost.
  */
 import {
-  CAPTION_KIND, EngineModule, type Extension, type LineForm, type LineStep, LineFormMember, type Member, type ModuleBlockKind, type ModuleGrammar,
+  CAPTION_KIND, EngineModule, type Extension, type LineForm, type LineStep, LineFormMember, type Member, type ModuleBlockKind, type ModuleFigureKind, type ModuleGrammar,
 } from '../../lib/plugin.ts'
+import { PLOT_FIGURE } from './plotFigure.ts'
 import { SERIES_GRAMMAR } from './grammar.ts'
 import { TABLE_PREAMBLE, TableConstruct, usesTables } from './tableBlock.ts'
-import { SERIES_BLOCK, type TableData } from './tableData.ts'
+import { SERIES_BLOCK, SERIES_FIGURE, type TableData } from './tableData.ts'
 import { TableView } from './tableView.tsx'
 import { SERIES_CALL } from './syntax.ts'
 import { PlotForm } from './plot.ts'
@@ -34,6 +35,9 @@ const SERIES_BLOCK_KINDS: Readonly<Record<string, ModuleBlockKind>> = {
     caption: (block) => ((block.data as TableData).title === undefined ? undefined : CAPTION_KIND.table),
   },
 }
+
+/** The series module's kinds of figure (one object, as figureKinds asks). */
+const SERIES_FIGURE_KINDS: Readonly<Record<string, ModuleFigureKind>> = { [SERIES_FIGURE.plot]: PLOT_FIGURE }
 
 export class SeriesModule extends EngineModule {
   /** Its topics of the language tree: what's said about its features, with examples the tests check (language.ts). */
@@ -78,6 +82,11 @@ export class SeriesModule extends EngineModule {
   /** A table, `@table(…)`, as a block of its own (tableBlock.ts). */
   override blockKinds(): Readonly<Record<string, ModuleBlockKind>> {
     return SERIES_BLOCK_KINDS
+  }
+
+  /** A plot, `@plot(…)`, as a figure above its line's equations (plotFigure.ts). */
+  override figureKinds(): Readonly<Record<string, ModuleFigureKind>> {
+    return SERIES_FIGURE_KINDS
   }
 
   /** What a document with a table in it needs: tabularx, float and caption. */

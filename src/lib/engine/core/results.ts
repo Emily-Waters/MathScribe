@@ -3,7 +3,6 @@ import { type MathNode } from 'mathjs'
 import { PERCENT, KEYWORD, DISPLAY_MODE, SIGIL, words, type DisplayMode, type Notation, type Precision, type WordOf } from '../../syntax.ts'
 import { FIT, seriesMemberName } from '../../sheet/names.ts'
 import { FunctionMember, builtinAt } from '../../builtins.ts'
-import type { PlotData } from '../../output/plot.ts'
 import type { VariableSummary } from '../../sheet/values.ts'
 import { math } from './math.ts'
 import { moduleReadableMessage, unitMismatchNotes, type LookSetting } from './module.ts'
@@ -110,8 +109,12 @@ export interface CalcResult {
   warning?: string
   /** Something worth knowing that isn't a problem, e.g. other solutions of an equation. */
   info?: string
-  /** A `@plot(…)` line's plot (its `tex` is then the fits' equations, if any). */
-  plot?: PlotData
+  /**
+   * A drawing a module makes of the line, shown above its equation: a `@plot(…)`
+   * line's plot (its `tex` is then the fits' equations, if any). Its kind is the
+   * module's (EngineModule.figureKinds).
+   */
+  figure?: ResultBlock
   /**
    * A line a module shows as a block of its own kind rather than as an
    * equation (`@table(…)`'s table): the line's note, messages and hiding go

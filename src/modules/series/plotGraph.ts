@@ -1,16 +1,14 @@
 /**
  * Plots: `@plot(t, x)` draws x against t, one point per row of the series.
- * This module has what a plot is (the engine works out its data; see
- * evaluatePlot), the linear fit, and drawing it as SVG. The same drawing is
- * shown in the output, in the app's colours, and exported as an image, in
- * fixed ones.
+ * This file has what a plot is (its line form works out its data: plot.ts),
+ * the linear fit, and drawing it as SVG. The same drawing is shown in the
+ * Rendered tab, in the app's colours, and exported as a picture, in fixed ones
+ * (plotFigure.ts).
  */
+import { GREEK_BY_NAME, GREEK_CHARS, SUBSCRIPT, UNIT_LOOKS, parseMemberName, typedName } from '../../lib/plugin.ts'
 import {
   LEGEND_POSITION, PLOT_PART, PLOT_STYLE, partColour, showsLegend, type PlotColour, type PlotPart, type PlotSettings,
-} from '../../modules/series/public.ts'
-import { GREEK_BY_NAME, GREEK_CHARS, SUBSCRIPT } from '../syntax.ts'
-import { parseMemberName, typedName } from '../sheet/names.ts'
-import { UNIT_LOOKS } from '../maths/mathjsNames.ts'
+} from './plotSettings.ts'
 
 /** One point: its row number, and its x and y (in the axes' units), with any uncertainties. */
 export interface PlotPoint {

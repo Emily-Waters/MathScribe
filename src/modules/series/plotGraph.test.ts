@@ -1,9 +1,12 @@
 /** @plot(): its settings, its linear fit, the engine's plot data, and its drawings. */
 import { describe, expect, it } from 'vitest'
 import { last, lines, value } from '../../test/helpers.ts'
-import { PLOT_PART, formatPlotSettings, parsePlotSettings, partColour } from '../../modules/series/public.ts'
-import { NAMED_COLOURS, PRINT_PALETTE, axisTicks, linearFit, plotScales, plotSvg, tickLabelText } from './plot.ts'
-import { centredEquation, plotToLatex } from './latexKit.ts'
+import { latexKit } from '../../lib/plugin.ts'
+import { PLOT_PART, formatPlotSettings, parsePlotSettings, partColour } from './plotSettings.ts'
+import { NAMED_COLOURS, PRINT_PALETTE, axisTicks, linearFit, plotScales, plotSvg, tickLabelText } from './plotGraph.ts'
+import { plotToLatex } from './plotLatex.ts'
+
+const { centredEquation } = latexKit
 
 const data = 't = [0.10 s, 0.20 s, 0.30 s, 0.40 s]\n'
   + 'x = [0.051 m pm 0.004 m, 0.098 m pm 0.004 m, 0.152 m pm 0.004 m, 0.199 m pm 0.004 m]\n'

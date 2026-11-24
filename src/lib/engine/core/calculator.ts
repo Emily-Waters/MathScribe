@@ -826,14 +826,14 @@ export class Calculator {
       // (A module's own member, typed: what to write instead. What a module writes for the engine can use it.)
       const internal = internalTyped(input)
       if (internal) return { tex: '', error: internal }
-      const { tex, error, warning, info, trace, plot, block, defines, parts } = this.evaluateLine(this.rewriteLine(input), mode, explicit)
+      const { tex, error, warning, info, trace, figure, block, defines, parts } = this.evaluateLine(this.rewriteLine(input), mode, explicit)
       // Messages name a namespace's members as typed, a.x_1 (not a__x_1), and a module's inside names as the sheet does.
       // (And one of MathScribe's functions written without its @ is explained, and a series where a value was wanted.)
       const readable = (s: string | undefined) => (s === undefined ? s
         : builtinCallHint(moduleReadableMessage(this.seriesHint(s.includes(JOIN) ? fitHint(readableMembers(s)) : s))))
       // Brackets by nesting, ( ) inside [ ] inside { }, once each equation is finished.
       return {
-        tex: nestBrackets(tex), error: readable(error), warning: readable(warning), info: readable(info), plot, block, defines,
+        tex: nestBrackets(tex), error: readable(error), warning: readable(warning), info: readable(info), figure, block, defines,
         assigned: error ? undefined : this.assignedBy(input),
         // (Its result alone, if it works one out: a value typed as it is has none.)
         result: !error && parts?.result ? { tex: nestBrackets(parts.result), approx: parts.approx === true } : undefined,

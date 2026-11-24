@@ -288,11 +288,18 @@ tests, or the Create prompt:
       in with Emily between steps:
       1. **The core stops naming modules' concepts** (CLAUDE.md: "The core
          asks; modules answer"), one at a time:
-         - plots and fits: `FIT` (sheet/names.ts), `fitHint` and
-           `MISSING_FIT_MEMBER` (results.ts), R²/χ² in tex.ts, `CalcResult.plot`
-           and `CalcBlock.plot`, and output/plot.ts, plotImage.ts, latexKit's
-           `plotToLatex` and docxKit's plot images: a plot becomes the series
-           module's own block kind (as a table is), with hooks such as
+         - ~~plots~~ (done 2026-11-23): a plot is a module's *figure* now, a
+           drawing above its line's equations (`CalcResult.figure`,
+           `EngineModule.figureKinds`, `ModuleFigureKind`: view, LaTeX,
+           preamble, picture). The line stays a calculation, so its fits'
+           equations, a named plot's `defines` and the editor's hovers are
+           unchanged. output/plot.ts, latexKit's `plotToLatex` and the plot
+           view moved into the series module (plotGraph.ts, plotLatex.ts,
+           plotView.tsx, plotFigure.ts); plotImage.ts became the generic
+           figures.ts; Word's pictures are named Figure n (media/figureN.png).
+           Golden tests and the visual check's pages unchanged.
+         - fits: `FIT` (sheet/names.ts), `fitHint` and `MISSING_FIT_MEMBER`
+           (results.ts), R²/χ² in tex.ts, with hooks such as
            `explainError(message)` and `memberTex(namespace, member)`;
          - solved names: `parseSolvedName` / `HIDDEN_PREFIX.solved`
            (sheet/names.ts, tex.ts), behind a hook such as `hiddenNameTex`;

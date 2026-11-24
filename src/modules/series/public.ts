@@ -14,4 +14,6 @@ export {
   type AxisSettings, type LegendPosition, type PlotColour, type PlotFit, type PlotPart, type PlotSettings, type PlotStyle,
 } from './plotSettings.ts'
 export { CALLS_WITH_SETTINGS, SERIES_CALL, type CallWithSettings } from './syntax.ts'
-export { SERIES_BLOCK, tableTex, type TableData } from './tableData.ts'
+export { SERIES_BLOCK, SERIES_FIGURE, tableTex, type TableData } from './tableData.ts'
+// (A plot's data, for tests that look inside one: a type alone, so it loads nothing.)
+export type { PlotData } from './plotGraph.ts'

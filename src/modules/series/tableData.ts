@@ -9,6 +9,9 @@ import { TABLE_LINE, type TableLines } from './tableSettings.ts'
 /** The series module's kinds of block, by type. */
 export const SERIES_BLOCK = { table: 'series.table' } as const
 
+/** The series module's kinds of figure (a drawing above a line's equations), by type: a plot (plotFigure.ts). */
+export const SERIES_FIGURE = { plot: 'series.plot' } as const
+
 /** What's in a table's cells besides its values. */
 export const TABLE_CELL = {
   /** The row headers' header: none (over the row numbers or labels, as a table written by hand has). */

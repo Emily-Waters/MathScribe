@@ -3,7 +3,8 @@
  * and calculations.
  */
 import { BLOCK_KIND, type CalcBlock, type HeadingBlock, type LatexBlock, type SpacerBlock, type TextBlock } from '../../sheet/blocks.ts'
-import { centredEquation, errorComment, gather, plotToLatex, titleToLatex, type Equation } from '../latexKit.ts'
+import { moduleFigureKind } from '../../engine/index.ts'
+import { centredEquation, errorComment, gather, titleToLatex, type Equation } from '../latexKit.ts'
 import { baseProps, equation, picture, run, titleRuns, type Ctx, type Item } from '../docxKit.ts'
 import { EM_SPACE } from '../omml.ts'
 import { Construct, type LatexOut } from './construct.ts'
@@ -76,15 +77,21 @@ export class SpacerConstruct extends Construct<SpacerBlock> {
   }
 }
 
-/** A calculation: its equation (with any working inside function calls above it), or a plot. */
+/** What's said of a figure of a kind no module installed has. */
+const unknownFigure = (type: string) => `No module installed has the kind of figure ${type}.`
+
+/** A calculation: its equation (with any working inside function calls above it), and any figure a module makes of it (a plot). */
 export class CalcConstruct extends Construct<CalcBlock> {
   readonly kind = BLOCK_KIND.calc
 
   latex(b: CalcBlock, out: LatexOut): string {
     if (b.error) return errorComment(b.line, b.source, b.error)
     if (b.hidden) return ''
-    // A plot, as a pgfplots graph, then its fits' equations (if any), centred under it as it is.
-    if (b.plot) return [plotToLatex(b.plot), b.tex ? centredEquation({ tex: b.tex, note: b.note }) : ''].filter(Boolean).join('\n')
+    // A figure (a plot), as its module writes it, then the line's equations (a fit's, if any), centred under it as it is.
+    if (b.figure) {
+      const figure = moduleFigureKind(b.figure.type)?.latex(b.figure.data) ?? errorComment(b.line, b.source, unknownFigure(b.figure.type))
+      return [figure, b.tex ? centredEquation({ tex: b.tex, note: b.note }) : ''].filter(Boolean).join('\n')
+    }
     // The working inside a function call: indented and a little smaller, above the line.
     const working = b.trace?.length ? ['\\begin{msworking}', gather(b.trace, out.share), '\\end{msworking}'].join('\n') : ''
     return [working, gather([{ tex: b.tex, note: b.note }], out.share)].filter(Boolean).join('\n')
@@ -93,10 +100,10 @@ export class CalcConstruct extends Construct<CalcBlock> {
   docx(b: CalcBlock, ctx: Ctx): Item[] {
     // Errors stay out of the document, as in the LaTeX export.
     if (b.error || b.hidden) return []
-    // A plot: its picture (if it was drawn), then its fits' equations.
-    if (b.plot) {
-      const png = ctx.images.get(b.plot)
-      return [...(png ? [picture(ctx, png)] : []), ...(b.tex ? [equation({ ...ctx, center: true }, b.tex, b.note)] : [])]
+    // A figure (a plot): its picture (if it was drawn), then the line's equations.
+    if (b.figure) {
+      const image = ctx.images.get(b.figure.data)
+      return [...(image ? [picture(ctx, image)] : []), ...(b.tex ? [equation({ ...ctx, center: true }, b.tex, b.note)] : [])]
     }
     return [
       ...(b.trace ?? []).map((t) => equation(ctx, t.tex, t.note, true)),
@@ -105,7 +112,7 @@ export class CalcConstruct extends Construct<CalcBlock> {
   }
 
   equation(b: CalcBlock): Equation | null {
-    return !b.error && !b.hidden && !b.trace?.length && !b.plot ? { tex: b.tex, note: b.note } : null
+    return !b.error && !b.hidden && !b.trace?.length && !b.figure ? { tex: b.tex, note: b.note } : null
   }
 
   latexItem(b: CalcBlock, out: LatexOut): string {

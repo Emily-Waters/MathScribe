@@ -274,6 +274,31 @@ export interface ModuleBlockKind {
   readonly caption?: (block: CustomBlock) => CaptionKind | undefined
 }
 
+/** A figure as a picture: an SVG at its size, with the colour behind it, for an output that takes pictures (Word). */
+export interface FigurePicture {
+  readonly svg: string
+  readonly width: number
+  readonly height: number
+  readonly background: string
+}
+
+/**
+ * A module's own kind of figure: a drawing it makes of a line (a plot), shown
+ * above the line's equation (CalcResult.figure). The line stays a calculation,
+ * with its equation, note and messages; the figure is how its data is drawn in
+ * each output.
+ */
+export interface ModuleFigureKind {
+  /** In the Rendered tab. */
+  readonly view: (props: { data: unknown }) => ReactNode
+  /** As LaTeX (a pgfplots graph). */
+  readonly latex: (data: unknown) => string
+  /** What a LaTeX document with one in it needs in its preamble (pgfplots). */
+  readonly preamble: readonly string[]
+  /** As a picture, for Word (drawn onto a canvas where there is one: lib/output/figures.ts). */
+  readonly picture: (data: unknown) => FigurePicture
+}
+
 /** A module class that can be installed: made with no arguments (each sheet makes its own, keeping its own state). */
 export type InstallableModule = new () => EngineModule
 
@@ -418,6 +443,14 @@ export abstract class EngineModule {
    * the Rendered tab (its view). Return the same object each time (a constant).
    */
   blockKinds(): Readonly<Record<string, ModuleBlockKind>> {
+    return {}
+  }
+
+  /**
+   * Its own kinds of figure, by their `type` (a line form's `figure`, as a plot
+   * line's): how each is drawn in each output. Return the same object each time (a constant).
+   */
+  figureKinds(): Readonly<Record<string, ModuleFigureKind>> {
     return {}
   }
 
@@ -663,6 +696,10 @@ export const modulePreamble = (tex: string) => shared().flatMap((m) => m.latexPr
 /** A module's own kind of block, by its type: its construct and view (undefined if no module installed has it). */
 export const moduleBlockKind = (type: string): ModuleBlockKind | undefined =>
   shared().map((m) => m.blockKinds()[type]).find((kind) => kind !== undefined)
+
+/** A module's own kind of figure, by its type: how it's drawn (undefined if no module installed has it). */
+export const moduleFigureKind = (type: string): ModuleFigureKind | undefined =>
+  shared().map((m) => m.figureKinds()[type]).find((kind) => kind !== undefined)
 
 /** What the modules add to the editor. */
 export const moduleEditorExtensions = (): Extension[] => shared().flatMap((m) => [...m.editorExtensions()])

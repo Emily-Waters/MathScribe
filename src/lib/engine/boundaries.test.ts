@@ -118,7 +118,7 @@ describe('the engine and the modules, from the rest of the app', () => {
     expect(rest).toContain('editor/language.ts')
     expect(rest).toContain('components/PreviewPane.tsx')
     expect(importsOf('editor/vocabulary.ts')).toContain(ENGINE_ENTRY)
-    expect(importsOf('lib/output/plot.ts')).toContain(`${MODULES}series/public.ts`)
+    expect(importsOf('test/helpers.ts')).toContain(`${MODULES}series/public.ts`)
   })
 
   // The rest of the app uses the engine through its entry, and a module through its

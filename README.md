@@ -408,8 +408,11 @@ renamed, change it there too.
   (row numbers, folding, the table look, moving and deleting them as one)
 - `src/modules/series/tableSettings.ts`, `plotSettings.ts`: a table's and plot's settings
   after the semicolon, read and written; `tableMenu.ts` beside them: their ⚙ menus
-- `src/lib/output/plot.ts`: the linear fit, axes, and drawing a plot as SVG;
-  `src/lib/output/plotImage.ts`: plots as pictures for the Word export
+- `src/modules/series/plotGraph.ts`: the linear fit, axes, and drawing a plot as SVG;
+  `plotLatex.ts` beside it: a plot as a pgfplots graph; `plotFigure.ts`: a plot as the module's
+  kind of figure (`ModuleFigureKind`: drawn above its line's equations, in each output)
+- `src/lib/output/figures.ts`: figures (a module's drawing of a line, such as a plot) as
+  pictures for the Word export, drawn on a canvas from the SVG the module gives
 - `src/lib/maths/brackets.ts`: choosing ( ), [ ] and { } by nesting in the output
 - `src/modules/chemistry/`: the chemistry module. `chemistry.ts`:
   formulas in braces, species as units, reading a formula's atoms for a substance's molar mass,

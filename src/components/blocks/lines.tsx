@@ -2,10 +2,9 @@
  * The views of single lines of a sheet in the Rendered tab: headings, prose,
  * raw LaTeX, gaps, and calculations (the app's side of lib/output/constructs/lines.ts).
  */
-import { useMemo } from 'react'
 import type { CalcBlock, HeadingBlock, LatexBlock, TextBlock } from '../../lib/sheet/blocks.ts'
 import { splitInlineMath } from '../../lib/syntax.ts'
-import { THEME_PALETTE, plotSvg, type PlotData } from '../../lib/output/plot.ts'
+import { moduleFigureKind, type ResultBlock } from '../../lib/engine/index.ts'
 import { BlockMessages, Tex, Title } from './shared.tsx'
 import { useLineLink } from './context.ts'
 
@@ -50,13 +49,15 @@ export function SpacerView() {
   return <div className="doc__spacer" aria-hidden="true" />
 }
 
-/** A `@plot(…)` line's plot, drawn in the app's colours (it follows the theme). */
-function PlotView({ plot }: { plot: PlotData }) {
-  const svg = useMemo(() => plotSvg(plot, THEME_PALETTE), [plot])
-  return <div className="plot" dangerouslySetInnerHTML={{ __html: svg }} />
+/** A figure a module makes of a line (a plot), drawn by its kind's view. */
+function FigureView({ figure }: { figure: ResultBlock }) {
+  const kind = moduleFigureKind(figure.type)
+  if (!kind) return <p className="calc__msg calc__msg--error">{`No module installed has the kind of figure ${figure.type}.`}</p>
+  const View = kind.view
+  return <View data={figure.data} />
 }
 
-/** A calculation: the working inside function calls, a plot, its equation, and anything to say about it. */
+/** A calculation: the working inside function calls, a figure (a plot), its equation, and anything to say about it. */
 export function CalcView({ block }: { block: CalcBlock }) {
   const link = useLineLink()
   // Hidden lines stay hidden unless something went wrong.
@@ -73,10 +74,10 @@ export function CalcView({ block }: { block: CalcBlock }) {
           ))}
         </div>
       )}
-      {block.plot && <PlotView plot={block.plot} />}
-      {(block.tex || !block.plot) && (
-        // (A plot's fit equations are centred under it, as the plot is.)
-        <div className={`calc__row${block.plot ? ' calc__row--centred' : ''}`}>
+      {block.figure && <FigureView figure={block.figure} />}
+      {(block.tex || !block.figure) && (
+        // (A figure's equations, a plot's fits', are centred under it, as the figure is.)
+        <div className={`calc__row${block.figure ? ' calc__row--centred' : ''}`}>
           {block.tex
             ? <Tex latex={block.tex} display />
             : <code className="calc__source">{block.source}</code>}

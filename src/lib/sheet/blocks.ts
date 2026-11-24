@@ -13,11 +13,10 @@
  *   custom                            a module's own kind of block (its `type`), which
  *                                     the module writes and draws (EngineModule.blockKinds)
  */
-import type { DataColumn, Definition, LineValue, TraceLine } from '../engine/index.ts'
+import type { DataColumn, Definition, LineValue, ResultBlock, TraceLine } from '../engine/index.ts'
 import type { VariableSummary } from './values.ts'
 import { DISPLAY, type LayoutStyle, type Display, type ListMarker, type Notation } from '../syntax.ts'
 import { words, type WordOf } from '../syntax.ts'
-import type { PlotData } from '../output/plot.ts'
 
 /** Each kind of block. */
 export const BLOCK_KIND = {
@@ -137,8 +136,8 @@ export interface CalcBlock extends BlockBase, Noted, Faulted, Hideable {
   info?: string
   /** Working from inside functions called on this line, shown before it. */
   trace?: TraceLine[]
-  /** A `@plot(…)` line's plot (`tex` is then its fits' equations, if any). */
-  plot?: PlotData
+  /** A drawing a module makes of the line, above its equation (CalcResult.figure): a `@plot(…)` line's plot (`tex` is then its fits' equations, if any). */
+  figure?: ResultBlock
   /** What a select or named plot made (a__x_1, p__slope), for suggestions. */
   defines?: Definition[]
 }

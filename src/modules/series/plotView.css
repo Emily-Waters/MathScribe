@@ -1,0 +1,11 @@
+/* A plot(…) line's plot: as wide as the output allows, up to its drawn size, centred (as in the exports) */
+.plot {
+  max-width: 640px;
+  margin: 6px auto;
+}
+
+.plot svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}

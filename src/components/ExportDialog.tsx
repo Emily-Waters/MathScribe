@@ -81,8 +81,8 @@ export function ExportDialog({ open, onClose, blocks, fileName }: Props) {
     setBusy(true)
     try {
       // The Word writer loads only when it's first used.
-      const [{ toDocx, DOCX_TYPE }, { plotImages }] = await Promise.all([import('../lib/output/docx.ts'), import('../lib/output/plotImage.ts')])
-      const images = await plotImages(blocks)
+      const [{ toDocx, DOCX_TYPE }, { figureImages }] = await Promise.all([import('../lib/output/docx.ts'), import('../lib/output/figures.ts')])
+      const images = await figureImages(blocks)
       downloadFile(`${fileStem}${info.extension}`, toDocx(blocks, options, images) as Uint8Array<ArrayBuffer>, DOCX_TYPE)
     } catch (e) {
       showFlash('error', `The Word document couldn’t be made: ${(e as Error).message}`)

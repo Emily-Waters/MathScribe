@@ -12,7 +12,6 @@ import { CAPTION_KIND, type CaptionKind } from '../sheet/blocks.ts'
 // (How a paragraph lines up, for a module's constructs: ALIGN.center.)
 export { ALIGN, type Align }
 import type { LatexOptions } from './latex.ts'
-import { PLOT_SIZE, type PlotData } from './plot.ts'
 import { texToMath, texToOmml, xmlEscape } from './omml.ts'
 import type { ListMarker } from '../syntax.ts'
 
@@ -203,8 +202,8 @@ export interface Ctx {
   inList?: boolean
   /** List numbering instances made so far, each with its list's marker (none: bulleted): each list restarts its count. */
   nums: { marker?: ListMarker; start?: number }[]
-  /** Plots' pictures, drawn beforehand (by plotPng, in the browser). */
-  images: PlotImages
+  /** Figures' pictures (plots'), drawn beforehand (figures.ts, in the browser). */
+  images: FigureImages
   /** The pictures placed so far: each is a file in word/media. */
   media: Uint8Array[]
   /** How many captions of each kind there are so far (Table: tables), to number the next. */
@@ -234,21 +233,28 @@ export function caption(ctx: Ctx, kind: CaptionKind, title: string): Item {
 export const alignedMath = (tex: string, jc: Align, bold = false) =>
   `<m:oMathPara><m:oMathParaPr><m:jc m:val="${jc}"/></m:oMathParaPr>${texToOmml(tex, undefined, bold)}</m:oMathPara>`
 
-/** Plots' pictures as PNG files, by the plot they show. */
-export type PlotImages = Map<PlotData, Uint8Array>
+/** A figure's picture: a PNG file, and the drawing's size (its proportions). */
+export interface FigureImage {
+  readonly png: Uint8Array
+  readonly width: number
+  readonly height: number
+}
 
-/** A plot's picture: as wide as PLOT_WIDTH of the text, at the drawing's proportions. */
-export const PLOT_WIDTH = 0.85
+/** Figures' pictures (a plot's), by the figure's data (CalcBlock.figure). */
+export type FigureImages = Map<unknown, FigureImage>
+
+/** A figure's picture: as wide as FIGURE_WIDTH of the text, at the drawing's proportions. */
+export const FIGURE_WIDTH = 0.85
 /** EMUs (Word's drawing unit) per twip. */
 export const EMU_PER_TWIP = 635
 
 /** A picture (the `n`th in word/media), as a paragraph: an inline drawing. */
-export function picture(ctx: Ctx, png: Uint8Array): Item {
-  ctx.media.push(png)
+export function picture(ctx: Ctx, image: FigureImage): Item {
+  ctx.media.push(image.png)
   const n = ctx.media.length
-  const cx = Math.round(ctx.width * PLOT_WIDTH * EMU_PER_TWIP)
-  const cy = Math.round((cx * PLOT_SIZE.height) / PLOT_SIZE.width)
-  const name = `Plot ${n}`
+  const cx = Math.round(ctx.width * FIGURE_WIDTH * EMU_PER_TWIP)
+  const cy = Math.round((cx * image.height) / image.width)
+  const name = `Figure ${n}`
   const pic = '<pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">'
     + `<pic:nvPicPr><pic:cNvPr id="${n}" name="${name}"/><pic:cNvPicPr/></pic:nvPicPr>`
     + `<pic:blipFill><a:blip r:embed="${imageRel(n)}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>`

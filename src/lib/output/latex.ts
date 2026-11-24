@@ -6,7 +6,7 @@
  */
 import { STORAGE_KEYS } from '../../config.ts'
 import { flowing, isOmitted } from '../sheet/blocks.ts'
-import { modulePreamble } from '../engine/index.ts'
+import { moduleFigureKind, modulePreamble } from '../engine/index.ts'
 import { BLOCK_KIND, isContainer, type Block } from '../sheet/blocks.ts'
 import { ALIGN } from './alignment.ts'
 import { readStoredJson, writeStoredJson } from '../data/storage.ts'
@@ -105,22 +105,30 @@ const writer = (o: LatexOptions, share = FULL_WIDTH): LatexOut => ({
 /** One block as LaTeX, as its construct writes it. */
 const blockToLatex = (b: Block, o: LatexOptions, share = FULL_WIDTH): string => constructOf(b).latex(b, writer(o, share))
 
-/** Whether any block, at any depth, is a plot (so the preamble loads pgfplots). */
-const hasPlot = (blocks: Block[]): boolean => blocks.some((b) =>
-  (b.kind === BLOCK_KIND.calc && !!b.plot && !b.hidden) || (isContainer(b) && hasPlot(b.children)))
+/** What the figures shown, at any depth, need in the preamble (a plot: pgfplots), each kind's once. */
+function figurePreamble(blocks: Block[]): string[] {
+  const types = new Set<string>()
+  const visit = (bs: Block[]) => bs.forEach((b) => {
+    if (b.kind === BLOCK_KIND.calc && b.figure && !b.hidden) types.add(b.figure.type)
+    else if (isContainer(b)) visit(b.children)
+  })
+  visit(blocks)
+  return [...types].flatMap((type) => [...(moduleFigureKind(type)?.preamble ?? [])])
+}
 
 // ---------------------------------------------------------------------------
 // The document
 // ---------------------------------------------------------------------------
 
 /** The document's preamble: its class, packages and settings, from the Document options. */
-function preamble(o: LatexOptions, plots = false, modules: readonly string[] = []): string[] {
+function preamble(o: LatexOptions, figures: readonly string[] = [], modules: readonly string[] = []): string[] {
   const left = o.align === ALIGN.left
   return [
     `\\documentclass[${[o.fontSize, o.paper, ...(left ? ['fleqn'] : [])].join(',')}]{article}`,
     `\\usepackage[margin=${MARGIN_CM[o.margins]}cm]{geometry}`,
     '\\usepackage{amsmath, amssymb}',
-    ...(plots ? ['% Plots.', '\\usepackage{pgfplots}', '\\pgfplotsset{compat=1.18}'] : []),
+    // (What the figures need: a plot, pgfplots.)
+    ...figures,
     // (What the modules' notation needs: chemistry's formulas, mhchem.)
     ...modules,
     '% Long runs of equations may break across pages.',
@@ -169,7 +177,7 @@ export function toLatexDocument(blocks: Block[], options: LatexOptions = DEFAULT
   const body = joinBlocks(blocks, options, FULL_WIDTH)
   return [
     '% Made with MathScribe',
-    ...preamble(options, hasPlot(blocks), modulePreamble(body)),
+    ...preamble(options, figurePreamble(blocks), modulePreamble(body)),
     '',
     '\\begin{document}',
     ...(options.title.trim() ? ['\\maketitle'] : []),

@@ -9,16 +9,16 @@ import { languageTopics } from '../engine/index.ts'
 import { treeExamples } from '../language/tree.ts'
 import { BLOCK_KIND } from '../sheet/blocks.ts'
 
-describe('plots', () => {
+describe('figures (plots)', () => {
   const source = 't = [0.10 s, 0.20 s, 0.30 s]\nx = [0.05 m, 0.10 m, 0.16 m]\n@plot(t, x; fit linear)'
 
-  it('are pictures, drawn beforehand, with their fit equations under them', () => {
+  it('are pictures, drawn beforehand, with their line\'s equations (a fit\'s) under them', () => {
     const blocks = sheet(source).blocks
-    const plot = blocks.flatMap((b) => (b.kind === BLOCK_KIND.calc && b.plot ? [b.plot] : []))[0]
+    const figure = blocks.flatMap((b) => (b.kind === BLOCK_KIND.calc && b.figure ? [b.figure] : []))[0]
     const png = new Uint8Array([137, 80, 78, 71])
-    const files = unzipSync(toDocx(blocks, DEFAULT_LATEX_OPTIONS, new Map([[plot, png]])))
-    expect(files['word/media/plot1.png']).toEqual(png)
-    expect(strFromU8(files['word/_rels/document.xml.rels'])).toContain('Id="rId4" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/plot1.png"')
+    const files = unzipSync(toDocx(blocks, DEFAULT_LATEX_OPTIONS, new Map([[figure.data, { png, width: 640, height: 400 }]])))
+    expect(files['word/media/figure1.png']).toEqual(png)
+    expect(strFromU8(files['word/_rels/document.xml.rels'])).toContain('Id="rId4" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/figure1.png"')
     const document = strFromU8(files['word/document.xml'])
     expect(document).toContain('<a:blip r:embed="rId4"/>')
     expect(document).toContain('R')

@@ -31,7 +31,7 @@ export const LEGEND_POSITION = {
 export type LegendPosition = (typeof LEGEND_POSITION)[keyof typeof LEGEND_POSITION]
 export const LEGEND_POSITIONS: readonly LegendPosition[] = Object.values(LEGEND_POSITION)
 
-/** The colours a plot's parts can be: names the drawing and LaTeX both know (output/plot.ts gives each its shade). */
+/** The colours a plot's parts can be: names the drawing and LaTeX both know (plotGraph.ts gives each its shade). */
 export const PLOT_COLOUR = {
   black: 'black', grey: 'grey', blue: 'blue', red: 'red', green: 'green', orange: 'orange', purple: 'purple', teal: 'teal', brown: 'brown',
 } as const

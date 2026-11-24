@@ -7,7 +7,7 @@
  *
  * It uses what's on this computer, and says what it couldn't do without:
  *   pdflatex (TeX Live or MiKTeX)   the LaTeX to a PDF (run twice, for references)
- *   Chrome                          each plot as a picture, for the Word file (as the app's canvas does)
+ *   Chrome                          each figure (a plot) as a picture, for the Word file (as the app's canvas does)
  *   Word                            the Word file to a PDF (by PowerShell, Windows only)
  *   pdftoppm (comes with TeX Live)  each PDF's pages to PNGs
  */
@@ -19,9 +19,8 @@ import { EXAMPLE_CALC_OPTIONS } from '../src/config.ts'
 import { evaluateSheetSafely } from '../src/lib/sheet/document.ts'
 import { collectDiagnostics } from '../src/lib/sheet/sheetIndex.ts'
 import { DEFAULT_LATEX_OPTIONS, toLatexDocument } from '../src/lib/output/latex.ts'
-import { toDocx, type PlotImages } from '../src/lib/output/docx.ts'
-import { PLOT_SIZE, PRINT_PALETTE, plotSvg } from '../src/lib/output/plot.ts'
-import { plotsOf } from '../src/lib/output/plotImage.ts'
+import { toDocx, type FigureImages } from '../src/lib/output/docx.ts'
+import { PICTURE_SCALE, figurePicture, figuresOf } from '../src/lib/output/figures.ts'
 
 /** Where it all is: the sheet beside this file, what's made in out/. */
 const HERE = resolve(import.meta.dirname)
@@ -33,9 +32,6 @@ const NAME = { tex: 'showcase.tex', latexPdf: 'showcase.pdf', docx: 'showcase.do
 
 /** How sharp the pages' pictures are (dots per inch): enough to read a subscript. */
 const PAGE_DPI = 80
-
-/** Pixels per drawing unit for a plot's picture, as the app draws them (plotImage.ts). */
-const PLOT_SCALE = 2.5
 
 /** Where Chrome usually is. */
 const CHROME = [
@@ -70,24 +66,29 @@ function compileLatex(): boolean {
   return true
 }
 
-/** Each plot as a PNG, as the app makes them: its SVG in print colours, drawn by Chrome at the app's size. */
-function plotPictures(plots: ReturnType<typeof plotsOf>): PlotImages {
-  const images: PlotImages = new Map()
+/** Each figure (a plot) as a PNG, as the app makes them: its module's SVG, drawn by Chrome at the app's scale (figures.ts). */
+function figurePictures(figures: ReturnType<typeof figuresOf>): FigureImages {
+  const images: FigureImages = new Map()
   const chrome = CHROME.find((c) => existsSync(c))
   if (!chrome) {
-    report.push('No Chrome: the Word file has no plots.')
+    report.push('No Chrome: the Word file has no figures.')
     return images
   }
-  const width = PLOT_SIZE.width * PLOT_SCALE
-  const height = PLOT_SIZE.height * PLOT_SCALE
-  plots.forEach((plot, i) => {
-    const page = join(OUT, `plot${i + 1}.html`)
-    const png = join(OUT, `plot${i + 1}.png`)
-    const svg = plotSvg(plot, PRINT_PALETTE).replace('<svg ', `<svg width="${width}" height="${height}" `)
-    writeFileSync(page, `<!doctype html><html><body style="margin:0;background:${PRINT_PALETTE.background}">${svg}</body></html>`)
+  figures.forEach((figure, i) => {
+    const drawn = figurePicture(figure)
+    if (!drawn) {
+      report.push(`Figure ${i + 1} has no module to draw it.`)
+      return
+    }
+    const width = drawn.width * PICTURE_SCALE
+    const height = drawn.height * PICTURE_SCALE
+    const page = join(OUT, `figure${i + 1}.html`)
+    const png = join(OUT, `figure${i + 1}.png`)
+    const svg = drawn.svg.replace('<svg ', `<svg width="${width}" height="${height}" `)
+    writeFileSync(page, `<!doctype html><html><body style="margin:0;background:${drawn.background}">${svg}</body></html>`)
     run(chrome, ['--headless=new', '--disable-gpu', '--hide-scrollbars', `--window-size=${width},${height}`, `--screenshot=${png}`, `file:///${page.replaceAll('\\', '/')}`])
-    if (existsSync(png)) images.set(plot, new Uint8Array(readFileSync(png)))
-    else report.push(`Plot ${i + 1} couldn't be drawn.`)
+    if (existsSync(png)) images.set(figure.data, { png: new Uint8Array(readFileSync(png)), width: drawn.width, height: drawn.height })
+    else report.push(`Figure ${i + 1} couldn't be drawn.`)
   })
   return images
 }
@@ -141,7 +142,7 @@ it('exports the showcase sheet to LaTeX and Word, compiled, and their pages as p
   writeFileSync(join(OUT, NAME.tex), toLatexDocument(sheet.blocks, DEFAULT_LATEX_OPTIONS))
   const latexPages = compileLatex() ? pages(NAME.latexPdf, NAME.latexPages) : []
 
-  writeFileSync(join(OUT, NAME.docx), toDocx(sheet.blocks, DEFAULT_LATEX_OPTIONS, plotPictures(plotsOf(sheet.blocks))))
+  writeFileSync(join(OUT, NAME.docx), toDocx(sheet.blocks, DEFAULT_LATEX_OPTIONS, figurePictures(figuresOf(sheet.blocks))))
   const wordPages = wordToPdf() ? pages(NAME.wordPdf, NAME.wordPages) : []
 
   report.push(`Pages to look at, in ${OUT}:`, `  LaTeX: ${latexPages.join(', ') || 'none'}`, `  Word: ${wordPages.join(', ') || 'none'}`)

@@ -18,11 +18,11 @@ import { LIST_MARKER, type ListMarker } from '../syntax.ts'
 import {
   CAPTION_STYLE, FONTS, HEADING_SIZE_STEP, LANGUAGE, LIST_INDENT, MATH_WRAP_INDENT, NOTE_CHAR_EMS, NOTE_COLUMN, NOTE_PADDING, PAPER, SPACING,
   TITLE_SIZE_STEP, TITLE_STYLE, TWIPS_PER_CM, TWIPS_PER_EM_PER_HALF_POINT, WORKING_SIZE_STEP, fontSizeOf, imageRel, itemXml, run,
-  type Ctx, type Item, type PlotImages,
+  type Ctx, type FigureImages, type Item,
 } from './docxKit.ts'
 import { constructOf, type DocxOut } from './constructs/index.ts'
 
-export type { PlotImages } from './docxKit.ts'
+export type { FigureImage, FigureImages } from './docxKit.ts'
 
 // ---------------------------------------------------------------------------
 // Blocks: each kind's construct writes it (constructs/); this joins them up
@@ -142,7 +142,7 @@ const ROOT_RELS = `${HEAD}<Relationships xmlns="http://schemas.openxmlformats.or
   + '</Relationships>'
 
 /** Where the `n`th picture is in the zip, and as the document refers to it. */
-const mediaPath = (n: number) => `media/plot${n}.png`
+const mediaPath = (n: number) => `media/figure${n}.png`
 
 /** The document's relationships: its styles, numbering and settings, and its pictures. */
 const docRels = (pictures: number) => `${HEAD}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">`
@@ -154,12 +154,12 @@ const docRels = (pictures: number) => `${HEAD}<Relationships xmlns="http://schem
   + '</Relationships>'
 
 /** The document's parts, as XML text by path in the zip. (Exported for tests.) */
-export function docxParts(sheetBlocks: Block[], o: LatexOptions, today = new Date(), images: PlotImages = new Map()): Record<string, string> {
+export function docxParts(sheetBlocks: Block[], o: LatexOptions, today = new Date(), images: FigureImages = new Map()): Record<string, string> {
   return docxPackage(sheetBlocks, o, today, images).parts
 }
 
 /** The document's XML parts, and its pictures' files (by path in the zip). */
-function docxPackage(sheetBlocks: Block[], o: LatexOptions, today: Date, images: PlotImages) {
+function docxPackage(sheetBlocks: Block[], o: LatexOptions, today: Date, images: FigureImages) {
   const page = PAPER[o.paper]
   const margin = Math.round(MARGIN_CM[o.margins] * TWIPS_PER_CM)
   const width = page.w - 2 * margin
@@ -203,10 +203,11 @@ function docxPackage(sheetBlocks: Block[], o: LatexOptions, today: Date, images:
 export const DOCX_TYPE = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 
 /**
- * The sheet as a .docx file. Plots are pictures, drawn beforehand (see
- * plotImages); one without a picture is left out, though its fit equations stay.
+ * The sheet as a .docx file. Figures (plots) are pictures, drawn beforehand
+ * (see figures.ts: figureImages); one without a picture is left out, though its
+ * line's equations stay.
  */
-export function toDocx(sheetBlocks: Block[], o: LatexOptions, images: PlotImages = new Map()): Uint8Array {
+export function toDocx(sheetBlocks: Block[], o: LatexOptions, images: FigureImages = new Map()): Uint8Array {
   const { parts, media } = docxPackage(sheetBlocks, o, new Date(), images)
   return zipSync({
     ...Object.fromEntries(Object.entries(parts).map(([path, xml]) => [path, strToU8(xml)])),

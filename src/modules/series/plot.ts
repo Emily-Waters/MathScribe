@@ -13,10 +13,12 @@
  */
 import type { Unit } from 'mathjs'
 import {
-  type Definition, EXACT, FIT, type FormLine, IS_NAME, JOIN, linearFit, type LinearFit, LineForm, type LineResult,
-  magnitudeOf, math, memberName, type ModuleHost, normalise, parseMemberName, type PlotData, type PlotPoint,
-  parseSliceName, plotScales, type PlotSeries, RESERVED_NAMESPACES, whereOf, seriesDefinitions, splitArgs, SUBSCRIPT, symbolTex,
+  type Definition, EXACT, FIT, type FormLine, IS_NAME, JOIN, LineForm, type LineResult,
+  magnitudeOf, math, memberName, type ModuleHost, normalise, parseMemberName,
+  parseSliceName, RESERVED_NAMESPACES, whereOf, seriesDefinitions, splitArgs, SUBSCRIPT, symbolTex,
 } from '../../lib/plugin.ts'
+import { linearFit, plotScales, type LinearFit, type PlotData, type PlotPoint, type PlotSeries } from './plotGraph.ts'
+import { SERIES_FIGURE } from './tableData.ts'
 import { splitCallArgs } from './tableSettings.ts'
 import { PLOT_FIT, parsePlotSettings } from './plotSettings.ts'
 import { rowErrors, seriesColumns, type SeriesColumn } from './columns.ts'
@@ -401,7 +403,7 @@ export class PlotForm extends LineForm {
     const shown = settings.equation ? fits : []
     return {
       tex: shown.length > 1 || shown[0]?.includes('\\\\') ? `\\begin{gathered}${shown.join(' \\\\ ')}\\end{gathered}` : shown[0] ?? '',
-      plot,
+      figure: { type: SERIES_FIGURE.plot, data: plot },
       error: rowErrors(errors, (n) => `${n} more`),
       info: points ? undefined : 'Nothing to plot: no row has both an x and a y value.',
       defines: defines.length ? defines : undefined,

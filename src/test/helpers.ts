@@ -10,6 +10,10 @@ import { SERIES_BLOCK, tableTex, type TableData } from '../modules/series/public
 import type { PlotData } from '../lib/output/plot.ts'
 import { EXAMPLE_CALC_OPTIONS } from '../config.ts'
 import { CONSTANTS_TITLE } from '../lib/reading/readers.ts'
+import { FORMULA_TITLE } from '../modules/formula/public.ts'
+
+/** The cards whose entries are lines of their own: constants, and formulas. */
+const LINE_CARDS: ReadonlySet<string> = new Set([CONSTANTS_TITLE, FORMULA_TITLE])
 
 /** The settings tests evaluate with. */
 export const OPTIONS: CalcOptions = EXAMPLE_CALC_OPTIONS
@@ -34,7 +38,7 @@ export function sheet(source: string, options: Partial<CalcOptions> = {}): Sheet
 }
 
 /**
- * Every calculation and constant (an `@constants` card's entry) in the sheet, in
+ * Every calculation, constant and formula (an `@constants` or `@formula` card's entry) in the sheet, in
  * order, from inside blocks too; and every line a module shows as a block of its
  * own: a table, with its `array` as its LaTeX (another, any equation it is).
  */
@@ -46,7 +50,7 @@ export function lines(source: string, options: Partial<CalcOptions> = {}): Line[
       const { line, source: text, error, warning, info, hidden } = b
       const tex = b.type === SERIES_BLOCK.table ? tableTex(b.data as TableData) : moduleBlockKind(b.type)?.construct.equation(b)?.tex ?? ''
       out.push({ line, source: text, tex, error, warning, info, hidden })
-    } else if (b.kind === BLOCK_KIND.card && b.title === CONSTANTS_TITLE) out.push(...b.entries)
+    } else if (b.kind === BLOCK_KIND.card && LINE_CARDS.has(b.title)) out.push(...b.entries)
     else if (isContainer(b)) b.children.forEach(visit)
   }
   sheet(source, options).blocks.forEach(visit)

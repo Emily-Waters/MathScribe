@@ -7,7 +7,7 @@ shows the same, with each example worked out beside it.
 <!-- Made from the language tree (src/lib/language/), as the Reference tab and the AI primer are:
 don't edit it by hand. `npm run docs` writes it again after the tree changes. -->
 
-**Topics:** [Basics](#basics) · [Units](#units) · [Significant figures](#significant-figures) · [Uncertainty](#uncertainty) · [Repeated measurements](#repeated-measurements) · [Table settings](#table-settings) · [Plot settings](#plot-settings) · [Functions](#functions) · [Vectors](#vectors) · [Tuples and coordinates](#tuples-and-coordinates) · [Constants](#constants) · [Chemistry](#chemistry) · [How lines are shown](#how-lines-are-shown) · [Layout](#layout) · [Solving](#solving) · [Built-in constants](#built-in-constants)
+**Topics:** [Basics](#basics) · [Units](#units) · [Significant figures](#significant-figures) · [Uncertainty](#uncertainty) · [Repeated measurements](#repeated-measurements) · [Table settings](#table-settings) · [Plot settings](#plot-settings) · [Functions](#functions) · [Formulas](#formulas) · [Vectors](#vectors) · [Tuples and coordinates](#tuples-and-coordinates) · [Constants](#constants) · [Chemistry](#chemistry) · [How lines are shown](#how-lines-are-shown) · [Layout](#layout) · [Solving](#solving) · [Built-in constants](#built-in-constants)
 
 ## Basics
 
@@ -161,7 +161,7 @@ T = [1.21 s, 1.17 s]
 > The mean period was {{T.avg}}.
 ```
 
-@latex \{ … \} is raw LaTeX, displayed but not calculated.
+@latex \{ … \} is raw LaTeX, displayed but not calculated: for what MathScribe can't write. A formula goes in @formula \{ … \}.
 
 ```
 @latex { \int_0^\infty e^{-x}\,dx = 1 }
@@ -893,6 +893,23 @@ P = polar(1.00 m, 1.00 m)
 ```
 T = 2.0 s
 f = @inv(T)
+```
+
+## Formulas
+
+@formula \{ … \} is a card of formulas: each line is typeset, not worked out, and every name in it is a symbol.
+
+- A name in a formula is never a value, a unit or a constant: in E\_k = 1/2 m v^2, m is a mass, not metres.
+- A formula states a relation; it doesn't define anything. Work a value out on a calculation line, or with @solve.
+- Each = in a line sets its sides apart: p V = n R T, or a = v / t = 2 d / t^2.
+- Write formulas here, not in @latex: @latex is for what MathScribe can't write.
+
+```
+@formula {
+    F = m * a
+    E_k = 1/2 m v^2
+    p V = n R T
+}
 ```
 
 ## Vectors

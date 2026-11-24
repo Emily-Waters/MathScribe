@@ -21,12 +21,18 @@ Completed items with their resolution notes live in `CHANGELOG.md`.
       `derivative` and `simplify` are good enough for first-year sheets, or
       which computer algebra library would be (size, licence, running in the
       browser); and the language tree's entries and examples for each.
+      Progress (2026-11-23): a sheet's formulas have a home now, `@formula {
+      }` (every name a symbol, typeset, never worked out: see "Where a
+      calculation ends and a formula begins" in `CHANGELOG.md`). Symbolic
+      operations could act on a formula there rather than on a string.
 - [ ] `[high]` **Numerical integrals and derivatives**: `integral(f(x), x, 0, 2)`
       and `derivative(f(x), x, 1.5)`, with units, sig figs and uncertainty
       carried through, typeset as ∫ and d/dx.
 - [ ] `[medium]` **Symbolic calculus and algebra**: differentiate, integrate,
       expand and simplify an expression symbolically (`derivative(x^2 * sin(x), x)`
-      → 2x sin x + x² cos x), by way of a computer algebra library.
+      → 2x sin x + x² cos x), by way of a computer algebra library. A formula
+      in `@formula { }` is the natural thing to act on (its names are already
+      symbols: `Calculator.formulaTex`, `formulaSides`).
 - [ ] `[medium]` **Systems solved numerically**: non-linear systems that
       substitution can't rearrange, from starting guesses (Newton's method), and
       a choice between a quadratic's solutions.
@@ -140,7 +146,9 @@ Completed items with their resolution notes live in `CHANGELOG.md`.
       relatively. Only if sheets need it; for now such formulas use
       derivatives.
 - [ ] `[low]` **Snippets**: `def`, `@layout.list(1) { }` blocks, `@constants {
-      }`. (`def` functions were removed on 2026-11-16: a function is one line
+      }`. (Noted 2026-11-23: every `@` block, `@constants`, `@latex`,
+      `@formula`, `@chem.species`, already completes as `@name {` … `}`, from
+      its BlockMember; `@layout`'s don't.) (`def` functions were removed on 2026-11-16: a function is one line
       now, so the snippet would be `f(x) = …`.)
 
 ## 6. Sheets, output, and sharing
@@ -165,6 +173,10 @@ Completed items with their resolution notes live in `CHANGELOG.md`.
         rather than an error, so a formula sheet is `@layout.sym { … }` of
         calculation lines; the formula-sheet option and the example sheet
         using it.
+      Progress (2026-11-23): formulas have a form of their own, `@formula {
+      }` (not `@layout.sym`, which is only how lines are shown), and the
+      formula-sheet option asks for it; `@latex`'s entry says it's for what
+      MathScribe can't write. The prompt's length is still to rethink.
       To think about: a much smaller primer (the syntax a sheet needs, not
       everything the Reference says; examples over prose), whether the rules
       should be by task (a test needs different things than a lab write-up),
@@ -230,12 +242,6 @@ Completed items with their resolution notes live in `CHANGELOG.md`.
 Each item is a design decision to settle before changing syntax, the Reference,
 tests, or the Create prompt:
 
-- [ ] `[medium]` **Where a calculation ends and a formula begins.** An
-      expression with a name that has no value (an `x` in a derivation) has no
-      clear home but `@latex`, so AI's sheets fall back to `@latex` for
-      anything symbolic. Look at an explicit symbolic form, or a clear rule
-      for free and bound names (it goes with the calculus items in section 1 and
-      the Create prompt's item in section 6).
 - [ ] `[medium]` **How a value is shown, apart from its name.** `to` converts
       units in an expression (`v to km/h`, `to percent`), a function's
       parameters on entry (`m to kg`) and a constant's display (`@a_0:3 to
@@ -256,6 +262,11 @@ tests, or the Create prompt:
       variable or metres by where it is; `delta E` and `ΔE` aren't the same.
       Look at saying so plainly when a sheet shadows or trips over one, rather
       than quietly reading it one way.
+      Found (2026-11-23): after `E = 1/2 * m * v^2` fails (v has no value),
+      `v = sqrt(2 * E / m)` quietly gives 2.33 m^-0.5, `E` being mathjs's e
+      and `m` metres; and `F = m * a` with neither defined complains only of
+      `a`. A line that works out from a name that failed to be defined, or from
+      a maths constant spelt as a variable would be, is worth an error.
 - [ ] `[low]` **An import's uncertainty columns, named one way.** `csv.ts`
       reads `dx`, `δx`, `σx`, `delta_x`, `sigma_x`, `x_unc` and `x_err` as x's
       uncertainties. A CSV's headers often come from elsewhere (a logger, a
@@ -267,9 +278,15 @@ tests, or the Create prompt:
 
 ## 8. Architecture and polish
 
-- [ ] `[low]` **Split `src/lib/engine/core/calculator.ts`** (~76 KB, the
-      largest source file): any change to it means reading ~20k tokens. A file
-      per concern, behaviour-neutral, the golden tests proving it.
+- [ ] `[low]` **Split `src/lib/engine/core/calculator.ts`** (~79 KB, the
+      largest source file): one class whose concerns are spread over ~1,500
+      lines, so understanding one means piecing it together from several
+      partial reads (an edit itself needs only the part read). A file per
+      concern, behaviour-neutral, the golden tests proving it. Natural seams
+      (2026-11-23): formatting and TeX (formatNumber, the uncertainty and value
+      TeX, toTex, formulaTex), first; constants (declareConstant*,
+      defineConstant); scopes and variable summaries. The line pipeline and
+      evaluateParsed stay, as the core of it.
 - [ ] `[medium]` **One harmonious structure** (2026-11-17, from the
       codebase-wide audit). Remaining items:
       - Step 5 sub-items: hovers (`BUILTIN_BEFORE`, `UNIT_PLACE`, a namespace

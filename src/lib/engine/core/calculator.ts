@@ -29,7 +29,7 @@ import {
 } from './module.ts'
 import { strayLineFormCall } from './builtinCalls.ts'
 import { BUILTIN_CONSTANT_NAMES } from './literals.ts'
-import { preprocess, typedNumbers } from './writer.ts'
+import { formulaSides, preprocess, typedNumbers } from './writer.ts'
 import { AUTO_PRECISION, UNCERTAINTY_WORKING, ExplainedError, builtinCallHint, FIXED_UNCERTAINTY_SIG_FIGS, type CalcOptions, type EquationParts, layoutEquation, type TraceLine, type CalcResult, unexpectedError, fitHint, type DataColumn, type LineNotation, type LineResult, type ParsedLine, TO_PERCENT, RAW, rawNode, readableUnitError, UNDEFINED_SYMBOL } from './results.ts'
 import { NAME_THEN_SETTINGS, expandParenPm, splitPm } from './uncertainty.ts'
 import { symbolTex, numberTex, unitTex, attachUnit, isUnitCall, unitCallText, isLitCall, CASE_WORDS, caseTex, splitUnit } from './tex.ts'
@@ -934,6 +934,22 @@ export class Calculator {
       return this.toTex(math.parse(preprocess(expr, this.isVariable).text), literals)
     } catch {
       return `\\text{${expr}}`
+    }
+  }
+
+  /**
+   * A formula, typeset and not worked out (the formula module's `@formula { }`):
+   * every name a symbol, never a value, a unit or a constant, and each side of
+   * its `=`s set as an expression would be (`F = m * a` → F = ma).
+   */
+  formulaTex(line: string): { tex: string; error?: string } {
+    const sides = formulaSides(line)
+    if (sides.some((s) => !s)) return { tex: '', error: 'A formula has something on each side of its =: F = m * a.' }
+    const literals = typedNumbers(line)
+    try {
+      return { tex: sides.map((s) => this.toTex(math.parse(s), literals)).join(' = ') }
+    } catch (e) {
+      return { tex: '', error: `This formula couldn't be read: ${e instanceof Error ? e.message : String(e)}` }
     }
   }
 

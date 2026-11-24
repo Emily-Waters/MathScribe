@@ -47,7 +47,7 @@ export const CREATE_KIND_INFO: Record<CreateKind, {
       { id: 'solutions', label: 'Worked solutions (at the end)', ticked: true, instruction: 'Include a worked solution to every question, after all the questions (see "Questions and solutions").' },
       { id: 'hide', label: 'Hide the solutions (a copy to hand out)', ticked: false, instruction: 'Put the solution blocks inside `@layout.hidden { … }`, so the solutions are worked out but not shown.' },
       { id: 'marks', label: 'Marks for each question', ticked: true, instruction: 'Give each question a mark value in its heading, e.g. `## Question 1 (5 marks)`, and the total at the top.' },
-      { id: 'formulas', label: 'A formula sheet at the start', ticked: false, instruction: 'Start with a short formula sheet: a `## Formula sheet` section of `@latex { … }` lines of LaTeX (not calculations).' },
+      { id: 'formulas', label: 'A formula sheet at the start', ticked: false, instruction: 'Start with a short formula sheet: a `## Formula sheet` section with an `@formula { … }` block, a formula a line (not calculations).' },
     ],
   },
   assignment: {

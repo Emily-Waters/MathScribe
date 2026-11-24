@@ -978,6 +978,29 @@ active task list stays lean while preserving the full paper trail.
 
 ## Sheet schema, structure, and language tree
 
+- [x] `[medium]` **Where a calculation ends and a formula begins.** An
+  expression with a name that has no value (an `x` in a derivation) has no
+  clear home but `@latex`, so AI's sheets fall back to `@latex` for
+  anything symbolic. Look at an explicit symbolic form, or a clear rule
+  for free and bound names (it goes with the calculus items in section 1 and
+  the Create prompt's item in section 6).
+  Resolved (2026-11-23, Emily: "go with your recommendation"): an explicit
+  form, not a rule. A probe showed a rule can't work: single letters are
+  units and constants (`F = m * a` only complained of `a`, `m` being metres;
+  `v = sqrt(2 * E / m)` after an unread `E` silently gave 2.33 m^-0.5, `E`
+  being mathjs's e). So a new module, `src/modules/formula/`: `@formula { }`
+  is a card of formulas, each line typeset and never worked out, every name a
+  symbol (never a value, unit or constant; `1/2 m v^2`'s m is a mass), each
+  `=` setting sides apart (`p V = n R T`). It defines nothing: values are
+  worked out on calculation lines or with `@solve`. The core gained one
+  generic piece, `Calculator.formulaTex`, with `formulaSides` in writer.ts
+  (a quantity's unit written as a symbol, `WriteNotes.symbolic`). The
+  language tree has a Formulas topic; `@latex`'s entry says it's for what
+  MathScribe can't write; the Create prompt's formula-sheet option asks for
+  `@formula`. The showcase sheet has one (checked in both exports). Golden
+  tests unchanged but for the new example. Left for the calculus work:
+  operations on a formula (`@derivative`, simplifying, `@solve` on one).
+
 - [x] `[low]` **`t.mean` beside `t.avg`.** `SERIES_SUFFIXES`
   (`src/lib/syntax/settings.ts`) reads both as a series' mean; the
   Reference shows only `.avg`. Keep one (one way to write each thing).

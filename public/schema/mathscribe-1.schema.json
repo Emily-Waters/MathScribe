@@ -137,6 +137,15 @@
           "$ref": "#/$defs/node.reaction"
         },
         {
+          "$ref": "#/$defs/node.formulaOpener"
+        },
+        {
+          "$ref": "#/$defs/node.formulaLine"
+        },
+        {
+          "$ref": "#/$defs/node.formula"
+        },
+        {
           "$ref": "#/$defs/node.vector"
         }
       ]
@@ -1206,6 +1215,87 @@
       "properties": {
         "kind": {
           "const": "reaction"
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/token"
+              },
+              {
+                "$ref": "#/$defs/node"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "node.formulaOpener": {
+      "description": "An @formula block’s opener: @formula { (FormulaModule)",
+      "type": "object",
+      "required": [
+        "kind",
+        "parts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "formulaOpener"
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/token"
+              },
+              {
+                "$ref": "#/$defs/node"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "node.formulaLine": {
+      "description": "A formula in an @formula block: F = m * a (FormulaModule)",
+      "type": "object",
+      "required": [
+        "kind",
+        "parts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "formulaLine"
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/token"
+              },
+              {
+                "$ref": "#/$defs/node"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "node.formula": {
+      "description": "An @formula block: its opener, its formulas, and its } (FormulaModule)",
+      "type": "object",
+      "required": [
+        "kind",
+        "parts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "formula"
         },
         "parts": {
           "type": "array",

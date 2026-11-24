@@ -207,7 +207,8 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
         }],
       },
       {
-        explain: '@latex { … } is raw LaTeX, displayed but not calculated.',
+        explain: '@latex { … } is raw LaTeX, displayed but not calculated: for what MathScribe can\'t write. A '
+          + 'formula goes in @formula { … }.',
         examples: [{ source: '@latex { \\int_0^\\infty e^{-x}\\,dx = 1 }' }],
       },
       {

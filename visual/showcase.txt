@@ -7,6 +7,12 @@
 # Calculations
 > Values, units, sig figs and uncertainty, with notes at the right.
 
+@formula {
+    F = m * a                    // Newton's second law
+    E_k = 1/2 m v^2
+    p V = n R T
+}
+
 m = 2.00 kg                      // mass
 g = 9.81 m/s^2                   // gravitational acceleration
 theta = 30.0 deg pm 0.5 deg      // incline angle, measured

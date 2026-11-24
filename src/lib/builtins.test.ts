@@ -48,7 +48,7 @@ describe('the tree', () => {
   })
 
   it('reserves the names at the top that aren’t constants', () => {
-    expect(BUILTINS.members.map((m) => m.name).filter(isReservedConstantName).sort()).toEqual(['chem', 'constants', 'import', 'inv', 'latex', 'layout', 'plot', 'solve', 'table', 'tuple', 'vector'])
+    expect(BUILTINS.members.map((m) => m.name).filter(isReservedConstantName).sort()).toEqual(['chem', 'constants', 'formula', 'import', 'inv', 'latex', 'layout', 'plot', 'solve', 'table', 'tuple', 'vector'])
     expect(isReservedConstantName('c')).toBe(false)
   })
 

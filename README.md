@@ -422,6 +422,8 @@ renamed, change it there too.
   unit or a value); `writers.ts`: writing a species for mathjs; `module.ts`:
   `ChemistryModule`, where the engine's hooks meet them.
   `src/lib/output/katex.ts`: KaTeX with mhchem, which everything that draws maths imports
+- `src/modules/formula/`: the formula module: an `@formula { }` block (`grammar.ts`), read into a card of
+  formulas (`readers.ts`), each typeset by `Calculator.formulaTex` with every name a symbol, never worked out
 - `src/modules/series/`: the series module: series in square brackets (`[…]`, ranges and slices), `@table(…)`, `@plot(…)`
   as line forms (`series.ts`, `table.ts`, `plot.ts`), conditions in a series' brackets (`where.ts`), and the
   columns they share (`columns.ts`: a column, or a series, worked out row by row)

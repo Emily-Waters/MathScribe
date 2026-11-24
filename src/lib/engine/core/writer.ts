@@ -13,7 +13,8 @@
  */
 import { CALL, KEYWORD, SIGIL } from '../../syntax.ts'
 import { FN } from '../../maths/mathjsNames.ts'
-import { lexExpression } from '../../tree/lexer.ts'
+import { closesBracket, lexExpression, opensBracket } from '../../tree/lexer.ts'
+import { ASSIGN } from '../../tree/shapes.ts'
 import { textOf } from '../../tree/codec.ts'
 import { NODE_KIND, TOKEN_KIND, isToken, type Part } from '../../tree/nodes.ts'
 import { MORE_TERMS, readUnit } from './literals.ts'
@@ -25,6 +26,8 @@ import { addLiteral } from './numbers.ts'
 export interface WriteNotes {
   readonly isVariable: (id: string) => boolean
   readonly shadowed: Set<string>
+  /** Writing a formula (formulaSides): a name after a number is a symbol it multiplies, never a unit. */
+  readonly symbolic?: boolean
 }
 
 /** Where a part is being written: the parts around it, and what's written of those before it. */
@@ -96,6 +99,8 @@ const CORE_WRITERS: Readonly<Record<string, PartWriter>> = {
   [NODE_KIND.quantity]: ({ part, parts, index, write, notes }) => {
     if (isToken(part)) return undefined
     const unit = part.parts.find((p) => isTokenOf(p, TOKEN_KIND.unit))!
+    // (In a formula, `1/2 m v^2`: m is a symbol, as typed.)
+    if (notes.symbolic) return { text: part.parts.map((p) => (p === unit ? textOf(p) : write([p]))).join('') }
     const source = unitSource(textOf(unit))
     // (`5 m v` reads m as metres: worth a word, if m is a variable too.)
     const rest = parts.slice(index + 1).map(textOf).join('')
@@ -157,5 +162,28 @@ export function preprocess(src: string, isVariable: (id: string) => boolean): { 
   }
   const notes: WriteNotes = { isVariable, shadowed: new Set() }
   return { text: writeParts(lexExpression(src), notes), shadowed: [...notes.shadowed] }
+}
+
+/**
+ * A formula's sides, each as mathjs reads it with every name a symbol (the
+ * formula module's `@formula { }`): split at each `=` outside brackets, `E_k =
+ * 1/2 m v^2` → `E_k`, `1/2 m v^2` (m a symbol, not metres).
+ */
+export function formulaSides(src: string): string[] {
+  const notes: WriteNotes = { isVariable: () => false, shadowed: new Set(), symbolic: true }
+  const sides: Part[][] = [[]]
+  let depth = 0
+  for (const part of lexExpression(src)) {
+    if (isToken(part) && part.t === TOKEN_KIND.delimiter) {
+      if (opensBracket(part.text)) depth++
+      else if (closesBracket(part.text)) depth--
+      else if (part.text === ASSIGN && depth === 0) {
+        sides.push([])
+        continue
+      }
+    }
+    sides[sides.length - 1].push(part)
+  }
+  return sides.map((parts) => writeParts(parts, notes).trim())
 }
 

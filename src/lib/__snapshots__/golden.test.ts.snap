@@ -395,6 +395,12 @@ exports[`the Reference tab’s examples > Constants: E = @h * @c / 532 nm to eV 
 
 exports[`the Reference tab’s examples > Constants: F = @G:5 * 5.972e24 kg * 70.0 kg / (6.371e6 m)^2 1`] = `"1: F = \\fracG\\times (5.972e24 kg)\\times 70.0 kg(6.371e6 m)^2 = \\frac(6.6743e-11 N· m^2/kg^2)\\times (5.972e24 kg)\\times 70.0 kg(6.371e6 m)^2 = 687 N"`;
 
+exports[`the Reference tab’s examples > Formulas: @formula { 1`] = `
+"2: F = m a
+3: E_k = \\frac12 m v^2
+4: p V = n R T"
+`;
+
 exports[`the Reference tab’s examples > Functions: E(n, m to kg, L to m) = n^2 * @h^2 / (8*m*L^2) 1`] = `
 "1: E(n, m [kg], L [m]) = \\fracn^2 h^28 m L^2
 2: m_e = 9.11e-31 kg

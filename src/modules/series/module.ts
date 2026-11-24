@@ -25,8 +25,7 @@ import { ExtremeStep, PICKED_FUNCTIONS, namedPicks, pickedTex } from './extremes
 import { tableMenu } from './tableMenu.ts'
 import { memberLabelsExtension } from './memberLabels.ts'
 import { SERIES_TOPICS } from './language.ts'
-import { math, type ModuleHost, type PlacedTopic } from '../../lib/plugin.ts'
-import type { FunctionNode, MathNode } from 'mathjs'
+import type { CallExpr, Expr, ModuleHost, PlacedTopic } from '../../lib/plugin.ts'
 
 /** The series module's kinds of block (one object, as blockKinds asks). */
 const SERIES_BLOCK_KINDS: Readonly<Record<string, ModuleBlockKind>> = {
@@ -55,17 +54,17 @@ export class SeriesModule extends EngineModule {
   override readonly lineSteps: readonly LineStep[] = [new WhereStep(), new ExtremeStep(), new StrayBracketsStep()]
 
   /** The functions `max(t)` and `min(t)` stand for once they've picked their member (extremes.ts). */
-  override install(): void {
-    math.import(PICKED_FUNCTIONS)
+  override functions() {
+    return { adding: PICKED_FUNCTIONS }
   }
 
   /** `max(t)` written as it was typed, though it stands for the member it picked. */
-  override functionTex(node: FunctionNode): string | undefined {
+  override functionTex(node: CallExpr): string | undefined {
     return pickedTex(node)
   }
 
   /** In the working, `max(t)` is the member it picked, t_3, before its value goes in. */
-  override namedWorking(node: MathNode, host: ModuleHost): MathNode | undefined {
+  override namedWorking(node: Expr, host: ModuleHost): Expr | undefined {
     return namedPicks(node, host)
   }
 

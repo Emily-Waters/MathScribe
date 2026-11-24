@@ -22,5 +22,5 @@ export {
   hasFixedPrefix, fixPrefix, withFixedPrefix, keepUnitsAsGiven, bestPrefix, unitNames, isValuelessUnit, formatValue, type ValueFormat,
   tupleOf, valuesOf, mapValues, add, subtract, multiply, divide, abs, sqrt, isZero, larger, smaller,
   // Adding to it
-  libraryFunction, isLibraryFunction, isLibraryName, defineFunctions, defineUnit, type LibraryFunction,
+  libraryFunction, isLibraryFunction, isLibraryName, defineFunctions, dimensionPower, isDimensionless, defineUnit, type LibraryFunction,
 } from './mathjs.ts'

@@ -4,9 +4,8 @@
  * What it does is in chemistry.ts and species.ts; this is where the engine
  * meets it, through EngineModule's hooks.
  */
-import { isConstantNode, isSymbolNode, type FunctionNode, type MathNode, type MathType } from 'mathjs'
 import {
-  type BuiltinConstant, EngineModule, isLitCall, type LineForm, math, type Member, type ModuleGrammar,
+  type BuiltinConstant, type CallExpr, EngineModule, type Expr, isConstant, isLitCall, isSymbol, type LineForm, type Member, type ModuleGrammar,
   type NamespaceConstant, type NodeReader, type PartWriter, type ReadsLines, unwrap,
 } from '../../lib/plugin.ts'
 
@@ -50,13 +49,19 @@ export class ChemistryModule extends EngineModule implements ReadsLines {
   // Shared
   // -------------------------------------------------------------------------
 
-  override install(): void {
-    math.import({
-      [SPECIES_FUNCTION.shown]: withSpecies,
-      [SPECIES_FUNCTION.quiet]: withSpecies,
-      [ANY_SPECIES_FUNCTION]: withoutSpecies,
-      [SPECIES_FUNCTION.plain]: withoutSpecies,
-    })
+  /**
+   * Giving a value its species, and taking them off. (Each species' own units are
+   * declared as a sheet first names it: species.ts, speciesUnitName.)
+   */
+  override functions() {
+    return {
+      adding: {
+        [SPECIES_FUNCTION.shown]: withSpecies,
+        [SPECIES_FUNCTION.quiet]: withSpecies,
+        [ANY_SPECIES_FUNCTION]: withoutSpecies,
+        [SPECIES_FUNCTION.plain]: withoutSpecies,
+      },
+    }
   }
 
   /** `@chem`: molar masses, @chem.total, @chem.reaction and the @chem.species block. */
@@ -146,7 +151,7 @@ export class ChemistryModule extends EngineModule implements ReadsLines {
     showSpeciesOnLine(undefined)
   }
 
-  override functionTex(n: FunctionNode, tex: (n: MathNode) => string): string | undefined {
+  override functionTex(n: CallExpr, tex: (n: Expr) => string): string | undefined {
     switch (n.fn.name) {
       // Taking a species off (in `@chem.total(…)`) isn't written: n_Na + n_Cl.
       case ANY_SPECIES_FUNCTION:
@@ -159,10 +164,10 @@ export class ChemistryModule extends EngineModule implements ReadsLines {
         return ` ${tex(n.args[0])}`
       // A value given its species: `(18.02 g / 1 mol) {H2O}` as the value then the formula.
       case SPECIES_FUNCTION.shown: {
-        if (!isConstantNode(n.args[1])) return undefined
+        if (!isConstant(n.args[1])) return undefined
         const of = unwrap(n.args[0])
         const value = tex(of)
-        const bracketed = isSymbolNode(of) || isConstantNode(of) || isLitCall(of) ? value : `\\left(${value}\\right)`
+        const bracketed = isSymbol(of) || isConstant(of) || isLitCall(of) ? value : `\\left(${value}\\right)`
         return ` ${bracketed}\\,${formulaTex(String(n.args[1].value))}`
       }
       default:
@@ -171,13 +176,13 @@ export class ChemistryModule extends EngineModule implements ReadsLines {
   }
 
   /** `1 mol` (per one mole, as in a molar mass), and a whole number of a species (`2 mol {H2O}`, a coefficient) are exact. */
-  override isExactCount(number: MathNode, unit: MathNode, literals: Map<number, string>): boolean {
+  override isExactCount(number: Expr, unit: Expr, literals: Map<number, string>): boolean {
     return isSpeciesCount(number, unit, literals) || isOneMole(number, unit, literals)
   }
 
   /** A built-in constant of a species (@chem.mm.Na) is given it once rounded. */
   override constantValue(value: unknown, constant: BuiltinConstant | NamespaceConstant | undefined): unknown {
-    return speciesOfConstant(value as MathType, constant)
+    return speciesOfConstant(value, constant)
   }
 
   /** A value with species follows their rules, whatever it was worked out from. */

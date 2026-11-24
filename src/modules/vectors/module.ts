@@ -6,9 +6,8 @@
  * Everything that works on tuples works on vectors: this only adds how they're
  * written and shown.
  */
-import type { FunctionNode, MathNode, MathType } from 'mathjs'
 import {
-  attachUnit, type DerivedVariable, EngineModule, type Expansion, FunctionMember, type LookSetting, math, type Member,
+  attachUnit, type DerivedVariable, EngineModule, type Expansion, FunctionMember, type LookSetting, type Member, tupleOf, type Value, type CallExpr, type Expr,
   type ModuleGrammar, type ModuleHost, needsBrackets, type PartWriter, SETTING_PLACE, type SettingPlace, SIDE,
   type TupleLook,
 } from '../../lib/plugin.ts'
@@ -51,8 +50,8 @@ export class VectorModule extends EngineModule {
   // -------------------------------------------------------------------------
 
   /** VECTOR_FUNCTION(3.0, 4.0): a tuple like any other (so everything that works on tuples works on it). */
-  override install(): void {
-    math.import({ [VECTOR_FUNCTION]: (...values: MathType[]) => math.matrix(values as never) })
+  override functions() {
+    return { adding: { [VECTOR_FUNCTION]: (...values: Value[]) => tupleOf(values) } }
   }
 
   /** `@vector(3.0, 4.0)`, the same as `<3.0, 4.0>`. */
@@ -94,7 +93,7 @@ export class VectorModule extends EngineModule {
   // -------------------------------------------------------------------------
 
   /** ⟨3.0, 4.0⟩, and dot and cross products as operators, F · d and a × b (unless the sheet has its own dot or cross). */
-  override functionTex(n: FunctionNode, tex: (n: MathNode) => string, host: ModuleHost): string | undefined {
+  override functionTex(n: CallExpr, tex: (n: Expr) => string, host: ModuleHost): string | undefined {
     const name = n.fn.name
     if (name === VECTOR_FUNCTION) return `${VECTOR_BRACKETS.open}${n.args.map(tex).join(', ')}${VECTOR_BRACKETS.close}`
     if (!isProduct(name) || n.args.length !== 2 || typeof host.value(name) === 'function') return undefined

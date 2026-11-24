@@ -11,10 +11,9 @@
  * sheet's, by its name (`@plot(L, T, T_model)`, with `T_model(L) = …`), is a
  * curve across the x axis beside the data: see `curvePoints`.
  */
-import type { Unit } from 'mathjs'
 import {
-  type Definition, EXACT, type FormLine, IS_NAME, JOIN, LineForm, type LineResult,
-  magnitudeOf, math, memberName, type ModuleHost, normalise, parseMemberName,
+  baseMagnitude, type Definition, EXACT, fixPrefix, type FormLine, IS_NAME, isDimensionless, isQuantity, JOIN, LineForm, type LineResult,
+  magnitude, magnitudeOf, memberName, type ModuleHost, normalise, parseMemberName, quantity, type Quantity, sameDimension, unitParts,
   parseSliceName, RESERVED_NAMESPACES, whereOf, seriesDefinitions, splitArgs, SUBSCRIPT, symbolTex,
 } from '../../lib/plugin.ts'
 import { linearFit, plotScales, type LinearFit, type PlotData, type PlotPoint, type PlotSeries } from './plotGraph.ts'
@@ -98,7 +97,7 @@ function curvePoints(
     const x = log ? from * (to / from) ** (k / CURVE_PIECES) : from + (to - from) * (k / CURVE_PIECES)
     let value: unknown
     try {
-      value = fn(xUnit ? math.unit(x, xUnit) : x)
+      value = fn(xUnit ? quantity(x, xUnit) : x)
     } catch (e) {
       failure ??= e instanceof Error ? e.message : String(e)
       continue
@@ -123,15 +122,15 @@ function fitTex(
   // unless they cancel (m against mm: a number); the intercept stays in y's unit.
   const slopeQuantity = (v: number, unit: string | undefined) => {
     if (!unit) return v
-    const u = math.unit(v, unit)
-    if (u.dimensions.every((d) => d === 0)) return normalise(u, false)
-    u.fixPrefix = true
+    const u = quantity(v, unit)
+    if (isDimensionless(u)) return normalise(u, false)
+    fixPrefix(u)
     return u
   }
   const interceptQuantity = (v: number) => {
     if (!yUnit) return v
-    const u = math.unit(v, yUnit)
-    u.fixPrefix = true
+    const u = quantity(v, yUnit)
+    fixPrefix(u)
     return u
   }
   const slopeUnit = yUnit && xUnit ? `(${yUnit}) / (${xUnit})` : yUnit ?? (xUnit ? `(${xUnit})^-1` : undefined)
@@ -201,14 +200,14 @@ export class PlotForm extends LineForm {
     // Each axis's unit (its first value's), and every value (and uncertainty) as a number in it.
     const unitOf = (c: SeriesColumn) => host.split(host.value([...c.rows.values()][0]), EXACT)?.unit
     // Each unit's size in SI, worked out once: a value in it is then its SI value
-    // over that, rather than a mathjs conversion for each of thousands of points.
-    // (A unit with an offset, like degC, is converted by mathjs.)
-    const scales = new Map<string, { one: Unit; scale?: number }>()
+    // over that, rather than a conversion by the maths library for each of thousands of points.
+    // (A unit with an offset, like degC, is converted by the library.)
+    const scales = new Map<string, { one: Quantity; scale?: number }>()
     const scaleOf = (unit: string) => {
       let s = scales.get(unit)
       if (!s) {
-        const one = math.unit(1, unit)
-        scales.set(unit, s = { one, scale: one.units.some((p) => p.unit.offset) ? undefined : (one.value as number) })
+        const one = quantity(1, unit)
+        scales.set(unit, s = { one, scale: unitParts(one).some((p) => p.offset) ? undefined : (baseMagnitude(one) as number) })
       }
       return s
     }
@@ -217,27 +216,27 @@ export class PlotForm extends LineForm {
       const contributions = host.variable(name)?.contributions
       let sumSq = 0
       if (contributions) for (const c of contributions.values()) sumSq += magnitudeOf(c) ** 2
-      if (!math.isUnit(value)) {
+      if (!isQuantity(value)) {
         if (unit) throw new Error('no unit') // (caught: the series don't share a unit)
         return { v: Number(value), d: Math.sqrt(sumSq) || undefined }
       }
-      const u = value as Unit
+      const u = value
       const s = scaleOf(unit ?? '')
-      if (!u.equalBase(s.one)) throw new Error('units differ') // (caught: the series don't share a unit)
-      if (s.scale === undefined) return { v: u.toNumber(unit ?? ''), d: Math.sqrt(sumSq) / ((s.one.value as number) || 1) || undefined }
-      return { v: (u.value as number) / s.scale, d: Math.sqrt(sumSq) / s.scale || undefined }
+      if (!sameDimension(u, s.one)) throw new Error('units differ') // (caught: the series don't share a unit)
+      if (s.scale === undefined) return { v: magnitude(u, unit ?? ''), d: Math.sqrt(sumSq) / ((baseMagnitude(s.one) as number) || 1) || undefined }
+      return { v: (baseMagnitude(u) as number) / s.scale, d: Math.sqrt(sumSq) / s.scale || undefined }
     }
     // A function's value as a number in y's unit (as `numbers` does a variable's).
     const inUnit = (value: unknown, unit: string | undefined): number => {
-      if (!math.isUnit(value)) {
+      if (!isQuantity(value)) {
         if (unit) throw new Error('no unit') // (caught: the series don't share a unit)
         return Number(value)
       }
       if (!unit) throw new Error('units differ')
-      const u = value as Unit
+      const u = value
       const s = scaleOf(unit)
-      if (!u.equalBase(s.one)) throw new Error('units differ') // (caught: the series don't share a unit)
-      return s.scale === undefined ? u.toNumber(unit) : (u.value as number) / s.scale
+      if (!sameDimension(u, s.one)) throw new Error('units differ') // (caught: the series don't share a unit)
+      return s.scale === undefined ? magnitude(u, unit) : (baseMagnitude(u) as number) / s.scale
     }
     // The function each curve draws (as the sheet defines it).
     const functionOf = (name: string) => host.evaluateExpression(name) as (x: unknown) => unknown

@@ -1,5 +1,5 @@
 /**
- * How chemistry's parts of an expression are written as mathjs reads them
+ * How chemistry's parts of an expression are written as the maths library reads them
  * (core/writer.ts): a species gives a value its species.
  *  - After a unit, it's part of the unit: `2.0 mol {EDTA}` → (2.0 * unit("mol molEDTA")),
  *    in a quantity (the lexer reads it into one), or after `to` (`to mol {EDTA}`).
@@ -7,10 +7,9 @@
  *    `n_1 {H2O}` → of(n_1, "H2O"), `(18.02 g / 1 mol) {H2O}` → of((…), "H2O").
  *  - After nothing it can be given to, it's left for mathjs to explain.
  */
-import type { Unit } from 'mathjs'
 import {
-  GREEK_CHARS, isConversionUnit, isToken, isTokenOf, math, NODE_KIND, type Part, partBefore, type PartWriter,
-  quantitySource, ROUND_BRACKETS, textOf, TOKEN_KIND, unitCallSource, unitSource,
+  GREEK_CHARS, isConversionUnit, isToken, isTokenOf, multiply, NODE_KIND, type Part, partBefore, type PartWriter, quantity, type Quantity,
+  quantitySource, ROUND_BRACKETS, textOf, TOKEN_KIND, unitCallSource, unitSource, unitText,
 } from '../../lib/plugin.ts'
 import { CHEM_TOKEN } from './grammar.ts'
 import { speciesUnits } from './species.ts'
@@ -19,10 +18,10 @@ import { SPECIES_FUNCTION } from './syntax.ts'
 /** A species' formula, from its token: `{H2O}` → H2O. */
 const formulaOf = (part: Part) => textOf(part).slice(1, -1)
 
-/** A unit with a species, as mathjs writes it: mol and EDTA → `mol molEDTA` (each species beside the unit it qualifies). */
+/** A unit with a species, as the maths library writes it: mol and EDTA → `mol molEDTA` (each species beside the unit it qualifies). */
 function speciesUnitSource(unit: string, formula: string): string {
-  const u = math.unit(1, unit)
-  return (math.multiply(u, math.unit(1, speciesUnits(u.dimensions, formula))) as Unit).formatUnits()
+  const u = quantity(1, unit)
+  return unitText(multiply(u, quantity(1, speciesUnits(u, formula))) as Quantity)
 }
 
 /** A token that runs on into the value before it, with no space between: a name's, a number's, a member's dot. */

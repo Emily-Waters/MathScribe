@@ -1,23 +1,24 @@
 /** Species in units: giving a value its species, taking them off, and the strict rules. */
-import { isConstantNode, type FunctionNode, type MathNode, type MathType, type Unit } from 'mathjs'
 import {
-  BASE_DIMENSION, type BuiltinConstant, FN, isNamespaceConstant, isUnitCall, math, type NamespaceConstant, UNIT,
-  unitCallText,
+  BASE_DIMENSION, type BuiltinConstant, type CallExpr, declareUnit, type Expr, isConstant, isNamespaceConstant, isQuantity,
+  isUnitCall, magnitude, mapValues, multiply, type NamespaceConstant, parse, quantity, type Quantity, sameDimension, source, transform,
+  UNIT, type UnitPart, unitCallText, unitParts, unitText, type Value, valuesOf, dimensionPower, isValueMatrix,
 } from '../../lib/plugin.ts'
 import { SPECIES_KINDS, SpeciesError, isSpeciesUnit, speciesOf, speciesPowers, speciesUnit, type SpeciesKind } from './chemistry.ts'
 
-/** A species' unit of a kind (see chemistry.ts), made in mathjs the first time it's used. */
+/**
+ * A species' unit of a kind (see chemistry.ts): a unit of its own, a new kind
+ * of quantity (a mass of H2O is a different thing from a mass of NaCl), added to
+ * the maths library the first time a sheet names the species (declareUnit).
+ */
 export function speciesUnitName(formula: string, kind: SpeciesKind): string {
   const { name, isNew } = speciesUnit(formula, kind)
-  if (isNew) math.createUnit(name)
+  if (isNew) declareUnit({ name })
   return name
 }
 
-/** Where mass and amount are among a unit's dimensions. */
-export const DIMENSION_INDEX: Record<SpeciesKind, number> = {
-  mass: math.Unit.BASE_DIMENSIONS.indexOf(BASE_DIMENSION.mass),
-  amount: math.Unit.BASE_DIMENSIONS.indexOf(BASE_DIMENSION.amount),
-}
+/** Each kind of species' base dimension in a unit: mass, or amount of substance. */
+export const SPECIES_DIMENSION: Record<SpeciesKind, string> = { mass: BASE_DIMENSION.mass, amount: BASE_DIMENSION.amount }
 
 /** How a species is explained when it follows something with no mass or amount. */
 export const neitherMassNorAmount = (formula: string) => new SpeciesError(
@@ -29,51 +30,51 @@ export const neitherMassNorAmount = (formula: string) => new SpeciesError(
  * each power of mass and of amount it has (speciesPowers): on g, a mass of the
  * species; on mol or M, an amount; on g/mol, a mass of it per amount of it.
  */
-export function speciesUnits(dimensions: readonly number[], formula: string): string {
-  const powers = speciesPowers(dimensions[DIMENSION_INDEX.mass], dimensions[DIMENSION_INDEX.amount])
+export function speciesUnits(u: Quantity, formula: string): string {
+  const powers = speciesPowers(dimensionPower(u, SPECIES_DIMENSION.mass), dimensionPower(u, SPECIES_DIMENSION.amount))
   if (!powers) throw neitherMassNorAmount(formula)
   return SPECIES_KINDS.filter((k) => powers[k])
     .map((k) => `${speciesUnitName(formula, k)}${powers[k] === 1 ? '' : `^${powers[k]}`}`).join(' ')
 }
 
 /** Whether a value has a species in its unit. */
-export const hasSpecies = (x: unknown) => math.isUnit(x) && (x as Unit).units.some((p) => isSpeciesUnit(p.unit.name))
+export const hasSpecies = (x: unknown) => isQuantity(x) && unitParts(x).some((p) => isSpeciesUnit(p.name))
 
 /**
  * A value given its species, when `{X}` follows a bracket or a name:
  * `(18.02 g / 1 mol) {H2O}` is a molar mass of H2O. A value that's already of a
  * species can't be given another (that would be a conversion: use a mole ratio).
  */
-export function withSpecies(x: MathType, formula: string): MathType {
-  if (math.isMatrix(x)) return math.map(x, (v: MathType) => withSpecies(v, formula)) as MathType
-  if (!math.isUnit(x)) throw neitherMassNorAmount(formula)
+export function withSpecies(x: Value, formula: string): Value {
+  if (isValueMatrix(x)) return mapValues(x, (v) => withSpecies(v, formula))
+  if (!isQuantity(x)) throw neitherMassNorAmount(formula)
   if (hasSpecies(x)) {
     throw new SpeciesError(`This is already of a species, so it can't be of {${formula}} too: `
       + `to go from one species to another, multiply by a mole ratio, (1 mol {${formula}}) / (1 mol {…}).`)
   }
-  return math.multiply(x, math.unit(1, speciesUnits((x as Unit).dimensions, formula))) as MathType
+  return multiply(x, quantity(1, speciesUnits(x, formula)))
 }
 
 /** A built-in constant's value, given its species if it's of one (@chem.mm.Na: a molar mass of Na). */
 export const speciesOfConstant = (value: unknown, constant: BuiltinConstant | NamespaceConstant | undefined): unknown =>
-  constant && isNamespaceConstant(constant) && constant.species ? withSpecies(value as MathType, constant.species) : value
+  constant && isNamespaceConstant(constant) && constant.species ? withSpecies(value as Value, constant.species) : value
 
 /** An expression with the species taken out of its units, for showing it without them: unit("g massofa") → unit("g"). */
-export function withoutSpeciesUnits(node: MathNode): MathNode {
-  return node.transform((n) => {
+export function withoutSpeciesUnits(node: Expr): Expr {
+  return transform(node, (n) => {
     if (!isUnitCall(n)) return n
     const text = unitCallText(n)
     if (!text.split(/[\s*/^()]+/).some(isSpeciesUnit)) return n
-    const plain = withoutSpecies(math.unit(1, text))
-    return math.parse(math.isUnit(plain) ? `${FN.unit}("${(plain as Unit).formatUnits()}")` : '1')
+    const plain = withoutSpecies(quantity(1, text))
+    return parse(isQuantity(plain) ? source.unit(unitText(plain)) : '1')
   })
 }
 
 /** A value's species, by kind: each formula's power. */
-export function speciesPowersOf(u: Unit): Record<SpeciesKind, Map<string, number>> {
+export function speciesPowersOf(u: Quantity): Record<SpeciesKind, Map<string, number>> {
   const out: Record<SpeciesKind, Map<string, number>> = { mass: new Map(), amount: new Map() }
-  for (const p of u.units) {
-    const s = speciesOf(p.unit.name)
+  for (const p of unitParts(u)) {
+    const s = speciesOf(p.name)
     if (s) out[s.kind].set(s.formula, (out[s.kind].get(s.formula) ?? 0) + p.power)
   }
   for (const kind of SPECIES_KINDS) for (const [f, power] of out[kind]) if (!power) out[kind].delete(f)
@@ -94,21 +95,20 @@ export const GIVE_SPECIES = 'give every mass, amount and molar mass its species,
  *      can't also be an amount or mass of something.
  */
 export function speciesProblem(value: unknown): string | undefined {
-  if (math.isMatrix(value)) {
-    for (const v of (value as math.Matrix).toArray().flat() as unknown[]) {
+  if (isValueMatrix(value)) {
+    for (const v of (valuesOf(value) as unknown[]).flat()) {
       const problem = speciesProblem(v)
       if (problem) return problem
     }
     return undefined
   }
   if (!hasSpecies(value)) return undefined
-  const u = value as Unit
+  const u = value as Quantity
   const powers = speciesPowersOf(u)
   const rest = withoutSpecies(u)
-  const dimensions = math.isUnit(rest) ? (rest as Unit).dimensions : []
   for (const kind of SPECIES_KINDS) {
     const tagged = [...powers[kind].values()].reduce((a, b) => a + b, 0)
-    if (tagged !== (dimensions[DIMENSION_INDEX[kind]] ?? 0)) {
+    if (tagged !== (isQuantity(rest) ? dimensionPower(rest, SPECIES_DIMENSION[kind]) : 0)) {
       return `The species don't match the units: something here has none. In a calculation with species, ${GIVE_SPECIES}.`
     }
   }
@@ -130,37 +130,35 @@ export function speciesProblem(value: unknown): string | undefined {
 /** The unit a ratio of species alone is shown in, by kind: a mole ratio in mol, a mass ratio in g. */
 export const SPECIES_RATIO_UNIT: Record<SpeciesKind, string> = { amount: UNIT.mole, mass: UNIT.gram }
 
-/** A unit's part as mathjs reads it back: prefix, name and power (`mmol`, `L^-1`). */
-export const unitPartText = (p: Unit['units'][number]) =>
-  // (mathjs's types call the prefix a string; it's an object with a name.)
-  `${(p.prefix as unknown as { name: string }).name}${p.unit.name}${p.power === 1 ? '' : `^${p.power}`}`
+/** A unit's part as the library reads it back: prefix, name and power (`mmol`, `L^-1`). */
+export const unitPartText = (p: UnitPart) => `${p.prefix}${p.name}${p.power === 1 ? '' : `^${p.power}`}`
 
 /**
  * A value with its species taken off: 0.100 mol Na⁺ → 0.100 mol, so amounts of
  * different species add (`@chem.total(n_Na, n_Cl)` puts it around each one).
  * A tuple has each of its values' taken off; anything without a species is as it was.
  */
-export function withoutSpecies(x: MathType): MathType {
-  if (math.isMatrix(x)) return math.map(x, (v: MathType) => withoutSpecies(v)) as MathType
-  if (!math.isUnit(x)) return x
-  const u = x as Unit
-  if (!u.units.some((p) => isSpeciesUnit(p.unit.name))) return u
-  const rest = u.units.filter((p) => !isSpeciesUnit(p.unit.name)).map(unitPartText).join(' ')
+export function withoutSpecies(x: Value): Value {
+  if (isValueMatrix(x)) return mapValues(x, (v) => withoutSpecies(v))
+  if (!isQuantity(x)) return x
+  const parts = unitParts(x)
+  if (!parts.some((p) => isSpeciesUnit(p.name))) return x
+  const rest = parts.filter((p) => !isSpeciesUnit(p.name)).map(unitPartText).join(' ')
   // (A species unit has no prefix and a factor of 1, so the value in the rest of the units is the same.)
-  const value = u.toNumber()
-  return rest ? math.unit(value, rest) : value
+  const value = magnitude(x)
+  return rest ? quantity(value, rest) : value
 }
 
 /** The amount `1 mol` is exact when written as a whole one: per one mole, as in a molar mass (18.02 g / 1 mol). */
 export const ONE_MOLE = { number: 1, text: '1' } as const
 
 /** Whether a number and its unit are one mole, written `1 mol` (any amount unit, no decimal point): exact. */
-export function isOneMole(number: MathNode, unit: MathNode, literals: Map<number, string>): boolean {
-  if (!isConstantNode(number) || number.value !== ONE_MOLE.number) return false
+export function isOneMole(number: Expr, unit: Expr, literals: Map<number, string>): boolean {
+  if (!isConstant(number) || number.value !== ONE_MOLE.number) return false
   if ((literals.get(number.value) ?? ONE_MOLE.text) !== ONE_MOLE.text || !isUnitCall(unit)) return false
   try {
     // (One mole of a species, `1 mol {X}`, is exact as a coefficient: isSpeciesCount.)
-    return math.unit(unitCallText(unit)).equalBase(math.unit(UNIT.mole))
+    return sameDimension(quantity(unitCallText(unit)), quantity(UNIT.mole))
   } catch {
     return false
   }
@@ -170,8 +168,8 @@ export function isOneMole(number: MathNode, unit: MathNode, literals: Map<number
  * A whole number of a species, written without a decimal point (`1 mol {X}`,
  * `2 mol {H2O}`): a coefficient from a balanced equation, so exact.
  */
-export function isSpeciesCount(number: MathNode, unit: MathNode, literals: Map<number, string>): boolean {
-  if (!isConstantNode(number) || typeof number.value !== 'number' || !Number.isInteger(number.value)) return false
+export function isSpeciesCount(number: Expr, unit: Expr, literals: Map<number, string>): boolean {
+  if (!isConstant(number) || typeof number.value !== 'number' || !Number.isInteger(number.value)) return false
   if (/[.eE]/.test(literals.get(number.value) ?? '')) return false
-  return isUnitCall(unit) && unitCallText(unit as FunctionNode).split(/[\s*/^]+/).some(isSpeciesUnit)
+  return isUnitCall(unit) && unitCallText(unit as CallExpr).split(/[\s*/^]+/).some(isSpeciesUnit)
 }

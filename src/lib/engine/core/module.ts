@@ -13,7 +13,7 @@
  *    installed once per class, by installModule (engine/index.ts installs
  *    MathScribe's when it's loaded), and must not depend on the instance's own state.
  */
-import type { CallExpr, Expr } from '../../maths/library/index.ts'
+import { defineFunctions, defineUnit, type CallExpr, type Expr } from '../../maths/library/index.ts'
 import type { Values } from './scope.ts'
 import { BUILTINS, type Member } from '../../builtins.ts'
 import { declareNodeKinds, declareTokenKinds, declareTokenRoles, type TokenRole } from '../../tree/registry.ts'
@@ -328,7 +328,26 @@ export abstract class EngineModule {
   // What it adds when it's installed
   // -------------------------------------------------------------------------
 
-  /** Add its functions to mathjs: called once, when the first module of its class is installed. */
+  /**
+   * Its units, added to the maths library when it's installed, before its
+   * functions: each a name and what it is in others, or a unit of its own (see
+   * UnitDeclaration). A unit it makes only as a sheet needs it (a species,
+   * named in a sheet) is declared then: declareUnit.
+   */
+  units(): readonly UnitDeclaration[] {
+    return []
+  }
+
+  /**
+   * Its functions, added to the maths library by name when it's installed (so
+   * the text it writes for the engine can call them, `builtin__vector(3, 4)`);
+   * `replacing`: the library's own of those names, which these take the place of.
+   */
+  functions(): { readonly adding?: Readonly<Record<string, unknown>>; readonly replacing?: Readonly<Record<string, unknown>> } {
+    return {}
+  }
+
+  /** Anything else it does once, when the first module of its class is installed (after its units and functions). */
   install(): void {}
 
   /** Its part of a sheet's tree: its kinds of node and token, its contexts and its kinds of line (declared when it's installed). */
@@ -661,6 +680,10 @@ export function installModule(module: EngineModule): void {
   const missing = module.requires.find((needed) => !installed.has(needed))
   if (missing) throw new Error(`${kind.name} requires ${missing.name}: install it first.`)
   installed.set(kind, module)
+  for (const unit of module.units()) declareUnit(unit)
+  const { adding, replacing } = module.functions()
+  if (adding) defineFunctions(adding)
+  if (replacing) defineFunctions(replacing, true)
   module.install()
   for (const member of module.builtinMembers()) BUILTINS.add(member)
   const grammar = module.grammar()
@@ -678,6 +701,33 @@ export function installModule(module: EngineModule): void {
 }
 
 const shared = (): EngineModule[] => [...installed.values()]
+
+/**
+ * A unit a module adds to the maths library: its name; `definition`, what it is
+ * in units the library has (`1 mol/L`), or none for a unit of its own, a new
+ * kind of quantity (a species: a mass of H2O is a different thing from a mass
+ * of NaCl); and whether prefixes go before it (mM, µM).
+ */
+export interface UnitDeclaration {
+  readonly name: string
+  readonly definition?: string
+  readonly prefixes?: boolean
+}
+
+/** The units declared so far, by name: declaring one again does nothing. */
+const declaredUnits = new Set<string>()
+
+/**
+ * Add a unit to the maths library, now: a module's, when it's installed
+ * (EngineModule.units), or when a sheet first needs it (chemistry's species, each
+ * a unit of its own made the first time a sheet names it). The library's units
+ * are shared by every sheet, so a unit, once declared, stays.
+ */
+export function declareUnit(unit: UnitDeclaration): void {
+  if (declaredUnits.has(unit.name)) return
+  declaredUnits.add(unit.name)
+  defineUnit(unit.name, unit.definition, unit.prefixes ?? false)
+}
 
 export const isLabelUnit = (unitName: string) => shared().some((m) => m.isLabelUnit(unitName))
 

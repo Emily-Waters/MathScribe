@@ -7,10 +7,9 @@
  * (Each rearrangement must be one the single-equation solve can do; of a
  * quadratic's two solutions, the first is used.)
  */
-import { isSymbolNode, type MathNode } from 'mathjs'
 import {
-  contains, countOccurrences, type FormLine, LineForm, type LineResult, lineShape, math, type ModuleHost, NODE_KIND, OP,
-  OP_SYMBOL, parseTupleName, SIGIL, soleCall, Solver, splitArgs, splitEquation, symbolTex, type TraceLine,
+  assign, contains, countOccurrences, type Expr, type FormLine, isSymbol, LineForm, type LineResult, lineShape, type ModuleHost,
+  NODE_KIND, OP, operator, paren, parseTupleName, symbol, transform, SIGIL, soleCall, Solver, splitArgs, splitEquation, symbolTex, type TraceLine,
   type TupleName, typedNumbers,
 } from '../../lib/plugin.ts'
 import { SOLVE_FUNCTION } from './syntax.ts'
@@ -20,8 +19,8 @@ const SOLVE_BUILTIN = `${SIGIL}${SOLVE_FUNCTION}`
 
 /** An equation, its two sides parsed. */
 interface Equation {
-  lhs: MathNode
-  rhs: MathNode
+  lhs: Expr
+  rhs: Expr
 }
 
 export class SolveSystemForm extends LineForm {
@@ -75,27 +74,27 @@ function solveSystem(entries: readonly string[], equationsText: string, line: Fo
 
   // Eliminate: rearrange one equation for one unknown, and put that into the rest.
   const solver = new Solver()
-  const rearranged = (e: Equation, x: string): MathNode | null => {
+  const rearranged = (e: Equation, x: string): Expr | null => {
     const occurrences = countOccurrences(e.lhs, x) + countOccurrences(e.rhs, x)
     if (!occurrences) return null
     if (occurrences === 1) {
       const isolated = contains(e.lhs, x) ? solver.isolate(e.lhs, e.rhs, x) : solver.isolate(e.rhs, e.lhs, x)
       if (isolated?.length) return isolated[0]
     }
-    const f = new math.OperatorNode(OP_SYMBOL.subtract, OP.subtract, [e.lhs, new math.ParenthesisNode(e.rhs)])
+    const f = operator(OP.subtract, [e.lhs, paren(e.rhs)])
     try {
       return solver.polynomial(f, x)?.solutions[0] ?? null
     } catch {
       return null
     }
   }
-  const substitute = (node: MathNode, x: string, expr: MathNode) =>
-    node.transform((n) => (isSymbolNode(n) && n.name === x ? new math.ParenthesisNode(expr) : n))
+  const substitute = (node: Expr, x: string, expr: Expr) =>
+    transform(node, (n) => (isSymbol(n) && n.name === x ? paren(expr) : n))
   const left = [...names]
-  const steps: { x: string; expr: MathNode }[] = []
+  const steps: { x: string; expr: Expr }[] = []
   while (left.length) {
     // The simplest rearrangement going: an unknown that appears once in an equation, if there is one.
-    let found: { x: string; at: number; expr: MathNode; occurrences: number } | undefined
+    let found: { x: string; at: number; expr: Expr; occurrences: number } | undefined
     for (const x of left) {
       for (const [at, e] of equations.entries()) {
         const occurrences = countOccurrences(e.lhs, x) + countOccurrences(e.rhs, x)
@@ -122,7 +121,7 @@ function solveSystem(entries: readonly string[], equationsText: string, line: Fo
   let warning: string | undefined
   for (const { x, expr } of steps.reverse()) {
     const target = targets[names.indexOf(x)]
-    const result = host.evaluateParsed(new math.AssignmentNode(new math.SymbolNode(x), expr), {
+    const result = host.evaluateParsed(assign(symbol(x), expr), {
       percent: false, literals, warnings: [], mode: line.mode, explicit: line.explicit,
       declaredSf: target.sf, displayUnit: target.unit, notation: target.notation,
     })

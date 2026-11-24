@@ -24,8 +24,8 @@
  */
 import {
   type Definition, DISPLAY_MODE, type FormLine, IS_NAME, LineForm, type LineResult, MEMBER_INDEX, type ModuleHost, NODE_KIND,
-  SEPARATOR, SETTING_MARK, SLICE_COLON, SUBSCRIPT, TOKEN_KIND, attachUnit, closesBracket, lexExpression, lineShape, lineTokens, math,
-  opensBracket, parseSliceName, seriesMemberName, whereOf, symbolTex, typedName, unitTex,
+  SEPARATOR, SETTING_MARK, SLICE_COLON, SUBSCRIPT, TOKEN_KIND, attachUnit, closesBracket, lexExpression, lineShape, lineTokens, magnitude,
+  opensBracket, quantity, parseSliceName, seriesMemberName, whereOf, symbolTex, typedName, unitTex,
 } from '../../lib/plugin.ts'
 import { rowErrors, seriesUsedIn, sharedRows, withRowValues } from './columns.ts'
 import { cellParts } from './table.ts'
@@ -195,7 +195,7 @@ function rangeValues(parts: string[]): { values: string[]; figures: (number | un
       const own = r[2] || (i === 2 && !stepText ? unit : '')
       if (own === unit) return { value: Number(r[1]), decimals: decimalsOf(r[1]) }
       if (!unit || !own) throw new Error()
-      const value = math.unit(Number(r[1]), own).toNumber(unit)
+      const value = magnitude(quantity(Number(r[1]), own), unit)
       return { value, decimals: decimalsOf(String(Number(value.toPrecision(12)))) }
     })
   } catch {

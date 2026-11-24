@@ -352,8 +352,23 @@ tests, or the Create prompt:
          than `mathsError` reading messages; about 70 comments in the core
          that name mathjs; and the tree's lexer, which mirrors mathjs's own
          reading of characters (its delimiters, `isAlpha`), so is the
-         library's knowledge outside the adapter); (5) algebra;
-         (6) the module API and the modules.
+         library's knowledge outside the adapter); (5) algebra, ~~done
+         2026-11-23~~ (the Solver builds and simplifies through the
+         interface, `mapParts` added; it takes no instance now);
+         (6) the module API and the modules, ~~done 2026-11-23~~ (plugin.ts
+         exports the interface, `export *`, and no longer `math`; the hooks
+         take `Expr`/`CallExpr`; chemistry, series, solve and vectors moved
+         over. Emily asked that the core give modules a way to declare and
+         add their own units when needed: `EngineModule.units()` (added when
+         the module's installed, before its functions), `functions()` (its
+         functions by name, `adding` and `replacing`), and `declareUnit` for a
+         unit made as a sheet needs it, with no definition for a unit of its
+         own kind (chemistry's species, each declared the first time it's
+         named). plugin.test.ts's example module shows all three. Only the
+         adapter imports mathjs; the boundary test's list of exceptions is
+         gone. The engine's own molarity is added in math.ts as it loads,
+         with `defineUnit`: through `declareUnit` it would run before
+         module.ts had loaded).
          **Maths library behind one interface**: a folder (e.g.
          `src/lib/maths/mathjs/`) the only one importing `mathjs`, enforced in
          `boundaries.test.ts`. It offers named operations (parse, evaluate,

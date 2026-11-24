@@ -7,7 +7,7 @@
  * r.CaOH2, r.Na.
  */
 import {
-  EXACT, type FormLine, LINE_STAGE, LineForm, type LineResult, math, memberName, type ModuleHost, symbolTex, UNIT,
+  EXACT, type FormLine, LINE_STAGE, LineForm, type LineResult, memberName, type ModuleHost, quantity, symbolTex, UNIT,
 } from '../../lib/plugin.ts'
 import {
   SPECIES_KIND, formulaTex, parseReaction, reactionImbalance, reactionMemberName, type ReactionTerm, type SpeciesNames,
@@ -48,7 +48,7 @@ export class ReactionForm extends LineForm {
     }
     for (const [member, t] of members) {
       host.store(memberName(name, member), {
-        value: math.unit(t.coefficient, `${UNIT.mole} ${speciesUnitName(t.formula, SPECIES_KIND.amount)}`),
+        value: quantity(t.coefficient, `${UNIT.mole} ${speciesUnitName(t.formula, SPECIES_KIND.amount)}`),
         sf: EXACT,
         // r.H2O is written r with H₂O below.
         symbol: `${symbolTex(name)}_{${formulaTex(t.formula)}}`,

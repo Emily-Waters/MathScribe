@@ -8,7 +8,7 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import {
   BLOCK_KIND, CONTENT, ConstantMember, Construct, EngineModule, LINE_CONTEXT, LINE_STAGE, LineStep, NodeReader, SIGIL, latexKit,
-  lexExpression, textOf, TOKEN_KIND, isToken,
+  lexExpression, textOf, TOKEN_KIND, isToken, declareUnit, multiply, quantity, type Value,
   type CustomBlock, type LineInProgress, type LineResult, type Member, type ModuleBlockKind, type ModuleGrammar,
   type NodeReader as Reader, type ReadsLines, type SheetReader, type TreeItem,
 } from './plugin.ts'
@@ -84,6 +84,16 @@ class MarsModule extends EngineModule implements ReadsLines {
     return [new ConstantMember('g_mars', { value: 3.72076, unit: 'm/s^2', tex: 'g_{\\mathrm{Mars}}', description: 'surface gravity on Mars' })]
   }
 
+  /** A Martian year, a unit of its own kind of thing: added to the maths library when the module's installed. */
+  override units() {
+    return [{ name: 'marsyear', definition: '687 day' }]
+  }
+
+  /** A function of its own, by name, in the maths library: a mass's weight on Mars. */
+  override functions() {
+    return { adding: { marsWeight: (m: Value) => multiply(m, quantity(3.72076, 'm/s^2')) } }
+  }
+
   override readonly lineSettings = { mars: 'shown as on Mars (an example)' }
 
   override readonly lineSteps = [new SolStep()]
@@ -114,6 +124,16 @@ describe('a module of one’s own', () => {
     const line = new Calculator(OPTIONS, modules()).evaluate('t = 2 * sol to h', DISPLAY_MODE.val)
     expect(line.error).toBeUndefined()
     expect(line.tex).toContain('49.3')
+  })
+
+  it('adds its units and functions to the maths library, and units of its own as a sheet needs them', () => {
+    const calc = new Calculator(OPTIONS, modules())
+    expect(calc.evaluate('y = 1.00 marsyear to day', DISPLAY_MODE.val).tex).toContain('687')
+    expect(calc.evaluate('w = marsWeight(2.00 kg)', DISPLAY_MODE.val).tex).toContain('7.44')
+    // A unit of its own, a new kind of quantity (as chemistry's species are), declared when it's first needed.
+    declareUnit({ name: 'regolith' })
+    expect(calc.evaluate('r = 2.0 regolith + 3.0 regolith', DISPLAY_MODE.val).tex).toContain('5.0')
+    expect(calc.evaluate('q = 2.0 regolith + 3.0 kg', DISPLAY_MODE.val).error).toMatch(/units don't match/)
   })
 
   it('is known to the editor too, once installed', () => {

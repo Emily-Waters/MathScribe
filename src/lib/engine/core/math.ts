@@ -4,19 +4,15 @@ import {
   mapValues, multiply, add, baseMagnitude, quantity, sameDimension, sqrt, tupleOf, unitParts, unitText, valuesOf,
   type Quantity, type Value, type ValueMatrix,
 } from '../../maths/library/index.ts'
-// (The instance itself, while the code moves behind the library's interface: TODO.md, "Maths library behind one interface".)
-import { math } from '../../maths/library/mathjs.ts'
 import { INV_FUNCTION, TUPLE_FUNCTION } from '../../sheet/names.ts'
 import { CALL, SIGIL } from '../../syntax.ts'
 import { isLabelUnit } from './module.ts'
-
-/** The library's instance, with the functions below added or replaced. */
-export { math }
 
 /** A one-dimensional matrix: a tuple like (x, y, z). */
 export { isTuple }
 
 /** Molarity: `0.100 M` is 0.100 mol/L (and mM, µM). (M before another unit is still mega: MPa.) */
+// (Added to the library here, as the engine loads: the modules' units go through declareUnit, which loads after this.)
 defineUnit(UNIT.molar, `1 ${UNIT.mole}/${UNIT.litre}`, true)
 
 /**

@@ -399,10 +399,22 @@ export function defineFunctions(functions: Readonly<Record<string, unknown>>, re
   math.import(functions as never, replace ? { override: true } : {})
 }
 
-/** Add a unit to the library: its name, what it is in others (`1 mol/L`), and whether prefixes go before it (mM). */
-export function defineUnit(name: string, definition: string, prefixes: boolean): void {
-  math.createUnit(name, { definition, prefixes: prefixes ? 'short' : 'none' })
+/**
+ * Add a unit to the library: its name; what it is in others (`1 mol/L`), or
+ * none for a unit of its own, a dimension of its own; and whether prefixes go
+ * before it (mM).
+ */
+export function defineUnit(name: string, definition: string | undefined, prefixes: boolean): void {
+  if (definition === undefined) math.createUnit(name)
+  else math.createUnit(name, { definition, prefixes: prefixes ? 'short' : 'none' })
 }
+
+/** Whether a quantity's units cancel, leaving a number (m/mm). */
+export const isDimensionless = (q: Quantity): boolean => q.dimensions.every((d) => d === 0)
+
+/** How many of a base dimension a quantity's unit has: mass in g/mol is 1 (see BASE_DIMENSION). */
+export const dimensionPower = (q: Quantity, dimension: string): number =>
+  q.dimensions[math.Unit.BASE_DIMENSIONS.indexOf(dimension)] ?? 0
 
 // ---------------------------------------------------------------------------
 // What went wrong, as MathScribe reads it

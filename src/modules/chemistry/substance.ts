@@ -21,10 +21,9 @@
  * species units are the core's, as on any line.
  */
 import {
-  DISPLAY_MODE, expandDots, type FormLine, isToken, JOIN, lexExpression, LINE_STAGE, LineForm, type LineResult, math,
-  MEMBER_DOT, memberName, type ModuleHost, NAME, NODE_KIND, NUMBER, SIGIL, UNIT,
+  DISPLAY_MODE, expandDots, type FormLine, isToken, JOIN, lexExpression, LINE_STAGE, LineForm, type LineResult, isQuantity,
+  MEMBER_DOT, memberName, type ModuleHost, NAME, NODE_KIND, NUMBER, SIGIL, UNIT, unitParts,
 } from '../../lib/plugin.ts'
-import type { Unit } from 'mathjs'
 import { formulaTex, isSpeciesUnit, molarMassSum, parseFormula, speciesKey, splitCoefficient, type AtomCounts } from './chemistry.ts'
 import { CHEM_FUNCTION, CHEM_NAMESPACE, SPECIES_FUNCTION } from './syntax.ts'
 import type { ElementSymbol } from './elements.ts'
@@ -121,7 +120,7 @@ function hasSpecies(value: string, host: ModuleHost): boolean {
   if (value.includes('{')) return true
   try {
     const v = host.evaluateExpression(expandDots(value))
-    return math.isUnit(v) && (v as Unit).units.some((u) => isSpeciesUnit(u.unit.name))
+    return isQuantity(v) && unitParts(v).some((u) => isSpeciesUnit(u.name))
   } catch {
     return false
   }

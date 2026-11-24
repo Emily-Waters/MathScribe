@@ -4,12 +4,11 @@
  * formula, the values substituted in, and the answer. Equations that can't be
  * rearranged are solved numerically from a starting guess, if one is given.
  */
-import type { MathNode, Unit } from 'mathjs'
 import {
-  contains, type Contributions, CONVERSION_TAIL, countOccurrences, EXACT, FN, type FormLine, IS_NAME, isRealValue,
-  LINE_STAGE, LineForm, type LineResult, magnitudeOf, matchingParen, math, type ModuleHost, normalise, OP, OP_SYMBOL,
-  POLYNOMIAL_KIND, type PreparedLine, preprocess, sameValue, heldName, Solver, splitArgs, splitEquation, symbolTex,
-  type TraceLine, UNIT, withMagnitude,
+  assign, call as callExpr, compile, constant, contains, type Contributions, CONVERSION_TAIL, countOccurrences, evaluate, evaluateCompiled, EXACT,
+  type Expr, FN, type FormLine, IS_NAME, isQuantity, isRealValue, LINE_STAGE, LineForm, type LineResult, magnitudeOf, matchingParen,
+  type ModuleHost, normalise, OP, type OperatorExpr, operator, paren, parse, POLYNOMIAL_KIND, type PreparedLine, preprocess, quantity,
+  sameDimension, sameValue, heldName, Solver, splitArgs, splitEquation, symbol, symbolTex, type TraceLine, UNIT, withMagnitude,
 } from '../../lib/plugin.ts'
 import { SOLVE_CALL } from './syntax.ts'
 
@@ -27,7 +26,7 @@ const SOLVER = {
 } as const
 
 /** Writes out the solution chosen (converted, if the line says `to unit`), as the line's result. */
-type Finish = (expr: MathNode, value: unknown, info?: string) => LineResult
+type Finish = (expr: Expr, value: unknown, info?: string) => LineResult
 
 export class SolveForm extends LineForm {
   /** (Once the line's constants are written out and its numbers read as typed: the equation's `=` needs reading as one.) */
@@ -58,8 +57,8 @@ function solve(text: string, call: RegExpExecArray, line: FormLine, prepared: Pr
   const sides = splitEquation(equation)
   if (!sides) return fail('The first part of solve is an equation with one =, like v^2 = 2*a*d.')
 
-  let lhs: MathNode
-  let rhs: MathNode
+  let lhs: Expr
+  let rhs: Expr
   let guess: unknown
   try {
     lhs = host.parse(sides[0])
@@ -76,13 +75,13 @@ function solve(text: string, call: RegExpExecArray, line: FormLine, prepared: Pr
 
   // Rearrange: isolate x if it appears once, else try linear / quadratic.
   const solver = new Solver()
-  let candidates: MathNode[] | null = null
+  let candidates: Expr[] | null = null
   let quadratic = false
   if (occurrences === 1) {
     candidates = contains(lhs, x) ? solver.isolate(lhs, rhs, x) : solver.isolate(rhs, lhs, x)
   }
   if (!candidates) {
-    const f = new math.OperatorNode(OP_SYMBOL.subtract, OP.subtract, [lhs, new math.ParenthesisNode(rhs)])
+    const f = operator(OP.subtract, [lhs, paren(rhs)])
     const poly = solver.polynomial(f, x)
     if (poly) {
       candidates = poly.solutions
@@ -91,26 +90,23 @@ function solve(text: string, call: RegExpExecArray, line: FormLine, prepared: Pr
   }
 
   /** The solution, converted with `to unit` if one was given. */
-  const convert = (expr: MathNode, value: unknown): MathNode => {
+  const convert = (expr: Expr, value: unknown): Expr => {
     let shown = expr
     if (conversion) {
       // (Read as a unit, whatever the sheet's variables are called.)
-      const unitNode = (math.parse(preprocess(`1 to ${conversion}`, () => false).text) as math.OperatorNode).args[1]
+      const unitNode = (parse(preprocess(`1 to ${conversion}`, () => false).text) as OperatorExpr).args[1]
       // Angles from asin/acos/atan come out as plain numbers in radians.
-      const targetUnit = unitNode.compile().evaluate({})
-      if (typeof value === 'number' && math.isUnit(targetUnit) && (targetUnit as Unit).equalBase(math.unit(UNIT.radian))) {
-        shown = new math.OperatorNode(OP_SYMBOL.multiply, OP.multiply, [
-          new math.ParenthesisNode(shown),
-          new math.FunctionNode(new math.SymbolNode(FN.unit), [new math.ConstantNode(UNIT.radian)]),
-        ])
+      const targetUnit = evaluate(unitNode)
+      if (typeof value === 'number' && isQuantity(targetUnit) && sameDimension(targetUnit, quantity(UNIT.radian))) {
+        shown = operator(OP.multiply, [paren(shown), callExpr(FN.unit, [constant(UNIT.radian)])])
       }
-      shown = new math.OperatorNode(OP_SYMBOL.to, OP.to, [shown, unitNode])
+      shown = operator(OP.to, [shown, unitNode])
     }
     return shown
   }
   const finish: Finish = (expr, value, info) => {
     const shown = convert(expr, value)
-    const node = target ? new math.AssignmentNode(new math.SymbolNode(target), shown) : shown
+    const node = target ? assign(symbol(target), shown) : shown
     return host.evaluateParsed(node, {
       percent: false, literals, warnings: [], mode: line.mode, explicit: line.explicit,
       lhs: target ? undefined : symbolTex(x), prelude, info, declaredSf, displayUnit, notation,
@@ -126,7 +122,7 @@ function solve(text: string, call: RegExpExecArray, line: FormLine, prepared: Pr
   }
 
   // Work out each solution, keep the real ones, and choose one.
-  const real: { node: MathNode; value: unknown }[] = []
+  const real: { node: Expr; value: unknown }[] = []
   for (const node of candidates) {
     try {
       const value = host.evaluateNode(node)
@@ -149,7 +145,7 @@ function solve(text: string, call: RegExpExecArray, line: FormLine, prepared: Pr
   }
   const others = real.filter((r) => r !== chosen)
   const sf = host.sigFigs(chosen.node, literals)
-  const otherTex = (o: { node: MathNode; value: unknown }) => {
+  const otherTex = (o: { node: Expr; value: unknown }) => {
     const v = conversion ? host.evaluateNode(convert(o.node, o.value)) : normalise(o.value, false)
     return `$${symbolTex(x)} = ${host.valueTex(v, sf)}$`
   }
@@ -167,20 +163,20 @@ function solve(text: string, call: RegExpExecArray, line: FormLine, prepared: Pr
  */
 function solveNumerically(
   host: ModuleHost,
-  lhs: MathNode,
-  rhs: MathNode,
+  lhs: Expr,
+  rhs: Expr,
   x: string,
   guess: unknown,
   literals: Map<number, string>,
   equationTex: string,
   finish: Finish,
 ): LineResult {
-  const F = new math.OperatorNode(OP_SYMBOL.subtract, OP.subtract, [lhs, new math.ParenthesisNode(rhs)])
-  const code = F.compile()
+  const F = operator(OP.subtract, [lhs, paren(rhs)])
+  const code = compile(F)
   const residual = (s: number) => {
     const scope = host.scratchValues()
     scope.set(x, withMagnitude(guess, s))
-    return magnitudeOf(code.evaluate(scope))
+    return magnitudeOf(evaluateCompiled(code, scope))
   }
 
   let s0 = magnitudeOf(guess)
@@ -231,5 +227,5 @@ function solveNumerically(
   // Hold the answer in a hidden variable, shown as x itself.
   const hidden = heldName(x)
   host.store(hidden, { value, sf, contributions })
-  return finish(new math.SymbolNode(hidden), value)
+  return finish(symbol(hidden), value)
 }

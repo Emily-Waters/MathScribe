@@ -14,7 +14,7 @@
  *   the sheet's language   syntax (words, names, patterns: syntax/*), the `@` tree (builtins)
  *   the tree               nodes and tokens, lex and text rules, contexts, line shapes
  *   reading a sheet        NodeReader, SheetWideReader, blocks
- *   working lines out      mathjs (math), values, results, sig figs, LaTeX for values and names
+ *   working lines out      the maths library's interface (values, expressions, units), results, sig figs, LaTeX
  *   its own kinds of block a construct (LaTeX and Word, with the kits `latexKit` and `docxKit`) and a
  *                          view (the Rendered tab, with Tex, Title, BlockMessages, useLineLink)
  *   the editor             CodeMirror extensions (`Extension`)
@@ -73,9 +73,12 @@ export type { SheetReader } from './reading/sheetReader.ts'
 export { BLOCK_KIND, SYMBOL_KIND, type CaptionKind, type CardBlock, type CardEntry, type CustomBlock, type DefinedName } from './sheet/blocks.ts'
 export type { Contributions } from './sheet/values.ts'
 
-// Working lines out: mathjs, values, results, and writing them.
-export { isTuple, math } from './engine/core/math.ts'
-export { BASE_DIMENSION, FN, MATHS_ERROR, OP, OP_SYMBOL, UNIT, UNIT_LOOKS, mathsError, type MathsError } from './maths/library/index.ts'
+// Working lines out: the maths library (its interface, MathScribe's own names: never the library itself), values,
+// results, and writing them.
+export * from './maths/library/index.ts'
+// (declareUnit: a unit added to the maths library when a sheet first needs it, as a species is; a module's units
+// known from the start are its EngineModule.units.)
+export { declareUnit, type UnitDeclaration } from './engine/core/module.ts'
 export { EXACT } from './maths/sigfigs.ts'
 export { POLYNOMIAL_KIND, Solver, contains, countOccurrences, matchingParen, splitArgs, splitEquation } from './maths/solve.ts'
 export { isRealValue, magnitudeOf, normalise, sameValue, withMagnitude } from './engine/core/normalise.ts'

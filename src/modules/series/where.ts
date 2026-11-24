@@ -16,7 +16,7 @@
  */
 import {
   IS_NAME, LINE_STAGE, type LineInProgress, type LineResult, LineStep, MEMBER_INDEX, type ModuleHost, TOKEN_KIND,
-  closesBracket, describeName, expandDots, isTuple, lexExpression, lineTokens, math, opensBracket, seriesMemberName, symbolTex,
+  closesBracket, describeName, expandDots, isQuantity, isTuple, lexExpression, lineTokens, opensBracket, seriesMemberName, symbolTex,
   typedName, whereName,
 } from '../../lib/plugin.ts'
 import { seriesUsedIn, withRowValues } from './columns.ts'
@@ -109,7 +109,7 @@ export class WhereStep extends LineStep {
       for (const [n, member] of [...rows].sort((a, b) => a[0] - b[0])) {
         if (![...used.values()].every((r) => r.has(n))) continue
         const value = worked(withRowValues(expanded.text, used, n))
-        if (isTuple(value) || math.isUnit(value)) {
+        if (isTuple(value) || isQuantity(value)) {
           return { error: `In ${typed}, the condition gives ${typeof value === 'object' ? 'a value' : String(value)}, not true or false: compare it, t > 0.2 s.` }
         }
         if (holds(value)) kept.push(member)

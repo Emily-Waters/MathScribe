@@ -300,7 +300,7 @@ describe('text blocks', () => {
     '    The result is lower than expected,', // 3
     '    because x = 5 isn’t calculated here.', // 4
     '', // 5
-    '    # Not a heading, and $E = mc^2$ is maths.', // 6
+    '    A second paragraph, and $E = mc^2$ is maths.', // 6
     'Results:', // 7 (prose, even ending in a colon, and not indented)
     '}', // 8
     'y = x * 3', // 9
@@ -315,7 +315,7 @@ describe('text blocks', () => {
     expect(block).toMatchObject({ kind: BLOCK_KIND.layout, style: LAYOUT_STYLE.text, title: 'Discussion', endLine: 8 })
     expect(block.children).toEqual([
       { kind: BLOCK_KIND.text, line: 3, text: 'The result is lower than expected, because x = 5 isn’t calculated here.' },
-      { kind: BLOCK_KIND.text, line: 6, text: '# Not a heading, and $E = mc^2$ is maths. Results:' },
+      { kind: BLOCK_KIND.text, line: 6, text: 'A second paragraph, and $E = mc^2$ is maths. Results:' },
     ])
   })
 
@@ -331,7 +331,73 @@ describe('text blocks', () => {
   it('export as plain paragraphs under the title', () => {
     const tex = toLatexDocument(blocks)
     expect(tex).toContain('\\paragraph{Discussion}\nThe result is lower than expected, because x = 5 isn’t calculated here.\n\n'
-      + '\\# Not a heading, and $E = mc^2$ is maths.')
+      + 'A second paragraph, and $E = mc^2$ is maths.')
+  })
+})
+
+describe('text blocks, as Markdown', () => {
+  const src = [
+    'k = 24.5 N/m', // 1
+    '@layout.text {', // 2
+    '    # Method', // 3
+    '    1. Hang each mass,', // 4
+    '       and measure it.', // 5
+    '    2. Fit a line:', // 6
+    '        - its slope is {{k}}', // 7
+    '    - a bullet after a number', // 8
+    '', // 9
+    '    $$F = k x$$', // 10
+    '    $$', // 11
+    '    \\frac{a}{b}', // 12
+    '    $$', // 13
+    '    > Quoted,', // 14
+    '    > over two lines.', // 15
+    '    ---', // 16
+    '    ### Small heading', // 17
+    '}', // 18
+  ].join('\n')
+  const block = sheet(src).blocks[1] as LayoutBlock
+
+  it('reads headings, lists, displayed maths, quotes and rules', () => {
+    expect(outline(block.children)).toEqual([
+      'text 3',
+      'layout list ""', '  text 4', '  text 6', '  layout list "" nested', '    text 7',
+      'layout list ""', '  text 8',
+      'latex 10', 'latex 11', 'text 14', 'rule 16', 'text 17',
+    ])
+    const [heading, numbered, bullets, inline, displayed, quote, , small] = block.children
+    expect(heading).toMatchObject({ kind: BLOCK_KIND.text, heading: 1, text: 'Method' })
+    expect(small).toMatchObject({ heading: 3, text: 'Small heading' })
+    expect(inline).toMatchObject({ kind: BLOCK_KIND.latex, latex: 'F = k x' })
+    expect(displayed).toMatchObject({ kind: BLOCK_KIND.latex, latex: '\\frac{a}{b}', endLine: 13 })
+    expect(quote).toMatchObject({ kind: BLOCK_KIND.text, quote: true, text: 'Quoted, over two lines.' })
+    // A numbered list, an item carried on over two lines, a bulleted list inside the second item; then a bulleted list of its own.
+    const list = numbered as LayoutBlock
+    expect(list).toMatchObject({ marker: '1' })
+    expect(list.children.map((c) => (c.kind === BLOCK_KIND.text ? c.text : `list nested=${(c as LayoutBlock).nested}`)))
+      .toEqual(['Hang each mass, and measure it.', 'Fit a line:', 'list nested=true'])
+    expect(((list.children[2] as LayoutBlock).children[0] as { text: string }).text).toMatch(/^its slope is \$24\.5.*\$$/)
+    expect([(bullets as LayoutBlock).marker, (bullets as LayoutBlock).nested]).toEqual([undefined, undefined])
+  })
+
+  it('starts a numbered list at its first number, and says what’s wrong with displayed maths', () => {
+    expect(sheet('@layout.text {\n    3. third\n    4. fourth\n}').blocks[0]).toMatchObject({ children: [{ firstNumber: 3 }] })
+    expect((sheet('@layout.text {\n    $$\\frac{a}{b\n}').blocks[0] as LayoutBlock).children[0])
+      .toMatchObject({ kind: BLOCK_KIND.latex, error: expect.stringMatching(/missing its closing \$\$/) })
+    expect((sheet('@layout.text {\n    $$\\frac{a}{b$$\n}').blocks[0] as LayoutBlock).children[0])
+      .toMatchObject({ error: expect.stringMatching(/without its/) })
+  })
+
+  it('exports to LaTeX', () => {
+    const tex = toLatexDocument(sheet(`${src}\n> See [the manual](https://example.com/a_b#3).`).blocks)
+    expect(tex).toContain('\\par\\medskip\\noindent{\\large\\bfseries Method\\par}\\nobreak\\smallskip')
+    expect(tex).toMatch(/\\begin\{enumerate\}\n\\item Hang each mass, and measure it\.\n\\item Fit a line:\n\\begin\{itemize\}/)
+    expect(tex).toContain('\\begin{quote}\nQuoted, over two lines.\n\\end{quote}')
+    expect(tex).toContain('\\rule{\\linewidth}{0.4pt}')
+    expect(tex).toContain('See \\href{https://example.com/a_b\\#3}{the manual}.')
+    expect(tex).toContain('{hyperref}')
+    // Without a link, no hyperref.
+    expect(toLatexDocument(sheet(src).blocks)).not.toContain('hyperref')
   })
 })
 
@@ -345,6 +411,45 @@ describe('headings and titles', () => {
       { kind: TITLE_SEGMENT.text, value: 'Energy ' }, { kind: TITLE_SEGMENT.math, value: 'E_n' }, { kind: TITLE_SEGMENT.text, value: ' eV' },
     ])
     expect(titleSegments('my\\_block')).toEqual([{ kind: TITLE_SEGMENT.text, value: 'my_block' }])
+  })
+
+  it('make emphasis, as Markdown writes it', () => {
+    const { text, math, sub } = TITLE_SEGMENT
+    expect(titleSegments('a **bold** and *italic* word')).toEqual([
+      { kind: text, value: 'a ' }, { kind: text, value: 'bold', bold: true }, { kind: text, value: ' and ' },
+      { kind: text, value: 'italic', italic: true }, { kind: text, value: ' word' },
+    ])
+    expect(titleSegments('***both***')).toEqual([{ kind: text, value: 'both', bold: true, italic: true }])
+    // Bold around italic, and maths and subscripts inside.
+    expect(titleSegments('**v_0 is *about* $3 m$**')).toEqual([
+      { kind: text, value: 'v', bold: true }, { kind: sub, value: '0', bold: true }, { kind: text, value: ' is ', bold: true },
+      { kind: text, value: 'about', bold: true, italic: true }, { kind: text, value: ' ', bold: true }, { kind: math, value: '3 m', bold: true },
+    ])
+  })
+
+  it('leave marks that don’t open or close emphasis as typed', () => {
+    const { text } = TITLE_SEGMENT
+    // Spaced, unclosed, escaped, or too many.
+    expect(titleSegments('2 * 3 = 6')).toEqual([{ kind: text, value: '2 * 3 = 6' }])
+    expect(titleSegments('a *b')).toEqual([{ kind: text, value: 'a *b' }])
+    expect(titleSegments('\\*not\\*')).toEqual([{ kind: text, value: '*not*' }])
+    expect(titleSegments('****')).toEqual([{ kind: text, value: '****' }])
+    // A bold closed past an italic left open: the italic's mark is just text.
+    expect(titleSegments('**a *b**')).toEqual([{ kind: text, value: 'a *b', bold: true }])
+  })
+
+  it('make links, to web and mail addresses only', () => {
+    const { text } = TITLE_SEGMENT
+    expect(titleSegments('see [the **data**](https://example.com/run_1) now')).toEqual([
+      { kind: text, value: 'see ' }, { kind: text, value: 'the ', href: 'https://example.com/run_1' },
+      { kind: text, value: 'data', bold: true, href: 'https://example.com/run_1' }, { kind: text, value: ' now' },
+    ])
+    expect(titleSegments('[run](javascript:alert(1))')).toEqual([{ kind: text, value: '[run](javascript:alert(1))' }])
+  })
+
+  it('export emphasis bold and italic', () => {
+    const tex = toLatexDocument(sheet('> A **bold** claim, *probably*, and **$x$**.').blocks)
+    expect(tex).toContain('A \\textbf{bold} claim, \\textit{probably}, and $\\boldsymbol{x}$.')
   })
 
   it('export subscripts with \\textsubscript', () => {

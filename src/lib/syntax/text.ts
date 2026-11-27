@@ -1,7 +1,8 @@
 /**
  * What's written in words rather than worked out: comment lines, and the markup
  * in text (prose, headings, titles, notes, display names): subscripts, values,
- * `{{c_Na}}`, and inline maths, `$x^2$`.
+ * `{{c_Na}}`, inline maths, `$x^2$`, emphasis, `**bold**`, and links; and the
+ * Markdown an `@layout.text` block reads (headings, lists, quotes, rules, `$$…$$`).
  */
 import { SUBSCRIPT } from './lexical.ts'
 import { named, regex, src } from './patterns.ts'
@@ -36,6 +37,64 @@ const ESCAPED_UNDERSCORE = /\\_/g
 
 /** Words with each `\_` as the plain underscore it stands for. */
 export const unescapeUnderscores = (text: string) => text.replace(ESCAPED_UNDERSCORE, SUBSCRIPT)
+
+/**
+ * Emphasis in text, as Markdown writes it: `*italic*`, `**bold**`, `***both***`.
+ * A run of marks opens before something that isn't a space and closes after
+ * one, so `2 * 3` is just text; `\*` is a plain asterisk. (Underscores make
+ * subscripts in text, so they don't make emphasis.)
+ */
+export const EMPHASIS_MARK = '*'
+
+/** How many marks each emphasis takes: `*` italic, `**` bold. */
+export const EMPHASIS_MARKS = { italic: 1, bold: 2 } as const
+
+/** The most marks a run of them can be and still be emphasis: `***`, bold and italic; a longer run is just text. */
+export const MOST_EMPHASIS_MARKS = EMPHASIS_MARKS.bold + EMPHASIS_MARKS.italic
+
+/** A run of emphasis marks, not after a `\`. */
+export const EMPHASIS_RUN = /(?<!\\)\*+/g
+
+/** `\*`, written for a plain asterisk in words. */
+const ESCAPED_EMPHASIS_MARK = /\\\*/g
+
+/** Words with each `\*` as the plain asterisk it stands for. */
+export const unescapeEmphasisMarks = (text: string) => text.replace(ESCAPED_EMPHASIS_MARK, EMPHASIS_MARK)
+
+/**
+ * A link in text, as Markdown writes it: `[the data](https://example.com/run1)`.
+ * Only a web or mail address makes one; anything else is left as typed. (Its
+ * groups: text, and url.)
+ */
+export const TEXT_LINK = /\[(?<text>[^[\]]+)\]\((?<url>(?:https?:\/\/|mailto:)[^\s()]+)\)/g
+
+// ---------------------------------------------------------------------------
+// Markdown in an @layout.text block: its kinds of paragraph
+// ---------------------------------------------------------------------------
+
+/**
+ * A heading of a text block's own, `# Method` (`##`, `###` smaller): not
+ * numbered, unlike a heading line outside one. (Its groups: marks, text.)
+ */
+export const TEXT_HEADING = /^(?<marks>#{1,6})\s+(?<text>.*)$/
+
+/** The levels a text block's headings come in: `####` and more are drawn as `###`. */
+export const TEXT_HEADING_LEVELS = 3
+
+/** A quote in a text block: `> what they said`, each line of it. (Its group: text.) */
+export const TEXT_QUOTE = /^>\s?(?<text>.*)$/
+
+/** A rule across the page in a text block: `---` on a line of its own (three or more). */
+export const TEXT_RULE = /^-{3,}$/
+
+/** A bulleted list's item in a text block: `- item`. (Its group: text.) */
+export const TEXT_BULLET = /^-\s+(?<text>.*)$/
+
+/** A numbered list's item in a text block: `1. item` (the first item's number starts the list). (Its groups: number, text.) */
+export const TEXT_NUMBERED = /^(?<number>\d+)\.\s+(?<text>.*)$/
+
+/** Displayed maths in a text block: `$$…$$`, over one line or several, on lines of its own. */
+export const DISPLAY_MATHS_MARK = '$$'
 
 /** A value in text's braces, as typed: `{{c_Na}}`. */
 export const VALUE_BRACES = { open: '{{', close: '}}' } as const

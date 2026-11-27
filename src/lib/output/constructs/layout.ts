@@ -17,6 +17,13 @@ import { Construct, type DocxOut, type LatexOut } from './construct.ts'
 /** A block's title (and note) as a LaTeX run-in heading, if it has one. */
 const paragraph = (title: string) => (title ? `\\paragraph{${title}}` : '')
 
+/**
+ * A block's title as a heading on a line of its own, above what's under it (a
+ * run-in title, \paragraph, needs something after it to be on a line of its
+ * own; that empty line is taken back).
+ */
+const paragraphAbove = (title: string) => title && `${paragraph(title)}\\mbox{}\\par\\nobreak\\vspace{-\\baselineskip}`
+
 /** One layout: how a block's lines are arranged, given its title as each export writes it. */
 abstract class Layout {
   abstract latex(b: LayoutBlock, title: string, out: LatexOut): string
@@ -26,7 +33,10 @@ abstract class Layout {
 /** Prose (`@layout.text`), or no layout at all (`@layout.val`): the lines as they are, under the title. */
 class PlainLayout extends Layout {
   latex(b: LayoutBlock, title: string, out: LatexOut): string {
-    return [paragraph(title), out.join(b.children)].filter(Boolean).join('\n')
+    // (Over a text block's own heading, the title is on a line of its own, not run in with it.)
+    const first = b.children[0]
+    const heading = first?.kind === BLOCK_KIND.text && first.heading ? paragraphAbove(title) : paragraph(title)
+    return [heading, out.join(b.children)].filter(Boolean).join('\n')
   }
 
   docx(b: LayoutBlock, ctx: Ctx, title: Item[], out: DocxOut): Item[] {
@@ -197,10 +207,7 @@ class ColumnArrangement extends Layout {
       // (\vspace{0pt}: the columns' tops line up, whatever each starts with.)
       .map((part) => [`\\begin{minipage}[t]{${width}}\\vspace{0pt}`, layout.latex(part, '', column), '\\end{minipage}'].join('\n'))
       .join(`%\n\\hspace{${gap}}%\n`)}\\par`
-    // (A run-in title, \paragraph, needs something after it to be on a line of its own above
-    // the columns; that empty line is taken back.)
-    const heading = title && `${paragraph(title)}\\mbox{}\\par\\nobreak\\vspace{-\\baselineskip}`
-    return [heading, rows.map(row).join(`\n${rowGap}\n`)].filter(Boolean).join('\n')
+    return [paragraphAbove(title), rows.map(row).join(`\n${rowGap}\n`)].filter(Boolean).join('\n')
   }
 
   docx(b: LayoutBlock, ctx: Ctx, title: Item[], out: DocxOut): Item[] {

@@ -5,7 +5,7 @@
  */
 import type { Block, BlockKind } from '../../sheet/blocks.ts'
 import type { Construct } from './construct.ts'
-import { CalcConstruct, HeadingConstruct, LatexConstruct, SpacerConstruct, TextConstruct } from './lines.ts'
+import { CalcConstruct, HeadingConstruct, LatexConstruct, RuleConstruct, SpacerConstruct, TextConstruct } from './lines.ts'
 import { CardConstruct, CustomConstruct, GroupConstruct, ImportConstruct } from './blocks.ts'
 import { LayoutConstruct } from './layout.ts'
 
@@ -18,6 +18,7 @@ const CONSTRUCTS: Constructs = {
   text: new TextConstruct(),
   latex: new LatexConstruct(),
   spacer: new SpacerConstruct(),
+  rule: new RuleConstruct(),
   calc: new CalcConstruct(),
   group: new GroupConstruct(),
   layout: new LayoutConstruct(),

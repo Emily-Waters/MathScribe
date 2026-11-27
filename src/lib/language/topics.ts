@@ -190,6 +190,18 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
         examples: [{ source: '> Prose, with inline maths like $E = mc^2$.' }],
       },
       {
+        explain: '**…** makes text bold and *…* italic (***…*** both), and [text](https://…) is a link, in prose, '
+          + '@layout.text, headings, block titles and notes.',
+        rules: [
+          'A * starts emphasis before a letter (not a space) and ends it after one, so 2 * 3 stays as typed. '
+            + 'Write \\* for an asterisk that\'s just an asterisk.',
+          'Emphasis can hold maths and values: **the speed was {{v}}** is bold, its value too.',
+          'Underscores don\'t make emphasis: a_b is a subscript.',
+          'A link goes to a web or mail address (https://…, mailto:…); anything else in [ ]( ) is left as typed.',
+        ],
+        examples: [{ source: '> The slope is **twice** the *expected* value, so friction matters.' }],
+      },
+      {
         explain: '{{name}} in prose or a heading puts in a variable\'s value as worked out above it, with its unit and '
           + 'sig figs. Settings and to work in it: {{V:3 to L}}.',
         rules: [
@@ -976,10 +988,15 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
         }],
       },
       {
-        explain: '@layout.text makes a block of prose: lines join into paragraphs (a blank line starts a new one), $…$ '
-          + 'is maths, and nothing is calculated.',
+        explain: '@layout.text makes a block of prose, written as Markdown: lines join into paragraphs (a blank line '
+          + 'starts a new one), $…$ is maths, {{name}} a value, and nothing is calculated.',
         rules: [
-          'Nothing in it is worked out: a line that looks like a calculation or a heading is just text.',
+          'Nothing in it is worked out: a line that looks like a calculation is just text.',
+          '# Heading, ## and ### are headings of the block\'s own: not numbered, and smaller than a # line outside one.',
+          '- item is a bulleted list and 1. item a numbered one (from the first item\'s number); indent an item '
+            + 'further to make a list inside the one above it.',
+          '> starts a quote, --- on a line of its own is a rule across the page, and $$…$$ (on one line or several, '
+            + 'on lines of their own) is maths displayed on its own line.',
         ],
         examples: [{
           source: [
@@ -988,6 +1005,23 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
             '    the ramp isn’t frictionless: $\\mu_k \\approx 0.05$ would explain it.',
             '',
             '    A blank line starts a new paragraph.',
+            '}',
+          ].join('\n'),
+        }, {
+          source: [
+            'k = 24.5 N/m',
+            '@layout.text {',
+            '    # Method',
+            '    1. Hang each mass and measure the extension.',
+            '    2. Fit a line to *force against extension*:',
+            '        - its slope is the spring constant, {{k}}',
+            '',
+            '    $$F = k x$$',
+            '',
+            '    > Hooke\'s law holds while the spring isn\'t stretched too far.',
+            '',
+            '    ---',
+            '    Data from [the lab manual](https://example.com/lab3).',
             '}',
           ].join('\n'),
         }],

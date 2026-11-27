@@ -13,7 +13,7 @@ import type { CaptionKind } from '../sheet/blocks.ts'
 export { ALIGN, type Align }
 import type { LatexOptions } from './latex.ts'
 import { texToMath, texToOmml, xmlEscape } from './omml.ts'
-import type { ListMarker } from '../syntax.ts'
+import { words, type ListMarker, type WordOf } from '../syntax.ts'
 
 // ---------------------------------------------------------------------------
 // The document's look
@@ -47,6 +47,8 @@ export const COLORS = {
   cardBar: 'BFBFBF',
   cardShade: 'F2F2F2',
   cardRule: 'D9D9D9',
+  /** A link, as Word colours its own. */
+  link: '0563C1',
 }
 
 export const CARD = {
@@ -129,7 +131,16 @@ export interface ParaProps {
   after?: number
   indent?: number
   jc?: Align
+  /** A line along one side: a quote's on the left, a rule's along the bottom (see PARA_BORDER). */
+  border?: ParaBorder
 }
+
+/** The side of a paragraph a line runs along: a quote's bar, or a rule across the page. */
+export const PARA_BORDER = words({ left: 'left', bottom: 'bottom' })
+export type ParaBorder = WordOf<typeof PARA_BORDER>
+
+/** A paragraph's line: its width (eighths of a point: 1.5 pt) and its gap from the text (points). */
+const BORDER = { size: 12, space: 4 } as const
 
 /** A paragraph (whose properties can still change, e.g. to make it a list item) or finished XML (a table). */
 export type Item = { props: ParaProps; content: string } | { xml: string }
@@ -140,6 +151,7 @@ export function paraXml({ props: p, content }: { props: ParaProps; content: stri
     p.style && `<w:pStyle w:val="${p.style}"/>`,
     p.keepNext && '<w:keepNext/>',
     p.num && `<w:numPr><w:ilvl w:val="${p.num.level}"/><w:numId w:val="${p.num.id}"/></w:numPr>`,
+    p.border && `<w:pBdr><w:${p.border} w:val="single" w:sz="${BORDER.size}" w:space="${BORDER.space}" w:color="${COLORS.cardBar}"/></w:pBdr>`,
     p.tabs?.length && `<w:tabs>${p.tabs.map((t) => `<w:tab w:val="${t.kind}" w:pos="${t.pos}"/>`).join('')}</w:tabs>`,
     (p.before !== undefined || p.after !== undefined)
       && `<w:spacing${p.before !== undefined ? ` w:before="${p.before}"` : ''}${p.after !== undefined ? ` w:after="${p.after}"` : ''}/>`,
@@ -158,6 +170,7 @@ export interface RunFormat {
   italic?: boolean
   color?: string
   size?: number
+  underline?: boolean
   sub?: boolean
 }
 
@@ -168,6 +181,7 @@ export function run(text: string, f: RunFormat = {}): string {
     f.italic && '<w:i/>',
     f.color && `<w:color w:val="${f.color}"/>`,
     f.size && `<w:sz w:val="${f.size}"/><w:szCs w:val="${f.size}"/>`,
+    f.underline && '<w:u w:val="single"/>',
     f.sub && '<w:vertAlign w:val="subscript"/>',
   ].filter(Boolean).join('')
   return `<w:r>${rPr ? `<w:rPr>${rPr}</w:rPr>` : ''}<w:t xml:space="preserve">${xmlEscape(text)}</w:t></w:r>`
@@ -176,11 +190,27 @@ export function run(text: string, f: RunFormat = {}): string {
 /** A tab, as a run. */
 export const tab = '<w:r><w:tab/></w:r>'
 
-/** A heading, block title, note or line of text: `2p_z` → 2p with a subscript z, `$…$` as maths (bold, in bold text). */
+/**
+ * A heading, block title, note or line of text: `2p_z` → 2p with a subscript z,
+ * `$…$` as maths (bold, in bold text or bold emphasis), `**…**` and `*…*` bold
+ * and italic, and a link blue and underlined, as Word's own are.
+ */
 export const titleRuns = (text: string, f: RunFormat = {}) =>
-  titleSegments(text).map((s) => (s.kind === TITLE_SEGMENT.math
-    ? texToOmml(s.value, f.size, f.bold)
-    : run(s.value, { ...f, sub: s.kind === TITLE_SEGMENT.sub }))).join('')
+  titleSegments(text).map((s) => {
+    const bold = f.bold || s.bold
+    const link = s.href !== undefined
+    const runs = s.kind === TITLE_SEGMENT.math
+      ? texToOmml(s.value, f.size, bold)
+      : run(s.value, {
+        ...f, bold, italic: f.italic || s.italic, sub: s.kind === TITLE_SEGMENT.sub,
+        ...(link && { color: COLORS.link, underline: true }),
+      })
+    return link ? hyperlink(s.href!, runs) : runs
+  }).join('')
+
+/** Runs that link to an address, as a HYPERLINK field (which needs nothing in the document's relationships). */
+const hyperlink = (href: string, runs: string) =>
+  `<w:fldSimple w:instr="${xmlEscape(` HYPERLINK "${href}" `)}">${runs}</w:fldSimple>`
 
 // ---------------------------------------------------------------------------
 // The sheet

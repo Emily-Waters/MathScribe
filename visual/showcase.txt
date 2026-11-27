@@ -133,6 +133,30 @@ Steeper ramp {  // a block of its own
     isn't frictionless: $\mu_k \approx 0.05$ would explain it.
 
     A blank line starts a new paragraph.
+
+    Emphasis: **bold**, *italic*, ***both***, **bold with $v_f$ and v_0 inside**,
+    and 2 * 3 and \*stars\* left as typed.
+}
+
+@layout.text Markdown {
+    # A heading of its own
+    Not numbered, and smaller than a section. The final speed was {{v_f}}.
+
+    ## A smaller one
+    1. Measure the ramp,
+       then the angle.
+    2. Release the block:
+        - from rest
+        - **twice**, to check
+    - A bulleted list after it.
+
+    ### The smallest
+    $$v_f = \sqrt{2 a d}$$
+
+    > A quote, set in with a bar: *friction matters*.
+
+    ---
+    Data from [the lab manual](https://example.com/lab3#ramp).
 }
 
 @latex { \int_0^\infty e^{-x}\,dx = 1 }

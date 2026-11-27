@@ -2,10 +2,10 @@
  * The constructs for single lines of a sheet: headings, prose, raw LaTeX, gaps,
  * and calculations.
  */
-import { BLOCK_KIND, type CalcBlock, type HeadingBlock, type LatexBlock, type SpacerBlock, type TextBlock } from '../../sheet/blocks.ts'
+import { BLOCK_KIND, type CalcBlock, type HeadingBlock, type LatexBlock, type RuleBlock, type SpacerBlock, type TextBlock } from '../../sheet/blocks.ts'
 import { moduleFigureKind } from '../../engine/index.ts'
 import { centredEquation, errorComment, gather, titleToLatex, type Equation } from '../latexKit.ts'
-import { baseProps, equation, picture, run, titleRuns, type Ctx, type Item } from '../docxKit.ts'
+import { PARA_BORDER, SPACING, baseProps, equation, fontSizeOf, picture, run, titleRuns, type Ctx, type Item } from '../docxKit.ts'
 import { EM_SPACE } from '../omml.ts'
 import { Construct, type LatexOut } from './construct.ts'
 
@@ -27,17 +27,66 @@ export class HeadingConstruct extends Construct<HeadingBlock> {
   }
 }
 
-/** `> Prose`, and a paragraph of an @layout.text block: text with `$…$` maths. */
+/**
+ * A text block's own headings, by level (1 the largest): not numbered, and
+ * smaller than the sheet's. LaTeX: each one's font, on a line of its own, with
+ * a little room above and below. Word: how much larger than the text (in
+ * half-points), and whether italic.
+ */
+const TEXT_HEADINGS = {
+  1: { latex: '\\large\\bfseries', sizeStep: 4, italic: false },
+  2: { latex: '\\bfseries', sizeStep: 0, italic: false },
+  3: { latex: '\\bfseries\\itshape', sizeStep: 0, italic: true },
+} as const
+type TextHeadingLevel = keyof typeof TEXT_HEADINGS
+
+/** How far in a text block's quote is set (twips: half an inch). */
+const QUOTE_INDENT = 720
+
+/** LaTeX's environment for a quote. */
+const QUOTE_ENVIRONMENT = 'quote'
+
+/**
+ * `> Prose`, and a paragraph of an @layout.text block: text with `$…$` maths;
+ * in a text block, also a heading of its own (not numbered) or a quote.
+ */
 export class TextConstruct extends Construct<TextBlock> {
   readonly kind = BLOCK_KIND.text
 
   latex(b: TextBlock): string {
     // (As in a title: a name's subscript, v_0, and `$…$` as maths.)
-    return titleToLatex(b.text)
+    const text = titleToLatex(b.text)
+    if (b.heading) {
+      const { latex } = TEXT_HEADINGS[b.heading as TextHeadingLevel]
+      return `\\par\\medskip\\noindent{${latex} ${text}\\par}\\nobreak\\smallskip`
+    }
+    return b.quote ? `\\begin{${QUOTE_ENVIRONMENT}}\n${text}\n\\end{${QUOTE_ENVIRONMENT}}` : text
   }
 
   docx(b: TextBlock, ctx: Ctx): Item[] {
+    if (b.heading) {
+      const { sizeStep, italic } = TEXT_HEADINGS[b.heading as TextHeadingLevel]
+      const size = sizeStep ? fontSizeOf(ctx.o) + sizeStep : undefined
+      return [{ props: { ...baseProps(ctx), keepNext: true, ...SPACING.title }, content: titleRuns(b.text, { bold: true, italic, size }) }]
+    }
+    if (b.quote) {
+      return [{ props: { ...baseProps(ctx), indent: ctx.indent + QUOTE_INDENT, border: PARA_BORDER.left }, content: titleRuns(b.text) }]
+    }
     return [{ props: baseProps(ctx), content: titleRuns(b.text) }]
+  }
+}
+
+/** `---` in an @layout.text block: a rule across the page. */
+export class RuleConstruct extends Construct<RuleBlock> {
+  readonly kind = BLOCK_KIND.rule
+
+  latex(): string {
+    return '\\par\\noindent\\rule{\\linewidth}{0.4pt}\\par'
+  }
+
+  docx(_b: RuleBlock, ctx: Ctx): Item[] {
+    // (An empty paragraph with a line along its bottom.)
+    return [{ props: { ...baseProps(ctx), border: PARA_BORDER.bottom }, content: '' }]
   }
 }
 

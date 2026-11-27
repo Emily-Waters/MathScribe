@@ -113,6 +113,38 @@ describe('the Word export', () => {
     expect(doc).toMatch(/<w:numId w:val="1"\/>.*<w:tab w:val="right"/)
   })
 
+  it('makes emphasis bold and italic runs', () => {
+    const doc = exportOf('@layout.text {\n    A **bold** claim, *probably*.\n}')['word/document.xml']
+    expect(doc).toContain('<w:r><w:rPr><w:b/></w:rPr><w:t xml:space="preserve">bold</w:t></w:r>')
+    expect(doc).toContain('<w:r><w:rPr><w:i/></w:rPr><w:t xml:space="preserve">probably</w:t></w:r>')
+  })
+
+  it('writes a text block’s Markdown: headings, lists, quotes, rules and links', () => {
+    const doc = exportOf([
+      '@layout.text {',
+      '    # Method',
+      '    - first',
+      '    1. one',
+      '',
+      '    > quoted',
+      '    ---',
+      '    See [the manual](https://example.com/a?b=1&c=2).',
+      '}',
+    ].join('\n'))['word/document.xml']
+    // A heading of its own: bold, larger, kept with what follows, and no Heading style (not numbered).
+    expect(doc).toContain('<w:p><w:pPr><w:keepNext/><w:spacing w:before="120" w:after="40"/></w:pPr>'
+      + '<w:r><w:rPr><w:b/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr><w:t xml:space="preserve">Method</w:t></w:r></w:p>')
+    expect(doc).not.toContain('Heading1')
+    // A bulleted list then a numbered one, each its own numbering.
+    expect(doc).toMatch(/<w:numId w:val="1"\/>.*first.*<w:numId w:val="2"\/>.*one/)
+    // A quote set in with a bar; a rule along a paragraph's bottom.
+    expect(doc).toMatch(/<w:pBdr><w:left [^>]*\/><\/w:pBdr><w:ind w:left="720"\/><\/w:pPr><w:r><w:t xml:space="preserve">quoted/)
+    expect(doc).toContain('<w:pBdr><w:bottom ')
+    // A link: a HYPERLINK field round blue, underlined runs.
+    expect(doc).toContain('<w:fldSimple w:instr=" HYPERLINK &quot;https://example.com/a?b=1&amp;c=2&quot; ">'
+      + '<w:r><w:rPr><w:color w:val="0563C1"/><w:u w:val="single"/></w:rPr><w:t xml:space="preserve">the manual</w:t></w:r></w:fldSimple>')
+  })
+
   it('numbers sections and leaves out hidden lines and errors', () => {
     const doc = exportOf('# Setup\n@layout.hidden {\n    m = 2.00 kg\n}\nbad = 1 +\nF = 3.0 N')['word/document.xml']
     expect(doc).toContain('<w:pStyle w:val="Heading1"/>')

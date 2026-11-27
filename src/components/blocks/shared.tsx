@@ -2,7 +2,7 @@
  * What every block's view draws with: LaTeX, text with its markup, and a
  * line's messages. (What the Output pane gives them is in context.ts.)
  */
-import { useContext, useMemo } from 'react'
+import { Fragment, useContext, useMemo } from 'react'
 import { LineNumbers } from './context.ts'
 import katex from '../../lib/output/katex.ts'
 import { TITLE_SEGMENT, titleSegments } from '../../lib/output/textSegments.ts'
@@ -23,13 +23,23 @@ export function Tex({ latex, display = false }: { latex: string; display?: boole
 /** Maths set bold, as in bold text (KaTeX's maths doesn't take the text's weight). */
 const boldMaths = (tex: string) => `\\boldsymbol{${tex}}`
 
-/** A heading, block title, note or line of text, with `p_z` subscripts and `$…$` maths; `bold`, its maths bold too (in bold text). */
+/**
+ * A heading, block title, note or line of text, with `p_z` subscripts, `$…$`
+ * maths, `**bold**` or `*italic*` emphasis and links; `bold`, its maths bold
+ * too (in bold text), as is maths in bold emphasis.
+ */
 export function Title({ text, bold = false }: { text: string; bold?: boolean }) {
   return (
     <>
-      {titleSegments(text).map((s, i) => (s.kind === TITLE_SEGMENT.math
-        ? <Tex key={i} latex={bold ? boldMaths(s.value) : s.value} />
-        : s.kind === TITLE_SEGMENT.sub ? <sub key={i}>{s.value}</sub> : <span key={i}>{s.value}</span>))}
+      {titleSegments(text).map((s, i) => {
+        const piece = s.kind === TITLE_SEGMENT.math
+          ? <Tex latex={bold || s.bold ? boldMaths(s.value) : s.value} />
+          : s.kind === TITLE_SEGMENT.sub ? <sub>{s.value}</sub> : <span>{s.value}</span>
+        const italic = s.italic ? <em>{piece}</em> : piece
+        const emphasised = s.bold ? <strong>{italic}</strong> : italic
+        // (Only web and mail addresses make a link: see TEXT_LINK.)
+        return <Fragment key={i}>{s.href === undefined ? emphasised : <a href={s.href} target="_blank" rel="noreferrer">{emphasised}</a>}</Fragment>
+      })}
     </>
   )
 }

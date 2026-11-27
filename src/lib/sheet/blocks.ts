@@ -24,6 +24,7 @@ export const BLOCK_KIND = {
   text: 'text',
   latex: 'latex',
   spacer: 'spacer',
+  rule: 'rule',
   calc: 'calc',
   group: 'group',
   layout: 'layout',
@@ -107,6 +108,15 @@ export interface HeadingBlock extends BlockBase, Faulted {
 export interface TextBlock extends BlockBase, Faulted {
   kind: typeof BLOCK_KIND.text
   text: string
+  /** A heading of an @layout.text block's own, `# Method`: its level, 1 the largest (not numbered). */
+  heading?: number
+  /** A quote in an @layout.text block, `> …`. */
+  quote?: boolean
+}
+
+/** `---` in an @layout.text block: a rule across the page. */
+export interface RuleBlock extends BlockBase {
+  kind: typeof BLOCK_KIND.rule
 }
 
 /** `@latex { … }` (or a reaction, `{OH^- + H3O^+ -> 2 H2O}`): LaTeX displayed, not worked out. */
@@ -294,6 +304,7 @@ export type Block =
   | TextBlock
   | LatexBlock
   | SpacerBlock
+  | RuleBlock
   | CalcBlock
   | GroupBlock
   | LayoutBlock

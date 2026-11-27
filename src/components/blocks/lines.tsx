@@ -2,7 +2,7 @@
  * The views of single lines of a sheet in the Rendered tab: headings, prose,
  * raw LaTeX, gaps, and calculations (the app's side of lib/output/constructs/lines.ts).
  */
-import type { CalcBlock, HeadingBlock, LatexBlock, TextBlock } from '../../lib/sheet/blocks.ts'
+import type { CalcBlock, HeadingBlock, LatexBlock, RuleBlock, TextBlock } from '../../lib/sheet/blocks.ts'
 import { splitInlineMath } from '../../lib/syntax.ts'
 import { moduleFigureKind, type ResultBlock } from '../../lib/engine/index.ts'
 import { BlockMessages, Tex, Title } from './shared.tsx'
@@ -20,17 +20,24 @@ export function HeadingView({ block }: { block: HeadingBlock }) {
   return <><p className="doc__heading doc__heading--bold" {...link(block.line)}>{text}</p>{error}</>
 }
 
-/** Prose, with `$…$` maths. */
+/** Prose, with `$…$` maths: a paragraph, or in an @layout.text block a heading of its own or a quote. */
 export function TextView({ block }: { block: TextBlock }) {
   const link = useLineLink()
+  const text = block.heading
+    ? <p className={`doc__text-heading doc__text-heading--${block.heading}`} {...link(block.line)}><Title text={block.text} bold /></p>
+    : <p className="doc__text" {...link(block.line)}><Title text={block.text} /></p>
   return (
     <>
-      <p className="doc__text" {...link(block.line)}>
-        <Title text={block.text} />
-      </p>
+      {block.quote ? <blockquote className="doc__quote">{text}</blockquote> : text}
       <BlockMessages line={block.line} error={block.error} />
     </>
   )
+}
+
+/** `---` in an @layout.text block: a rule across the page. */
+export function RuleView({ block }: { block: RuleBlock }) {
+  const link = useLineLink()
+  return <hr className="doc__rule" {...link(block.line)} />
 }
 
 /** `@latex { … }`, or a reaction: displayed LaTeX. */

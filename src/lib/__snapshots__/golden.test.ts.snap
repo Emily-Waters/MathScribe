@@ -245,6 +245,8 @@ exports[`the Reference tab’s examples > Basics: // the block's mass 1`] = `"2:
 
 exports[`the Reference tab’s examples > Basics: > Prose, with inline maths like $E = mc^2$. 1`] = `""`;
 
+exports[`the Reference tab’s examples > Basics: > The slope is **twice** the *expected* value, so friction matters. 1`] = `""`;
+
 exports[`the Reference tab’s examples > Basics: @latex { \\int_0^\\infty e^{-x}\\,dx = 1 } 1`] = `""`;
 
 exports[`the Reference tab’s examples > Basics: @latex { 1`] = `""`;
@@ -505,6 +507,8 @@ exports[`the Reference tab’s examples > Layout: @layout.list(a) Parts { 1`] = 
 exports[`the Reference tab’s examples > Layout: @layout.text Discussion { 1`] = `""`;
 
 exports[`the Reference tab’s examples > Layout: @layout.titlepage { 1`] = `""`;
+
+exports[`the Reference tab’s examples > Layout: k = 24.5 N/m 1`] = `"1: k = 24.5 N/m"`;
 
 exports[`the Reference tab’s examples > Layout: m = 2.00 kg 1`] = `
 "1: m = 2.00 kg

@@ -10,7 +10,7 @@ import { moduleFigureKind, modulePreamble } from '../engine/index.ts'
 import { BLOCK_KIND, isContainer, type Block } from '../sheet/blocks.ts'
 import { ALIGN } from './alignment.ts'
 import { readStoredJson, writeStoredJson } from '../data/storage.ts'
-import { escapeTex, fitMacroDefinition, gather, noteMacroDefinition, type Equation } from './latexKit.ts'
+import { LINK_COMMAND, escapeTex, fitMacroDefinition, gather, noteMacroDefinition, type Equation } from './latexKit.ts'
 import { constructOf, type LatexOut } from './constructs/index.ts'
 
 /** The Document options: how an exported document (LaTeX or Word) looks. */
@@ -121,7 +121,7 @@ function figurePreamble(blocks: Block[]): string[] {
 // ---------------------------------------------------------------------------
 
 /** The document's preamble: its class, packages and settings, from the Document options. */
-function preamble(o: LatexOptions, figures: readonly string[] = [], modules: readonly string[] = []): string[] {
+function preamble(o: LatexOptions, figures: readonly string[] = [], modules: readonly string[] = [], links = false): string[] {
   const left = o.align === ALIGN.left
   return [
     `\\documentclass[${[o.fontSize, o.paper, ...(left ? ['fleqn'] : [])].join(',')}]{article}`,
@@ -159,6 +159,8 @@ function preamble(o: LatexOptions, figures: readonly string[] = [], modules: rea
       '  innertopmargin=4pt, innerbottommargin=6pt, skipabove=10pt, skipbelow=10pt,',
       '  frametitlefont=\\bfseries, frametitleaboveskip=4pt, frametitlebelowskip=0pt}',
     ] : []),
+    // (Links, `[text](https://…)`, coloured as links are: hyperref after the other packages, as it asks.)
+    ...(links ? ['\\usepackage[colorlinks, urlcolor=blue]{hyperref}'] : []),
     '% The working inside a function call: indented and a little smaller.',
     left
       ? '\\newenvironment{msworking}{\\par\\small\\addtolength{\\mathindent}{1.5em}}{\\par}'
@@ -177,7 +179,7 @@ export function toLatexDocument(blocks: Block[], options: LatexOptions = DEFAULT
   const body = joinBlocks(blocks, options, FULL_WIDTH)
   return [
     '% Made with MathScribe',
-    ...preamble(options, figurePreamble(blocks), modulePreamble(body)),
+    ...preamble(options, figurePreamble(blocks), modulePreamble(body), body.includes(`\\${LINK_COMMAND}{`)),
     '',
     '\\begin{document}',
     ...(options.title.trim() ? ['\\maketitle'] : []),

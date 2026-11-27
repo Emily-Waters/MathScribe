@@ -34,12 +34,27 @@ const TEXT_MATHS: ReadonlyMap<string, string> = new Map<string, string>([
 /** Any of TEXT_MATHS's characters. */
 const TEXT_MATHS_CHAR = new RegExp(`[${[...TEXT_MATHS.keys()].join('')}]`, 'gu')
 
-/** A heading or block title in LaTeX: `2p_z` → 2p\textsubscript{z}. */
+/**
+ * A heading, block title or text in LaTeX: `2p_z` → 2p\textsubscript{z},
+ * `**bold**` → \textbf{bold} (its maths \boldsymbol), `[text](url)` → \href{url}{text}.
+ */
 export function titleToLatex(text: string): string {
-  return titleSegments(text).map((s) => (s.kind === TITLE_SEGMENT.math
-    ? `$${s.value}$`
-    : s.kind === TITLE_SEGMENT.sub ? `\\textsubscript{${escapeTex(s.value)}}` : escapeTex(s.value))).join('')
+  return titleSegments(text).map((s) => {
+    const piece = s.kind === TITLE_SEGMENT.math
+      ? `$${s.bold ? `\\boldsymbol{${s.value}}` : s.value}$`
+      : s.kind === TITLE_SEGMENT.sub ? `\\textsubscript{${escapeTex(s.value)}}` : escapeTex(s.value)
+    // (Maths is bold by \boldsymbol, and italic already.)
+    const italic = s.italic && s.kind !== TITLE_SEGMENT.math ? `\\textit{${piece}}` : piece
+    const bold = s.bold && s.kind !== TITLE_SEGMENT.math ? `\\textbf{${italic}}` : italic
+    return s.href === undefined ? bold : `\\${LINK_COMMAND}{${s.href.replace(HREF_SPECIAL, '\\$&')}}{${bold}}`
+  }).join('')
 }
+
+/** hyperref's command for a link, `\href{url}{text}` (the preamble loads hyperref when the document has one). */
+export const LINK_COMMAND = 'href'
+
+/** What an address in \href needs a backslash before. */
+const HREF_SPECIAL = /[%#]/g
 
 /** Title and note of a block, as one heading. */
 export const heading = (title: string, note?: string) =>

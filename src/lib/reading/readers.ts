@@ -11,6 +11,7 @@ import { NODE_KIND, TOKEN_KIND, statementOf } from '../tree/index.ts'
 import { lineShape } from '../tree/shapes.ts'
 import { parseConstantDeclaration, readCsv } from './lineSyntax.ts'
 import { NodeReader, SheetWideReader, bodyLines, type Line, type TreeItem } from './reader.ts'
+import { MarkdownReader } from './markdown.ts'
 import type { SheetReader } from './sheetReader.ts'
 
 // ---------------------------------------------------------------------------
@@ -225,8 +226,9 @@ const PROSE_COLUMN_BREAK = 2
 
 /**
  * `@layout.text Title {` and `@layout.titlepage {`: the lines up to the `}` are
- * prose, not calculations. In a text block, lines run together into paragraphs
- * and a blank line starts a new one; on a title page each line stays a line of
+ * prose, not calculations. A text block is Markdown (markdown.ts): lines run
+ * together into paragraphs, a blank line starts a new one, and it has headings,
+ * lists, quotes, rules and displayed maths of its own; on a title page each line stays a line of
  * its own, a blank line leaves a gap, and the first line is the title (unless
  * the opener has one).
  */
@@ -247,17 +249,15 @@ class ProseLayoutReader extends NodeReader {
       warning: opener.warning,
     }
     let titleSource = opener.title
-    let paragraph: { line: number; text: string[] } | null = null
+    // A text block is Markdown (markdown.ts).
+    const markdown = new MarkdownReader(sheet, block.children)
     let gap = false
     // In columns of prose, where a blank line starts a paragraph, two start a column.
     let blanks = 0
-    const endParagraph = () => {
-      if (paragraph) block.children.push({ kind: BLOCK_KIND.text, line: paragraph.line, ...sheet.withValues(paragraph.text.join(' ')) })
-      paragraph = null
-    }
-    for (const { number, trimmed: text } of bodyLines(item)) {
+    for (const bodyLine of bodyLines(item)) {
+      const { number, trimmed: text } = bodyLine
       if (!text) {
-        endParagraph()
+        markdown.blank()
         gap = block.children.length > 0
         blanks++
         continue
@@ -268,8 +268,7 @@ class ProseLayoutReader extends NodeReader {
       }
       blanks = 0
       if (!titlePage) {
-        paragraph ??= { line: number, text: [] }
-        paragraph.text.push(text)
+        markdown.line(bodyLine)
         continue
       }
       if (!titleSource) {
@@ -280,7 +279,7 @@ class ProseLayoutReader extends NodeReader {
       gap = false
       block.children.push({ kind: BLOCK_KIND.text, line: number, ...sheet.withValues(text) })
     }
-    endParagraph()
+    markdown.end()
     const title = sheet.withValues(titleSource)
     block.title = title.text
     block.error = title.error

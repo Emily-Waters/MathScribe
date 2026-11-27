@@ -81,8 +81,10 @@ Completed items with their resolution notes live in `CHANGELOG.md`.
 - [ ] `[medium]` **Checks**: a line that states a requirement
       (`check sigma < sigma_allow`), shown as OK or NOT OK, with a summary of
       every check in the sheet.
-- [ ] `[low]` **Text formatting**: bold, italic, underline and links in prose;
-      unnumbered and "1)"-style headings; figure and table references.
+- [ ] `[low]` **Text formatting**: underline in prose (bold, italic and links
+      are done: `**…**`, `*…*`, `[text](url)`, and an @layout.text block is
+      Markdown, with unnumbered headings of its own); "1)"-style headings;
+      figure and table references.
 - [ ] `[low]` **Images**: a picture or diagram in the sheet, with a caption.
 - [ ] `[low]` **PDF**: compile the LaTeX to a PDF in the app (pdfTeX in
       WebAssembly, or an "Open in Overleaf" button), and a print layout for the

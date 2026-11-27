@@ -7,7 +7,7 @@
  */
 import type { ReactNode } from 'react'
 import type { Block, BlockKind } from '../../lib/sheet/blocks.ts'
-import { CalcView, HeadingView, LatexView, SpacerView, TextView } from './lines.tsx'
+import { CalcView, HeadingView, LatexView, RuleView, SpacerView, TextView } from './lines.tsx'
 import { CardView, CustomView, GroupView, ImportView } from './blocks.tsx'
 import { LayoutView } from './layout.tsx'
 
@@ -17,6 +17,7 @@ const BLOCK_VIEWS: { readonly [K in BlockKind]: (props: { block: Extract<Block, 
   text: TextView,
   latex: LatexView,
   spacer: SpacerView,
+  rule: RuleView,
   calc: CalcView,
   group: GroupView,
   layout: LayoutView,

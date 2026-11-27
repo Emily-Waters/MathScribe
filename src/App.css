@@ -603,6 +603,44 @@ body {
   line-height: 1.6;
 }
 
+.doc__text a {
+  color: var(--accent);
+}
+
+/* An @layout.text block's own headings (# Method): not numbered, and smaller than the sheet's. */
+.doc__text-heading {
+  margin: 14px 0 4px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.doc__text-heading--1 {
+  font-size: 1.15em;
+}
+
+.doc__text-heading--3 {
+  font-style: italic;
+}
+
+/* A quote in a text block (> …): set in, with a bar on the left. */
+.doc__quote {
+  margin: 8px 0;
+  padding: 0 0 0 12px;
+  border-left: 3px solid var(--border);
+  color: var(--muted);
+}
+
+.doc__quote .doc__text {
+  margin: 4px 0;
+}
+
+/* A rule across the page (---). */
+.doc__rule {
+  margin: 14px 0;
+  border: none;
+  border-top: 1px solid var(--border);
+}
+
 /* Calculation rows: equation left, description right */
 .calc {
   margin: 2px -8px;

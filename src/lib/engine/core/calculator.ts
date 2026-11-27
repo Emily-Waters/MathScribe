@@ -897,8 +897,15 @@ export class Calculator {
     const bare = unwrap(shown)
     /** Intermediate steps between the expression and the result. */
     const steps: string[] = []
+    // Where only the value's shown (a table's cells, a series' values), the steps are worked out
+    // only if an error shows the line in full: a sheet's many such lines would otherwise make them all.
+    const showsWorking = mode !== DISPLAY_MODE.val
+    const later: (() => string[])[] = []
+    const step = (make: () => string[]) => (showsWorking ? steps.push(...make()) : later.push(make))
     const parts = (result?: string): EquationParts =>
       ({ lhs: lhsTex, expr: exprTex, steps, result, bareSymbol: isSymbol(bare) })
+    /** The line in full, as an error shows it: with its steps, the ones left for later too. */
+    const fullParts = (): EquationParts => ({ ...parts(), steps: [...steps, ...later.flatMap((make) => make())] })
 
     // Calls to the sheet's functions: show the working inside each one first.
     // When the whole right-hand side is one call, the line itself then reads
@@ -915,7 +922,7 @@ export class Calculator {
     for (const call of this.functions.callsIn(shown)) {
       const t = this.traceCall(call, literals, mode, explicit)
       if (!t) continue
-      if (t.error) return { tex: layoutEquation(DISPLAY_MODE.full, parts(), multiline), error: t.error, trace, info: ctx.info }
+      if (t.error) return { tex: layoutEquation(DISPLAY_MODE.full, fullParts(), multiline), error: t.error, trace, info: ctx.info }
       if (t.result) {
         const name = calledName(seriesCalls.size + 1)
         this.store(name, { value: t.result.value, sf: t.result.sf, contributions: t.result.contributions })
@@ -939,31 +946,33 @@ export class Calculator {
     if (uncRef) {
       // The uncertainty of a series mean is its standard error.
       const meanOf = this.vars.get(uncRef.of)?.agg
-      steps.push(...(meanOf?.kind === AGGREGATE_KIND.mean
+      step(() => (meanOf?.kind === AGGREGATE_KIND.mean
         ? this.aggregates.standardErrorWorking(meanOf)
         : this.uncertainty.deltaWorking(uncRef.of, uncRef.letter)))
     }
     // `a.sum`, `a.avg`, …: show how the series is combined.
     const agg = isSymbol(bare) ? this.vars.get(bare.name)?.agg : undefined
-    if (agg) steps.push(...this.aggregates.working(agg))
+    if (agg) step(() => this.aggregates.working(agg))
 
     // A module's calls written as the names they come to (`\max(t)` as t_3), as a step of its own, which the values go into.
     const named = wholeLineTraced ? shown : this.modules.reduce((n, m) => m.namedWorking(n, this.host) ?? n, shown)
-    if (named !== shown) steps.push(this.working.tex(named, literals))
+    if (named !== shown) step(() => [this.working.tex(named, literals)])
     // Substitution and sig figs use the values from before this line runs.
     /** A call given a series, as the hidden name of what it came to (undefined if it isn't one). */
     const calledFor = (n: Expr) => (seriesCalls.size && isCall(n) ? seriesCalls.get(exprText(n)) : undefined)
     const usesVariables = findAll(named, (n, path) => this.isValueSymbol(n, path) || !!calledFor(n)).length > 0
     if (usesVariables && !isSymbol(unwrap(named)) && !wholeLineTraced && this.options.showSubstitution) {
-      const substituted = transform(named, (n, path) => {
-        const called = calledFor(n)
-        if (called) return this.working.variableNode(called)
-        return this.isValueSymbol(n, path)
-          ? this.working.variableNode(n.name)
-          : n
+      step(() => {
+        const substituted = transform(named, (n, path) => {
+          const called = calledFor(n)
+          if (called) return this.working.variableNode(called)
+          return this.isValueSymbol(n, path)
+            ? this.working.variableNode(n.name)
+            : n
+        })
+        // Typed numbers keep their trailing zeros here too (0.250 m, not 0.25 m).
+        return [this.working.tex(substituted, literals)]
       })
-      // Typed numbers keep their trailing zeros here too (0.250 m, not 0.25 m).
-      steps.push(this.working.tex(substituted, literals))
     }
     this.sigFigs.lost = false
     // A function call's precision comes from its expression (the measured numbers in it),
@@ -1023,13 +1032,13 @@ export class Calculator {
       const message = e instanceof RangeError
         ? 'A function here calls itself without end, so it never finishes.'
         : readableUnitError(e)
-      return { tex: layoutEquation(DISPLAY_MODE.full, parts(), multiline), error: message, warning, trace, info: ctx.info }
+      return { tex: layoutEquation(DISPLAY_MODE.full, fullParts(), multiline), error: message, warning, trace, info: ctx.info }
     }
     if (ctx.asPercent && isQuantity(value)) {
       const u = value
       if (!sameDimension(u, quantity('m/m'))) {
         return {
-          tex: layoutEquation(DISPLAY_MODE.full, parts(), multiline), warning, trace, info: ctx.info,
+          tex: layoutEquation(DISPLAY_MODE.full, fullParts(), multiline), warning, trace, info: ctx.info,
           error: `This has units of ${unitText(u)}, so it can't be a percent: only a unitless `
             + 'fraction can. (A density like 4πr²ψ² needs multiplying by a Δr first.)',
         }
@@ -1045,7 +1054,7 @@ export class Calculator {
           contributions = new Map([...contributions].map(([k, c]) => [k, quantity(c as number, UNIT.radian)]))
         }
       } catch (e) {
-        return { tex: layoutEquation(DISPLAY_MODE.full, parts(), multiline), warning, trace, info: ctx.info, error: (e as Error).message }
+        return { tex: layoutEquation(DISPLAY_MODE.full, fullParts(), multiline), warning, trace, info: ctx.info, error: (e as Error).message }
       }
     }
     const unc = this.uncertainty.total(contributions, value)

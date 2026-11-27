@@ -96,6 +96,8 @@ describe('the Word export', () => {
       'word/document.xml', 'word/numbering.xml', 'word/settings.xml', 'word/styles.xml',
     ])
     expect(strFromU8(files['word/document.xml'])).toContain('<m:oMath>')
+    // Made for current Word, so it doesn't open in Compatibility Mode (where equations become pictures when pasted).
+    expect(strFromU8(files['word/settings.xml'])).toContain('<w:compatSetting w:name="compatibilityMode" w:uri="http://schemas.microsoft.com/office/word" w:val="15"/>')
   })
 
   it('puts a note at the right margin, beside a full-size equation', () => {

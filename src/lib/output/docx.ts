@@ -106,9 +106,21 @@ function numberingXml(nums: Ctx['nums']): string {
   return `${HEAD}<w:numbering ${W}>${styles.map(abstract).join('')}${instances}</w:numbering>`
 }
 
-/** How Word sets equations: the font, alignment (from the Document options), and line breaking. */
+/**
+ * The version of Word the document is made for: 15, the current one (2013 and
+ * after). Without it, Word takes the document for an older version's and opens
+ * it in Compatibility Mode.
+ */
+const WORD_COMPATIBILITY_MODE = 15
+
+/**
+ * The document's settings: the version of Word it's made for, and how Word sets
+ * equations (the font, alignment from the Document options, and line breaking).
+ */
 const settingsXml = (o: LatexOptions) =>
-  `${HEAD}<w:settings ${W} ${M}><m:mathPr><m:mathFont m:val="${FONTS.math}"/><m:brkBin m:val="before"/>`
+  `${HEAD}<w:settings ${W} ${M}>`
+  + `<w:compat><w:compatSetting w:name="compatibilityMode" w:uri="http://schemas.microsoft.com/office/word" w:val="${WORD_COMPATIBILITY_MODE}"/></w:compat>`
+  + `<m:mathPr><m:mathFont m:val="${FONTS.math}"/><m:brkBin m:val="before"/>`
   + `<m:brkBinSub m:val="--"/><m:smallFrac m:val="0"/><m:dispDef/><m:lMargin m:val="0"/><m:rMargin m:val="0"/>`
   + `<m:defJc m:val="${o.align === ALIGN.center ? 'centerGroup' : ALIGN.left}"/><m:wrapIndent m:val="${MATH_WRAP_INDENT}"/>`
   + '<m:intLim m:val="subSup"/><m:naryLim m:val="undOvr"/></m:mathPr></w:settings>'

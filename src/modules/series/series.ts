@@ -35,7 +35,7 @@ import { SPREAD } from './syntax.ts'
 export const SERIES_SHOWN = { max: 6, first: 3, last: 2 } as const
 
 /** The row a member stands for, in the rule of a series worked out from others: m_i = F_i / g. */
-const ROW_INDEX = 'i'
+export const ROW_INDEX = 'i'
 
 /** The pieces of a series line's LaTeX. */
 const SERIES_TEX = {

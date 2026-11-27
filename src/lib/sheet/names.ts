@@ -38,6 +38,8 @@ export const HIDDEN_PREFIX = {
   builtin: 'builtin',
   /** The uncertainty of an argument to a sheet's function whose body asks for it (`delta A`): argument__3. */
   argument: 'argument',
+  /** What a call to a sheet's function given a series comes to, worked out by its body (`f(t)`): called__1. */
+  called: 'called',
 } as const
 
 /** A constant held at full precision: `@c:exact` → at__c__x. */
@@ -87,6 +89,9 @@ export const unpackedColumnName = (column: number, row: number) =>
 
 /** The uncertainty of an argument to a call (the `id`th), as the call is given it: argument__3. */
 export const argumentUncertaintyName = (id: number) => `${HIDDEN_PREFIX.argument}${JOIN}${id}`
+
+/** What the `id`th call on a line to a sheet's function given a series comes to: called__1. */
+export const calledName = (id: number) => `${HIDDEN_PREFIX.called}${JOIN}${id}`
 
 /** A value in text while it's worked out (there's only ever one at a time). */
 export const INLINE_VALUE_NAME = `${HIDDEN_PREFIX.inline}${JOIN}value`
@@ -232,7 +237,7 @@ export function parseSeriesStatName(name: string): { base: string; suffix: Serie
 /** Hidden variables: made for the sheet's own use, not listed as its variables. */
 export const isHiddenName = (name: string) =>
   isUncertaintyName(name) || parseConstantRefName(name) !== null || parseHeldName(name) !== null || isUnpackedName(name)
-  || name === INLINE_VALUE_NAME || isArgumentUncertaintyName(name)
+  || name === INLINE_VALUE_NAME || isArgumentUncertaintyName(name) || name.startsWith(`${HIDDEN_PREFIX.called}${JOIN}`)
 
 /** Whether a name is an argument's uncertainty, as a call is given it (argument__3). */
 export function isArgumentUncertaintyName(name: string): boolean {

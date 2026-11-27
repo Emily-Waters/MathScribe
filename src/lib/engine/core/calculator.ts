@@ -7,7 +7,7 @@ import { EXACT, countSigFigs } from '../../maths/sigfigs.ts'
 import { AGGREGATE_KIND, Variable, type Contributions, type VariableFields, type VariableSummary } from '../../sheet/values.ts'
 import { BUILTINS, isReservedConstantName } from '../../builtins.ts'
 import { EXACT_SETTING, IS_NAME, MEMBER_DOT, PERCENT, DISPLAY_MODE, CONSTANTS_BLOCK, LABEL_WORDS, SIGIL, UNCERTAINTY_WORDS, type DisplayMode, type Precision } from '../../syntax.ts'
-import { INLINE_VALUE_NAME, JOIN, TUPLE_FUNCTION, RESERVED_NAMESPACES, isHiddenName, memberName, parseUncertaintyName, readableMembers, unpackedName, uncertaintyName } from '../../sheet/names.ts'
+import { INLINE_VALUE_NAME, JOIN, TUPLE_FUNCTION, RESERVED_NAMESPACES, calledName, isHiddenName, memberName, parseUncertaintyName, readableMembers, unpackedName, uncertaintyName } from '../../sheet/names.ts'
 import { expandDots } from './memberAccess.ts'
 import { SheetConstants } from './sheetConstants.ts'
 import { DisplayNames } from './displayNames.ts'
@@ -18,7 +18,7 @@ import { SheetFunctions } from './sheetFunctions.ts'
 import { ValueTex } from './valueTex.ts'
 import { WorkingTex } from './workingTex.ts'
 import {
-  MATHS_ERROR, OP, UNIT, abs, evaluate, evaluateText, findAll, fixPrefix, isAssign, isCall, isConstant, isFunctionAssign, isOp, isOperator,
+  MATHS_ERROR, OP, UNIT, abs, evaluate, evaluateText, exprText, findAll, fixPrefix, isAssign, isCall, isConstant, isFunctionAssign, isOp, isOperator,
   isQuantity, isSymbol, isValueMatrix, magnitude, mapValues, mathsError, multiply, parse, quantity, sameDimension, symbol, transform,
   unitText, valuesOf, withFixedPrefix, type CallExpr, type Expr, type Quantity, type SymbolExpr, type Value,
 } from '../../maths/library/index.ts'
@@ -155,6 +155,7 @@ export class Calculator {
     variables: () => this.vars,
     value: (name) => this.scope.get(name),
     has: (name) => this.scope.has(name),
+    isSheetFunction: (name) => this.functions.has(name),
     selection: (base) => this.views.get(base),
     store: (name, fields) => this.store(name, fields),
     newSource: () => this.nextSource++,
@@ -162,6 +163,7 @@ export class Calculator {
     uncertainSigFigs: (value, unc) => this.display.uncertainParts(value, unc)?.sf,
     displayNumber: (value) => this.display.split(value, EXACT)?.x,
     tex: (node) => this.working.tex(node, new Map()),
+    nameTex: (name) => this.working.seriesNameTex(name),
     variableNode: (name) => this.working.variableNode(name),
     uncertaintyTex: (unc, like, uncSf) => this.display.uncertaintyTex(unc, like, uncSf),
     showsSubstitution: () => this.options.showSubstitution,
@@ -180,11 +182,7 @@ export class Calculator {
     forget: (name) => this.forget(name),
     seriesRows: (base) => this.aggregates.rows(base),
     setView: (base, names) => this.views.set(base, names),
-    lookedUp: (member) => {
-      let found: string | undefined
-      for (let next = this.views.resolve(member); next; next = this.views.resolve(next)) found = next
-      return found
-    },
+    lookedUp: (member) => this.views.resolveFully(member),
     clearViews: (namespace) => this.views.clear(namespace),
     newSource: () => this.nextSource++,
     evaluateLine: (text, mode) => this.evaluateLine(text, mode, false),
@@ -406,10 +404,12 @@ export class Calculator {
     const def = this.functions.named(call.fn.name)
     if (!def || def.params.length !== call.args.length || this.traceDepth >= MAX_TRACE_DEPTH) return null
 
+    // A series given whole, f(t): its parameter is that series (the variables it is, t__1, t__2, …), not a value.
+    const series = call.args.map((a) => this.seriesGiven(a))
     // Arguments are worked out in the calling scope.
-    let args: { value: unknown; sf: number; contributions: Contributions; shown?: string }[]
+    let args: ({ value: unknown; sf: number; contributions: Contributions; shown?: string } | undefined)[]
     try {
-      args = call.args.map((a, i) => ({
+      args = call.args.map((a, i) => (series[i] ? undefined : {
         // A cast parameter shows its argument converted (0.100 nm → 1.00e-10 m).
         value: castArgument(def.params[i], def.casts[i], this.typedValue(a)),
         sf: this.sigFigs.of(a, literals, false),
@@ -423,6 +423,12 @@ export class Calculator {
     } catch {
       return null
     }
+    // A series parameter shows as the series it was given, and so do its members and statistics: x̄ as t̄.
+    const callerSeriesAliases = this.working.seriesAliases
+    const seriesAliases = new Map(callerSeriesAliases)
+    call.args.forEach((a, i) => {
+      if (series[i]) seriesAliases.set(def.params[i], this.working.seriesAliasOf((unwrap(a) as SymbolExpr).name))
+    })
 
     // Parameters show as the argument they were given, in the caller's terms
     // (psi_200, 2r, 1.00 Å), not as the parameter's own name.
@@ -443,30 +449,60 @@ export class Calculator {
     // The body runs in a scope of its own, inside the one the function was defined in.
     const caller = this.vars
     this.enter(new Scope(def.definedIn))
+    this.views.push()
     this.traceDepth++
     this.working.paramAliases = aliases
+    this.working.seriesAliases = seriesAliases
     try {
       def.params.forEach((p, i) => {
-        this.store(p, {
-          value: args[i].value, sf: args[i].sf, contributions: args[i].contributions, shown: args[i].shown,
-          look: isTuple(args[i].value) ? argLooks[i] : undefined,
-        })
+        const given = series[i]
+        const arg = args[i]
+        if (given) {
+          // (The sheet's own series of the parameter's name, if it has one, is hidden in here.)
+          this.vars.shadowSeries(p)
+          this.views.set(p, given, caller)
+        } else if (arg) {
+          this.store(p, {
+            value: arg.value, sf: arg.sf, contributions: arg.contributions, shown: arg.shown,
+            look: isTuple(arg.value) ? argLooks[i] : undefined,
+          })
+        }
       })
       // The function's own .multiline lays out its working too.
       const outerMultiline = this.multiline
       this.multiline = outerMultiline || def.multiline
+      // Given a series, the call is what its body comes to here (a function's compiled body takes only values):
+      // worked out as a hidden name's line, whose value, sig figs and uncertainty the caller then uses.
+      const held = series.some(Boolean) ? calledName(0) : undefined
       let r: LineResult
       try {
-        r = this.evaluateLine(def.expression, mode, explicit)
+        r = this.evaluateLine(held ? `${held} ${ASSIGN} ${def.expression}` : def.expression, mode, explicit)
       } finally {
         this.multiline = outerMultiline
       }
-      return { lines: r.trace ?? [], ret: r.parts, retSf: def.returnSf ?? r.sf }
+      const result = held && !r.error ? this.vars.get(held) : undefined
+      return { lines: r.trace ?? [], ret: r.parts, retSf: def.returnSf ?? r.sf, result, error: held ? r.error : undefined }
     } finally {
       this.working.paramAliases = callerAliases
+      this.working.seriesAliases = callerSeriesAliases
       this.traceDepth--
+      this.views.pop()
       this.enter(caller)
     }
+  }
+
+  /**
+   * The variables a series given whole to a sheet's function is, in order (its
+   * parameter then looks them up, as a slice does); undefined if the argument
+   * isn't a series' name. (t, given to f(x), makes x__1 look up t__1.)
+   */
+  private seriesGiven(arg: Expr): string[] | undefined {
+    const n = unwrap(arg)
+    if (!isSymbol(n) || this.scope.has(n.name)) return undefined
+    const members = this.aggregates.members(n.name)
+    if (!members.length) return undefined
+    // A member of a lookup (a slice's, a parameter's own series) is the variable it looks up.
+    return members.map((m) => this.views.resolveFully(m) ?? m)
   }
   // -------------------------------------------------------------------------
   // Evaluation
@@ -861,9 +897,17 @@ export class Calculator {
     let returnSf: number | undefined
     // (Worked out in @layout.val too: each call's result has the sig figs of its return
     // line, which sigFigsOf needs when the call is part of a bigger expression.)
+    /** Each call given a series, by its text, and the hidden name of what it came to (its body's, worked out in traceCall). */
+    const seriesCalls = new Map<string, string>()
     for (const call of this.functions.callsIn(shown)) {
       const t = this.traceCall(call, literals, mode, explicit)
       if (!t) continue
+      if (t.error) return { tex: layoutEquation(DISPLAY_MODE.full, parts(), multiline), error: t.error, trace, info: ctx.info }
+      if (t.result) {
+        const name = calledName(seriesCalls.size + 1)
+        this.store(name, { value: t.result.value, sf: t.result.sf, contributions: t.result.contributions })
+        seriesCalls.set(exprText(call), name)
+      }
       if (t.retSf !== undefined) this.callSigFigs.set(call, t.retSf)
       if (mode !== DISPLAY_MODE.val) {
         trace.push(...t.lines)
@@ -894,12 +938,17 @@ export class Calculator {
     const named = wholeLineTraced ? shown : this.modules.reduce((n, m) => m.namedWorking(n, this.host) ?? n, shown)
     if (named !== shown) steps.push(this.working.tex(named, literals))
     // Substitution and sig figs use the values from before this line runs.
-    const usesVariables = findAll(named, (n, path) => this.isValueSymbol(n, path)).length > 0
+    /** A call given a series, as the hidden name of what it came to (undefined if it isn't one). */
+    const calledFor = (n: Expr) => (seriesCalls.size && isCall(n) ? seriesCalls.get(exprText(n)) : undefined)
+    const usesVariables = findAll(named, (n, path) => this.isValueSymbol(n, path) || !!calledFor(n)).length > 0
     if (usesVariables && !isSymbol(unwrap(named)) && !wholeLineTraced && this.options.showSubstitution) {
-      const substituted = transform(named, (n, path) =>
-        this.isValueSymbol(n, path)
+      const substituted = transform(named, (n, path) => {
+        const called = calledFor(n)
+        if (called) return this.working.variableNode(called)
+        return this.isValueSymbol(n, path)
           ? this.working.variableNode(n.name)
-          : n)
+          : n
+      })
       // Typed numbers keep their trailing zeros here too (0.250 m, not 0.25 m).
       steps.push(this.working.tex(substituted, literals))
     }
@@ -939,7 +988,9 @@ export class Calculator {
       // A name on its own (`c`, `y = c`) is shown as the variable is: in its unit.
       const justAName = isSymbol(bare)
       // (Calls to functions using their parameters' uncertainties, `delta A`, are given them: withArgumentUncertainties.)
-      const worked = this.functions.withArgumentUncertainties(expr)
+      // (A call given a series is what its body came to: calledFor.)
+      const swapped = seriesCalls.size ? transform(expr, (n) => { const c = calledFor(n); return c ? symbol(c) : n }) : expr
+      const worked = this.functions.withArgumentUncertainties(swapped)
       value = normalise(evaluate(worked, this.scope), isConversion(expr) || isLiteral(expr) || declaresUnit || justAName)
       // A value follows the modules' rules (a value with species, theirs), whatever it was worked out from.
       for (const m of this.modules) {

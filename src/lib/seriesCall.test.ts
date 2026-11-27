@@ -207,3 +207,97 @@ describe('the largest and smallest of a series, max(t) and min(t)', () => {
     expect(lines('s = ["a", "b"]\nw = min(s)').at(-1)!.error).toMatch(/so they have to be numbers or quantities/)
   })
 })
+
+describe('a list added up or averaged where it is, [1, 2, 3].sum and .avg', () => {
+  /** A line's working, as LaTeX. */
+  const working = (source: string) => lines(source).at(-1)!.tex
+
+  it('adds the values up, written with the sum sign over them, then the sum itself', () => {
+    expect(value('x_sum = [1, 2, 3, 4, 5].sum')).toBe('15')
+    expect(working('x_sum = [1, 2, 3, 4, 5].sum'))
+      .toBe('x_{\\mathrm{sum}} = \\sum\\left[1,\\ 2,\\ 3,\\ 4,\\ 5\\right] = 1+ 2+ 3+ 4+ 5 = 15')
+  })
+
+  it('averages them, the sum over how many', () => {
+    expect(value('x_avg = [1, 2, 3, 4, 5].avg')).toBe('3')
+    expect(working('x_avg = [1, 2, 3, 4, 5].avg'))
+      .toBe('x_{\\mathrm{avg}} = \\frac{\\sum\\left[1,\\ 2,\\ 3,\\ 4,\\ 5\\right]}{5} = \\frac{1+ 2+ 3+ 4+ 5}{5} = 3')
+  })
+
+  it('works as a sum written out would: units, sig figs by the addition rule, and a named value’s uncertainty', () => {
+    expect(value('w = [1.0 m, 2.05 m].sum')).toBe('3.1 m')
+    expect(value('a = 3.0 m pm 0.1 m\nw = [a, 2.0 m].avg')).toBe('(2.50 ± 0.05) m')
+    expect(lines('w = [1 m, 2 s].sum').at(-1)!.error).toMatch(/units don't match/)
+  })
+
+  it('goes in a formula, bracketed as a sum is, with names and members among its values', () => {
+    expect(readable(working('w = 2 * [1.0 m, 2.0 m].sum'))).toBe('w = 2 \\sum[1.0 m,\\ 2.0 m] = 2 (1.0 m+ 2.0 m) = 6.0 m')
+    const source = 't = [1.52 s, 1.48 s, 1.55 s]\n'
+    expect(readable(working(`${source}w = [t[1], t[3]].sum`)))
+      .toBe('w = \\sum[t_1,\\ t_3] = t_1+ t_3 = 1.52 s+ 1.55 s = 3.07 s')
+    expect(value('w = [[1, 2].sum, 3].sum')).toBe('6')
+  })
+
+  it('adds up a rule over series row by row, written Σ over i', () => {
+    const data = 't = [1.0 s, 2.0 s, 3.0 s, 4.0 s]\nd = [2.1 m, 3.9 m, 6.2 m, 7.8 m]\n'
+    const slope = `${data}m = [(t - t.avg)(d - d.avg)].sum / [(t - t.avg)^2].sum`
+    expect(value(slope)).toBe('1.9 m/s')
+    expect(working(slope)).toMatch(/^m = \\frac\{\\sum_\{i=1\}\^\{4\} \\left\(t_\{i\}- \\bar\{t\}\\right\) \\left\(d_\{i\}- \\bar\{d\}\\right\)\}\{\\sum_\{i=1\}\^\{4\} /)
+    // A rule that's a sum is bracketed under Σ; a mean is over how many rows.
+    expect(working(`${data}w = [t + 1 s].avg`)).toMatch(/^w = \\frac\{\\sum_\{i=1\}\^\{4\} \\left\(t_\{i\}\+ 1\\,\\mathrm\{s\}\\right\)\}\{4\}/)
+    expect(value(`${data}w = [t + 1 s].avg`)).toBe('3.5 s')
+    // Over the rows the series share; a slice's are its own.
+    expect(value(`${data}w = [t[2:3] * 2].sum`)).toBe('10.0 s')
+  })
+
+  it('isn’t a series: only .sum and .avg follow a list', () => {
+    expect(lines('w = [1, 2].std').at(-1)!.error).toMatch(/^Square brackets make a series/)
+  })
+})
+
+describe('a series given to a function: its parameter is that series', () => {
+  const data = 't = [1.0 s, 2.0 s, 3.0 s, 4.0 s]\nd = [2.1 m, 3.9 m, 6.2 m, 7.8 m]\n'
+  const slope = 'LeastSquares(x, y) = [(x - x.avg)(y - y.avg)].sum / [(x - x.avg)^2].sum\n'
+
+  it('works the body out with the series, shown by their own names', () => {
+    expect(value(`${data}${slope}m = LeastSquares(t, d)`)).toBe('1.9 m/s')
+    expect(lines(`${data}${slope}m = LeastSquares(t, d)`).at(-1)!.tex)
+      .toMatch(/^m = \\frac\{\\sum_\{i=1\}\^\{4\} \\left\(t_\{i\}- \\bar\{t\}\\right\) \\left\(d_\{i\}- \\bar\{d\}\\right\)\}/)
+    expect(value(`${data}f(x) = x.avg\nw = f(t)`)).toBe('(2.5 ± 0.6) s')
+    expect(value(`${data}f(x) = x[2] + x.count * 1.0 m\nw = f(d)`)).toBe('7.9 m')
+  })
+
+  it('is defined as a rule over however many rows its series will have: Σᵢ, over n', () => {
+    expect(lines(`${slope}`).at(-1)!.tex).toBe('\\mathrm{LeastSquares}\\left(x, y\\right) = '
+      + '\\frac{\\sum_{i} \\left(x_{i}- \\bar{x}\\right) \\left(y_{i}- \\bar{y}\\right)}{\\sum_{i} {\\left(x_{i}- \\bar{x}\\right)}^{2}}')
+    expect(lines('mean(x) = [x].avg').at(-1)!.tex).toBe('\\mathrm{mean}\\left(x\\right) = \\frac{\\sum_{i} x_{i}}{n}')
+    expect(value(`${data}mean(x) = [x].avg\nw = mean(t)`)).toBe('2.50 s')
+  })
+
+  it('goes in a formula, its value substituted', () => {
+    expect(lines(`${data}${slope}m = 2 * LeastSquares(t, d)`).at(-1)!.tex)
+      .toBe('m = 2 \\mathrm{LeastSquares}\\left(t, d\\right) = 2\\times 1.9\\,\\mathrm{m}/\\mathrm{s} = 3.9\\,\\mathrm{m}/\\mathrm{s}')
+  })
+
+  it('takes a slice, passes the series on to another function, and hides a series of the parameter’s name', () => {
+    expect(value(`${data}f(x) = x.avg\nw = f(t[2:3])`)).toBe('(2.5 ± 0.5) s')
+    expect(value(`${data}f(x) = x.avg\ng(z) = f(z) * 2\nw = g(t)`)).toBe('(5.0 ± 1.3) s')
+    expect(value(`${data}x = [5, 6]\nf(x) = x.avg\nw = f(t)`)).toBe('(2.5 ± 0.6) s')
+    expect(value(`${data}x = 3 kg\nf(x) = [x].sum\nw = f(t)`)).toBe('10.0 s')
+  })
+
+  it('takes a series of its parameter’s own name, or of another parameter’s', () => {
+    const named = 'x = [1.0 s, 2.0 s, 3.0 s, 4.0 s]\nF = [2.1 m, 3.9 m, 6.2 m, 7.8 m]\n'
+    expect(value(`${named}${slope}k1 = LeastSquares(x, F)`)).toBe('1.9 m/s')
+    // Swapped: x is given F, and y is given x.
+    expect(value(`${named}${slope}k2 = LeastSquares(F, x)`)).toBe('0.51 s/m')
+    expect(value(`${named}f(x) = x.avg\ng(x) = f(x) * 2\nw = g(x)`)).toBe('(5.0 ± 1.3) s')
+  })
+
+  it('takes a series made in a { } block, though the function is defined outside it', () => {
+    const source = `${slope}{\n    x = [1.0 s, 2.0 s, 3.0 s, 4.0 s]\n    F = [2.1 m, 3.9 m, 6.2 m, 7.8 m]\n    k1 = LeastSquares(x, F)\n}`
+    const k1 = lines(source).find((l) => l.source.trim().startsWith('k1'))!
+    expect(k1.error).toBeUndefined()
+    expect(k1.tex).toMatch(/ = 1\.9\\,\\mathrm\{m\}\/\\mathrm\{s\}$/)
+  })
+})

@@ -28,26 +28,60 @@ export class Scope<T = unknown> extends Map<string, T> {
   }
 
   get(key: string): T | undefined {
-    return this.getExactly(this.spelling(key))
+    const { name, caller } = this.spelling(key)
+    return caller ? caller.getExactly(name, true) as T | undefined : this.getExactly(name)
   }
 
   has(key: string): boolean {
-    return this.hasExactly(this.spelling(key))
+    const { name, caller } = this.spelling(key)
+    return caller ? caller.hasExactly(name, true) : this.hasExactly(name)
   }
 
-  /** The name as defined: `key` itself; or, for a lookup's member (p.x[3], m[2:4][1]), the variable it is. */
-  private spelling(key: string): string {
-    if (this.hasExactly(key)) return key
-    const target = this.views?.resolve(key)
-    return target !== undefined ? this.spelling(target) : key
+  /**
+   * The name as defined: `key` itself; or, for a lookup's member (p.x[3], m[2:4][1]), the
+   * variable it is. `caller`: reached through a final lookup (a function's parameter's,
+   * Views.set), so it's a variable of the scope the call was made in, looked for there past
+   * what it hides, and never looked up again (x, given x, is the caller's x: x__1 is the
+   * caller's x__1, in a { } block around the call too).
+   */
+  private spelling(key: string): { name: string; caller?: Scope<unknown> } {
+    let name = key
+    for (;;) {
+      if (this.hasExactly(name, false)) return { name }
+      const target = this.views?.resolve(name)
+      if (target === undefined) return { name }
+      const caller = this.views!.callerOf(name)
+      if (caller) return { name: target, caller }
+      name = target
+    }
   }
 
-  private getExactly(key: string): T | undefined {
-    return super.has(key) ? super.get(key) : this.parent?.getExactly(key)
+  private getExactly(key: string, outside = false): T | undefined {
+    if (super.has(key) && !(outside && this.shadows(key))) return super.get(key)
+    return !outside && this.shadows(key) ? undefined : this.parent?.getExactly(key, outside)
   }
 
-  private hasExactly(key: string): boolean {
-    return super.has(key) || (this.parent?.hasExactly(key) ?? false)
+  private hasExactly(key: string, outside = false): boolean {
+    if (super.has(key) && !(outside && this.shadows(key))) return true
+    return (outside || !this.shadows(key)) && (this.parent?.hasExactly(key, outside) ?? false)
+  }
+
+  /**
+   * Series whose name and members aren't looked for outside this scope: a function's
+   * parameters given series, x and x__1 its own (a lookup), whatever's named so around it.
+   */
+  private readonly shadowed = new Set<string>()
+
+  /** Hide `base`, and the members of any series `base`, outside this scope: in it, `base` is a lookup's (Views), as a function's parameter is. */
+  shadowSeries(base: string): void {
+    this.shadowed.add(base)
+  }
+
+  private shadows(key: string): boolean {
+    if (!this.shadowed.size) return false
+    if (this.shadowed.has(key)) return true
+    const base = parseNumberedName(key)?.base
+    return base !== undefined && this.shadowed.has(base)
   }
 
   // -------------------------------------------------------------------------
@@ -108,18 +142,60 @@ export class Views {
     this.rowsOf = rowsOf
   }
 
+  /** At each level, the series whose lookups are final (see set), and the scope of the call each was given in. */
+  private readonly finals: Map<string, Scope<unknown>>[] = [new Map()]
+
   push(): void {
     this.levels.push(new Map())
+    this.finals.push(new Map())
   }
 
   pop(): void {
-    if (this.levels.length > 1) this.levels.pop()
+    if (this.levels.length > 1) {
+      this.levels.pop()
+      this.finals.pop()
+    }
   }
 
-  /** Make series `base` (a__x) the variables `names` picks, numbered from 1 (a gap: no member there); none: forget it. */
-  set(base: string, names: (string | undefined)[]): void {
-    if (names.length) this.levels.at(-1)!.set(base, names)
-    else for (const level of this.levels) level.delete(base)
+  /**
+   * Make series `base` (a__x) the variables `names` picks, numbered from 1 (a gap: no member there); none: forget it.
+   * `caller`: the names are variables of that scope, already looked up (a function's parameter given a
+   * series, and the scope of the call): they're looked for there, and never looked up again here, where the
+   * parameter's own name may hide them (x, given x).
+   */
+  set(base: string, names: (string | undefined)[], caller?: Scope<unknown>): void {
+    if (names.length) {
+      this.levels.at(-1)!.set(base, names)
+      if (caller) this.finals.at(-1)!.set(base, caller)
+    } else {
+      for (const level of this.levels) level.delete(base)
+      for (const level of this.finals) level.delete(base)
+    }
+  }
+
+  /** The scope a final lookup's member is looked for in (see set), if it's one: what it resolves to is that scope's, as it is. */
+  callerOf(key: string): Scope<unknown> | undefined {
+    const base = parseNumberedName(key)?.base
+    if (base === undefined) return undefined
+    for (let i = this.levels.length - 1; i >= 0; i--) if (this.levels[i].has(base)) return this.finals[i].get(base)
+    return undefined
+  }
+
+  /** Whether a lookup's member is of a final lookup (see set). */
+  isFinal(key: string): boolean {
+    return this.callerOf(key) !== undefined
+  }
+
+  /** The variable a lookup's member is, through every lookup (a slice's, a condition's), stopping at a final one's; undefined if it isn't one. */
+  resolveFully(key: string): string | undefined {
+    let found: string | undefined
+    for (let name = key; ;) {
+      const next = this.resolve(name)
+      if (next === undefined) return found
+      found = next
+      if (this.isFinal(name)) return found
+      name = next
+    }
   }
 
   /** Each member of the series set at this level, and the variable it is: a__x__1 → x__2, …. */

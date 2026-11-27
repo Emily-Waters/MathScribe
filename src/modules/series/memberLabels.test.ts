@@ -25,4 +25,8 @@ describe('member labels', () => {
     expect(memberLabels('@table(\n    t,\n    x\n)')).toEqual([])
     expect(memberLabels('y = max(\n    1,\n    2\n)')).toEqual([])
   })
+
+  it('leave a list added up where it is alone: it makes no series', () => {
+    expect(memberLabels('x_sum = [\n    1,\n    2\n].sum')).toEqual([])
+  })
 })

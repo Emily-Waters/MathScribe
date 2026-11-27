@@ -46,6 +46,16 @@ export function parameterDeltas(body: string, params: readonly string[]): { text
   return { text, deltas }
 }
 
+/** How far apart, relative to their size, two nudged results can be from rounding alone (a double carries about 16 digits). */
+const ROUNDING = 1e-12
+
+/** Whether two results, nudged up and down, differ only by rounding: the result doesn't depend on what was nudged. */
+function isRounding(up: unknown, down: unknown): boolean {
+  if (!(typeof up === 'number' || isQuantity(up)) || !(typeof down === 'number' || isQuantity(down))) return false
+  const [a, b] = [magnitudeOf(up), magnitudeOf(down)]
+  return Math.abs(a - b) <= ROUNDING * Math.max(Math.abs(a), Math.abs(b))
+}
+
 /** Values by name, as an expression is worked out with them, that an input can be nudged in. */
 type NudgeableValues = ScopeMap
 
@@ -141,6 +151,9 @@ export class Propagation {
       const [up, down] = [evaluateCompiled(code, plus), evaluateCompiled(code, minus)]
       // (A word, `"AGREE"`, has no uncertainty, whatever it was chosen by.)
       if (typeof up === 'string' || typeof down === 'string') return new Map()
+      // A source the result doesn't depend on, though its inputs do (t.avg's in Σ(tᵢ − t̄)², which cancels):
+      // what the difference has left is rounding, not an uncertainty.
+      if (isRounding(up, down)) continue
       out.set(source, divide(subtract(up as Value, down as Value), 2 * STEP))
     }
     return out

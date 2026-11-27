@@ -18,7 +18,7 @@ import katex from 'katex'
 import { Decoration, EditorView, WidgetType, type DecorationSet } from '@codemirror/view'
 import type { EditorState, Extension, Range } from '@codemirror/state'
 import {
-  ASSIGN, MEMBER_INDEX, SEPARATOR, TOKEN_KIND, closesBracket, encode, inlineHintsShown, opensBracket, seriesMemberName,
+  ASSIGN, MEMBER_DOT, MEMBER_INDEX, SEPARATOR, TOKEN_KIND, closesBracket, encode, inlineHintsShown, opensBracket, seriesMemberName,
   sheetStatements, symbolTex, type SheetStatement,
 } from '../../lib/plugin.ts'
 
@@ -64,12 +64,16 @@ export function memberLabels(text: string): MemberLabel[] {
     let depth = 0
     let waiting = true
     let multiline = false
+    let close = tokens.length
     for (let i = open + 1; i < tokens.length; i++) {
       const t = tokens[i]
       if (t.t === TOKEN_KIND.eol) multiline = true
       if (QUIET.has(t.t)) continue
       if (t.t === TOKEN_KIND.delimiter && depth === 0) {
-        if (closesBracket(t.text)) break
+        if (closesBracket(t.text)) {
+          close = i
+          break
+        }
         if (t.text === SEPARATOR) {
           waiting = true
           continue
@@ -82,7 +86,8 @@ export function memberLabels(text: string): MemberLabel[] {
       if (t.t === TOKEN_KIND.delimiter && opensBracket(t.text)) depth++
       else if (t.t === TOKEN_KIND.delimiter && closesBracket(t.text)) depth--
     }
-    if (!multiline) continue
+    // (A list added up or averaged where it is, `x = [ … ].sum`, makes no series.)
+    if (!multiline || isDelimiter(tokens.slice(close + 1).find((t) => !QUIET.has(t.t)), MEMBER_DOT)) continue
     starts.forEach((at, k) => labels.push({ at, name: seriesMemberName(name, k + 1) }))
   }
   return labels

@@ -61,6 +61,10 @@ r = @chem.reaction({2 H2 + O2 -> 2 H2O})
 t = [0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s]
 x = [0.051 m pm 0.004 m, 0.098 m pm 0.004 m, 0.152 m pm 0.004 m, 0.199 m pm 0.004 m, 0.248 m pm 0.004 m]
 t.avg
+L_sum = [1.52 m, 1.48 m, 1.55 m].sum
+L_avg = 2 * [1.52 m, x[1]].avg
+slope(a, b) = [(a - a.avg)(b - b.avg)].sum / [(a - a.avg)^2].sum
+v_fit = slope(t, x)
 x[2:4]
 v = [x / t]
 salts = ["{KCl}", "{KBr}", "{KI}", "{NaCl}", "{NaBr}"]

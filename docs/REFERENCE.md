@@ -464,6 +464,23 @@ shortest = min(t)
 spread = max(t) - min(t)
 ```
 
+Values listed in a formula can be added up or averaged where they are, without naming a series: x\_sum = \[1, 2, 3, 4, 5\].sum is written Σ\[1, 2, 3, 4, 5\] = 1 + 2 + 3 + 4 + 5 = 15; .avg is that sum over how many, Σ\[…\] / 5.
+
+- It's the sum written out, so its units, sig figs (the addition rule) and uncertainty are a sum's: a named value's pm carries through, and the mean has no standard error from their spread (name a series for that, t.avg).
+- The values can be anything a formula can: names, members of a series, t\[1\], or another list's sum.
+- One value that uses series is a rule worked out row by row, as \[F / g\] is, then added up: \[(t - t.avg)^2\].sum is Σᵢ (tᵢ − t̄)², over the rows the series all have.
+- Only .sum and .avg follow a list; for the others, t.std, t.sem and t.count, name a series first.
+
+```
+x_sum = [1, 2, 3, 4, 5].sum
+L_avg = [1.52 m, 1.48 m, 1.55 m].avg
+a = 3.0 m pm 0.1 m
+P = 2 * [a, 2.0 m].sum
+t = [1.0 s, 2.0 s, 3.0 s, 4.0 s]
+d = [2.1 m, 3.9 m, 6.2 m, 7.8 m]
+slope = [(t - t.avg)(d - d.avg)].sum / [(t - t.avg)^2].sum
+```
+
 @import() opens a file chooser for a CSV file. Its rows go into the sheet under the line, folded away, and each column becomes a series named for it: t, its values t\[1\], t\[2\], …. A unit in a header, t (s), goes with that column.
 
 - The first row names the columns; a unit in brackets, t (s) or t \[s\], goes with every value in it. Values keep their sig figs as typed; commas, tabs or semicolons separate them, and empty cells are skipped.
@@ -832,6 +849,18 @@ A one-line function, written as in maths.
 ```
 f(x) = 2 * x^2 + 1
 y = f(3.0)
+```
+
+A series can be given to a function: its parameter is then that series, so the body can use its values, x\[1\], its statistics, x.avg, and work it out row by row, \[(x - x.avg)^2\].sum.
+
+- Give the series by its name, f(t), or a slice of it, f(t\[2:4\]); the working shows the series' own names, t̄ for x.avg.
+- The call is worked out from its body each time, with the series as it is then; its sig figs and uncertainty come from the series' values.
+
+```
+t = [1.0 s, 2.0 s, 3.0 s, 4.0 s]
+d = [2.1 m, 3.9 m, 6.2 m, 7.8 m]
+slope(x, y) = [(x - x.avg)(y - y.avg)].sum / [(x - x.avg)^2].sum
+v = slope(t, d)
 ```
 
 condition ? a : b gives a if the condition holds and b otherwise; conditions nest, for more than two cases.

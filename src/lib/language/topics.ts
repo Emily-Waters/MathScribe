@@ -540,6 +540,23 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
         }],
       },
       {
+        explain: 'A series can be given to a function: its parameter is then that series, so the body can use its values, '
+          + 'x[1], its statistics, x.avg, and work it out row by row, [(x - x.avg)^2].sum.',
+        rules: [
+          'Give the series by its name, f(t), or a slice of it, f(t[2:4]); the working shows the series\' own names, t̄ for x.avg.',
+          'The call is worked out from its body each time, with the series as it is then; its sig figs and uncertainty '
+            + 'come from the series\' values.',
+        ],
+        examples: [{
+          source: [
+            't = [1.0 s, 2.0 s, 3.0 s, 4.0 s]',
+            'd = [2.1 m, 3.9 m, 6.2 m, 7.8 m]',
+            'slope(x, y) = [(x - x.avg)(y - y.avg)].sum / [(x - x.avg)^2].sum',
+            'v = slope(t, d)',
+          ].join('\n'),
+        }],
+      },
+      {
         explain: 'condition ? a : b gives a if the condition holds and b otherwise; conditions nest, for more than two '
           + 'cases.',
         rules: [

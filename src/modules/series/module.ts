@@ -7,7 +7,7 @@
  * ModuleHost.
  */
 import {
-  EngineModule, type Extension, type LineForm, type LineStep, LineFormMember, type Member, type ModuleBlockKind, type ModuleFigureKind, type ModuleGrammar,
+  EngineModule, LINE_STAGE, type Extension, type LineForm, type LineStep, LineFormMember, type Member, type ModuleBlockKind, type ModuleFigureKind, type ModuleGrammar,
 } from '../../lib/plugin.ts'
 import { PLOT_FIGURE } from './plotFigure.ts'
 import { fitMemberTex, fitMessage } from './fitNames.ts'
@@ -22,6 +22,7 @@ import { SeriesForm, SeriesShownForm, UnpackedSeriesForm } from './series.ts'
 import { TableForm } from './table.ts'
 import { WhereStep } from './where.ts'
 import { ExtremeStep, PICKED_FUNCTIONS, namedPicks, pickedTex } from './extremes.ts'
+import { LIST_STAT_FUNCTIONS, ListStatStep, listStatTex, namedListStats } from './listStats.ts'
 import { tableMenu } from './tableMenu.ts'
 import { memberLabelsExtension } from './memberLabels.ts'
 import { SERIES_TOPICS } from './language.ts'
@@ -51,21 +52,22 @@ export class SeriesModule extends EngineModule {
    * the largest or smallest of a series' values, `max(t)`, as the member it is (extremes.ts); and a list's
    * square brackets in a line's maths, said plainly (brackets.ts).
    */
-  override readonly lineSteps: readonly LineStep[] = [new WhereStep(), new ExtremeStep(), new StrayBracketsStep()]
+  override readonly lineSteps: readonly LineStep[] = [new ListStatStep(LINE_STAGE.members), new ListStatStep(LINE_STAGE.settings), new WhereStep(), new ExtremeStep(), new StrayBracketsStep()]
 
-  /** The functions `max(t)` and `min(t)` stand for once they've picked their member (extremes.ts). */
+  /** The functions `max(t)` and `min(t)` stand for once they've picked their member (extremes.ts), and a list's `.sum` and `.avg` (listStats.ts). */
   override functions() {
-    return { adding: PICKED_FUNCTIONS }
+    return { adding: { ...PICKED_FUNCTIONS, ...LIST_STAT_FUNCTIONS } }
   }
 
-  /** `max(t)` written as it was typed, though it stands for the member it picked. */
-  override functionTex(node: CallExpr): string | undefined {
-    return pickedTex(node)
+  /** `max(t)` written as it was typed, though it stands for the member it picked; a list's sum as `\sum[1, 2, 3]`. */
+  override functionTex(node: CallExpr, tex: (n: Expr) => string, host: ModuleHost): string | undefined {
+    return pickedTex(node) ?? listStatTex(node, tex, host)
   }
 
-  /** In the working, `max(t)` is the member it picked, t_3, before its value goes in. */
+  /** In the working, `max(t)` is the member it picked, t_3, before its value goes in; a list's sum is its values added, 1 + 2 + 3. */
   override namedWorking(node: Expr, host: ModuleHost): Expr | undefined {
-    return namedPicks(node, host)
+    const picked = namedPicks(node, host) ?? node
+    return namedListStats(picked) ?? (picked === node ? undefined : picked)
   }
 
   override readonly lineForms: readonly LineForm[] = [new TableForm(), new PlotForm(), new SeriesForm(), new UnpackedSeriesForm(), new SeriesShownForm()]

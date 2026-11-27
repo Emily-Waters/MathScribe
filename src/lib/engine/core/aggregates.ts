@@ -11,11 +11,11 @@ import {
 import { EXACT, uncertaintySigFigs, lastPlace, sigFigsFromPlace } from '../../maths/sigfigs.ts'
 import { AGGREGATE_KIND, type Aggregate, type Contributions, type VariableFields } from '../../sheet/values.ts'
 import { isUncertaintyName, parseNumberedName, seriesMemberName, seriesStatName, typedName } from '../../sheet/names.ts'
-import { SERIES_STAT_SUFFIX } from '../../syntax.ts'
+import { SERIES_STAT_SUFFIX, SUBSCRIPT } from '../../syntax.ts'
 import { BUILTIN_CONSTANT_NAMES } from './literals.ts'
-import { calleesIn, symbolsIn } from './memberAccess.ts'
+import { calleesIn, namesPassed, symbolsIn } from './memberAccess.ts'
 import { parseAggregateName } from './series.ts'
-import { symbolTex } from './tex.ts'
+
 import { normalise, magnitudeOf } from './normalise.ts'
 import type { Variables } from './scope.ts'
 
@@ -32,6 +32,8 @@ export interface AggregatesHost {
   value(name: string): unknown
   /** Whether a name is in scope. */
   has(name: string): boolean
+  /** Whether a name is one of the sheet's own functions. */
+  isSheetFunction(name: string): boolean
   /** The variables a selection's series picks, if `base` is one. */
   selection(base: string): readonly (string | undefined)[] | undefined
   /** Keep a value as a variable. */
@@ -46,6 +48,8 @@ export interface AggregatesHost {
   displayNumber(value: unknown): number | undefined
   /** An expression as LaTeX. */
   tex(node: Expr): string
+  /** A name as LaTeX, as the working shows it (in a call given a series, its parameter's as the series': WorkingTex.seriesNameTex). */
+  nameTex(name: string): string
   /** A variable's value for the substitution step, at its own sig figs. */
   variableNode(name: string): Expr
   /** An uncertainty on its own as LaTeX, in the unit of the value it belongs to. */
@@ -119,8 +123,10 @@ export class SeriesAggregates {
   seriesAsValue(line: string, skip?: string): string | undefined {
     const unknownCall = calleesIn(line).some((f) => !this.host.has(f) && !isLibraryFunction(f))
     if (unknownCall) return undefined
+    // A series passed whole to one of the sheet's functions is its parameter's series: f(t).
+    const passed = new Set(namesPassed(line).filter((p) => this.host.isSheetFunction(p.callee)).map((p) => p.name))
     for (const name of new Set(symbolsIn(line))) {
-      if (name === skip || this.host.has(name)) continue
+      if (name === skip || passed.has(name) || this.host.has(name)) continue
       const count = this.members(name).length
       if (count) return seriesInMaths(name, count)
     }
@@ -208,15 +214,17 @@ export class SeriesAggregates {
   /** Working for a line that is just an aggregate: Σ notation, members, values. */
   working(agg: Aggregate): string[] {
     const n = agg.members.length
-    if (n === 1 && agg.kind !== AGGREGATE_KIND.count) return [symbolTex(agg.members[0])]
+    // (Names as the working shows them: in a call given a series, its parameter's as the series', x̄ as t̄.)
+    const nameTex = (name: string) => this.host.nameTex(name)
+    if (n === 1 && agg.kind !== AGGREGATE_KIND.count) return [nameTex(agg.members[0])]
     // A long series shows its first two members, ⋯, and its last (only those are typeset).
     const list = (f: (m: string) => string) => (n > LISTED_MEMBERS
       ? [f(agg.members[0]), f(agg.members[1]), '\\cdots', f(agg.members[n - 1])]
       : agg.members.map(f)).join(' + ')
-    const names = list(symbolTex)
+    const names = list(nameTex)
     const values = list((m) => this.host.tex(this.host.variableNode(m)))
-    const baseTex = symbolTex(agg.base)
-    const ith = agg.base.includes('_') ? `\\left(${baseTex}\\right)_{i}` : `${baseTex}_{i}`
+    const baseTex = nameTex(agg.base)
+    const ith = baseTex.includes(SUBSCRIPT) ? `\\left(${baseTex}\\right)_{i}` : `${baseTex}_{i}`
     const sum = (body: string) => `\\sum_{i=1}^{${n}} ${body}`
     const sub = this.host.showsSubstitution()
     switch (agg.kind) {
@@ -237,7 +245,7 @@ export class SeriesAggregates {
   standardErrorWorking(agg: Aggregate): string[] {
     const n = agg.members.length
     if (n < 2) return []
-    const sigma = symbolTex(seriesStatName(agg.base, SERIES_STAT_SUFFIX.std))
+    const sigma = this.host.nameTex(seriesStatName(agg.base, SERIES_STAT_SUFFIX.std))
     const steps = [`\\frac{${sigma}}{\\sqrt{n}}`]
     if (this.host.showsSubstitution()) {
       const values = agg.members.map((m) => this.host.value(m))

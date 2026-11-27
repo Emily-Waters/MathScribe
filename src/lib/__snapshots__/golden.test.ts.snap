@@ -440,6 +440,13 @@ exports[`the Reference tab’s examples > Functions: ramp(x) = x > 0 ? x : 0 1`]
 4: F_f = \\begincases -6.0 N, \\quad\\textif \\; (-1.5 m/s)> 0 m/s 6.0 N, \\quad\\textif \\; (-1.5 m/s)< 0 m/s 0 N, \\quad\\textotherwise\\endcases = 6.0 N"
 `;
 
+exports[`the Reference tab’s examples > Functions: t = [1.0 s, 2.0 s, 3.0 s, 4.0 s] 1`] = `
+"1: t = (1.0,\\ 2.0,\\ 3.0,\\ 4.0) s\\quad \\text4 values
+2: d = (2.1,\\ 3.9,\\ 6.2,\\ 7.8) m\\quad \\text4 values
+3: slope(x, y) = \\frac\\sum_i (x_i- \\barx) (y_i- \\bary)\\sum_i (x_i- \\barx)^2
+4: v = \\frac\\sum_i=1^4 (t_i- \\bart) (d_i- \\bard)\\sum_i=1^4 (t_i- \\bart)^2 = 1.9 m/s"
+`;
+
 exports[`the Reference tab’s examples > How lines are shown: @layout.hidden { 1`] = `
 "2: m = 2.00 kg
 3: g_0 = 9.81 m/s^2
@@ -692,6 +699,16 @@ exports[`the Reference tab’s examples > Repeated measurements: x = [1 s:10 s:1
 "1: x = (1,\\ 2,\\ 3,\\ \\ldots,\\ 9,\\ 10.) s\\quad \\text10 values
 2: first = 1 s,\\qquad rest = (2,\\ 3,\\ 4,\\ \\ldots,\\ 9,\\ 10.) s\\quad \\text9 values
 3: n_rest = 9"
+`;
+
+exports[`the Reference tab’s examples > Repeated measurements: x_sum = [1, 2, 3, 4, 5].sum 1`] = `
+"1: x_sum = \\sum[1,\\ 2,\\ 3,\\ 4,\\ 5] = 1+ 2+ 3+ 4+ 5 = 15
+2: L_avg = \\frac\\sum[1.52 m,\\ 1.48 m,\\ 1.55 m]3 = \\frac1.52 m+ 1.48 m+ 1.55 m3 = 1.52 m
+3: a = (3.0 ± 0.1) m
+4: P = 2 \\sum[a,\\ 2.0 m] = 2 (a+ 2.0 m) = 2 (3.0 m+ 2.0 m) = (10.00 ± 0.20) m
+5: t = (1.0,\\ 2.0,\\ 3.0,\\ 4.0) s\\quad \\text4 values
+6: d = (2.1,\\ 3.9,\\ 6.2,\\ 7.8) m\\quad \\text4 values
+7: slope = \\frac\\sum_i=1^4 (t_i- \\bart) (d_i- \\bard)\\sum_i=1^4 (t_i- \\bart)^2 = 1.9 m/s"
 `;
 
 exports[`the Reference tab’s examples > Significant figures: L = 300 m 1`] = `

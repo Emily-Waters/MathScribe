@@ -1,5 +1,5 @@
 /** The series module's syntax: `@table(…)` and `@plot(…)`, each a line of its own. (A series itself is in square brackets: series.ts.) */
-import { builtinFunctionName, builtinOpening, NAMED, words, type WordOf } from '../../lib/plugin.ts'
+import { SERIES_STAT_SUFFIX, builtinFunctionName, builtinOpening, NAMED, words, type WordOf } from '../../lib/plugin.ts'
 
 /** The series module's functions, each written after @: `@table(t, x)`. */
 export const SERIES_CALL = {
@@ -33,6 +33,17 @@ export const PICKED_FUNCTION = {
   [SERIES_EXTREME.max]: builtinFunctionName('seriesMax'),
   [SERIES_EXTREME.min]: builtinFunctionName('seriesMin'),
 } as const satisfies Record<SeriesExtreme, string>
+
+/**
+ * What a list in a formula can be followed by, `[1, 2, 3].sum` and `.avg`, and the
+ * function each stands for around the values added up (listStats.ts): a name
+ * the sheet can't write, written as `\sum[1, 2, 3]`.
+ */
+export const LIST_STAT_FUNCTION = {
+  [SERIES_STAT_SUFFIX.sum]: builtinFunctionName('listSum'),
+  [SERIES_STAT_SUFFIX.avg]: builtinFunctionName('listAvg'),
+} as const
+export type ListStat = keyof typeof LIST_STAT_FUNCTION
 
 /** A series' values spread in place, `[...x, 11 s]`, or the rest of them gathered, `[a, ...rest] = x`. */
 export const SPREAD = '...'

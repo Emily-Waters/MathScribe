@@ -3,7 +3,8 @@
  * the inside names they stand for (a__x_1, t__3), read from the line's tokens (the lexer's, tree/lexer.ts), so what
  * a dot is (a member's, not a number's, not in a label) is the lexer's to say.
  */
-import { lexExpression } from '../../tree/lexer.ts'
+import { ROUND_BRACKETS, lexExpression } from '../../tree/lexer.ts'
+import { SEPARATOR } from '../../tree/shapes.ts'
 import { TOKEN_KIND, isCallKind, isToken, type Part, type Token } from '../../tree/nodes.ts'
 import { MEMBER_DOT, MEMBER_INDEX, SIGIL } from '../../syntax.ts'
 import { JOIN, RESERVED_NAMESPACES, SLICE_COLON, type SliceSpec, memberName, seriesMemberName, sliceName } from '../../sheet/names.ts'
@@ -33,6 +34,37 @@ export const symbolsIn = (text: string): string[] =>
 /** The names a line's maths calls, as the tree reads them: `f` and `sqrt` in `f(x) + sqrt(2)`. */
 export const calleesIn = (text: string): string[] =>
   lineTokens(lexExpression(text)).filter((l) => l.token.t === TOKEN_KIND.symbol && l.callee).map((l) => l.token.text)
+
+/**
+ * The names a line passes whole to a call, as the tree reads them, with what each
+ * call calls: `f(t, 2 * d)` → f is given t (and something that isn't a name).
+ */
+export function namesPassed(text: string): { callee: string; name: string }[] {
+  const out: { callee: string; name: string }[] = []
+  const visit = (parts: readonly Part[]) => {
+    for (const p of parts) {
+      if (isToken(p)) continue
+      visit(p.parts)
+      const [callee] = p.parts
+      if (!isCallKind(p.kind) || !isToken(callee) || callee.t !== TOKEN_KIND.symbol) continue
+      // Its arguments, between its brackets, split at each comma at their top level.
+      const open = p.parts.findIndex((q) => isToken(q) && q.t === TOKEN_KIND.delimiter && q.text === ROUND_BRACKETS.open)
+      let argument: Part[] = []
+      const take = () => {
+        const said = argument.filter((q) => !isToken(q) || q.t !== TOKEN_KIND.space)
+        if (said.length === 1 && isToken(said[0]) && said[0].t === TOKEN_KIND.symbol) out.push({ callee: callee.text, name: said[0].text })
+        argument = []
+      }
+      for (const q of p.parts.slice(open + 1, -1)) {
+        if (isToken(q) && q.t === TOKEN_KIND.delimiter && q.text === SEPARATOR) take()
+        else argument.push(q)
+      }
+      take()
+    }
+  }
+  visit(lexExpression(text))
+  return out
+}
 
 /** Whether a token is a member's dot. */
 const isDot = (t: Token | undefined) => t?.t === TOKEN_KIND.delimiter && t.text === MEMBER_DOT

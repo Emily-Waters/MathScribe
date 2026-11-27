@@ -9,10 +9,13 @@
  */
 import { EXACT } from '../../maths/sigfigs.ts'
 import type { Variable } from '../../sheet/values.ts'
-import { INV_FUNCTION, TUPLE_FUNCTION } from '../../sheet/names.ts'
+import {
+  INV_FUNCTION, JOIN, TUPLE_FUNCTION, parseNumberedName, parseSeriesStatName, seriesMemberName, seriesStatName,
+} from '../../sheet/names.ts'
+import { SUBSCRIPT } from '../../syntax.ts'
 import {
   FN, OP, call as callExpr, constant, copyExpr, exprTex, findAll, formatValue, isCall, isConditional, isConstant, isLibraryName, isOp,
-  isSymbol, operator, paren, transform, type CallExpr, type Expr, type SymbolExpr, type TexOptions,
+  isSymbol, operator, paren, symbol, transform, type CallExpr, type Expr, type SymbolExpr, type TexOptions,
 } from '../../maths/library/index.ts'
 import { isTuple } from './math.ts'
 import type { EngineModule, ModuleHost } from './module.ts'
@@ -47,6 +50,39 @@ export class WorkingTex {
    */
   paramAliases = new Map<string, Expr>()
 
+  /**
+   * While showing a call's working: a parameter given a series → the series' name,
+   * so the parameter and the names made from it show as the series' own: x as t,
+   * x[3] as t₃, x.avg as t̄, and a row's x_i as t_i.
+   */
+  seriesAliases = new Map<string, string>()
+
+  /** The series a name given as an argument stands for, through the calls around this one: x, given t, is t. */
+  seriesAliasOf(name: string): string {
+    return this.seriesAliases.get(name) ?? name
+  }
+
+  /** A name as LaTeX, a series parameter's (or one made from it) as the series it was given: x__avg → t̄. */
+  seriesNameTex(name: string): string {
+    return symbolTex(this.seriesRenamed(name) ?? name)
+  }
+
+  /** A series parameter's name, or one made from it, as the series it was given: x__avg → t__avg; undefined if it's neither. */
+  private seriesRenamed(name: string): string | undefined {
+    const whole = this.seriesAliases.get(name)
+    if (whole) return whole
+    const member = parseNumberedName(name)
+    const memberOf = member && this.seriesAliases.get(member.base)
+    if (memberOf) return seriesMemberName(memberOf, member.n)
+    const stat = parseSeriesStatName(name)
+    const statOf = stat && this.seriesAliases.get(stat.base)
+    if (statOf) return seriesStatName(statOf, stat.suffix)
+    // A subscript on it, x_i: on the series, t_i (a parameter's name can't be another name's start: it's one letter's or word's).
+    const at = name.indexOf(SUBSCRIPT)
+    const subscripted = at > 0 && !name.startsWith(JOIN, at) ? this.seriesAliases.get(name.slice(0, at)) : undefined
+    return subscripted ? `${subscripted}${name.slice(at)}` : undefined
+  }
+
   constructor(host: WorkingTexHost) {
     this.host = host
   }
@@ -57,8 +93,12 @@ export class WorkingTex {
    * ((3.00 m/s)², but 2.00 kg·g).
    */
   withAliases(node: Expr): Expr {
-    if (!this.paramAliases.size) return node
+    if (!this.paramAliases.size && !this.seriesAliases.size) return node
     return transform(node, (n, path) => {
+      if (isSymbol(n) && path !== 'fn') {
+        const renamed = this.seriesRenamed(n.name)
+        if (renamed) return symbol(renamed)
+      }
       const alias = isSymbol(n) && path !== 'fn' ? this.paramAliases.get(n.name) : undefined
       if (!alias) return n
       // Automatic brackets drop around a negative (2.0 m · −2.0); keep them, as the

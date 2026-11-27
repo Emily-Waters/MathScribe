@@ -8,7 +8,8 @@ import { LINE_STAGE, type LineInProgress, type LineResult, LineStep, MEMBER_INDE
 
 /** What's said of a list in a line's maths. */
 const LIST_IN_MATHS = 'Square brackets make a series, on a line that names it: t = [1.0 s, 2.0 s]. '
-  + 'In a formula, use one of its values, t[2], or a statistic of them, t.avg.'
+  + 'In a formula, use one of its values, t[2], or a statistic of them, t.avg; or add up or average a list where it is, '
+  + '[1.0 s, 2.0 s].sum or .avg.'
 
 /** Whether a line's maths has square brackets left in it once its members are read: a list. */
 const hasBracketList = (text: string): boolean =>

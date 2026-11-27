@@ -928,7 +928,9 @@ export class Calculator {
         this.store(name, { value: t.result.value, sf: t.result.sf, contributions: t.result.contributions })
         seriesCalls.set(exprText(call), name)
       }
+      // (Cleared when there's none: a call written the same way on another line is the same parsed call.)
       if (t.retSf !== undefined) this.callSigFigs.set(call, t.retSf)
+      else this.callSigFigs.delete(call)
       if (mode !== DISPLAY_MODE.val) {
         trace.push(...t.lines)
         if (call === bare && t.ret) {

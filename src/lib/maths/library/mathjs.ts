@@ -169,17 +169,51 @@ export interface ScopeMap {
 /** The names an expression is worked out with, and their values. */
 export type Scope = ScopeMap | Record<string, unknown>
 
+/**
+ * Expressions read, by their text. A sheet is worked out again on every edit,
+ * nearly all of its lines as they were, and the engine reads a line's text more
+ * than once as it works it out; reading depends on the text alone. (So an
+ * expression read is shared: it's never changed in place, only copied, as
+ * `transform` and `copyExpr` do.)
+ */
+const parsed = new Map<string, Expr>()
+
+/** How many expressions are kept read (as many as the tree keeps lexed: tree/lexer.ts). */
+const PARSED_CACHE_SIZE = 20_000
+
+/**
+ * Expressions compiled. What compiling makes depends on the library's names
+ * (whether a name is a function of its own, or a unit), so it's emptied when a
+ * function or unit is added.
+ */
+let compiled = new WeakMap<Expr, CompiledExpr>()
+
 /** Text as an expression (as the library reads it: see `source` for writing what it reads). */
-export const parse = (text: string): Expr => math.parse(text)
+export function parse(text: string): Expr {
+  const kept = parsed.get(text)
+  if (kept) return kept
+  const expr = math.parse(text)
+  // (Oldest first out: a Map keeps the order its keys were added.)
+  if (parsed.size >= PARSED_CACHE_SIZE) parsed.delete(parsed.keys().next().value!)
+  parsed.set(text, expr)
+  return expr
+}
 
 /** An expression made ready to work out, again and again with different values (evaluateCompiled). */
-export const compile = (expr: Expr): CompiledExpr => expr.compile()
+export function compile(expr: Expr): CompiledExpr {
+  let code = compiled.get(expr)
+  if (!code) {
+    code = expr.compile()
+    compiled.set(expr, code)
+  }
+  return code
+}
 
 /** A compiled expression worked out with these values. */
 export const evaluateCompiled = (code: CompiledExpr, scope: Scope = {}): unknown => code.evaluate(scope)
 
 /** An expression worked out with these values. */
-export const evaluate = (expr: Expr, scope: Scope = {}): unknown => expr.compile().evaluate(scope)
+export const evaluate = (expr: Expr, scope: Scope = {}): unknown => compile(expr).evaluate(scope)
 
 /** Text read and worked out with these values. */
 export const evaluateText = (text: string, scope: Scope = {}): unknown => math.evaluate(text, scope as never)
@@ -397,6 +431,7 @@ export const isLibraryFunction = (name: string): boolean => typeof (math as unkn
 /** Add functions to the library, by name; `replace`: in place of its own of those names. */
 export function defineFunctions(functions: Readonly<Record<string, unknown>>, replace = false): void {
   math.import(functions as never, replace ? { override: true } : {})
+  compiled = new WeakMap()
 }
 
 /**
@@ -407,6 +442,7 @@ export function defineFunctions(functions: Readonly<Record<string, unknown>>, re
 export function defineUnit(name: string, definition: string | undefined, prefixes: boolean): void {
   if (definition === undefined) math.createUnit(name)
   else math.createUnit(name, { definition, prefixes: prefixes ? 'short' : 'none' })
+  compiled = new WeakMap()
 }
 
 /** Whether a quantity's units cancel, leaving a number (m/mm). */

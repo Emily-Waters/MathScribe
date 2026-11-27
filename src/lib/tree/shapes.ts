@@ -126,8 +126,26 @@ export function readTarget(target: SyntaxNode): Target {
   return { kind: target.kind, name: textOf((first as SyntaxNode).parts[0]), settings, entries }
 }
 
-/** A line's shape, from its text (see lexLine). */
+/**
+ * Lines read for their shape, by their tokens: the lexer keeps those by text
+ * (and makes them again when a rule is declared, which leaves these behind), and
+ * the engine reads a line's shape several times as it works it out, on every edit.
+ */
+const shapes = new WeakMap<readonly Part[], LineShape>()
+
+/** A line's shape, from its text (see lexLine). (Shared, so frozen.) */
 export function lineShape(text: string): LineShape {
+  const lexed = lexExpression(text)
+  const kept = shapes.get(lexed)
+  if (kept) return kept
+  const shape = Object.freeze(readShape(text))
+  if (shape.target) Object.freeze(shape.target)
+  shapes.set(lexed, shape)
+  return shape
+}
+
+/** A line's shape, read. */
+function readShape(text: string): LineShape {
   const parts = lexLine(text)
   const at = parts.findIndex((p) => !isToken(p) && TARGET_KINDS.has(p.kind))
   if (at < 0) return { head: '', value: text.trim(), valueParts: trimmed(parts) }

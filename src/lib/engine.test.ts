@@ -551,15 +551,32 @@ describe('@table()', () => {
 
 describe('vectors', () => {
   it('are written <…>, shown ⟨…⟩, with a unit after the > for every component', () => {
-    expect(shown('F = <3.0, 4.0> N')).toBe('F = ⟨3.0, 4.0⟩ N')
-    expect(shown('r = <1.00 m, 2.00 m>')).toBe('r = ⟨1.00 m, 2.00 m⟩ = ⟨1.00, 2.00⟩ m')
+    expect(shown('F = <3.0, 4.0> N')).toBe('F⃗ = ⟨3.0, 4.0⟩ N')
+    expect(shown('r = <1.00 m, 2.00 m>')).toBe('r⃗ = ⟨1.00 m, 2.00 m⟩ = ⟨1.00, 2.00⟩ m')
     // A typed value keeps its unit: N, not kN.
-    expect(shown('P = <3000., 4000.> N')).toBe('P = ⟨3000., 4000.⟩ N')
+    expect(shown('P = <3000., 4000.> N')).toBe('P⃗ = ⟨3000., 4000.⟩ N')
+  })
+
+  it('have an arrow over their names, wherever they’re shown', () => {
+    // Over the letter, not its subscript; a stretching one over a wider name.
+    expect(last('F_net = <3.0, 4.0> N').tex).toMatch(/^\\vec\{F\}_\{\\mathrm\{net\}\} =/)
+    expect(last('vel = <3.0, 4.0> m/s').tex).toMatch(/^\\overrightarrow\{\\mathrm\{vel\}\} =/)
+    expect(last('theta = <1.0, 2.0>').tex).toMatch(/^\\vec\{\\theta\} =/)
+    // Where it's used, and on what's worked out from it (the norm, a scalar, has none).
+    expect(shown('F = <3.0, 4.0> N\nG = 2 * F')).toBe('G⃗ = 2 F⃗ = 2\\times ⟨3.0, 4.0⟩ N = ⟨6.0, 8.0⟩ N')
+    expect(shown('F = <3.0, 4.0> N\nn = norm(F)').startsWith('n = ')).toBe(true)
+    // In a function given one, and on a vector a function gives back.
+    expect(shown('f(x) = <x, 2 * x>\ng = f(3.0)').startsWith('g⃗ = ')).toBe(true)
+    // A plain tuple has none, and a display name is shown as written.
+    expect(shown('p = @tuple(1.0, 2.0)').startsWith('p = ')).toBe(true)
+    expect(shown('F:"Force" = <3.0, 4.0> N')).not.toContain('⃗')
+    // Assigned again as a number, it loses it.
+    expect(shown('F = <3.0, 4.0> N\nF = 5.0 N\nG = 2 * F')).toBe('G = 2 F = 2\\times 5.0 N = 10. N')
   })
 
   it('keep each typed component’s sig figs', () => {
-    expect(shown('a = <0.50, -9.81> m/s^2')).toBe('a = ⟨0.50, -9.81⟩ m/s^2')
-    expect(shown('a = <0.50, -9.81> m/s^2\nb = a')).toBe('b = a = ⟨0.50, -9.81⟩ m/s^2')
+    expect(shown('a = <0.50, -9.81> m/s^2')).toBe('a⃗ = ⟨0.50, -9.81⟩ m/s^2')
+    expect(shown('a = <0.50, -9.81> m/s^2\nb = a')).toBe('b⃗ = a⃗ = ⟨0.50, -9.81⟩ m/s^2')
   })
 
   it('calculate as tuples do, and what’s worked out from one is a vector too', () => {
@@ -568,9 +585,9 @@ describe('vectors', () => {
     expect(resultOfLine(src, 3)).toBe('5.0 N')
     expect(resultOfLine(src, 4)).toBe('25 N^2')
     // dot and cross are written as operators, bracketing only what needs it.
-    expect(readable(lineAt(src, 4).tex)).toBe('d = F · F = ⟨3.0, 4.0⟩ N · ⟨3.0, 4.0⟩ N = 25 N^2')
-    expect(readable(lineAt(src, 5).tex)).toBe('c = ⟨1, 0, 0⟩ \\times ⟨0, 1, 0⟩ = ⟨0, 0, 1⟩')
-    expect(readable(last(`${src}\ne = dot(F + F, F)`).tex).split(' = ')[1]).toBe('(F+ F) · F')
+    expect(readable(lineAt(src, 4).tex)).toBe('d = F⃗ · F⃗ = ⟨3.0, 4.0⟩ N · ⟨3.0, 4.0⟩ N = 25 N^2')
+    expect(readable(lineAt(src, 5).tex)).toBe('c⃗ = ⟨1, 0, 0⟩ \\times ⟨0, 1, 0⟩ = ⟨0, 0, 1⟩')
+    expect(readable(last(`${src}\ne = dot(F + F, F)`).tex).split(' = ')[1]).toBe('(F⃗+ F⃗) · F⃗')
     expect(resultOfLine(src, 5)).toBe('⟨0, 0, 1⟩')
     // A plain tuple stays a tuple.
     expect(value('p = 2 * @tuple(1.0, 2.0)')).toBe('(2.0, 4.0)')
@@ -582,28 +599,29 @@ describe('vectors', () => {
   })
 
   it('show with unit vectors with :ijk, and so does what’s worked out from them', () => {
-    expect(shown('v:ijk = <2.0, -1.5, 4.0> m/s')).toBe('v = (2.0 î - 1.5 ĵ + 4.0 k̂) m/s')
-    expect(shown('v:ijk = <2.0, -1.5, 4.0> m/s\nw = 2 * v')).toBe('w = 2 v = 2 (2.0 î - 1.5 ĵ + 4.0 k̂) m/s = (4.0 î - 3.0 ĵ + 8.0 k̂) m/s')
+    expect(shown('v:ijk = <2.0, -1.5, 4.0> m/s')).toBe('v⃗ = (2.0 î - 1.5 ĵ + 4.0 k̂) m/s')
+    expect(shown('v:ijk = <2.0, -1.5, 4.0> m/s\nw = 2 * v')).toBe('w⃗ = 2 v⃗ = 2 (2.0 î - 1.5 ĵ + 4.0 k̂) m/s = (4.0 î - 3.0 ĵ + 8.0 k̂) m/s')
     // Unitless, and a substitution brackets the sum.
-    expect(shown('u:ijk = <1, 2>\nw = 3 * u')).toBe('w = 3 u = 3 (1 î + 2 ĵ) = 3 î + 6 ĵ')
+    expect(shown('u:ijk = <1, 2>\nw = 3 * u')).toBe('w⃗ = 3 u⃗ = 3 (1 î + 2 ĵ) = 3 î + 6 ĵ')
     expect(last('z:ijk = 3').warning).toBe(':ijk is ignored because the result isn’t a vector.'.replace('’', '\''))
   })
 
   it('break into components with :xyz, each a variable of its own', () => {
     const src = 'a:xyz = <0.50, -9.81> m/s^2\nt = 2.0 s\nd_y = 1/2 * a_y * t^2'
-    expect(readable(lineAt(src, 1).tex)).toBe('a = ⟨0.50, -9.81⟩ m/s^2 a_x = 0.50 m/s^2 a_y = -9.81 m/s^2')
-    expect(lineAt(src, 1).tex).toMatch(/^\\begin\{aligned\}a &= .* \\\\ a_\{x\} &= .* \\\\ a_\{y\} &= .*\\end\{aligned\}$/)
+    // (The components are numbers: no arrows.)
+    expect(readable(lineAt(src, 1).tex)).toBe('a⃗ = ⟨0.50, -9.81⟩ m/s^2 a_x = 0.50 m/s^2 a_y = -9.81 m/s^2')
+    expect(lineAt(src, 1).tex).toMatch(/^\\begin\{aligned\}\\vec\{a\} &= .* \\\\ a_\{x\} &= .* \\\\ a_\{y\} &= .*\\end\{aligned\}$/)
     expect(value(src)).toBe('-20. m')
     // Combined with :ijk, on a name with a subscript already.
     expect(readable(last('F_net:ijk:xyz = <3.0, 4.0, 1.5> N').tex))
-      .toBe('F_net = (3.0 î + 4.0 ĵ + 1.5 k̂) N F_net,x = 3.0 N F_net,y = 4.0 N F_net,z = 1.5 N')
+      .toBe('F⃗_net = (3.0 î + 4.0 ĵ + 1.5 k̂) N F_net,x = 3.0 N F_net,y = 4.0 N F_net,z = 1.5 N')
     // In @layout.sym, only the equation is shown (the components are still made).
     expect(shown('@layout.sym {\n    v:xyz = <1.0, 2.0> m\n}\nw = v_y')).toBe('w = v_y = 2.0 m')
   })
 
   it('add the components as rows under a line in @layout.multiline', () => {
     const tex = last('F = <3.0, 4.0> N\n@layout.multiline {\n    G:xyz = F + 2 * F\n}').tex
-    expect(tex).toMatch(/^\\begin\{aligned\}G &= F\+ 2 F \\\\ &= .* \\\\ G_\{x\} &= 9\.0\\,\\mathrm\{N\} \\\\ G_\{y\} &= 12\\,\\mathrm\{N\}\\end\{aligned\}$/)
+    expect(tex).toMatch(/^\\begin\{aligned\}\\vec\{G\} &= \\vec\{F\}\+ 2 \\vec\{F\} \\\\ &=.* \\\\ G_\{x\} &= 9\.0\\,\\mathrm\{N\} \\\\ G_\{y\} &= 12\\,\\mathrm\{N\}\\end\{aligned\}$/)
   })
 
   it('explain settings that don’t fit', () => {

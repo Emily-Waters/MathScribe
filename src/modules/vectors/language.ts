@@ -16,6 +16,8 @@ export const VECTOR_TOPICS: readonly PlacedTopic[] = [
         explain: '<…> is a vector, shown ⟨…⟩. A unit after the > applies to every component. Vectors scale and add, '
           + 'and norm, dot and cross work on them.',
         rules: [
+          'A name holding a vector is shown with an arrow over it, F⃗, wherever it\'s used: over the letter, '
+            + 'not its subscript (F⃗_net). Its components and its norm are numbers, so they have none.',
           '@vector(3.0, 4.0) is the same vector as <3.0, 4.0>, written as a call.',
           'A vector is a tuple, so everything that works on tuples works on it: scaling, adding, to, norm, '
             + 'dot, cross and unpacking.',

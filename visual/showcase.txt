@@ -52,6 +52,8 @@ t_fall = @solve(2.00 m = 1/2 * @g * t_fall^2, t_fall)
 F_1 = <3.0, 4.0> N
 F_2 = 2 * F_1 + <1.0, -1.0> N
 norm(F_2)
+vel:ijk:xyz = <2.0, -1.5, 4.0> m/s
+omega = <0, 0, 2.0> rad/s
 H2SO4 = @chem.substance({H2SO4})
 H2SO4.M
 r = @chem.reaction({2 H2 + O2 -> 2 H2O})

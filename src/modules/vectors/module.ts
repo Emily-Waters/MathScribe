@@ -14,8 +14,8 @@ import {
 import { componentsOf } from './components.ts'
 import { VECTOR_GRAMMAR, VECTOR_WRITERS, hasVector } from './grammar.ts'
 import {
-  COMPONENTS_SETTING, UNIT_VECTOR_SETTING, UNIT_VECTOR_TEX, VECTOR_BRACKETS, VECTOR_CALL, VECTOR_FUNCTION, VECTOR_LOOK, VECTOR_LOOKS,
-  VECTOR_PRODUCTS, VECTOR_SETTINGS, type VectorLook,
+  COMPONENTS_SETTING, LETTER_TEX, NAME_TEX, UNIT_VECTOR_SETTING, UNIT_VECTOR_TEX, VECTOR_ARROW, VECTOR_BRACKETS, VECTOR_CALL, VECTOR_FUNCTION,
+  VECTOR_LOOK, VECTOR_LOOKS, VECTOR_PRODUCTS, VECTOR_SETTINGS, type VectorLook,
 } from './syntax.ts'
 import { VECTOR_TOPICS } from './language.ts'
 import type { PlacedTopic } from '../../lib/plugin.ts'
@@ -136,6 +136,14 @@ export class VectorModule extends EngineModule {
       return sharedUnit ? attachUnit(`(${sum})`, sharedUnit) : sum
     }
     return attachUnit(`${VECTOR_BRACKETS.open}${values.join(', ')}${VECTOR_BRACKETS.close}`, sharedUnit)
+  }
+
+  /** A vector's name with an arrow over it, F⃗, its subscript outside (F⃗_net). */
+  override lookNameTex(nameTex: string, look: TupleLook): string | undefined {
+    if (!isVectorLook(look)) return undefined
+    const { base, subscript = '' } = NAME_TEX.exec(nameTex)!.groups!
+    const arrow = LETTER_TEX.test(base) ? VECTOR_ARROW.letter : VECTOR_ARROW.wide
+    return `${arrow}{${base}}${subscript}`
   }
 
   /** `F:ijk`: with unit vectors. */

@@ -605,6 +605,15 @@ export abstract class EngineModule {
     return undefined
   }
 
+  /**
+   * The name of a variable holding a tuple in a look of this module's, as
+   * LaTeX, given the name as it's usually typeset (undefined: as usual). A
+   * vector's name wears an arrow, F_net → F⃗_net, wherever it's shown.
+   */
+  lookNameTex(_nameTex: string, _look: TupleLook): string | undefined {
+    return undefined
+  }
+
   /** The look a line's settings (this module's) give what it assigns: `F:ijk`. */
   lookSetting(_settings: readonly string[]): LookSetting | undefined {
     return undefined

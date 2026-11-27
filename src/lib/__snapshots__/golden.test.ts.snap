@@ -857,23 +857,23 @@ exports[`the Reference tab’s examples > Units: v = 25.0 m/s 1`] = `
 `;
 
 exports[`the Reference tab’s examples > Vectors: F = <3.0, 4.0> N 1`] = `
-"1: F = ⟨3.0, 4.0⟩ N
-2: F_2 = 2 F+⟨1.0, -1.0⟩ N = 2\\times ⟨3.0, 4.0⟩ N+⟨1.0, -1.0⟩ N = ⟨7.0, 7.0⟩ N
-3: mag = \\left\\| F\\right\\| = \\left\\| ⟨3.0, 4.0⟩ N\\right\\| = 5.0 N"
+"1: F⃗ = ⟨3.0, 4.0⟩ N
+2: F⃗_2 = 2 F⃗+⟨1.0, -1.0⟩ N = 2\\times ⟨3.0, 4.0⟩ N+⟨1.0, -1.0⟩ N = ⟨7.0, 7.0⟩ N
+3: mag = \\left\\| F⃗\\right\\| = \\left\\| ⟨3.0, 4.0⟩ N\\right\\| = 5.0 N"
 `;
 
 exports[`the Reference tab’s examples > Vectors: a:xyz = <0.50, -9.81> m/s^2 1`] = `
-"1: a = ⟨0.50, -9.81⟩ m/s^2 a_x = 0.50 m/s^2 a_y = -9.81 m/s^2
+"1: a⃗ = ⟨0.50, -9.81⟩ m/s^2 a_x = 0.50 m/s^2 a_y = -9.81 m/s^2
 2: t = 2.0 s
 3: d_y = \\frac12 a_y t^2 = \\frac12\\times (-9.81 m/s^2)\\times (2.0 s)^2 = -20. m"
 `;
 
 exports[`the Reference tab’s examples > Vectors: v = @vector(3.0 m/s, 4.0 m/s) 1`] = `
-"1: v = ⟨3.0 m/s, 4.0 m/s⟩ = ⟨3.0, 4.0⟩ m/s
-2: speed = \\left\\| v\\right\\| = \\left\\| ⟨3.0, 4.0⟩ m/s\\right\\| = 5.0 m/s"
+"1: v⃗ = ⟨3.0 m/s, 4.0 m/s⟩ = ⟨3.0, 4.0⟩ m/s
+2: speed = \\left\\| v⃗\\right\\| = \\left\\| ⟨3.0, 4.0⟩ m/s\\right\\| = 5.0 m/s"
 `;
 
 exports[`the Reference tab’s examples > Vectors: v:ijk = <2.0, -1.5, 4.0> m/s 1`] = `
-"1: v = (2.0 î - 1.5 ĵ + 4.0 k̂) m/s
-2: w = 2 v = 2 (2.0 î - 1.5 ĵ + 4.0 k̂) m/s = (4.0 î - 3.0 ĵ + 8.0 k̂) m/s"
+"1: v⃗ = (2.0 î - 1.5 ĵ + 4.0 k̂) m/s
+2: w⃗ = 2 v⃗ = 2 (2.0 î - 1.5 ĵ + 4.0 k̂) m/s = (4.0 î - 3.0 ĵ + 8.0 k̂) m/s"
 `;

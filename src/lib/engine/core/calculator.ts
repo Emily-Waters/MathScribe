@@ -230,8 +230,18 @@ export class Calculator {
 
   /** Set a variable, with everything kept about it (in the current scope). */
   private store(name: string, v: VariableFields): void {
+    // A tuple with a look has its name typeset in it (a vector's with an arrow), wherever it's shown.
+    const symbol = v.look === undefined || v.symbol !== undefined ? v.symbol : this.lookNameTex(name, v.look)
+    const fields = symbol === v.symbol ? v : { ...v, symbol }
     // One record: it replaces whatever was kept about the name before, all of it.
-    this.vars.set(name, v instanceof Variable ? v : new Variable(v))
+    this.vars.set(name, fields instanceof Variable ? fields : new Variable(fields))
+  }
+
+  /** A name as LaTeX, as a variable holding a tuple in this look has it (a vector's, F⃗), else as usual. */
+  private lookNameTex(name: string, look: TupleLook | undefined): string {
+    const usual = symbolTex(name)
+    if (look === undefined) return usual
+    return this.modules.map((m) => m.lookNameTex(usual, look)).find((t) => t !== undefined) ?? usual
   }
 
   /** Make `vars` the variables in scope (entering or leaving a block or function call). */
@@ -857,7 +867,9 @@ export class Calculator {
     if (mode === DISPLAY_MODE.sym) return result
     const rows = derived.map((c, i) =>
       `${symbolTex(c.name)} &= ${this.display.inNotation(result.notation, () => this.display.valueTex(c.value, sfs[i], undefined, undefined, declared))}`)
-    return { ...result, tex: withRows(result.tex, symbolTex(name), rows) }
+    // (Under its name as the line shows it: F⃗, or its display name.)
+    const v = this.vars.get(name)
+    return { ...result, tex: withRows(result.tex, v?.label ?? v?.symbol ?? symbolTex(name), rows) }
   }
 
   /**
@@ -879,7 +891,8 @@ export class Calculator {
     this.lhsOverride = undefined
     const unpackDeclaredSf = this.unpackDeclaredSf
     this.unpackDeclaredSf = undefined
-    const lhsTex = override ?? (assigned ? (ctx.label ?? symbolTex(assigned)) : ctx.lhs)
+    // (Its look, once its value's known, may typeset the name another way: see lookNameTex.)
+    let lhsTex = override ?? (assigned ? (ctx.label ?? symbolTex(assigned)) : ctx.lhs)
     let exprTex = uncNode ? this.uncertainty.pmTex(shown, uncNode, percent, literals) : this.working.tex(shown, literals)
     const bare = unwrap(shown)
     /** Intermediate steps between the expression and the result. */
@@ -1076,6 +1089,8 @@ export class Calculator {
     if (ctx.look && !isTuple(value) && value !== undefined) {
       warning = warning ? `${warning} ${ctx.look.notATuple}` : ctx.look.notATuple
     }
+    const assignedTex = assigned ? (ctx.label ?? this.lookNameTex(assigned, look)) : undefined
+    if (assignedTex !== undefined && override === undefined) lhsTex = assignedTex
     // A typed tuple keeps each value's sig figs as typed: <0.50, -9.81>
     // shows as typed, not rounded to the fewest.
     const typedTuple = this.isTypedTuple(expr)
@@ -1100,7 +1115,7 @@ export class Calculator {
       const keepSymbol = ctx.mode === DISPLAY_MODE.sym && explicit
       this.store(assigned, {
         value, sf: shownSf, contributions, uncSf: declaredUncSf, declared: declaredSf !== undefined, notation: kept, look, label: ctx.label,
-        shown: keepSymbol ? (ctx.label ?? symbolTex(assigned)) : this.working.constantForm(expr, literals),
+        shown: keepSymbol ? assignedTex : this.working.constantForm(expr, literals),
         def: isLiteral(expr) ? undefined : expr,
       })
     }
@@ -1200,7 +1215,7 @@ export class Calculator {
   private summary(name: string, v: Variable): VariableSummary {
     let tex: string | undefined
     const typeset = () =>
-      `${v.label ?? symbolTex(name)} = ${this.display.valueTex(v.value, v.sf, this.uncertainty.total(v.contributions, v.value), v.uncSf, v.declared === true)}`
+      `${v.label ?? v.symbol ?? symbolTex(name)} = ${this.display.valueTex(v.value, v.sf, this.uncertainty.total(v.contributions, v.value), v.uncSf, v.declared === true)}`
     // (Not enumerable, so code that walks a list's properties doesn't typeset them all.)
     return Object.defineProperty({ name, sf: v.sf }, 'tex', { get: () => (tex ??= typeset()), enumerable: false }) as VariableSummary
   }

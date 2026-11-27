@@ -93,6 +93,8 @@ export function readable(tex: string): string {
     .replace(/\\left\\\{|\\right\\\}/g, (m) => (m === '\\left\\{' ? '❴' : '❵'))
     .replace(/\\left\\langle\s*|\\right\\rangle/g, (m) => (m.startsWith('\\left') ? '⟨' : '⟩'))
     .replace(/\\hat\{\\imath\}/g, 'î').replace(/\\hat\{\\jmath\}/g, 'ĵ').replace(/\\hat\{k\}/g, 'k̂')
+    // A vector's name, F⃗: the arrow after it, as a combining character.
+    .replace(/\\(?:vec|overrightarrow)\{((?:[^{}]|\{[^{}]*\})*)\}/g, '$1⃗')
     .replace(/\\pm/g, '±')
     .replace(/\\approx/g, '≈')
     .replace(/\\cdot/g, '·')

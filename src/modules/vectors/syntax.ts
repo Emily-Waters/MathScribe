@@ -3,7 +3,7 @@
  * the settings on a name that show one with unit vectors (`F:ijk`) or break it
  * into components (`F:xyz`), and how it's drawn.
  */
-import { builtinFunctionName } from '../../lib/plugin.ts'
+import { builtinFunctionName, named, optional, regex, src } from '../../lib/plugin.ts'
 
 /** A vector typed with its function: `@vector(3.0, 4.0) N`, the same as `<3.0, 4.0> N`. */
 export const VECTOR_CALL = 'vector'
@@ -37,6 +37,18 @@ export const UNIT_VECTOR_TEX = ['\\hat{\\imath}', '\\hat{\\jmath}', '\\hat{k}'] 
 
 /** The vector products, written as operators: dot(a, b) → a · b, cross(a, b) → a × b. */
 export const VECTOR_PRODUCTS = { dot: '\\cdot', cross: '\\times' } as const
+
+/**
+ * The arrow over a vector's name, F⃗: one over a letter (F, θ), and one that
+ * stretches over a wider name (vel).
+ */
+export const VECTOR_ARROW = { letter: '\\vec', wide: '\\overrightarrow' } as const
+
+/** A name as LaTeX, split so its arrow goes over the letter and not its subscript: F_{\mathrm{net}} (1: F, 2: _{\mathrm{net}}). */
+export const NAME_TEX = regex(src`^${named('base', '.*?')}${optional(named('subscript', '_\\{.*\\}'))}$`)
+
+/** A name as LaTeX that's a single letter, Latin or Greek: F, \theta. */
+export const LETTER_TEX = /^(?:[A-Za-z]|\\[A-Za-z]+)$/
 
 /** A vector's brackets, ⟨ ⟩. */
 export const VECTOR_BRACKETS = { open: '\\left\\langle ', close: '\\right\\rangle' } as const

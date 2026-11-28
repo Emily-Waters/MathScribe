@@ -12,12 +12,29 @@
  * It works on the finished LaTeX of an equation, where every bracket that can
  * grow is a \left … \right pair.
  */
+import {
+  TEX_ANGLE, TEX_BAR, TEX_BRACE, TEX_ESCAPE, TEX_GROUP, TEX_LIST, TEX_NORM, TEX_NO_DELIMITER, TEX_ROUND, TEX_SIZED, TEX_SQUARE,
+} from '../latex.ts'
+import { inClass, lit, regex, src } from '../syntax/patterns.ts'
+
+/** The delimiters a \left or \right can have: brackets, braces, angles, bars, or none. */
+const DELIMITERS = (side: 'open' | 'close') =>
+  [TEX_ROUND[side], TEX_SQUARE[side], TEX_BRACE[side], TEX_ANGLE[side], TEX_NORM, TEX_BAR, TEX_NO_DELIMITER].map(lit).join('|')
 
 /** Every \left or \right with its delimiter (1: left delimiter, 2: right delimiter). */
-const DELIMITER = /\\left(\(|\[|\\\{|\\langle|\\\||\||\.)|\\right(\)|\]|\\\}|\\rangle|\\\||\||\.)/g
+const DELIMITER = regex(src`${lit(TEX_SIZED.open)}(${DELIMITERS('open')})|${lit(TEX_SIZED.close)}(${DELIMITERS('close')})`, 'g')
 
 /** The brackets for each level, innermost first; deeper levels start over. */
-const LEVELS = [['\\left(', '\\right)'], ['\\left[', '\\right]']] as const
+const LEVELS = [
+  [`${TEX_SIZED.open}${TEX_ROUND.open}`, `${TEX_SIZED.close}${TEX_ROUND.close}`],
+  [`${TEX_SIZED.open}${TEX_SQUARE.open}`, `${TEX_SIZED.close}${TEX_SQUARE.close}`],
+] as const
+
+/** Text ending in a name: a letter, or a group's closing brace (`f_{n}`). */
+const ENDS_IN_NAME = regex(src`[A-Za-z${inClass(TEX_GROUP.close)}]$`)
+
+/** A sized bracket at the start of some text: `\left`, `\right`. */
+const SIZED_START = regex(src`^(?:${lit(TEX_SIZED.open)}|${lit(TEX_SIZED.close)})`)
 
 /** A bracket pair found in the LaTeX. */
 interface Pair {
@@ -36,21 +53,21 @@ interface Pair {
  * Whether the round brackets opening at `open` are a call's: right after a
  * name (`\sin`, `f`, `f_{n}`). A group follows a space, an operator or `{`.
  */
-const isCall = (tex: string, open: number) => /[A-Za-z}]$/.test(tex.slice(0, open))
+const isCall = (tex: string, open: number) => ENDS_IN_NAME.test(tex.slice(0, open))
 
 /** Whether `content` has a comma outside any brackets or braces: a tuple, (1.0, 2.0). */
 function hasTopLevelComma(content: string): boolean {
   let depth = 0
   for (let i = 0; i < content.length; i++) {
-    if (content[i] === '\\' && !/^\\(?:left|right)/.test(content.slice(i))) {
+    if (content[i] === TEX_ESCAPE && !SIZED_START.test(content.slice(i))) {
       i++ // an escaped character, like the thin space \, between a number and its unit
       continue
     }
-    if (content.startsWith('\\left', i)) depth++
-    else if (content.startsWith('\\right', i)) depth--
-    else if (content[i] === '{') depth++
-    else if (content[i] === '}') depth--
-    else if (content[i] === ',' && depth === 0) return true
+    if (content.startsWith(TEX_SIZED.open, i)) depth++
+    else if (content.startsWith(TEX_SIZED.close, i)) depth--
+    else if (content[i] === TEX_GROUP.open) depth++
+    else if (content[i] === TEX_GROUP.close) depth--
+    else if (content[i] === TEX_LIST && depth === 0) return true
   }
   return false
 }
@@ -69,7 +86,7 @@ export function nestBrackets(tex: string): string {
     if (m[1] !== undefined) {
       const pair: Pair = {
         open: m.index, openEnd: m.index + m[0].length, close: -1, closeEnd: -1,
-        group: m[1] === '(' && !isCall(tex, m.index), children: [], inner: 0,
+        group: m[1] === TEX_ROUND.open && !isCall(tex, m.index), children: [], inner: 0,
       }
       ;(open.at(-1)?.children ?? roots).push(pair)
       open.push(pair)
@@ -78,7 +95,7 @@ export function nestBrackets(tex: string): string {
       if (!pair) return tex // unbalanced: leave it as it is
       pair.close = m.index
       pair.closeEnd = m.index + m[0].length
-      if (pair.group && (m[2] !== ')' || hasTopLevelComma(tex.slice(pair.openEnd, pair.close)))) pair.group = false
+      if (pair.group && (m[2] !== TEX_ROUND.close || hasTopLevelComma(tex.slice(pair.openEnd, pair.close)))) pair.group = false
     }
   }
   if (open.length) return tex

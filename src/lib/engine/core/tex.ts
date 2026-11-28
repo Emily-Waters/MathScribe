@@ -1,7 +1,10 @@
 /** Names, numbers and units as LaTeX. */
 import { AGGREGATE_KIND } from '../../sheet/values.ts'
 import { builtinConstant } from '../../builtins.ts'
-import { GREEK_BY_CHAR, GREEK_BY_NAME, GREEK_CHARS, SERIES_SUFFIXES, regex, src } from '../../syntax.ts'
+import { GREEK_BY_CHAR, GREEK_BY_NAME, GREEK_CHARS, SERIES_SUFFIXES, inClass, lit, regex, src } from '../../syntax.ts'
+import {
+  ENDS_IN_SUBSCRIPT, SUBSCRIPT_TAIL, TEX_GROUP, TEX_LIST, TEX_SUPERSCRIPT, TEX_THIN_SPACE, TEX_TIE,
+} from '../../latex.ts'
 import { JOIN, parseConstantRefName, parseMemberName, parseNumberedName, parseSeriesStatName, parseSliceName, typedSlice, describedName, parseHeldName, parseUncertaintyName } from '../../sheet/names.ts'
 import {
   FN, UNIT_LOOKS, isCall, isConstant, quantity, unitParts, type CallExpr, type ConstantExpr, type Expr,
@@ -9,7 +12,7 @@ import {
 import { isLabelUnit, labelUnitTex, moduleMemberTex, moduleNameSubscriptTex } from './module.ts'
 
 /** In unitTex: between a unit and the label unit after it (mol EDTA), a space rather than a dot. */
-export const LABEL_GAP = '~'
+export const LABEL_GAP = TEX_TIE
 
 // ---------------------------------------------------------------------------
 // LaTeX helpers
@@ -68,15 +71,15 @@ export function symbolTex(name: string, shown?: ShownName): string {
   if (slice) {
     const base = symbolTex(slice.of)
     const part = typedSlice(slice.spec)
-    const sub = /^(.*?)_\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}$/.exec(base)
-    return sub ? `${sub[1]}_{${sub[2]},${part}}` : `${base}_{${part}}`
+    const sub = ENDS_IN_SUBSCRIPT.exec(base)
+    return sub ? `${sub[1]}_{${sub[2]}${TEX_LIST}${part}}` : `${base}_{${part}}`
   }
   // A series' member, t[3] → t₃: its number after any subscript the series has (a.x[3] → x_{a,3}, v_0[2] → v_{0,2}).
   const numbered = parseNumberedName(name)
   if (numbered) {
     const base = symbolTex(numbered.base)
-    const sub = /^(.*?)_\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}$/.exec(base)
-    return sub ? `${sub[1]}_{${sub[2]},${numbered.n}}` : `${base}_{${numbered.n}}`
+    const sub = ENDS_IN_SUBSCRIPT.exec(base)
+    return sub ? `${sub[1]}_{${sub[2]}${TEX_LIST}${numbered.n}}` : `${base}_{${numbered.n}}`
   }
   // Statistics of a series: a.avg → ā, a.std → σ_a, a.sem → σ_ā, a.count → n_a, a.sum → Σa
   const stat = parseSeriesStatName(name)
@@ -100,7 +103,7 @@ export function symbolTex(name: string, shown?: ShownName): string {
       case AGGREGATE_KIND.sum: return `\\Sigma ${base}`
       case AGGREGATE_KIND.mean: {
         // A series with a subscript keeps it outside the bar: t_down.avg → t̄_down, a.x.avg → x̄_a.
-        const sub = /^(.*?)(_\{.*\})$/.exec(base)
+        const sub = SUBSCRIPT_TAIL.exec(base)
         return sub ? `\\bar{${sub[1]}}${sub[2]}` : `\\bar{${base}}`
       }
     }
@@ -118,11 +121,11 @@ export function symbolTex(name: string, shown?: ShownName): string {
     if (inner.length > 1) {
       const last = inner.pop()!
       const parts = inner.reverse().map((p) => moduleNameSubscriptTex(p, true) ?? namePart(p))
-      return `${symbolTex(last)}_{${[...parts, ns].join(',')}}`
+      return `${symbolTex(last)}_{${[...parts, ns].join(TEX_LIST)}}`
     }
     const tex = symbolTex(member.member)
-    const sub = /^(.*?)_\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}$/.exec(tex)
-    return sub ? `${sub[1]}_{${ns},${sub[2]}}` : `${tex}_{${ns}}`
+    const sub = ENDS_IN_SUBSCRIPT.exec(tex)
+    return sub ? `${sub[1]}_{${ns}${TEX_LIST}${sub[2]}}` : `${tex}_{${ns}}`
   }
   const trailingDigits = TRAILING_DIGITS.exec(name)
   if (trailingDigits) return `${namePart(trailingDigits[1])}_{${trailingDigits[2]}}`
@@ -134,7 +137,7 @@ export function symbolTex(name: string, shown?: ShownName): string {
   const subs = rest.filter(Boolean)
   // (A module's notation first: a formula, `n_H2O`, drawn as chemistry.)
   const sub = (s: string) => moduleNameSubscriptTex(s) ?? subscriptPart(s)
-  return subs.length ? `${namePart(base)}_{${subs.map(sub).join(',')}}` : namePart(base)
+  return subs.length ? `${namePart(base)}_{${subs.map(sub).join(TEX_LIST)}}` : namePart(base)
 }
 
 /** One letter, then a number and letters, without an underscore: `v1x` (1: the letter, 2: the rest). */
@@ -175,6 +178,12 @@ export function hasMicroPrefix(name: string): boolean {
   return micro
 }
 
+/** A denominator of one unit and its label, in brackets at the end: `/(mol~H2O)` (1: what's in them). */
+const LABELLED_DENOMINATOR = regex(src`\/\(([A-Za-z]+${lit(LABEL_GAP)}[a-z]+)\)$`)
+
+/** One piece of a unit, as unitTex draws it: a unit's name, a power (1: its number), a `*`, or a label's gap. */
+const UNIT_PIECE = regex(src`[A-Za-z]+|\^(-?[\d.]+)|\*|${lit(LABEL_GAP)}`, 'g')
+
 export function unitTex(s: string): string {
   // Brackets matter in a denominator (J/(mol·K)), but not around a numerator.
   let norm = s.trim()
@@ -188,8 +197,8 @@ export function unitTex(s: string): string {
   const onlyLabels = words.length > 0 && words.every(isLabelUnit)
   norm = norm.replace(/\*(?=[a-z]+)/g, (star, at: number) => (isLabelUnit(/^[a-z]+/.exec(norm.slice(at + 1))![0]) ? LABEL_GAP : star))
     // A denominator that's one unit and its label needs no brackets: g H2O/mol H2O.
-    .replace(/\/\(([A-Za-z]+~[a-z]+)\)$/, '/$1')
-  const tex = (part: string) => part.replace(/[A-Za-z]+|\^(-?[\d.]+)|\*|~/g, (tok, pow) => {
+    .replace(LABELLED_DENOMINATOR, '/$1')
+  const tex = (part: string) => part.replace(UNIT_PIECE, (tok, pow) => {
     if (tok === '*') return '\\cdot '
     if (tok === LABEL_GAP) return '\\,'
     if (pow !== undefined) return `^{${pow}}`
@@ -241,9 +250,12 @@ export const resultUnitTex = (unit: string) => `\\quad\\text{${RESULT_UNIT_WORDS
  */
 export function attachUnit(num: string, unit: string): string {
   if (!unit) return num
-  if (!unit.startsWith('^')) return `${num}\\,${unit}`
-  return /\^\{[^{}]*\}\s*$/.test(num) ? `${num}{}${unit}` : `${num}${unit}`
+  if (!unit.startsWith(TEX_SUPERSCRIPT)) return `${num}${TEX_THIN_SPACE}${unit}`
+  return ENDS_IN_SUPERSCRIPT.test(num) ? `${num}${TEX_GROUP.open}${TEX_GROUP.close}${unit}` : `${num}${unit}`
 }
+
+/** TeX that ends in a superscript's group, `10^{3}`. */
+const ENDS_IN_SUPERSCRIPT = regex(src`${lit(TEX_SUPERSCRIPT)}${lit(TEX_GROUP.open)}[^${inClass(TEX_GROUP.open, TEX_GROUP.close)}]*${lit(TEX_GROUP.close)}\s*$`)
 
 /** A unit as the library reads it: unit("kg"). */
 export const isUnitCall = (n: Expr | undefined): n is CallExpr =>

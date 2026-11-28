@@ -5,7 +5,11 @@
  * export (latex.ts) being involved.
  */
 import { TITLE_SEGMENT, titleSegments } from './textSegments.ts'
-import { GREEK_BY_CHAR } from '../syntax.ts'
+import { GREEK_BY_CHAR, inClass, lit, regex, src } from '../syntax.ts'
+import {
+  ANY_COMMAND, TEX_ALIGN, TEX_ENVIRONMENT, TEX_ESCAPE, TEX_GROUP, TEX_LIST, TEX_RELATION, TEX_ROUND, TEX_SUBSCRIPT, TEX_SUPERSCRIPT, commands, escapeTexChars,
+  escapedBraceAt, texCommand,
+} from '../latex.ts'
 import type { LatexOptions } from './latex.ts'
 
 // ---------------------------------------------------------------------------
@@ -14,8 +18,7 @@ import type { LatexOptions } from './latex.ts'
 
 /** Text, with the characters LaTeX treats specially escaped. */
 export const escapeTex = (s: string) =>
-  s.replace(/[\\{}#%&_^~$]/g, (c) =>
-    c === '\\' ? '\\textbackslash{}' : c === '^' ? '\\^{}' : c === '~' ? '\\~{}' : `\\${c}`)
+  escapeTexChars(s)
     // (Characters pdflatex can't set in text, past Latin-1, as a little maths: σ as $\sigma$.)
     .replace(TEXT_MATHS_CHAR, (c) => `$${TEXT_MATHS.get(c)}$`)
 
@@ -32,7 +35,7 @@ const TEXT_MATHS: ReadonlyMap<string, string> = new Map<string, string>([
 ])
 
 /** Any of TEXT_MATHS's characters. */
-const TEXT_MATHS_CHAR = new RegExp(`[${[...TEXT_MATHS.keys()].join('')}]`, 'gu')
+const TEXT_MATHS_CHAR = regex(src`[${inClass(...TEXT_MATHS.keys())}]`, 'gu')
 
 /**
  * A heading, block title or text in LaTeX: `2p_z` → 2p\textsubscript{z},
@@ -183,47 +186,60 @@ const FIT_SECOND = 'msfitsecond'
 const MIGHT_NOT_FIT = 60
 
 /** Commands that draw nothing themselves: what they hold is drawn, or they only space or size it. */
-const DRAWS_NOTHING = /\\(?:left|right|mathrm|text|frac|sqrt|begin|end|displaystyle|quad|qquad|ce)(?![a-zA-Z])|\\[,;:! ]/g
+const DRAWS_NOTHING = regex(
+  src`${commands('left', 'right', 'mathrm', 'text', 'frac', 'sqrt', 'begin', 'end', 'displaystyle', 'quad', 'qquad', 'ce')}|${lit(TEX_ESCAPE)}[,;:! ]`, 'g',
+)
 /** Any other command, which draws one symbol: \times, \pi, \pm. */
-const ONE_SYMBOL = /\\[a-zA-Z]+/g
+const ONE_SYMBOL = regex(ANY_COMMAND, 'g')
+/** Markup that draws nothing itself: braces, sub- and superscript marks, alignment, spaces. */
+const MARKUP = regex(src`[${inClass(TEX_GROUP.open, TEX_GROUP.close, TEX_SUPERSCRIPT, TEX_SUBSCRIPT, TEX_ALIGN)}\s]`, 'g')
 
 /** About how many characters an equation draws: its LaTeX without markup. */
-const drawnLength = (tex: string) => tex.replace(DRAWS_NOTHING, '').replace(ONE_SYMBOL, '#').replace(/[{}^_&\s]/g, '').length
+const drawnLength = (tex: string) => tex.replace(DRAWS_NOTHING, '').replace(ONE_SYMBOL, '#').replace(MARKUP, '').length
 
 /** The relations an equation's steps are joined with (as layoutEquation joins them), at a position. */
-const RELATION_AT = / (=|\\approx) /y
+const RELATION_AT = regex(src` (${lit(TEX_RELATION.equals)}|${lit(TEX_RELATION.approx)}) `, 'y')
 /** What opens or closes a group the relations inside it don't count in. */
-const OPENS = /\\left(?![a-zA-Z])|\\begin(?![a-zA-Z])/y
-const CLOSES = /\\right(?![a-zA-Z])|\\end(?![a-zA-Z])/y
+const OPENS = regex(commands('left', 'begin'), 'y')
+const CLOSES = regex(commands('right', 'end'), 'y')
+
+/** A pattern's match at a position in some text, or null. */
+const matchAt = (re: RegExp, text: string, i: number) => {
+  re.lastIndex = i
+  return re.exec(text)
+}
+
+/**
+ * Each position in an equation's LaTeX that's at its top level (not in brackets,
+ * braces or an environment), for `visit`, which can say where to go on from.
+ */
+function eachTopLevel(tex: string, visit: (i: number) => number | void): void {
+  let depth = 0
+  for (let i = 0; i < tex.length; i++) {
+    const c = tex[i]
+    if (escapedBraceAt(tex, i)) {
+      i++ // an escaped brace, \{ or \}, which is drawn
+      continue
+    }
+    if (matchAt(OPENS, tex, i) || c === TEX_GROUP.open) depth++
+    else if (matchAt(CLOSES, tex, i) || c === TEX_GROUP.close) depth--
+    else if (depth === 0) i = visit(i) ?? i
+  }
+}
 
 /** An equation's steps, and the relation before each after the first, split at its top level (not in brackets or braces). */
 function stepsOf(tex: string): { steps: string[]; relations: string[] } {
   const steps: string[] = []
   const relations: string[] = []
-  let depth = 0
   let start = 0
-  const at = (re: RegExp, i: number) => {
-    re.lastIndex = i
-    return re.exec(tex)
-  }
-  for (let i = 0; i < tex.length; i++) {
-    const c = tex[i]
-    if (c === '\\' && (tex[i + 1] === '{' || tex[i + 1] === '}')) {
-      i++ // an escaped brace, \{ or \}
-      continue
-    }
-    if (at(OPENS, i) || c === '{') depth++
-    else if (at(CLOSES, i) || c === '}') depth--
-    else if (depth === 0) {
-      const relation = at(RELATION_AT, i)
-      if (relation) {
-        steps.push(tex.slice(start, i))
-        relations.push(relation[1])
-        start = i + relation[0].length
-        i = start - 1
-      }
-    }
-  }
+  eachTopLevel(tex, (i) => {
+    const relation = matchAt(RELATION_AT, tex, i)
+    if (!relation) return
+    steps.push(tex.slice(start, i))
+    relations.push(relation[1])
+    start = i + relation[0].length
+    return start - 1
+  })
   steps.push(tex.slice(start))
   return { steps, relations }
 }
@@ -235,7 +251,7 @@ function stepsOf(tex: string): { steps: string[]; relations: string[] } {
  */
 export function fitted(tex: string, share = 1): string {
   // (In a column, `share` of the line, a shorter one might not fit.)
-  if (drawnLength(tex) <= MIGHT_NOT_FIT * share || tex.includes('\\begin{aligned}')) return tex
+  if (drawnLength(tex) <= MIGHT_NOT_FIT * share || tex.includes(`${TEX_ENVIRONMENT.open}{aligned}`)) return tex
   const { steps, relations } = stepsOf(tex)
   if (relations.length < 2) return tex
   const rows = steps.slice(1).map((s, i) => `&${relations[i]} ${brokenRow(`${steps[0]} ${relations[i]}`, s, share)}`)
@@ -245,30 +261,20 @@ export function fitted(tex: string, share = 1): string {
 /** A + or − between terms, at a position (as the engine writes them: `a+ b`, `a- b`). */
 const TERM_SIGN_AT = /[+-]/y
 /** What a sign right after makes it a number's or a term's own sign, not one between terms. */
-const BEFORE_OWN_SIGN = /(?:^|[=(,+-]|\\times|\\cdot|\\pm)\s*$/
+const BEFORE_OWN_SIGN = regex(
+  src`(?:^|[${inClass(TEX_RELATION.equals, TEX_ROUND.open, TEX_LIST)}+-]|${lit(texCommand('times'))}|${lit(texCommand('cdot'))}|${lit(texCommand('pm'))})\s*$`,
+)
 
 /** A row's terms, split before each + or − at its top level (not in brackets, braces or a number's own sign). */
 function termsOf(tex: string): string[] {
   const terms: string[] = []
-  let depth = 0
   let start = 0
-  const at = (re: RegExp, i: number) => {
-    re.lastIndex = i
-    return re.exec(tex)
-  }
-  for (let i = 0; i < tex.length; i++) {
-    const c = tex[i]
-    if (c === '\\' && (tex[i + 1] === '{' || tex[i + 1] === '}')) {
-      i++
-      continue
-    }
-    if (at(OPENS, i) || c === '{') depth++
-    else if (at(CLOSES, i) || c === '}') depth--
-    else if (depth === 0 && at(TERM_SIGN_AT, i) && !BEFORE_OWN_SIGN.test(tex.slice(start, i)) && i > start) {
+  eachTopLevel(tex, (i) => {
+    if (matchAt(TERM_SIGN_AT, tex, i) && !BEFORE_OWN_SIGN.test(tex.slice(start, i)) && i > start) {
       terms.push(tex.slice(start, i).trim())
       start = i
     }
-  }
+  })
   terms.push(tex.slice(start).trim())
   return terms.filter(Boolean)
 }

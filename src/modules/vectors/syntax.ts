@@ -3,7 +3,9 @@
  * the settings on a name that show one with unit vectors (`F:ijk`) or break it
  * into components (`F:xyz`), and how it's drawn.
  */
-import { builtinFunctionName, named, optional, regex, src } from '../../lib/plugin.ts'
+import {
+  SUBSCRIPT_GROUP, TEX_ANGLE, TEX_ESCAPE, TEX_SIZED, builtinFunctionName, lit, named, optional, regex, src,
+} from '../../lib/plugin.ts'
 
 /** A vector's brackets, as typed: `<3.0, 4.0> N`. */
 export const ANGLE_BRACKETS = { open: '<', close: '>' } as const
@@ -48,10 +50,10 @@ export const VECTOR_PRODUCTS = { dot: '\\cdot', cross: '\\times' } as const
 export const VECTOR_ARROW = { letter: '\\vec', wide: '\\overrightarrow' } as const
 
 /** A name as LaTeX, split so its arrow goes over the letter and not its subscript: F_{\mathrm{net}} (1: F, 2: _{\mathrm{net}}). */
-export const NAME_TEX = regex(src`^${named('base', '.*?')}${optional(named('subscript', '_\\{.*\\}'))}$`)
+export const NAME_TEX = regex(src`^${named('base', '.*?')}${optional(named('subscript', SUBSCRIPT_GROUP))}$`)
 
 /** A name as LaTeX that's a single letter, Latin or Greek: F, \theta. */
-export const LETTER_TEX = /^(?:[A-Za-z]|\\[A-Za-z]+)$/
+export const LETTER_TEX = regex(src`^(?:[A-Za-z]|${lit(TEX_ESCAPE)}[A-Za-z]+)$`)
 
 /** A vector's brackets, ⟨ ⟩. */
-export const VECTOR_BRACKETS = { open: '\\left\\langle ', close: '\\right\\rangle' } as const
+export const VECTOR_BRACKETS = { open: `${TEX_SIZED.open}${TEX_ANGLE.open} `, close: `${TEX_SIZED.close}${TEX_ANGLE.close}` } as const

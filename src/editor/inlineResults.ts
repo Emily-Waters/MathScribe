@@ -12,6 +12,7 @@ import katex from 'katex'
 import type { LineValue } from '../lib/engine/index.ts'
 import { readStored, writeStored } from '../lib/data/storage.ts'
 import { STORAGE_KEYS } from '../config.ts'
+import { TEX_RELATION } from '../lib/latex.ts'
 
 /** The results, by line number, as the evaluated sheet has them. */
 export const setInlineResults = StateEffect.define<ReadonlyMap<number, LineValue>>()
@@ -24,7 +25,7 @@ export const setInlineResults = StateEffect.define<ReadonlyMap<number, LineValue
 export const inlineHintsShown = Facet.define<boolean, boolean>({ combine: (values) => values.at(-1) ?? true })
 
 /** What goes before a result: `=`, or `≈` for a rounded one. */
-const RELATION = { equals: '=', approx: '\\approx' } as const
+const RELATION = TEX_RELATION
 
 /** A line's result, typeset, at the end of the line. */
 class ResultWidget extends WidgetType {

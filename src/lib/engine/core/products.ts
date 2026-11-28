@@ -11,6 +11,8 @@ import { RAW } from './results.ts'
 import { INV_FUNCTION } from '../../sheet/names.ts'
 import { symbolTex, isUnitCall, unitCallText, isLitCall } from './tex.ts'
 import { unwrap, seeThrough } from './nodes.ts'
+import { TEX_ANGLE, TEX_NORM, TEX_ROUND, TEX_SIZED, TEX_SQUARE, TEX_UPRIGHT } from '../../latex.ts'
+import { lit, oneOf, regex, src } from '../../syntax.ts'
 
 /** A number followed by its unit: `2.0 kg`. */
 export const isNumberWithUnit = (n: Expr): n is OperatorExpr =>
@@ -60,7 +62,19 @@ export const SIDE = { left: 'left', right: 'right' } as const
 export type Side = (typeof SIDE)[keyof typeof SIDE]
 
 /** A substituted value's TeX that opens with a bracket around a value: (−2.0), ⟨3.0, 4.0⟩, (1.00, 2.00) m. */
-const VALUE_BRACKET = /^\\left(?:\(|\[|\\langle|\\\|)\s*-?\d/
+const VALUE_BRACKET = regex(src`^${lit(TEX_SIZED.open)}${oneOf([TEX_ROUND.open, TEX_SQUARE.open, TEX_ANGLE.open, TEX_NORM].map(lit))}\s*-?\d`)
+
+/** TeX that opens with a bracket: a sized one, or a plain round one. */
+const OPENS_BRACKET = regex(src`^(?:${lit(TEX_SIZED.open)}|${lit(TEX_ROUND.open)})`)
+
+/** TeX that closes with a bracket: a sized round or angle one, or a plain round one. */
+const CLOSES_BRACKET = regex(src`(?:${lit(TEX_SIZED.close + TEX_ROUND.close)}|${lit(TEX_SIZED.close + TEX_ANGLE.close)}|${lit(TEX_ROUND.close)})$`)
+
+/** TeX with upright text in it: a unit's `\mathrm{…}`, or words' `\text{…}`. */
+const HAS_UPRIGHT = regex(oneOf(TEX_UPRIGHT.map(lit)))
+
+/** TeX that starts with a number, perhaps negative, perhaps in a sized round bracket. */
+const STARTS_WITH_NUMBER = regex(src`^(?:${lit(TEX_SIZED.open + TEX_ROUND.open)}\s*)?-?\d`)
 
 /**
  * What a substituted value (pre-rendered TeX) shows at one edge: a value in
@@ -70,10 +84,10 @@ const VALUE_BRACKET = /^\\left(?:\(|\[|\\langle|\\\|)\s*-?\d/
 export function rawEdge(tex: string, side: Side): Edge {
   if (side === SIDE.left) {
     if (VALUE_BRACKET.test(tex)) return EDGE.value
-    return /^(?:\\left|\()/.test(tex) ? EDGE.bracket : EDGE.number
+    return OPENS_BRACKET.test(tex) ? EDGE.bracket : EDGE.number
   }
-  if (/(?:\\right\)|\\right\\rangle|\))$/.test(tex)) return EDGE.bracket
-  return /\\mathrm|\\text/.test(tex) ? EDGE.quantity : EDGE.number
+  if (CLOSES_BRACKET.test(tex)) return EDGE.bracket
+  return HAS_UPRIGHT.test(tex) ? EDGE.quantity : EDGE.number
 }
 
 /** Whether a factor is a value that a product brackets: one in scientific notation, or a negative. */
@@ -168,4 +182,4 @@ export function productSeparator(left: Expr, right: Expr): string {
 }
 
 /** What goes before a factor written as TeX already (a delta's δx, or its value): × before a number, else a thin space. */
-export const signBeforeTex = (tex: string) => (/^(?:\\left\(\s*)?-?\d/.test(tex) ? PRODUCT_SIGN : NAME_GAP)
+export const signBeforeTex = (tex: string) => (STARTS_WITH_NUMBER.test(tex) ? PRODUCT_SIGN : NAME_GAP)

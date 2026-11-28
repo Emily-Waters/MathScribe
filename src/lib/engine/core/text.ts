@@ -1,12 +1,13 @@
 /** Words in display names and text, as LaTeX. */
 import { SUBSCRIPT_BASE, TEXT_SUBSCRIPT, outsideMaths, splitInlineMath, subscriptOf, unescapeUnderscores } from '../../syntax.ts'
+import { TEX_LIST, escapeTexChars } from '../../latex.ts'
 import { moduleSubscriptTex } from './module.ts'
 
 // (Where inline maths is in text is syntax's, the one definition: syntax/text.ts.)
 export { outsideMaths }
 
 /** Words as upright LaTeX text, `\_` as a plain underscore. */
-export const plainTextTex = (text: string) => (text ? `\\text{${escapeText(unescapeUnderscores(text))}}` : '')
+export const plainTextTex = (text: string) => (text ? `\\text{${escapeTexChars(unescapeUnderscores(text))}}` : '')
 
 /** A subscript in words as LaTeX: in a module's notation if it's one (`H2O`, chemistry), else as upright text. */
 export const subscriptTex = (subscript: string) => moduleSubscriptTex(subscript) ?? plainTextTex(subscript)
@@ -23,7 +24,7 @@ export function wordsTex(text: string): string {
   /** The subscripts of the word being written, joined with commas when there are several. */
   let subs: string[] = []
   const endSubs = () => {
-    if (subs.length) out += `_{${subs.map(subscriptTex).join(',')}}`
+    if (subs.length) out += `_{${subs.map(subscriptTex).join(TEX_LIST)}}`
     subs = []
   }
   for (const m of text.matchAll(TEXT_SUBSCRIPT)) {
@@ -57,11 +58,5 @@ export function stringTex(value: string, markup: (text: string) => string): stri
     if (last && !last.math && !p.math) last.value += p.value
     else merged.push({ ...p })
   }
-  return merged.map((p) => (p.math ? p.value : `\\text{${escapeText(p.value)}}`)).join('')
+  return merged.map((p) => (p.math ? p.value : `\\text{${escapeTexChars(p.value)}}`)).join('')
 }
-
-/** LaTeX's special characters, escaped for `\text{…}` (a display name's words). */
-export const TEXT_ESCAPES: Readonly<Record<string, string>> = {
-  '\\': '\\textbackslash{}', '{': '\\{', '}': '\\}', $: '\\$', '&': '\\&', '#': '\\#', '%': '\\%', _: '\\_', '^': '\\^{}', '~': '\\~{}',
-}
-export const escapeText = (s: string) => s.replace(/[\\{}$&#%_^~]/g, (c) => TEXT_ESCAPES[c])

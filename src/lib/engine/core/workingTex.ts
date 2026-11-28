@@ -12,7 +12,7 @@ import type { Variable } from '../../sheet/values.ts'
 import {
   INV_FUNCTION, JOIN, TUPLE_FUNCTION, parseNumberedName, parseSeriesStatName, seriesMemberName, seriesStatName,
 } from '../../sheet/names.ts'
-import { SUBSCRIPT } from '../../syntax.ts'
+import { SUBSCRIPT, inClass, regex, src } from '../../syntax.ts'
 import {
   FN, OP, call as callExpr, constant, copyExpr, exprTex, findAll, formatValue, isCall, isConditional, isConstant, isLibraryName, isOp,
   isSymbol, operator, paren, symbol, transform, type CallExpr, type Expr, type SymbolExpr, type TexOptions,
@@ -28,6 +28,10 @@ import {
   EVERY_PRODUCT_SIGN, PRODUCT_SIGN, SIDE, inScientificNotation, isNumberWithUnit, needsBrackets, productSeparator, type Side,
 } from './products.ts'
 import type { ValueTex } from './valueTex.ts'
+import { TEX_GROUP, TEX_ROUND } from '../../latex.ts'
+
+/** Spaces right after a group's brace or a round bracket opens, which the library's LaTeX leaves (1: the brace or bracket). */
+const SPACE_AFTER_OPENING = regex(src`([${inClass(TEX_GROUP.open, TEX_ROUND.open)}])\s+`, 'g')
 
 /** What the working's LaTeX needs of the Calculator: its variables and values, options, modules, and how values are shown. */
 export interface WorkingTexHost {
@@ -257,7 +261,7 @@ export class WorkingTex {
       return undefined
     }
     return exprTex(this.withAliases(node), { handler })
-      .replace(/([{(])\s+/g, '$1')
+      .replace(SPACE_AFTER_OPENING, '$1')
       .trim()
   }
 }

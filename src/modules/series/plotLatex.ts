@@ -2,7 +2,7 @@
  * A plot as LaTeX: a pgfplots graph, with the axes, ticks, colours and legend
  * the drawing has (plotGraph.ts), so the export matches the Rendered tab.
  */
-import { latexKit, symbolTex, unitTex } from '../../lib/plugin.ts'
+import { TEX_LIST, TEX_THIN_SPACE, latexKit, symbolTex, unitTex } from '../../lib/plugin.ts'
 import {
   FIT_LEGEND, NAMED_COLOURS, axisTicks, chosenColours, labelledAxes, plotScales, tickLabelTex, type PlotData, type PlotName, type Scale,
 } from './plotGraph.ts'
@@ -40,9 +40,9 @@ const plotNumber = (v: number) => String(Number(v.toPrecision(10)))
 function plotLabel(p: PlotName & { unit?: string }, power?: number): string {
   const name = p.label?.tex ?? (p.name ? symbolTex(p.name) : p.expr ? `\\text{${latexKit.escapeTex(p.expr)}}` : '')
   const scale = power === undefined ? '' : `${p.unit ? '' : '\\times '}10^{${power}}`
-  const inside = [scale, p.unit ? unitTex(p.unit) : ''].filter(Boolean).join('\\,')
+  const inside = [scale, p.unit ? unitTex(p.unit) : ''].filter(Boolean).join(TEX_THIN_SPACE)
   const unit = inside ? `\\left[${inside}\\right]` : ''
-  return `$${[name, unit].filter(Boolean).join('\\,')}$`
+  return `$${[name, unit].filter(Boolean).join(TEX_THIN_SPACE)}$`
 }
 
 /**
@@ -60,7 +60,7 @@ export function plotToLatex(plot: PlotData): string {
   const axes = labelledAxes(plot)
   const axisOptions = (axis: 'x' | 'y', s: Scale) => [
     `${axis}min=${plotNumber(s.from)}`, `${axis}max=${plotNumber(s.to)}`,
-    `${axis}tick={${s.ticks.map(plotNumber).join(',')}}`, `${axis}ticklabels={${ticks[axis].labels.map(tickLabelTex).join(',')}}`,
+    `${axis}tick={${s.ticks.map(plotNumber).join(TEX_LIST)}}`, `${axis}ticklabels={${ticks[axis].labels.map(tickLabelTex).join(TEX_LIST)}}`,
   ]
   const options = [
     'width=0.8\\linewidth', 'height=0.5\\linewidth', 'grid=major', 'scaled ticks=false',

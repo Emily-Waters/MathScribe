@@ -1,4 +1,5 @@
 /** What evaluating a line gives back, and how its equation is laid out. */
+import { TEX_RELATION } from '../../latex.ts'
 import { PERCENT, KEYWORD, DISPLAY_MODE, SIGIL, regex, src, words, type DisplayMode, type Notation, type Precision, type WordOf } from '../../syntax.ts'
 import { seriesMemberName } from '../../sheet/names.ts'
 import { FunctionMember, builtinAt } from '../../builtins.ts'
@@ -81,7 +82,7 @@ export function layoutEquation(mode: DisplayMode, p: EquationParts, multiline = 
   const steps = shown.filter((s, i) => i === 0 || key(s) !== key(shown[i - 1]))
   // The relation before each step after the first: =, or ≈ before a rounded result.
   const rels = steps.slice(1).map((s, i) =>
-    p.approx && i === steps.length - 2 && s === p.result ? '\\approx' : '=')
+    p.approx && i === steps.length - 2 && s === p.result ? TEX_RELATION.approx : TEX_RELATION.equals)
   // .multiline: each `=` on its own row, lined up (a single = stays on one line).
   if (multiline && steps.length > 2) {
     const rows = steps.slice(1).map((s, i) => `&${rels[i]} ${s}`)

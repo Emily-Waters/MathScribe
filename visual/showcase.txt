@@ -72,6 +72,17 @@ v = [x / t]
 salts = ["{KCl}", "{KBr}", "{KI}", "{NaCl}", "{NaBr}"]
 @table(t, x, v; title "Runs, timed", labels salts)
 @table(x[t > 0.2 s]; lines header) // the later points
+@table(title "Observations (by eye)", lines header) {  // typed, cell by cell
+    Salt     | Mass $m$  | Colour      | Note
+    {KCl}    | {{x[2]}}  | white       |
+    {CuSO4}  | 2.5 g     | *deep* blue | $|\Delta m| < 0.1$ g
+}
+@table(title "Mass of each salt") {
+    Salt  | Mass (g) |      |
+          | 1        | 2    | 3
+    {KCl} | 2.51     | 2.49 | 2.50
+    {KBr} | 3.02     |      | 3.01
+}
 p = @plot(t, x; fit linear, legend top left, title "Distance against time")
 x_model(t) = 0.5 m/s * t
 @plot(t, x, x_model; colour x_model line green, xlabel "Time", ylabel "Distance")

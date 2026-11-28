@@ -40,8 +40,8 @@ export interface TextChange {
   readonly insert: string
 }
 
-/** The contents whose lines are kept as written: raw LaTeX and imported data (`whole`), prose (`text`). */
-const KEPT_CONTENT: ReadonlySet<Content> = new Set([CONTENT.whole, CONTENT.text])
+/** The contents whose lines are kept as written: raw LaTeX and imported data (`whole`), prose (`text`), a typed table's rows (`cells`). */
+const KEPT_CONTENT: ReadonlySet<Content> = new Set([CONTENT.whole, CONTENT.text, CONTENT.cells])
 
 /** The bodies whose lines keep how much further in than the first each is: a list's sub-lists. */
 const RELATIVE_BODIES: ReadonlySet<string> = new Set([NODE_KIND.layout])

@@ -29,7 +29,7 @@ import {
   BLOCK_KIND, Construct, docxKit, latexKit, type CustomBlock, type DocxOut, type LatexOut,
 } from '../../lib/plugin.ts'
 import { TABLE_LINE } from './tableSettings.ts'
-import { TABLE_CAPTION, TABLE_TEX, type TableData } from './tableData.ts'
+import { TABLE_CAPTION, TABLE_TEX, groupColumns, isEmptyCell, spansBothRows, type TableData } from './tableData.ts'
 
 /** Each column of a table but its first: centred, the columns sharing the width. */
 const CENTRED_COLUMN = '>{\\centering\\arraybackslash}X'
@@ -58,6 +58,11 @@ const TABULAR = {
   bold: (text: string) => `\\textbf{\\boldmath ${text}}`,
   boldMaths: (tex: string) => `$\\boldsymbol{${tex}}$`,
   maths: (tex: string) => `$${tex}$`,
+  /** A cell over `span` columns, its own column spec (`c`, with any rules), and a rule under columns `from` to `to` (from 1). */
+  multicolumn: (span: number, spec: string, cell: string) => `\\multicolumn{${span}}{${spec}}{${cell}}`,
+  cline: (from: number, to: number) => `\\cline{${from}-${to}}`,
+  /** An empty cell, shaded (colortbl). */
+  shaded: '\\cellcolor{gray!15}',
   /** A note, under the table. */
   note: (note: string) => `\\par\\smallskip\\textit{${note}}`,
 } as const
@@ -68,8 +73,15 @@ export const TABLE_PREAMBLE = [
   '\\usepackage{tabularx}', '\\usepackage{float}', '\\usepackage{caption}',
 ] as const
 
-/** Whether a document's LaTeX has a table in it (and so needs TABLE_PREAMBLE). */
+/** What a document's preamble needs for a table's shaded cells: xcolor's gray!15 (loaded again harmlessly if it is already), and colortbl's \cellcolor. */
+export const SHADING_PREAMBLE = ['% A table\'s empty cells, shaded.', '\\usepackage{xcolor}', '\\usepackage{colortbl}'] as const
+
+/** Whether a document's LaTeX has a table in it (and so needs TABLE_PREAMBLE), and one with shaded cells (SHADING_PREAMBLE). */
 export const usesTables = (tex: string) => tex.includes(TABULAR.end)
+export const usesShading = (tex: string) => tex.includes(TABULAR.shaded)
+
+/** The colour an empty cell is shaded in Word, as hex (as LaTeX's gray!15). */
+const WORD_SHADE = 'D9D9D9'
 
 /**
  * A table's column spec: its first column (the row headers) to the left, the
@@ -86,15 +98,32 @@ function columnSpec({ lines, rowHeaders, header }: TableData): string {
 
 /** A table written as one is by hand (see the top of this file); `float`: as a float (not in a list or a column). */
 export function tableLatex(data: TableData, note: string | undefined, float: boolean): string {
-  const { lines, rowHeaders, header, rows, gapBefore, title } = data
+  const { lines, rowHeaders, text, groups, header, rows, gapBefore, title } = data
   const { indent, hline, rowEnd, cellSeparator } = TABULAR
   const grid = lines === TABLE_LINE.grid
   const row = (cells: string[]) => `${indent}${indent}${cells.join(cellSeparator)}${rowEnd}`
   // The row headers bold text (theirs, over them, blank); the header's maths bold; every other cell its maths.
+  // (A typed table's cells are all text: its header bold.)
   const isRowHeader = (i: number) => rowHeaders && i === 0
-  const bold = (text: string) => (text ? TABULAR.bold(latexKit.titleToLatex(text)) : '')
-  const headerCells = header.map((h, i) => (isRowHeader(i) ? bold(h) : TABULAR.boldMaths(h)))
-  const cellsOf = (cells: readonly string[]) => cells.map((c, i) => (isRowHeader(i) ? bold(c) : TABULAR.maths(c)))
+  const bold = (cell: string) => (cell ? TABULAR.bold(latexKit.titleToLatex(cell)) : '')
+  // A typed table's header over two rows: its spans over the names under them, each with a rule under it (unless
+  // lines none); a column with nothing under it has its one header in the lower row, just over the body.
+  const spans = groups ? groupColumns(groups) : []
+  const overColumn = (i: number) => spans.find((g) => i >= g.from && i < g.from + g.span)
+  const both = (i: number) => {
+    const g = overColumn(i)
+    return g !== undefined && spansBothRows(g, header[g.from])
+  }
+  const headerCells = header.map((h, i) => (both(i) ? bold(overColumn(i)!.text) : text || isRowHeader(i) ? bold(h) : TABULAR.boldMaths(h)))
+  const upperCells = spans.map((g) => {
+    const cell = spansBothRows(g, header[g.from]) ? '' : bold(g.text)
+    return g.span > 1 ? TABULAR.multicolumn(g.span, grid ? `${g.from === 0 ? TABULAR.rule : ''}c${TABULAR.rule}` : 'c', cell) : cell
+  })
+  const underSpans = lines === TABLE_LINE.none ? []
+    : spans.filter((g) => !spansBothRows(g, header[g.from])).map((g) => `${indent}${indent}${TABULAR.cline(g.from + 1, g.from + g.span)}`)
+  const upper = groups ? [row(upperCells), ...underSpans] : []
+  const cellsOf = (cells: readonly string[]) => cells.map((c, i) => (isRowHeader(i) ? bold(c)
+    : isEmptyCell(data, c) ? TABULAR.shaded : text ? latexKit.titleToLatex(c) : TABULAR.maths(c)))
   const gap = header.map(() => TABULAR.maths(TABLE_TEX.gap))
   const body: string[] = []
   rows.forEach((cells, r) => {
@@ -109,6 +138,7 @@ export function tableLatex(data: TableData, note: string | undefined, float: boo
     ...(float ? [`${indent}${TABULAR.centering}`] : []),
     `${indent}${TABULAR.begin(columnSpec(data))}`,
     ...(grid ? [`${indent}${indent}${hline}`] : []),
+    ...upper,
     row(headerCells),
     ...(lines === TABLE_LINE.none ? [] : [`${indent}${indent}${hline}`]),
     ...body,
@@ -149,7 +179,7 @@ const rules = (sides: readonly Side[]) =>
  * settings say; its note under it.
  */
 export function tableDocx(data: TableData, note: string | undefined, ctx: docxKit.Ctx): docxKit.Item[] {
-  const { lines, rowHeaders, header, rows, gapBefore, title } = data
+  const { lines, rowHeaders, text, groups, header, rows, gapBefore, title } = data
   const { ALIGN } = docxKit
   const isRowHeader = (i: number) => rowHeaders && i === 0
   const width = ctx.width - ctx.indent
@@ -162,19 +192,38 @@ export function tableDocx(data: TableData, note: string | undefined, ctx: docxKi
   const widths = header.map((_, i) => (isRowHeader(i) ? rowHeadersWidth : columnWidth))
   // With lines under the header: a rule under each header cell, and after each row header.
   const underHeader = lines === TABLE_LINE.header
-  const cell = (i: number, content: string, isHeader: boolean) => {
+  /** A cell: `span` columns wide from column `i` (a typed table's span), and the start or the rest of one merged down (`merge`). */
+  const cell = (i: number, content: string, isHeader: boolean, shaded = false, span = 1, merge?: 'restart' | 'continue') => {
     const first = isRowHeader(i)
-    const sides: Side[] = underHeader ? [...(isHeader ? ['bottom' as const] : []), ...(first ? ['right' as const] : [])] : []
+    // (A cell merged down has its rule under its last part.)
+    const ruled = isHeader && merge !== 'restart'
+    const sides: Side[] = underHeader ? [...(ruled ? ['bottom' as const] : []), ...(first ? ['right' as const] : [])] : []
     const props = { jc: first ? ALIGN.left : ALIGN.center, before: WORD_TABLE.padding, after: WORD_TABLE.padding }
-    return `<w:tc><w:tcPr><w:tcW w:w="${widths[i]}" w:type="dxa"/>${sides.length ? `<w:tcBorders>${rules(sides)}</w:tcBorders>` : ''}`
+    const w = widths.slice(i, i + span).reduce((a, b) => a + b, 0)
+    return `<w:tc><w:tcPr><w:tcW w:w="${w}" w:type="dxa"/>${span > 1 ? `<w:gridSpan w:val="${span}"/>` : ''}`
+      + `${merge ? `<w:vMerge w:val="${merge}"/>` : ''}${sides.length ? `<w:tcBorders>${rules(sides)}</w:tcBorders>` : ''}`
+      + `${shaded ? `<w:shd w:val="clear" w:color="auto" w:fill="${WORD_SHADE}"/>` : ''}`
       + `<w:vAlign w:val="center"/></w:tcPr>${docxKit.paraXml({ props, content })}</w:tc>`
   }
   // The row headers bold text (theirs, over them, blank); the header's maths bold; every other cell its maths.
-  const bold = (text: string) => docxKit.titleRuns(text, { bold: true })
-  const headerRow = `<w:tr><w:trPr><w:tblHeader/></w:trPr>${header.map((h, i) =>
-    cell(i, isRowHeader(i) ? bold(h) : docxKit.alignedMath(h, ALIGN.center, true), true)).join('')}</w:tr>`
+  // (A typed table's cells are all text: its header bold.)
+  const bold = (cell: string) => docxKit.titleRuns(cell, { bold: true })
+  const headerText = (h: string) => docxKit.alignedTitle(h, ALIGN.center, { bold: true })
+  const HEADER_ROW = '<w:tr><w:trPr><w:tblHeader/></w:trPr>'
+  // A typed table's header over two rows: its spans over the names under them; a column with nothing under it, one
+  // header merged down both. (Both rows repeat on each page.)
+  const spans = groups ? groupColumns(groups) : []
+  const upperRow = groups ? `${HEADER_ROW}${spans.map((g) => (spansBothRows(g, header[g.from])
+    ? cell(g.from, headerText(g.text), true, false, 1, 'restart')
+    : cell(g.from, headerText(g.text), true, false, g.span))).join('')}</w:tr>` : ''
+  const headerRow = `${upperRow}${HEADER_ROW}${spans.length
+    ? spans.flatMap((g) => (spansBothRows(g, header[g.from]) ? [cell(g.from, '', true, false, 1, 'continue')]
+      : header.slice(g.from, g.from + g.span).map((h, j) => cell(g.from + j, headerText(h), true)))).join('')
+    : header.map((h, i) =>
+      cell(i, isRowHeader(i) ? bold(h) : text ? headerText(h) : docxKit.alignedMath(h, ALIGN.center, true), true)).join('')}</w:tr>`
   const row = (cells: readonly string[]) => `<w:tr>${cells.map((c, i) =>
-    cell(i, isRowHeader(i) ? bold(c) : docxKit.alignedMath(c, ALIGN.center), false)).join('')}</w:tr>`
+    cell(i, isRowHeader(i) ? bold(c) : text ? docxKit.alignedTitle(c, ALIGN.center) : docxKit.alignedMath(c, ALIGN.center), false,
+      !isRowHeader(i) && isEmptyCell(data, c))).join('')}</w:tr>`
   // (The gap in a shortened table: ⋮ in every column, the row headers' too, as maths.)
   const gap = `<w:tr>${header.map((_, i) => cell(i, docxKit.alignedMath(TABLE_TEX.gap, isRowHeader(i) ? ALIGN.left : ALIGN.center), false)).join('')}</w:tr>`
   const body = rows.flatMap((cells, r) => [...(r === gapBefore ? [gap] : []), row(cells)])

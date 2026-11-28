@@ -13,6 +13,11 @@
   color: var(--text);
 }
 
+/* A typed table's empty cell: shaded, as in the exports (as a lab table shades what wasn't measured). */
+.ms-table__table .ms-table__empty {
+  background: color-mix(in srgb, var(--text) 12%, transparent);
+}
+
 /* A wide table scrolls, rather than squeezing its numbers. */
 .ms-table__scroll {
   overflow-x: auto;

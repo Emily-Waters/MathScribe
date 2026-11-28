@@ -16,11 +16,15 @@ export const BLOCK_OPEN = '{'
 /** A block's closing brace, at the start of a line. */
 export const BLOCK_CLOSE = '}'
 
+/** What's in a block name's brackets: anything but brackets, or quoted text, which can hold them (`title "Mass (g)"`). */
+export const BLOCK_ARGS = String.raw`\((?:"[^"\n]*"|[^()"\n])*\)`
+
 /**
- * A block's `@` name, at the start of its opener, with any members (and what's
- * in their brackets): `@layout.column(3).list`, `@constants`, `@chem.species`, `@latex`.
+ * A block's `@` name, at the start of its opener, with what's in its brackets
+ * and any members (and what's in theirs): `@layout.column(3).list`, `@constants`,
+ * `@chem.species`, `@latex`, `@table(title "Runs")`.
  */
-export const BLOCK_NAME = regex(src`^${SIGIL}${NAME}(?:\.${NAME}(?:\([^()\n]*\))?)*`)
+export const BLOCK_NAME = regex(src`^${SIGIL}${NAME}(?:${BLOCK_ARGS})?(?:\.${NAME}(?:${BLOCK_ARGS})?)*`)
 
 /** Whether a line closes a block: `}`, with anything after it. */
 export const closesBlock = (text: string) => text.trimStart().startsWith(BLOCK_CLOSE)

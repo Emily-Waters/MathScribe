@@ -10,7 +10,7 @@
  * its text (codec.ts), and later its evaluation.
  */
 import {
-  BLOCK_NAME, BLOCK_OPEN, INLINE_MATHS, MATHS_MARK, NOTED_PIECE, PARAGRAPH_MARK, VALUE_BRACES, VALUE_IN_TEXT, isComment, readNoted, regex,
+  BLOCK_NAME, BLOCK_OPEN, CELL_SEPARATOR, INLINE_MATHS, MATHS_MARK, NOTED_PIECE, PARAGRAPH_MARK, VALUE_BRACES, VALUE_IN_TEXT, isComment, readNoted, regex,
   type NotedLine,
 } from '../syntax.ts'
 import { CONTENT, contextInfo, syntaxesIn, type Body, type Content } from './grammar.ts'
@@ -148,6 +148,10 @@ function contentTokens(content: string, style: Content, into: Part[], noted?: No
     textTokens(content, into)
     return
   }
+  if (style === CONTENT.cells) {
+    cellsTokens(content, into)
+    return
+  }
   if (style === CONTENT.paragraph) {
     paragraphTokens(content, into)
     return
@@ -264,6 +268,41 @@ function textTokens(text: string, into: Part[]): void {
     plainFrom = pos
   }
   plainTo(text.length)
+}
+
+/**
+ * A row of cells, `1 | {{m_1}} | $|x|$`: each cell a node of its text's tokens
+ * (as textTokens reads them), the spaces around it outside it, and a `|` between
+ * two (one in inline maths or a value is theirs, so the markup is passed over whole).
+ */
+function cellsTokens(content: string, into: Part[]): void {
+  let from = 0
+  const cell = (end: number) => {
+    const text = content.slice(from, end)
+    const said = text.trim()
+    if (!said) {
+      if (text) into.push(token(TOKEN_KIND.space, text))
+      return
+    }
+    const lead = text.length - text.trimStart().length
+    if (lead) into.push(token(TOKEN_KIND.space, text.slice(0, lead)))
+    const parts: Part[] = []
+    textTokens(said, parts)
+    into.push(node(NODE_KIND.cell, parts))
+    const tail = text.slice(lead + said.length)
+    if (tail) into.push(token(TOKEN_KIND.space, tail))
+  }
+  for (let pos = 0; pos < content.length;) {
+    if (content.startsWith(CELL_SEPARATOR, pos)) {
+      cell(pos)
+      into.push(token(TOKEN_KIND.delimiter, CELL_SEPARATOR))
+      pos += CELL_SEPARATOR.length
+      from = pos
+      continue
+    }
+    pos += markupAt(content, pos)?.length ?? 1
+  }
+  cell(content.length)
 }
 
 /** A paragraph, `> words`: its `>`, then its text. */

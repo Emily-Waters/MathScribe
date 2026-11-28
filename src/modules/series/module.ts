@@ -8,12 +8,14 @@
  */
 import {
   EngineModule, LINE_STAGE, type Extension, type LineForm, type LineStep, LineFormMember, type Member, type ModuleBlockKind, type ModuleFigureKind, type ModuleGrammar,
+  type NodeReader, type ReadsLines,
 } from '../../lib/plugin.ts'
+import { TypedTableReader } from './typedTable.ts'
 import { PLOT_FIGURE } from './plotFigure.ts'
 import { fitMemberTex, fitMessage } from './fitNames.ts'
 import { StrayBracketsStep } from './brackets.ts'
 import { SERIES_GRAMMAR } from './grammar.ts'
-import { TABLE_PREAMBLE, TableConstruct, usesTables } from './tableBlock.ts'
+import { SHADING_PREAMBLE, TABLE_PREAMBLE, TableConstruct, usesShading, usesTables } from './tableBlock.ts'
 import { SERIES_BLOCK, SERIES_FIGURE, TABLE_CAPTION, type TableData } from './tableData.ts'
 import { TableView } from './tableView.tsx'
 import { SERIES_CALL } from './syntax.ts'
@@ -41,7 +43,12 @@ const SERIES_BLOCK_KINDS: Readonly<Record<string, ModuleBlockKind>> = {
 /** The series module's kinds of figure (one object, as figureKinds asks). */
 const SERIES_FIGURE_KINDS: Readonly<Record<string, ModuleFigureKind>> = { [SERIES_FIGURE.plot]: PLOT_FIGURE }
 
-export class SeriesModule extends EngineModule {
+export class SeriesModule extends EngineModule implements ReadsLines {
+  /** Its lines of a sheet: a typed table, `@table { … }` (typedTable.ts; see ReadsLines). */
+  lineReaders(): NodeReader[] {
+    return [new TypedTableReader()]
+  }
+
   /** Its topics of the language tree: what's said about its features, with examples the tests check (language.ts). */
   override languageTopics(): readonly PlacedTopic[] {
     return SERIES_TOPICS
@@ -103,9 +110,9 @@ export class SeriesModule extends EngineModule {
     return fitMemberTex(member, ns)
   }
 
-  /** What a document with a table in it needs: tabularx, float and caption. */
+  /** What a document with a table in it needs: tabularx, float and caption; and, for shaded cells, colortbl. */
   override latexPreamble(tex: string): string[] {
-    return usesTables(tex) ? [...TABLE_PREAMBLE] : []
+    return [...(usesTables(tex) ? TABLE_PREAMBLE : []), ...(usesShading(tex) ? SHADING_PREAMBLE : [])]
   }
 
   override builtinMembers(): Member[] {

@@ -23,6 +23,19 @@ export const TABLE_CELL = {
   empty: '\\text{—}',
 } as const
 
+/** A cell of a typed table's upper header row: its text, and how many columns it spans. */
+export interface TableGroup {
+  readonly text: string
+  readonly span: number
+}
+
+/** The columns each of a header's groups spans (its first, and how many), in order. */
+export const groupColumns = (groups: readonly TableGroup[]) =>
+  groups.map((g, i) => ({ ...g, from: groups.slice(0, i).reduce((n, h) => n + h.span, 0) }))
+
+/** Whether a column of a two-row header is one header over both rows: its group spans only it, and nothing's under it. */
+export const spansBothRows = (group: TableGroup, under: string | undefined) => group.span === 1 && !under?.trim()
+
 /** A table, as its line worked it out. */
 export interface TableData {
   /** Its caption, if it has one. */
@@ -35,12 +48,33 @@ export interface TableData {
    * a title is (`$…$` maths, `p_z` subscripts), not maths.
    */
   readonly rowHeaders: boolean
-  /** Each column's header, then each row's cells: the row headers' as text, the rest as LaTeX. */
+  /**
+   * Whether every cell is text, drawn as a title is (`$…$` maths, its values
+   * filled in already): a typed table's. Otherwise the row headers' are text
+   * and the rest LaTeX.
+   */
+  readonly text?: boolean
+  /**
+   * A typed table's header over two rows, its upper row: each cell's text and
+   * how many columns it spans, left to right, over every column (a spanning
+   * header with its unit, `Mass (g)` over trials 1, 2 and 3). A column whose
+   * cell spans only it and has nothing under it in `header` is one header over
+   * both rows (`Salt`).
+   */
+  readonly groups?: readonly TableGroup[]
+  /** Each column's header (with groups, the row under them), then each row's cells: text or LaTeX, as `text` and `rowHeaders` say. */
   readonly header: readonly string[]
   readonly rows: readonly (readonly string[])[]
   /** In a table shortened to its first and last rows, the row a gap (⋮) comes before. */
   readonly gapBefore?: number
 }
+
+/**
+ * Whether a cell of a table's body is left empty: a typed table's with nothing
+ * in it, shaded in every output, as a lab table shades what wasn't measured.
+ * (A table of series' missing value shows —: TABLE_CELL.empty.)
+ */
+export const isEmptyCell = (data: TableData, cell: string) => data.text === true && !cell.trim()
 
 /** The pieces of a table's LaTeX as an `array`. */
 export const TABLE_TEX = {
@@ -53,13 +87,21 @@ export const TABLE_TEX = {
   /** A column's alignment, and the line between two. */
   column: 'r',
   columnRule: '|',
+  /** A text cell (a typed table's), as text in maths. */
+  text: (cell: string) => `\\text{${cell}}`,
+  /** A cell over `span` columns, centred. */
+  spanning: (span: number, cell: string) => (span > 1 ? `\\multicolumn{${span}}{c}{${cell}}` : cell),
 } as const
 
 /** A table as an `array`: its lines as its settings say (a line after the header; around every cell in a grid; none). */
-export function tableTex({ lines, rowHeaders, header, rows, gapBefore }: TableData): string {
+export function tableTex({ lines, rowHeaders, text, groups, header: headerCells, rows: rowCells, gapBefore }: TableData): string {
   const grid = lines === TABLE_LINE.grid
   const none = lines === TABLE_LINE.none
   const { column, columnRule, cellSeparator } = TABLE_TEX
+  // (A typed table's text, as text in maths.)
+  const asTex = (cells: readonly string[]) => (text ? cells.map(TABLE_TEX.text) : cells)
+  const header = asTex(headerCells)
+  const rows = rowCells.map(asTex)
   // A line after each row in a grid; otherwise just after the header (none for lines none).
   const rowEnd = grid ? TABLE_TEX.ruledRowEnd : TABLE_TEX.rowEnd
   const rowsTex = rows.map((cells, r) => {
@@ -73,5 +115,7 @@ export function tableTex({ lines, rowHeaders, header, rows, gapBefore }: TableDa
   const top = grid ? TABLE_TEX.rule : ''
   const afterHeader = none ? TABLE_TEX.rowEnd : TABLE_TEX.ruledRowEnd
   const end = grid ? TABLE_TEX.ruledRowEnd.trimEnd() : ''
-  return `\\begin{array}{${columnSpec}} ${top}${header.join(cellSeparator)}${afterHeader}${rowsTex.join(rowEnd)}${end} \\end{array}`
+  // (A typed table's spans, a row over its header.)
+  const over = groups ? `${groups.map((g) => TABLE_TEX.spanning(g.span, TABLE_TEX.text(g.text))).join(cellSeparator)}${TABLE_TEX.rowEnd}` : ''
+  return `\\begin{array}{${columnSpec}} ${top}${over}${header.join(cellSeparator)}${afterHeader}${rowsTex.join(rowEnd)}${end} \\end{array}`
 }

@@ -53,6 +53,11 @@ export const CONTENT = {
   whole: 'whole',
   /** Text, as `whole`, but with each value in it, `{{c_Na}}`, read as an expression (outside `$…$` maths): prose. */
   text: 'text',
+  /**
+   * A row of cells, each its text as `text`, between `|`s (outside inline maths
+   * and values): a typed table's row, `1 | {{m_1}} | pale blue`.
+   */
+  cells: 'cells',
   /** A paragraph's `>`, then its text, as `text` (`> The mass is {{m}}.`). */
   paragraph: 'paragraph',
   /** A heading's `#`s, then its title (all of it: a `#` in a title is the title's; values in it as in `text`). */

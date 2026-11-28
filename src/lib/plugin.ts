@@ -104,6 +104,8 @@ export * as latexKit from './output/latexKit.ts'
 export * as docxKit from './output/docxKit.ts'
 export { BlockMessages, Tex, Title } from '../components/blocks/shared.tsx'
 export { useCaptionNumber, useLineLink } from '../components/blocks/context.ts'
+// (A panel of a module's own in the Output pane's place, to edit what the sheet says another way: series' grid for a table.)
+export { outputPanel, showOutputPanel, type OutputPanel, type OutputPanelProps } from '../components/outputPanel.ts'
 
 // The editor.
 export type { Extension } from '@codemirror/state'

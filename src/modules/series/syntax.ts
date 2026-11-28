@@ -1,5 +1,10 @@
-/** The series module's syntax: `@table(…)` and `@plot(…)`, each a line of its own. (A series itself is in square brackets: series.ts.) */
-import { SERIES_STAT_SUFFIX, builtinFunctionName, builtinOpening, NAMED, words, type WordOf } from '../../lib/plugin.ts'
+/**
+ * The series module's syntax: `@table(…)` and `@plot(…)`, each a line of its own,
+ * and a typed table, `@table { … }`. (A series itself is in square brackets: series.ts.)
+ */
+import {
+  BLOCK_ARGS, SERIES_STAT_SUFFIX, SIGIL, builtinFunctionName, builtinOpening, NAMED, optional, regex, src, words, type WordOf,
+} from '../../lib/plugin.ts'
 
 /** The series module's functions, each written after @: `@table(t, x)`. */
 export const SERIES_CALL = {
@@ -9,6 +14,13 @@ export const SERIES_CALL = {
 
 /** A table of series: `@table(t, x, v = x / t)` (1: what's between the brackets). */
 export const TABLE_CALL = new RegExp(String.raw`^${builtinOpening(SERIES_CALL.table)}(.*)\)$`)
+
+/**
+ * A typed table's opener: `@table {`, or with its settings in brackets,
+ * `@table(title "Observations", lines header) {`. Its rows follow, a line each,
+ * their cells between `|`s, up to its `}`.
+ */
+export const TYPED_TABLE_OPENER = regex(src`^${SIGIL}${SERIES_CALL.table}${optional(BLOCK_ARGS)}\s*\{$`)
 
 /**
  * A plot of series: `@plot(t, x, y)`, or a named one, `p = @plot(t, x; fit linear)`,

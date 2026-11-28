@@ -10,7 +10,7 @@ const SERIES_STAT = { sum: 'sum', avg: 'avg', count: 'count', std: 'std', sem: '
 
 /** A statistic's term, as it follows the series' name: `.avg`. */
 const stat = (name: SeriesSuffix) => `${MEMBER_DOT}${name}`
-import { TABLE_SETTINGS } from './tableSettings.ts'
+import { TABLE_SETTINGS, TYPED_TABLE_SETTINGS } from './tableSettings.ts'
 import { PLOT_SETTINGS } from './plotSettings.ts'
 
 /** The series a table's and a plot's settings are shown with, in the reference. */
@@ -25,6 +25,9 @@ const LINE = '\n'
 
 /** A table of the sample with these settings. */
 const tableSample = (settings: string) => [...SAMPLE_DATA, `@table(t, x; ${settings})`].join(LINE)
+
+/** A typed table with these settings. */
+const typedTableSample = (settings: string) => [`@table(${settings}) {`, '    Salt | Colour', '    KCl  | white', '    CuSO$_4$ | blue', '}'].join(LINE)
 
 /** A plot of the sample with these settings, and a fit, unless they say what fit (so a fit's settings show). */
 const plotSample = (settings: string) =>
@@ -159,6 +162,41 @@ export const SERIES_TOPICS: readonly PlacedTopic[] = [
             'd = [3.50 m, 3.48 m, 3.52 m]',
             '@table(t, d, v = d / t)',
             'v.avg',
+          ].join('\n'),
+        }],
+      },
+      {
+        explain: '@table { … } is a table typed cell by cell, for observations rather than numbers worked out: a row '
+          + 'a line, its cells between |s, its first row the header. Each cell is text: $…$ for maths, {{name}} for a '
+          + 'value from the sheet.',
+        rules: [
+          'Its settings go in its brackets: @table(title "Observations", lines header) { … } (Typed table settings).',
+          'A short row has empty cells at its end; a cell with nothing between its |s is empty. An empty cell is '
+            + 'shaded, as a lab table shades what wasn\'t measured.',
+          'In the first row, an empty cell after a filled one joins it: one header over several columns, Mass (g) over '
+            + 'three trials. The second row is then the header under it; a column with nothing there has one header '
+            + 'down both rows.',
+          'A | inside $…$ or {{…}} is theirs, not the end of a cell: $|x|$.',
+          'Its ⚙ in the editor edits it as a grid in the Output pane: type into the cells, and add and take away rows '
+            + 'and columns. A table of series\' ⚙ opens the grid too, for its columns, its cells worked out.',
+        ],
+        examples: [{
+          source: [
+            'm_1 = 12.3 g',
+            '@table(title "Observations") {',
+            '    Trial | Mass $m$ | Colour',
+            '    1     | {{m_1}}  | pale blue',
+            '    2     | 12.8 g   | deep blue',
+            '}',
+          ].join('\n'),
+        }, {
+          source: [
+            '@table(title "Mass of each salt", lines header) {',
+            '    Salt  | Mass (g) |      |',
+            '          | 1        | 2    | 3',
+            '    {KCl} | 2.51     | 2.49 | 2.50',
+            '    {KBr} | 3.02     |      | 3.01',
+            '}',
           ].join('\n'),
         }],
       },
@@ -373,5 +411,6 @@ export const SERIES_TOPICS: readonly PlacedTopic[] = [
   },
   // A table's and a plot's settings, from their declarations (tableSettings.ts, plotSettings.ts).
   settingsTopic(TABLE_SETTINGS.describe(), { id: 'table-settings', title: 'Table settings', after: 'series' }, tableSample),
-  settingsTopic(PLOT_SETTINGS.describe(), { id: 'plot-settings', title: 'Plot settings', after: 'table-settings' }, plotSample),
+  settingsTopic(TYPED_TABLE_SETTINGS.describe(), { id: 'typed-table-settings', title: 'Typed table settings', after: 'table-settings' }, typedTableSample),
+  settingsTopic(PLOT_SETTINGS.describe(), { id: 'plot-settings', title: 'Plot settings', after: 'typed-table-settings' }, plotSample),
 ]

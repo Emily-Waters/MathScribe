@@ -5,7 +5,7 @@
  * it, and the line's messages.
  */
 import { BlockMessages, Tex, Title, useCaptionNumber, useLineLink, type CustomBlock } from '../../lib/plugin.ts'
-import { TABLE_CAPTION, TABLE_TEX, type TableData } from './tableData.ts'
+import { TABLE_CAPTION, TABLE_TEX, groupColumns, isEmptyCell, spansBothRows, type TableData } from './tableData.ts'
 import './tableView.css'
 
 /** The whole of something, in percent (a column's share of the width). */
@@ -19,7 +19,8 @@ export function TableView({ block }: { block: CustomBlock }) {
   const number = useCaptionNumber(block)
   // Hidden tables stay hidden unless something went wrong.
   if (block.hidden && !block.error) return null
-  const { lines, rowHeaders, header, rows, gapBefore, title } = block.data as TableData
+  const data = block.data as TableData
+  const { lines, rowHeaders, text, groups, header, rows, gapBefore, title } = data
   /** Whether column `i` is the row headers (numbers or labels): bold text, to the left. */
   const isRowHeader = (i: number) => rowHeaders && i === 0
   /** Each other column's share of the width, in percent. */
@@ -34,7 +35,8 @@ export function TableView({ block }: { block: CustomBlock }) {
     <tr key={key}>
       {row.map((c, i) => (isRowHeader(i)
         ? <td key={i} className="ms-table__n"><Title text={c} bold /></td>
-        : <td key={i}><Tex latex={c} /></td>))}
+        : isEmptyCell(data, c) ? <td key={i} className="ms-table__empty" />
+          : <td key={i}>{text ? <Title text={c} /> : <Tex latex={c} />}</td>))}
     </tr>
   )
   return (
@@ -53,11 +55,26 @@ export function TableView({ block }: { block: CustomBlock }) {
             {header.map((_, i) => <col key={i} className={isRowHeader(i) ? 'ms-table__n' : undefined} style={isRowHeader(i) ? undefined : { width: `${share}%` }} />)}
           </colgroup>
           <thead>
-            <tr>
-              {header.map((h, i) => (isRowHeader(i)
-                ? <th key={i} className="ms-table__n"><Title text={h} bold /></th>
-                : <th key={i}><Tex latex={boldTex(h)} /></th>))}
-            </tr>
+            {groups ? (
+              <>
+                {/* (A typed table's header over two rows: its spans over the names under them; a column with nothing under it, one header down both.) */}
+                <tr>
+                  {groupColumns(groups).map((g) => (spansBothRows(g, header[g.from])
+                    ? <th key={g.from} rowSpan={2}><Title text={g.text} bold /></th>
+                    : <th key={g.from} colSpan={g.span}><Title text={g.text} bold /></th>))}
+                </tr>
+                <tr>
+                  {groupColumns(groups).flatMap((g) => (spansBothRows(g, header[g.from]) ? []
+                    : header.slice(g.from, g.from + g.span).map((h, i) => <th key={g.from + i}><Title text={h} bold /></th>)))}
+                </tr>
+              </>
+            ) : (
+              <tr>
+                {header.map((h, i) => (isRowHeader(i)
+                  ? <th key={i} className="ms-table__n"><Title text={h} bold /></th>
+                  : <th key={i}>{text ? <Title text={h} bold /> : <Tex latex={boldTex(h)} />}</th>))}
+              </tr>
+            )}
           </thead>
           <tbody>
             {rows.flatMap((row, r) => [...(r === gapBefore ? [gap] : []), cells(row, String(r))])}

@@ -113,6 +113,9 @@
           "$ref": "#/$defs/node.value"
         },
         {
+          "$ref": "#/$defs/node.cell"
+        },
+        {
           "$ref": "#/$defs/node.assigned"
         },
         {
@@ -144,6 +147,15 @@
         },
         {
           "$ref": "#/$defs/node.formula"
+        },
+        {
+          "$ref": "#/$defs/node.typedTableOpener"
+        },
+        {
+          "$ref": "#/$defs/node.typedTableRow"
+        },
+        {
+          "$ref": "#/$defs/node.typedTable"
         },
         {
           "$ref": "#/$defs/node.vector"
@@ -1015,6 +1027,33 @@
         }
       }
     },
+    "node.cell": {
+      "description": "A cell of a row of cells: its text, read as text, without the spaces around it, 12.3 g in 1 | 12.3 g | pale blue (core)",
+      "type": "object",
+      "required": [
+        "kind",
+        "parts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "cell"
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/token"
+              },
+              {
+                "$ref": "#/$defs/node"
+              }
+            ]
+          }
+        }
+      }
+    },
     "node.assigned": {
       "description": "The name a line assigns, with its settings, before its =: v:3:km/h (core)",
       "type": "object",
@@ -1296,6 +1335,87 @@
       "properties": {
         "kind": {
           "const": "formula"
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/token"
+              },
+              {
+                "$ref": "#/$defs/node"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "node.typedTableOpener": {
+      "description": "A typed table’s opener, with any settings in its brackets: @table(title \"Runs\") { (SeriesModule)",
+      "type": "object",
+      "required": [
+        "kind",
+        "parts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "typedTableOpener"
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/token"
+              },
+              {
+                "$ref": "#/$defs/node"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "node.typedTableRow": {
+      "description": "A row of a typed table, its cells between |s: 1 | 12.3 g | pale blue (SeriesModule)",
+      "type": "object",
+      "required": [
+        "kind",
+        "parts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "typedTableRow"
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/token"
+              },
+              {
+                "$ref": "#/$defs/node"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "node.typedTable": {
+      "description": "A typed table: its opener, its rows, and its } (SeriesModule)",
+      "type": "object",
+      "required": [
+        "kind",
+        "parts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "typedTable"
         },
         "parts": {
           "type": "array",

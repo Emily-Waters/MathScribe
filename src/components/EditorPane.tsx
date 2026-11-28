@@ -131,24 +131,36 @@ const tabToStop: Command = (view) => {
   return true
 }
 
+/** What the editor splits what's inserted into lines at. */
+const LINE_BREAK = '\n'
+
 /**
  * The changes from the editor's text to text from outside it (the sheet
- * formatted as it's saved), so the cursor stays on what it was on: with as many
- * lines, only what differs in each line; otherwise, the lines that differ
- * between those the same at the start and at the end.
+ * formatted as it's saved, a table's grid editor's), so the cursor stays on
+ * what it was on: with as many lines, only what differs in each line;
+ * otherwise, the lines that differ between those the same at the start and at
+ * the end (whole lines, with their line breaks, when lines are only added or
+ * only taken away).
  */
-function changesTo(doc: Text, value: string): ChangeSpec[] {
+export function changesTo(doc: Text, value: string): ChangeSpec[] {
   const lines = splitLines(value)
   if (lines.length !== doc.lines) {
     let head = 0
     while (head < lines.length && head < doc.lines && lines[head].text === doc.line(head + 1).text) head++
     let tail = 0
     while (tail < lines.length - head && tail < doc.lines - head && lines.at(-1 - tail)!.text === doc.line(doc.lines - tail).text) tail++
-    const from = head < doc.lines ? doc.line(head + 1).from : doc.length
-    const to = doc.lines - tail > head ? doc.line(doc.lines - tail).to : from
     // (The editor keeps its own line endings: what's inserted is split into lines at `\n`.)
-    const middle = lines.slice(head, lines.length - tail).map((l) => l.text).join('\n')
-    return [{ from, to, insert: middle }]
+    const inserted = lines.slice(head, lines.length - tail).map((l) => l.text)
+    const removed = doc.lines - tail - head
+    const middle = inserted.join(LINE_BREAK)
+    if (removed > 0 && inserted.length > 0) return [{ from: doc.line(head + 1).from, to: doc.line(doc.lines - tail).to, insert: middle }]
+    // Lines only added: each with its line break, before the line after them (or after the last).
+    if (removed === 0) {
+      return head < doc.lines ? [{ from: doc.line(head + 1).from, insert: `${middle}${LINE_BREAK}` }] : [{ from: doc.length, insert: `${LINE_BREAK}${middle}` }]
+    }
+    // Lines only taken away: their line breaks too, up to the line after them (or from the end of the one before the last).
+    const last = doc.lines - tail
+    return last < doc.lines ? [{ from: doc.line(head + 1).from, to: doc.line(last + 1).from }] : [{ from: doc.line(head).to, to: doc.length }]
   }
   const changes: ChangeSpec[] = []
   lines.forEach(({ text }, i) => {

@@ -1,182 +1,47 @@
 /**
- * The settings button of a table or plot: a ⚙ after `@table(…)` or `@plot(…)` in
- * the editor, which opens a small panel of its settings. Changing one rewrites
- * the settings after the semicolon in the brackets (see tableSettings.ts and
- * plotSettings.ts), so the sheet's text is always what's shown. The series module
- * adds it to the editor (SeriesModule.editorExtensions).
+ * The ⚙ of a table or plot in the editor: after `@table(…)` or `@plot(…)`, and
+ * after a typed table's `@table {`. The series module adds it to the editor
+ * (SeriesModule.editorExtensions).
  *
- * The panel's controls are the settings' own, as declared (TABLE_SETTINGS,
- * PLOT_SETTINGS: each kind of setting says what its control is, in terms of
- * the DOM panel below), so a setting added there is in its menu too.
+ * - A table's opens its grid editor in the Output pane's place (tableEditor.tsx):
+ *   a typed table's cells, rows and columns, or a table of series' columns, and
+ *   either's settings. A second click closes it.
+ * - A plot's opens a small panel of its settings beside it. Changing one
+ *   rewrites the settings after the semicolon in its brackets (plotSettings.ts),
+ *   so the sheet's text is always what's shown. Its controls are the settings'
+ *   own, as declared (PLOT_SETTINGS: each kind of setting says what its control
+ *   is: settingsPanel.ts), so a setting added there is in its menu too.
  */
 import { type EditorState, type Extension } from '@codemirror/state'
 import { Decoration, EditorView, WidgetType } from '@codemirror/view'
-import { CALLS_WITH_SETTINGS, PLOT_SETTINGS, SERIES_CALL, TABLE_SETTINGS, splitCallArgs, withSettingsText, type CallWithSettings as CallKind } from './public.ts'
-import {
-  ASSIGN, ROUND_BRACKETS, SIGIL, TOKEN_KIND, closeOnPressOutside, encode, placeFixedPanel, sheetStatements, type SettingsPanel, type SheetStatement,
-} from '../../lib/plugin.ts'
+import { PLOT_SETTINGS, SERIES_CALL, splitCallArgs, withSettingsText } from './public.ts'
+import { ROUND_BRACKETS, closeOnPressOutside, outputPanel, placeFixedPanel, showOutputPanel } from '../../lib/plugin.ts'
+import { DOM_PANEL } from './settingsPanel.ts'
+import { settingsCalls, sheetTables } from './tableText.ts'
+import { tableEditorPanel, tablePanelKey } from './tableEditor.tsx'
 
 /** ⚙, drawn as text rather than an emoji. */
 const COG = String.fromCodePoint(0x2699, 0xfe0e)
 
-/** A table's or plot's call: which, and where what's between its brackets is (offsets in the sheet's text). */
-interface SettingsCall {
-  readonly kind: CallKind
-  readonly from: number
-  readonly to: number
-}
+/** What a ⚙ opens: a table's grid editor, or a plot's settings. */
+const COG_FOR = { table: SERIES_CALL.table, plot: SERIES_CALL.plot } as const
+type CogFor = (typeof COG_FOR)[keyof typeof COG_FOR]
 
-/** A token of a statement, and where it starts in the sheet's text. */
-interface Placed {
-  readonly t: string
-  readonly text: string
-  readonly at: number
-}
-
-/** A statement's tokens (the tree's: sheetStatements), each where it is in the sheet's text. */
-const placedTokens = ({ statement, starts }: SheetStatement): Placed[] =>
-  statement.tokens.map(({ token, line, at }) => ({ t: token.t, text: token.text, at: starts[line] + at }))
-
-/** The calls with a ⚙, as written (`@table`), and which each is. */
-const CALLED: ReadonlyMap<string, CallKind> = new Map(CALLS_WITH_SETTINGS.map((kind) => [`${SIGIL}${kind}`, kind]))
-
-const isDelimiter = (p: Placed | undefined, text: string) => p?.t === TOKEN_KIND.delimiter && p.text === text
-const isSpace = (p: Placed | undefined) => p?.t === TOKEN_KIND.space
-
-/** Whether the token at `i` is the first thing said on its line, or after the name it's given (`p = @plot(…)`). */
-function startsLine(tokens: readonly Placed[], i: number): boolean {
-  let j = i - 1
-  while (isSpace(tokens[j])) j--
-  if (isDelimiter(tokens[j], ASSIGN)) {
-    j--
-    while (isSpace(tokens[j])) j--
-    if (tokens[j]?.t !== TOKEN_KIND.symbol) return false
-    j--
-  }
-  return j < 0 || tokens[j].t === TOKEN_KIND.indent || tokens[j].t === TOKEN_KIND.eol
-}
-
-/** The index of the `)` closing the `(` at `open` (on a later line, for a call over several), or -1. */
-function closingAt(tokens: readonly Placed[], open: number): number {
-  let depth = 0
-  for (let i = open; i < tokens.length; i++) {
-    if (isDelimiter(tokens[i], ROUND_BRACKETS.open)) depth++
-    else if (isDelimiter(tokens[i], ROUND_BRACKETS.close) && --depth === 0) return i
-  }
-  return -1
-}
-
-/**
- * Every table and plot written as a line of its own (or a line carried on over
- * several), from the sheet's statements: a call to one, at the start of its line
- * or after the name it's given, and the bracket closing it, in the same statement.
- */
-export function settingsCalls(text: string): SettingsCall[] {
-  const calls: SettingsCall[] = []
-  for (const statement of sheetStatements(encode(text).body)) {
-    const tokens = placedTokens(statement)
-    tokens.forEach((token, i) => {
-      const kind = token.t === TOKEN_KIND.builtin ? CALLED.get(token.text) : undefined
-      if (!kind || !startsLine(tokens, i)) return
-      let open = i + 1
-      while (isSpace(tokens[open])) open++
-      if (!isDelimiter(tokens[open], ROUND_BRACKETS.open)) return
-      const close = closingAt(tokens, open)
-      if (close >= 0) calls.push({ kind, from: tokens[open].at + ROUND_BRACKETS.open.length, to: tokens[close].at })
-    })
-  }
-  return calls
+/** Each ⚙'s tooltip and name. */
+const COG_TEXT: Record<CogFor, { title: string; label: string }> = {
+  [COG_FOR.table]: { title: 'Edit the table: its cells, columns and settings, in the Output pane', label: 'Edit the table' },
+  [COG_FOR.plot]: { title: 'Plot settings: rows, style, fit, axes, title', label: 'Plot settings' },
 }
 
 // ---------------------------------------------------------------------------
-// Panel controls
-// ---------------------------------------------------------------------------
-
-/** A labelled row of the panel. */
-function row(label: string, ...controls: (HTMLElement | string)[]): HTMLElement {
-  const el = document.createElement('label')
-  el.className = 'options__row'
-  const span = document.createElement('span')
-  span.textContent = label
-  const box = document.createElement('span')
-  box.className = 'cm-ms-table-menu__rows'
-  box.append(...controls)
-  el.append(span, controls.length === 1 && typeof controls[0] !== 'string' ? controls[0] : box)
-  return el
-}
-
-/** A number box; `whole` for row numbers (1 or more), otherwise any number. Empty means "not set". */
-function numberBox(value: number | undefined, placeholder: string, whole: boolean, set: (v: number | undefined) => void) {
-  const input = document.createElement('input')
-  input.type = 'number'
-  if (whole) input.min = '1'
-  else input.step = 'any'
-  input.placeholder = placeholder
-  input.value = value === undefined ? '' : String(value)
-  input.addEventListener('change', () => {
-    if (!input.value || !Number.isFinite(Number(input.value))) return set(undefined)
-    set(whole ? Math.max(1, Math.round(Number(input.value))) : Number(input.value))
-  })
-  return input
-}
-
-function checkBox(value: boolean, set: (v: boolean) => void) {
-  const input = document.createElement('input')
-  input.type = 'checkbox'
-  input.checked = value
-  input.addEventListener('change', () => set(input.checked))
-  return input
-}
-
-function choice(options: readonly { readonly value: string; readonly label: string }[], value: string, set: (value: string) => void) {
-  const select = document.createElement('select')
-  for (const o of options) select.add(new Option(o.label, o.value, false, value === o.value))
-  select.addEventListener('change', () => set(select.value))
-  return select
-}
-
-/** A group's heading. */
-function section(title: string): HTMLElement {
-  const el = document.createElement('div')
-  el.className = 'options__section'
-  el.textContent = title
-  return el
-}
-
-/** A row with a tooltip (a setting's help, on hover). */
-function withTip(row: HTMLElement, text: string) {
-  row.title = text
-  return row
-}
-
-/** A text box (empty for none). */
-function textBox(value: string | undefined, placeholder: string, set: (text: string | undefined) => void): HTMLInputElement {
-  const box = document.createElement('input')
-  box.type = 'text'
-  box.placeholder = placeholder
-  box.value = value ?? ''
-  box.addEventListener('change', () => set(box.value.trim() || undefined))
-  return box
-}
-
-/** The panel's controls, as the settings' declarations ask for them (SettingsPanel). */
-const DOM_PANEL: SettingsPanel<HTMLElement> = { section, row, checkBox, choice, numberBox, textBox, withTip }
-
-/** Each call's panel: its settings' controls, read from its settings text, each saving that text as it changes. */
-const PANELS: Record<CallKind, (text: string | undefined, save: (settingsText: string) => void) => HTMLElement[]> = {
-  [SERIES_CALL.table]: (text, save) => TABLE_SETTINGS.controls(DOM_PANEL, text, save),
-  [SERIES_CALL.plot]: (text, save) => PLOT_SETTINGS.controls(DOM_PANEL, text, save),
-}
-
-// ---------------------------------------------------------------------------
-// Opening and closing
+// A plot's settings panel
 // ---------------------------------------------------------------------------
 
 /** The open panel, if any (one at a time), and how to close it. */
 let openPanel: { element: HTMLElement; close: () => void } | null = null
 
-/** Open the settings panel for the table or plot whose ⚙ is at `place` (just after its closing bracket), under `button`. */
-function openSettings(view: EditorView, button: HTMLElement, place: number): void {
+/** Open the settings panel for the plot whose ⚙ is at `place` (just after its closing bracket), under `button`. */
+function openPlotSettings(view: EditorView, button: HTMLElement, place: number): void {
   openPanel?.close()
   const call = settingsCalls(view.state.doc.toString()).find((c) => c.to + ROUND_BRACKETS.close.length === place)
   if (!call) return
@@ -194,8 +59,8 @@ function openSettings(view: EditorView, button: HTMLElement, place: number): voi
   const panel = document.createElement('div')
   panel.className = 'options__panel cm-ms-table-menu'
   panel.setAttribute('role', 'group')
-  panel.setAttribute('aria-label', call.kind === SERIES_CALL.table ? 'Table settings' : 'Plot settings')
-  panel.append(...PANELS[call.kind](settingsText, save))
+  panel.setAttribute('aria-label', COG_TEXT[COG_FOR.plot].label)
+  panel.append(...PLOT_SETTINGS.controls(DOM_PANEL, settingsText, save))
 
   // Beside the button, kept fully on screen.
   const at = button.getBoundingClientRect()
@@ -221,31 +86,48 @@ function openSettings(view: EditorView, button: HTMLElement, place: number): voi
   openPanel = { element: panel, close }
 }
 
-/** The ⚙ after a table's or plot's closing bracket. */
-class SettingsButton extends WidgetType {
-  readonly kind: CallKind
-  constructor(kind: CallKind) {
+// ---------------------------------------------------------------------------
+// A table's grid editor
+// ---------------------------------------------------------------------------
+
+/** Open the grid editor of the table whose ⚙ is at `place`, or close it if it's open already. */
+function toggleTableEditor(view: EditorView, place: number): void {
+  const index = sheetTables(view.state.doc.toString()).findIndex((t) => t.button === place)
+  if (index < 0) return
+  showOutputPanel(outputPanel()?.key === tablePanelKey(index) ? null : tableEditorPanel(index))
+}
+
+// ---------------------------------------------------------------------------
+// The buttons
+// ---------------------------------------------------------------------------
+
+/** The ⚙ after a table's or plot's closing bracket, or a typed table's `{`. */
+class CogButton extends WidgetType {
+  readonly kind: CogFor
+  constructor(kind: CogFor) {
     super()
     this.kind = kind
   }
-  eq(other: SettingsButton) {
+  eq(other: CogButton) {
     return other.kind === this.kind
   }
   toDOM(view: EditorView) {
     const button = document.createElement('button')
     button.className = 'cm-ms-import-button cm-ms-table-settings'
     button.textContent = COG
-    button.title = this.kind === SERIES_CALL.table ? 'Table settings: rows, lines, row numbers' : 'Plot settings: rows, style, fit, axes, title'
-    button.setAttribute('aria-label', this.kind === SERIES_CALL.table ? 'Table settings' : 'Plot settings')
+    button.title = COG_TEXT[this.kind].title
+    button.setAttribute('aria-label', COG_TEXT[this.kind].label)
     button.addEventListener('mousedown', (e) => e.preventDefault())
     button.addEventListener('click', (e) => {
       e.preventDefault()
+      const place = view.posAtDOM(button)
+      if (this.kind === COG_FOR.table) return toggleTableEditor(view, place)
       // A second click on the button closes its panel.
       if (openPanel) {
         openPanel.close()
         return
       }
-      openSettings(view, button, view.posAtDOM(button))
+      openPlotSettings(view, button, place)
     })
     return button
   }
@@ -254,19 +136,22 @@ class SettingsButton extends WidgetType {
   }
 }
 
-const buttons: Record<CallKind, Decoration> = {
-  [SERIES_CALL.table]: Decoration.widget({ widget: new SettingsButton(SERIES_CALL.table), side: 1 }),
-  [SERIES_CALL.plot]: Decoration.widget({ widget: new SettingsButton(SERIES_CALL.plot), side: 1 }),
+const buttons: Record<CogFor, Decoration> = {
+  [COG_FOR.table]: Decoration.widget({ widget: new CogButton(COG_FOR.table), side: 1 }),
+  [COG_FOR.plot]: Decoration.widget({ widget: new CogButton(COG_FOR.plot), side: 1 }),
 }
 
-/** A ⚙ after each table's and plot's closing bracket (on its last line, for one over several). */
-function settingsButtons(state: EditorState) {
-  return Decoration.set(settingsCalls(state.doc.toString()).map((c) => buttons[c.kind].range(c.to + ROUND_BRACKETS.close.length)))
+/** A ⚙ after each table (typed, or of series) and each plot: after its closing bracket (on its last line, for one over several), or its `{`. */
+function cogButtons(state: EditorState) {
+  const text = state.doc.toString()
+  const plots = settingsCalls(text).filter((c) => c.kind === SERIES_CALL.plot).map((c) => buttons[COG_FOR.plot].range(c.to + ROUND_BRACKETS.close.length))
+  const tables = sheetTables(text).map((t) => buttons[COG_FOR.table].range(t.button))
+  return Decoration.set([...plots, ...tables], true)
 }
 
-/** Tables' and plots' settings buttons and their panels. */
+/** Tables' and plots' ⚙ buttons, and plots' panels. */
 export const tableMenu: Extension = [
-  EditorView.decorations.compute(['doc'], settingsButtons),
+  EditorView.decorations.compute(['doc'], cogButtons),
   EditorView.baseTheme({
     '.cm-ms-table-settings': { marginLeft: '10px', minWidth: '24px', padding: '0 6px', fontSize: '15px', lineHeight: '1.25' },
   }),

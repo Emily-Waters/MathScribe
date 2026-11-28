@@ -98,6 +98,7 @@ declareNodeKinds(CORE_OWNER, {
   [NODE_KIND.call]: 'A call: what’s called, and its arguments in brackets, f(x), @chem.substance({H2O})',
   [NODE_KIND.openCall]: 'A call whose closing bracket isn’t on its line: what’s called, its (, and its arguments to the end of the line, @table(',
   [NODE_KIND.value]: 'A value in text: its braces, and the expression between them, {{V:4 to mL}}',
+  [NODE_KIND.cell]: 'A cell of a row of cells: its text, read as text, without the spaces around it, 12.3 g in 1 | 12.3 g | pale blue',
   [NODE_KIND.assigned]: 'The name a line assigns, with its settings, before its =: v:3:km/h',
   [NODE_KIND.functionHead]: 'A one-line function’s head, with settings for what it gives back, before its =: f(x, y):3',
   [NODE_KIND.unpack]: 'The names a tuple is unpacked into, each with its settings, before its =: @tuple(r:3, theta:deg)',

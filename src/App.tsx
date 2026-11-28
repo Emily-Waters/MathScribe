@@ -5,6 +5,7 @@ import { useSheets, type SaveState } from './useSheets.ts'
 import { SheetTabs } from './components/SheetTabs.tsx'
 import { EditorPane } from './components/EditorPane.tsx'
 import { PreviewPane } from './components/PreviewPane.tsx'
+import { showOutputPanel, useOutputPanel } from './components/outputPanel.ts'
 import { SplitPane } from './components/SplitPane.tsx'
 import { evaluateSheetTimed } from './lib/sheet/document.ts'
 import { collectDefinitions, collectDiagnostics, collectResults, collectSymbols } from './lib/sheet/sheetIndex.ts'
@@ -201,9 +202,18 @@ export default function App() {
   // the sheet). On a narrow screen, it shows the Output pane too.
   const [outputView, setOutputView] = useState<OutputView>(OUTPUT_VIEW.sheet)
   const showView = (view: OutputView) => {
+    showOutputPanel(null)
     setOutputView((now) => (now === view ? OUTPUT_VIEW.sheet : view))
     setPane(PANE.output)
   }
+  // A module's panel in the Output pane's place (a table's grid): shown on a narrow screen when it opens, and closed
+  // when another sheet is shown (it edits the sheet it was opened from).
+  const panel = useOutputPanel()
+  useEffect(() => {
+    if (panel) setPane(PANE.output)
+  }, [panel])
+  const activeSheet = file.active.id
+  useEffect(() => () => showOutputPanel(null), [activeSheet])
   const jumpTo = useCallback((line: number) => {
     setActiveLine(line)
     setJump((j) => ({ line, n: (j?.n ?? 0) + 1 }))
@@ -337,6 +347,8 @@ export default function App() {
             <ErrorBoundary name="The output" resetKey={sheet}>
             <PreviewPane
               sheet={sheet}
+              source={source}
+              onSourceChange={file.setText}
               view={outputView}
               onCloseView={() => setOutputView(OUTPUT_VIEW.sheet)}
               options={options}

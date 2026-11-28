@@ -102,6 +102,12 @@ export const VALUE_BRACES = { open: '{{', close: '}}' } as const
 /** A value in text, `{{c_Na}}`, `{{V:4 to mL}}` (its group: value, what's between the braces). */
 export const VALUE_IN_TEXT = regex(src`\{\{${named('value', '[^{}]+')}\}\}`, 'g')
 
+/**
+ * Between the cells of a row of text (a typed table's: `1 | 12.3 g | pale blue`);
+ * one inside inline maths or a value is theirs (`$|x|$`).
+ */
+export const CELL_SEPARATOR = '|'
+
 /** What starts a paragraph of prose: `> The block slides down the ramp.` */
 export const PARAGRAPH_MARK = '>'
 

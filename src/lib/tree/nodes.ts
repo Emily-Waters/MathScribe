@@ -172,6 +172,8 @@ export const NODE_KIND = {
   openCall: 'openCall',
   /** A value in text, `{{V:4 to mL}}`: its braces, and the expression between them. */
   value: 'value',
+  /** A cell of a row of cells (CONTENT.cells): its text, without the spaces around it. */
+  cell: 'cell',
 
   // What a line assigns to, before its `=` (lexer.ts: lexLine).
   /** A name, with its settings: `v:3:km/h`, `n_Na:"Moles of {Na^+}"`. */

@@ -7,7 +7,7 @@ shows the same, with each example worked out beside it.
 <!-- Made from the language tree (src/lib/language/), as the Reference tab and the AI primer are:
 don't edit it by hand. `npm run docs` writes it again after the tree changes. -->
 
-**Topics:** [Basics](#basics) · [Units](#units) · [Significant figures](#significant-figures) · [Uncertainty](#uncertainty) · [Repeated measurements](#repeated-measurements) · [Table settings](#table-settings) · [Plot settings](#plot-settings) · [Functions](#functions) · [Formulas](#formulas) · [Vectors](#vectors) · [Tuples and coordinates](#tuples-and-coordinates) · [Constants](#constants) · [Chemistry](#chemistry) · [How lines are shown](#how-lines-are-shown) · [Layout](#layout) · [Solving](#solving) · [Built-in constants](#built-in-constants)
+**Topics:** [Basics](#basics) · [Units](#units) · [Significant figures](#significant-figures) · [Uncertainty](#uncertainty) · [Repeated measurements](#repeated-measurements) · [Table settings](#table-settings) · [Typed table settings](#typed-table-settings) · [Plot settings](#plot-settings) · [Functions](#functions) · [Formulas](#formulas) · [Vectors](#vectors) · [Tuples and coordinates](#tuples-and-coordinates) · [Constants](#constants) · [Chemistry](#chemistry) · [How lines are shown](#how-lines-are-shown) · [Layout](#layout) · [Solving](#solving) · [Built-in constants](#built-in-constants)
 
 ## Basics
 
@@ -524,6 +524,32 @@ d = [3.50 m, 3.48 m, 3.52 m]
 v.avg
 ```
 
+@table \{ … \} is a table typed cell by cell, for observations rather than numbers worked out: a row a line, its cells between \|s, its first row the header. Each cell is text: \$…\$ for maths, \{\{name\}\} for a value from the sheet.
+
+- Its settings go in its brackets: @table(title "Observations", lines header) \{ … \} (Typed table settings).
+- A short row has empty cells at its end; a cell with nothing between its \|s is empty. An empty cell is shaded, as a lab table shades what wasn't measured.
+- In the first row, an empty cell after a filled one joins it: one header over several columns, Mass (g) over three trials. The second row is then the header under it; a column with nothing there has one header down both rows.
+- A \| inside \$…\$ or \{\{…\}\} is theirs, not the end of a cell: \$\|x\|\$.
+- Its ⚙ in the editor edits it as a grid in the Output pane: type into the cells, and add and take away rows and columns. A table of series' ⚙ opens the grid too, for its columns, its cells worked out.
+
+```
+m_1 = 12.3 g
+@table(title "Observations") {
+    Trial | Mass $m$ | Colour
+    1     | {{m_1}}  | pale blue
+    2     | 12.8 g   | deep blue
+}
+```
+
+```
+@table(title "Mass of each salt", lines header) {
+    Salt  | Mass (g) |      |
+          | 1        | 2    | 3
+    {KCl} | 2.51     | 2.49 | 2.50
+    {KBr} | 3.02     |      | 3.01
+}
+```
+
 Square brackets make a series: its values listed, F = \[2.00 N, 3.00 N\], or a rule worked out row by row from other series, m = \[F / g\], with any other name used as it is. Series of different lengths use the rows they all have, with a warning.
 
 - Each value is worked out as if typed on a line of its own, so units, sig figs, pm and settings on the name (m:3 = \[F / g\]) work.
@@ -740,6 +766,38 @@ t = [0.10 s, 0.20 s, 0.30 s, 0.40 s, 0.50 s, 0.60 s]
 x = [0.051 m pm 0.004 m, 0.098 m pm 0.004 m, 0.152 m pm 0.004 m, 0.199 m pm 0.004 m, 0.248 m pm 0.004 m, 0.301 m pm 0.004 m]
 salts = ["KCl", "KBr", "KI", "NaCl", "NaBr", "NaI"]
 @table(t, x; title "…")
+```
+
+## Typed table settings
+
+@typed table(…)'s settings go after a semicolon in its brackets, separated by commas: @typed table(…; title "…"). Leave out any as it is by itself. Its ⚙ in the editor sets them too.
+
+```
+@table(title "…") {
+    Salt | Colour
+    KCl  | white
+    CuSO$_4$ | blue
+}
+```
+
+`lines header`: How its lines are drawn. header: a line under the header, and after the row headers; grid: a line around every cell (as it is by itself); none: no lines.
+
+```
+@table(lines header) {
+    Salt | Colour
+    KCl  | white
+    CuSO$_4$ | blue
+}
+```
+
+`title "…"`: Its caption, quoted so it can hold commas: title "Reactivity of the halogens".
+
+```
+@table(title "…") {
+    Salt | Colour
+    KCl  | white
+    CuSO$_4$ | blue
+}
 ```
 
 ## Plot settings

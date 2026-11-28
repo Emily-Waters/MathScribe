@@ -5,6 +5,25 @@ active task list stays lean while preserving the full paper trail.
 
 ## Plots and data
 
+- [x] **Lab and data tables**: quantities as rows and trials as columns,
+  row labels, a spanning header with the unit, shaded empty cells, and
+  numbered captions ("Table 1: …").
+  Resolved (2026-11-22 to 2026-11-28): `@table` has row labels and numbered
+  captions ("Table 2: Runs", its `title`). A typed table, `@table(title "…")
+  { a | b }`, is written cell by cell, a row a line, each cell text ($…$,
+  {{…}}); it's declared syntax (the series module's grammar, its rows the
+  core's `CONTENT.cells`, cells as `cell` nodes), read by `TypedTableReader`
+  into the same table block, every cell text. Its empty cells are shaded in
+  every output (colortbl's `\cellcolor`, Word's `w:shd`). In its first row an
+  empty cell after a filled one joins it, a header over several columns, and
+  the second row is the header under it (`\multicolumn` and `\cline`; Word's
+  `gridSpan` and `vMerge`). A table's ⚙ opens a grid editor in the Output
+  pane (tableEditor.tsx, through a module's `OutputPanel`): a typed table's
+  cells, rows and columns, or a table of series' columns, and either's
+  settings, written back to the sheet's text as they change. (On the way,
+  EditorPane's `changesTo` put in text from outside the editor wrongly when
+  it only added or only took away lines.)
+
 - [x] **A series only by name, its members t[1], its statistics t.avg**
   (2026-11-22, Emily: "make a distinction between something like V1 and
   V_1"; the gotcha: `V_0 = 9.00 V` made V a series of one, so `9.00 V` in

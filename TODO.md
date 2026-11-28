@@ -62,13 +62,6 @@ Completed items with their resolution notes live in `CHANGELOG.md`.
 
 ## 2. Engineering documents (the gap to Mathcad)
 
-- [ ] `[high]` **Lab and data tables**: quantities as rows and trials as columns,
-      row labels, a spanning header with the unit, shaded empty cells, and
-      numbered captions ("Table 1: …").
-      Progress (noted in the sweep of 2026-11-22): `@table` has row labels and
-      numbered captions ("Table 2: Runs", its `title`). Still to do: a literal
-      table of observations typed as a table (text, a spanning header with
-      the unit, shaded empty cells).
 - [ ] `[medium]` **Conversion-factor working**: show a calculation as a chain of
       fractions (2.755 × 10⁻² L × 0.01000 mol EDTA / 1 L), the factor-label
       method chemistry courses ask for.

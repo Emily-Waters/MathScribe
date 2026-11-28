@@ -261,6 +261,19 @@ export function caption(ctx: Ctx, kind: CaptionKind, title: string): Item {
 export const alignedMath = (tex: string, jc: Align, bold = false) =>
   `<m:oMathPara><m:oMathParaPr><m:jc m:val="${jc}"/></m:oMathParaPr>${texToOmml(tex, undefined, bold)}</m:oMathPara>`
 
+/**
+ * Text drawn as a title is (titleRuns), for a paragraph aligned `jc`: maths on
+ * its own there is an equation of its own to Word, which aligns it by its own
+ * setting rather than the paragraph's, so it's aligned as one (alignedMath).
+ */
+export function alignedTitle(text: string, jc: Align, f: RunFormat = {}): string {
+  const segments = titleSegments(text)
+  const [only] = segments
+  return segments.length === 1 && only.kind === TITLE_SEGMENT.math && only.href === undefined
+    ? alignedMath(only.value, jc, f.bold || only.bold)
+    : titleRuns(text, f)
+}
+
 /** A figure's picture: a PNG file, and the drawing's size (its proportions). */
 export interface FigureImage {
   readonly png: Uint8Array

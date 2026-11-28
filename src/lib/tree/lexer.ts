@@ -342,8 +342,9 @@ export function closingBracket(text: string, open: number, end: number): number 
 export function unitAt(text: string, pos: number): number {
   FIRST_UNIT.lastIndex = pos
   const first = FIRST_UNIT.exec(text)
-  // (FIRST_UNIT takes spaces before the unit: a unit here starts at pos.)
-  if (!first || first.index !== pos || first[0] !== first[1] || !isUnitName(first[1])) return 0
+  // (FIRST_UNIT takes spaces before the unit: a unit here starts at pos. A word of the language's own isn't a unit
+  // straight after a number, though mathjs has one by its name: `2.0 pm 0.1` is an uncertainty, not picometres.)
+  if (!first || first.index !== pos || first[0] !== first[1] || !isUnitName(first[1]) || KEYWORD.has(first[1])) return 0
   let end = FIRST_UNIT.lastIndex
   const power = () => {
     POWER.lastIndex = end

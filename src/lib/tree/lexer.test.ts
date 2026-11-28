@@ -59,6 +59,9 @@ describe('the expression lexer', () => {
   it('reads keywords, strings and what it doesn’t know (± is shown, never written: pm)', () => {
     expect(lexed('a mod b')).toBe(`${TOKEN_KIND.symbol}:a ${TOKEN_KIND.keyword}:mod ${TOKEN_KIND.symbol}:b`)
     expect(lexed('x pm 1')).toBe(`${TOKEN_KIND.symbol}:x ${TOKEN_KIND.keyword}:pm ${TOKEN_KIND.number}:1`)
+    // (Straight after a number too: a keyword isn't a unit there, though mathjs has `pm`, picometres. After `*` it is one.)
+    expect(lexed('0.120 pm 0.005')).toBe(`${TOKEN_KIND.number}:0.120 ${TOKEN_KIND.keyword}:pm ${TOKEN_KIND.number}:0.005`)
+    expect(lexed('2 m*pm')).toBe(`${NODE_KIND.quantity}(${TOKEN_KIND.number}:2 ${TOKEN_KIND.unit}:m*pm)`)
     expect(lexed('x ± 1')).toBe(`${TOKEN_KIND.symbol}:x ${TOKEN_KIND.unknown}:± ${TOKEN_KIND.number}:1`)
     expect(lexed('"hi there"')).toBe(`${TOKEN_KIND.string}:"hi there"`)
     expect(lexed('x $ y')).toBe(`${TOKEN_KIND.symbol}:x ${TOKEN_KIND.unknown}:$ ${TOKEN_KIND.symbol}:y`)

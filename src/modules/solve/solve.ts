@@ -6,7 +6,7 @@
  */
 import {
   assign, call as callExpr, compile, constant, contains, type Contributions, CONVERSION_TAIL, countOccurrences, evaluate, evaluateCompiled, EXACT,
-  type Expr, FN, type FormLine, IS_NAME, isQuantity, isRealValue, LINE_STAGE, LineForm, type LineResult, magnitudeOf, matchingParen,
+  type Expr, FN, type FormLine, IS_NAME, isQuantity, isRealValue, LINE_STAGE, LineForm, type LineResult, magnitudeOf, closingBracketAt,
   type ModuleHost, normalise, OP, type OperatorExpr, operator, paren, parse, POLYNOMIAL_KIND, type PreparedLine, preprocess, quantity,
   sameDimension, sameValue, heldName, Solver, splitArgs, splitEquation, symbol, symbolTex, type TraceLine, UNIT, withMagnitude,
 } from '../../lib/plugin.ts'
@@ -44,7 +44,7 @@ function solve(text: string, call: RegExpExecArray, line: FormLine, prepared: Pr
   const fail = (error: string, tex = '') => ({ tex, error })
   const target = call[1]
   const open = call.index + call[0].length - 1
-  const close = matchingParen(text, open)
+  const close = closingBracketAt(text, open)
   if (close < 0) return fail('@solve( is missing its closing bracket.')
   const tail = text.slice(close + 1).trim()
   const conversion = CONVERSION_TAIL.exec(tail)?.[1]

@@ -2,7 +2,7 @@
 import { FunctionMember, builtinAt, builtinFunction } from '../../builtins.ts'
 import { DOTTED_NAME, ROUND_BRACKETS, SIGIL, lit, regex, src } from '../../syntax.ts'
 import { JOIN, constantKey } from '../../sheet/names.ts'
-import { matchingParen } from '../../maths/solve.ts'
+import { closingBracketAt } from '../../tree/topLevel.ts'
 
 /**
  * A call to a built-in function, `@tuple(`, or one in a namespace, `@chem.mm(`,
@@ -35,7 +35,7 @@ export function expandNamespaceCalls(line: string): { text: string; error?: stri
 /** A line with one call to a built-in function written out, and any after it. */
 function expandCall(line: string, m: RegExpExecArray, fn: FunctionMember): { text: string; error?: string } {
   const open = m.index + m[0].length - 1
-  const close = matchingParen(line, open)
+  const close = closingBracketAt(line, open)
   if (close < 0) return { text: line, error: `${fn.typed}( is missing its closing ).` }
   const inside = expandNamespaceCalls(line.slice(open + 1, close))
   if (inside.error) return inside

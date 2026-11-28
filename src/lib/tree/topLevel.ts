@@ -11,7 +11,7 @@
  * a call's settings. What's in brackets that aren't a node's (a group,
  * `(a + b)`, a list, `[1, 2]`) is a level deeper than what's around them.
  */
-import { CLOSING_BRACKETS, OPENING_BRACKETS } from '../syntax.ts'
+import { ASSIGN, CLOSING_BRACKETS, OPENING_BRACKETS, SEPARATOR } from '../syntax.ts'
 import { isTokenOf, lexExpression, partText } from './lexer.ts'
 import { TOKEN_KIND, isToken, type Part, type Token } from './nodes.ts'
 
@@ -60,6 +60,21 @@ export const matchesDelimiter = (delimiter: string) => (part: Part) => isTokenOf
  */
 export const splitTopLevel = (text: string, delimiter: string): string[] =>
   splitParts(lexExpression(text), matchesDelimiter(delimiter)).map((piece) => piece.map(partText).join(''))
+
+/** A call's arguments, as typed between its brackets, each trimmed: `a, f(b, c), "d, e"` → a, f(b, c), "d, e". */
+export const splitArgs = (text: string): string[] => splitTopLevel(text, SEPARATOR).map((arg) => arg.trim())
+
+/** Whether a part is an equation's `=` (or `==`): not `<=`, `>=`, `!=`, which are tokens of their own. */
+const isEquals = (part: Part) => EQUATION_SIGNS.some((sign) => isTokenOf(part, TOKEN_KIND.delimiter, sign))
+
+/** The signs between an equation's sides. */
+const EQUATION_SIGNS = [ASSIGN, ASSIGN.repeat(2)] as const
+
+/** An equation split at its one top-level `=` (or `==`), each side trimmed; null if it has none, or more than one. */
+export function splitEquation(text: string): [string, string] | null {
+  const sides = splitParts(lexExpression(text), isEquals).map((side) => side.map(partText).join('').trim())
+  return sides.length === 2 ? [sides[0], sides[1]] : null
+}
 
 /** Where the first top-level part `test` picks starts in some text; -1 if there's none. */
 export function topLevelAt(text: string, test: (part: Part) => boolean): number {

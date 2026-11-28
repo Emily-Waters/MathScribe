@@ -60,7 +60,9 @@ export { TOKEN_ROLE } from './tree/registry.ts'
 export { BODY_END, CONTENT } from './tree/grammar.ts'
 // (opensBracket, closesBracket: whether a delimiter opens or closes a bracket, for following a call's depth over its tokens.)
 // (An expression's top level, as the tree reads it: split at a delimiter, a bracket's close; instead of scanning text.)
-export { closingBracketAt, levelled, matchesDelimiter, splitParts, splitTopLevel, topLevelAt, type LevelledPart } from './tree/topLevel.ts'
+export {
+  closingBracketAt, levelled, matchesDelimiter, splitArgs, splitEquation, splitParts, splitTopLevel, topLevelAt, type LevelledPart,
+} from './tree/topLevel.ts'
 export { closesBracket, lexExpression, node, opensBracket, token, withUnit, type LexRule } from './tree/lexer.ts'
 export type { TextRule } from './tree/lines.ts'
 // (encode: a sheet's text as its tree, for a module's part of the editor that finds its lines in it, as the series' ⚙ does;
@@ -83,7 +85,7 @@ export * from './maths/library/index.ts'
 // known from the start are its EngineModule.units.)
 export { declareUnit, type UnitDeclaration } from './engine/core/module.ts'
 export { EXACT } from './maths/sigfigs.ts'
-export { POLYNOMIAL_KIND, Solver, contains, countOccurrences, matchingParen, splitArgs, splitEquation } from './maths/solve.ts'
+export { POLYNOMIAL_KIND, Solver, contains, countOccurrences } from './maths/solve.ts'
 export { isRealValue, magnitudeOf, normalise, sameValue, withMagnitude } from './engine/core/normalise.ts'
 export {
   ExplainedError, readableUnitError, seriesDefinitions, type Definition, type LineResult, type ResultBlock, type TraceLine,

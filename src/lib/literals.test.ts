@@ -224,7 +224,6 @@ const KNOWN: Readonly<Record<string, number>> = {
   'lib/language/settings.ts': 3,
   'lib/maths/brackets.ts': 1,
   'lib/maths/library/mathjs.ts': 12,
-  'lib/maths/solve.ts': 15,
   'lib/output/constructs/lines.ts': 1,
   'lib/output/latex.ts': 1,
   'lib/output/textSegments.ts': 3,

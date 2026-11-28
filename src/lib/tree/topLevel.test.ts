@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest'
 import { TOKEN_KIND } from './nodes.ts'
 import { lexExpression, isTokenOf } from './lexer.ts'
-import { closingBracketAt, levelled, splitTopLevel, topLevelAt } from './topLevel.ts'
+import { closingBracketAt, levelled, splitArgs, splitEquation, splitTopLevel, topLevelAt } from './topLevel.ts'
 
 describe('the top level', () => {
   it('places every part where it is in the text, at its depth', () => {
@@ -24,6 +24,18 @@ describe('the top level', () => {
     expect(splitTopLevel('x^2 = 4', '=')).toEqual(['x^2 ', ' 4'])
     expect(splitTopLevel('x <= 4', '=')).toEqual(['x <= 4'])
     expect(splitTopLevel('', ',')).toEqual([''])
+  })
+
+  it('splits a call\'s arguments, and an equation at its one = (which a scan of the text got wrong)', () => {
+    expect(splitArgs('a, f(b, c), "d, e"')).toEqual(['a', 'f(b, c)', '"d, e"'])
+    expect(splitArgs('<3.0, 4.0> N, x')).toEqual(['<3.0, 4.0> N', 'x'])
+    expect(splitArgs('n_1, 2.0 mol {Na^+}')).toEqual(['n_1', '2.0 mol {Na^+}'])
+    expect(splitEquation('x^2 = 4')).toEqual(['x^2', '4'])
+    expect(splitEquation('a == b')).toEqual(['a', 'b'])
+    expect(splitEquation('f(x = 1) = 2')).toEqual(['f(x = 1)', '2'])
+    expect(splitEquation('"a = b" = c')).toEqual(['"a = b"', 'c'])
+    expect(splitEquation('a <= b')).toBeNull()
+    expect(splitEquation('a = b = c')).toBeNull()
   })
 
   it('finds the first top-level part a test picks', () => {

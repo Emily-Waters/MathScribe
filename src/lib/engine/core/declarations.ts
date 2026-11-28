@@ -1,5 +1,5 @@
 /** Settings on an assigned name (`m:3:deg`, display names), and names being unpacked. */
-import { EXACT_SETTING, NOTATION, PERCENT, LABEL_QUOTE, TEMPLATE_USE, type Notation, type Precision } from '../../syntax.ts'
+import { EXACT_SETTING, IS_DIGITS, NOTATION, SEPARATOR, PERCENT, LABEL_QUOTE, TEMPLATE_USE, type Notation, type Precision } from '../../syntax.ts'
 import { NODE_KIND } from '../../tree/nodes.ts'
 import { assignedOf, lineShape } from '../../tree/shapes.ts'
 import {
@@ -107,13 +107,13 @@ export function declarationOf(name: string, specs: readonly string[]): Declarati
   for (const spec of specs) {
     const template = TEMPLATE_USE.exec(spec)?.groups
     if (spec.startsWith(LABEL_QUOTE)) out.label = spec.slice(1, -1)
-    else if (template) out.template = { name: template.template, args: template.arguments.split(',').map((a) => a.trim()) }
+    else if (template) out.template = { name: template.template, args: template.arguments.split(SEPARATOR).map((a) => a.trim()) }
     else if (isModuleLineSetting(spec)) (out.moduleSettings ??= []).push(spec)
     else if (spec === EXACT_SETTING) out.sf = EXACT_SETTING
     else if (isNotation(spec)) {
       if (out.notation && out.notation !== spec) return { error: `${name} can't be both :${NOTATION.sci} and :${NOTATION.dec}.` }
       out.notation = spec
-    } else if (/^\d+$/.test(spec)) {
+    } else if (IS_DIGITS.test(spec)) {
       if (Number(spec) === 0) return { error: `${name}:0 isn't valid; use at least 1 sig fig, or :exact.` }
       out.sf = Number(spec)
     } else if (spec === PERCENT || isValidUnit(spec)) out.unit = spec

@@ -31,6 +31,12 @@ export const COMMENT_START = '//'
  */
 export const HEADING_MARK = '#'
 
+/** A heading's marks at the start of a line: `##` of `## Results`. */
+export const HEADING_MARKS = regex(src`^${lit(HEADING_MARK)}+`)
+
+/** Around words quoted in a display name, as they're shown: “Run 1”. */
+export const TEXT_QUOTES = { open: '“', close: '”' } as const
+
 /** Whether a line (indentation and all) is a comment. */
 export const isComment = (line: string) => line.trimStart().startsWith(COMMENT_START)
 

@@ -24,6 +24,7 @@ import { BUILTIN_FUNCTIONS } from './vocabulary.ts'
 import { visibleAt } from './intellisense.ts'
 import { isProseLine } from './language.ts'
 import { inDataBlock, inNamelessBlock, sheetLine } from './sheetLines.ts'
+import { GLYPH } from './syntax.ts'
 
 /** Between a call's arguments, and between its arguments and its settings (a module's: `@table(t, x; rows 2-3)`). */
 const BETWEEN = { argument: SEPARATOR, settings: ROW_SEPARATOR } as const
@@ -98,7 +99,7 @@ export function signatureOf(state: EditorState, n: number, callee: string): Sign
 }
 
 /** A parameter that takes any number of values: `…` (`max(a, b, …)`). */
-const MORE = '…'
+const MORE = GLYPH.more
 
 /**
  * Which parameter is being typed: the argument's own, or, past the last, the

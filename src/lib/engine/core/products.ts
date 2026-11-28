@@ -11,7 +11,7 @@ import { RAW } from './results.ts'
 import { INV_FUNCTION } from '../../sheet/names.ts'
 import { symbolTex, isUnitCall, unitCallText, isLitCall } from './tex.ts'
 import { unwrap, seeThrough } from './nodes.ts'
-import { TEX_ANGLE, TEX_NORM, TEX_ROUND, TEX_SIZED, TEX_SQUARE, TEX_UPRIGHT } from '../../latex/syntax.ts'
+import { TEX_ANGLE, TEX_NORM, TEX_ROUND, TEX_SIZED, TEX_SQUARE, TEX_THIN_SPACE, TEX_UPRIGHT } from '../../latex/syntax.ts'
 import { EXPONENT_AT, STARTS_WITH_DIGIT, lit, oneOf, regex, src } from '../../syntax.ts'
 
 /** A number followed by its unit: `2.0 kg`. */
@@ -27,7 +27,7 @@ export const PRODUCT_SIGN = '\\times '
 /** Between every factor, with "Show · in every product" on (CalcOptions.productDots). */
 export const EVERY_PRODUCT_SIGN = '\\cdot '
 /** After a number, before a wide name (an upright word): a thin space, ½ mass. */
-const NAME_GAP = '\\,'
+const NAME_GAP = TEX_THIN_SPACE
 /** Between a wide name and any other factor but a number before it: a dot, mass · speed², Fn · F (words side by side would read as a phrase). */
 const WORD_SIGN = '\\cdot '
 /** Between names: nothing (a space in LaTeX, which isn't shown). */

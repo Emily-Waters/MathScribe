@@ -1,5 +1,5 @@
 /** Words in display names and text, as LaTeX. */
-import { SUBSCRIPT_BASE, TEXT_SUBSCRIPT, outsideMaths, splitInlineMath, subscriptOf, unescapeUnderscores } from '../../syntax.ts'
+import { SUBSCRIPT_BASE, TEXT_QUOTES, TEXT_SUBSCRIPT, outsideMaths, splitInlineMath, subscriptOf, unescapeUnderscores } from '../../syntax.ts'
 import { TEX_LIST, escapeTexChars } from '../../latex/syntax.ts'
 import { moduleSubscriptTex } from './module.ts'
 
@@ -42,7 +42,7 @@ export function wordsTex(text: string): string {
 }
 
 /** The quotes a text value is shown in: “KCl” (typographic: LaTeX draws a typed `"` as a closing quote). */
-export const TEXT_QUOTES = { open: '“', close: '”' } as const
+export { TEXT_QUOTES }
 
 /**
  * A text value, `"KBr, solid"`, as LaTeX: its words in quotes, upright, with a

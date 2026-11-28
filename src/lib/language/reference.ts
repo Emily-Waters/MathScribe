@@ -4,7 +4,7 @@
  * language tree and the declarations the core and the modules make, so none
  * of it is written by hand or can be out of date with what's read. (See "One source for the language" in CHANGELOG.md.)
  */
-import { SIGIL } from '../syntax.ts'
+import { SIGIL, TABLE_RULE, fencedCode, markdownAnchor, markdownRow, plainMarkdown } from '../syntax.ts'
 import type { SettingDescription, SettingsDescription } from './settings.ts'
 import { termShown, type LanguageEntry, type LanguageTopic, type PlacedTopic } from './tree.ts'
 
@@ -57,7 +57,7 @@ export function settingsTopic(d: SettingsDescription, place: SettingsTopicPlace,
 }
 
 /** Code, in a fenced block. */
-const fenced = (text: string) => ['```', text, '```'].join('\n')
+const fenced = fencedCode
 
 /**
  * The language tree as the AI primer says it, in Markdown: each topic under
@@ -79,17 +79,11 @@ export function primerMarkdown(tree: readonly LanguageTopic[], extras: Readonly<
   }).join('\n\n')
 }
 
-/** A heading's anchor, as GitHub makes it: `Significant figures` → `significant-figures`. */
-const anchor = (title: string) => title.toLowerCase().replace(/[^\p{L}\p{N}\s-]/gu, '').trim().replace(/\s+/g, '-')
-
-/** A table row, in Markdown (its cells written as they're to show: plain text through `plain`, code through `md`). */
-const row = (cells: readonly string[]) => `| ${cells.join(' | ')} |`
-
-/** What Markdown reads as markup in plain text: emphasis, headings, maths, tags, links, code. */
-const MARKUP = /[\\`*_{}[\]<>#$|~]/g
-
-/** Plain text as Markdown shows it as it is: `1/2 * m * v^2` not in italics, `# Title` not a heading, `$…$` not maths. */
-const plain = (text: string) => text.replace(MARKUP, (c) => `\\${c}`)
+// (A heading's anchor, a table row and plain text, in Markdown: syntax/markdown.ts. A row's cells are written as
+// they're to show: plain text through `plain`, code through `md`.)
+const anchor = markdownAnchor
+const row = markdownRow
+const plain = plainMarkdown
 
 /** What docs/REFERENCE.md says first: what it is, and that it's made, not written. */
 const REFERENCE_HEAD = [
@@ -116,7 +110,7 @@ export function referenceMarkdown(tree: readonly LanguageTopic[], constants: rea
     ...topic.entries.map((entry) => {
       const written = entry.syntax ? `${entry.syntax.map(md).join(', ')}: ` : ''
       const terms = entry.terms?.length
-        ? ['', row(['Written', 'Does']), row(['---', '---']), ...entry.terms.map((t) => row([md(termShown(t)), plain(t.summary)]))]
+        ? ['', row(['Written', 'Does']), row([TABLE_RULE, TABLE_RULE]), ...entry.terms.map((t) => row([md(termShown(t)), plain(t.summary)]))]
         : []
       const rules = entry.rules?.length ? ['', ...entry.rules.map((rule) => `- ${plain(rule)}`)] : []
       const examples = entry.examples.flatMap((e) => ['', fenced(e.source)])
@@ -129,7 +123,7 @@ export function referenceMarkdown(tree: readonly LanguageTopic[], constants: rea
     'Write `@name` (3 sig figs), `@name:n`, or `@name:exact`.',
     '',
     row(['Constant', 'What it is']),
-    row(['---', '---']),
+    row([TABLE_RULE, TABLE_RULE]),
     ...constants.map((c) => row([md(`${SIGIL}${c.name}`), plain(c.description)])),
   ].join('\n')
   return [REFERENCE_HEAD, `**Topics:** ${contents}`, ...topics, constantsTable].join('\n\n') + '\n'

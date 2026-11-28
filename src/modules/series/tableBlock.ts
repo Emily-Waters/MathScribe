@@ -26,7 +26,7 @@
  * equation is.
  */
 import {
-  BLOCK_KIND, Construct, docxKit, latexKit, type CustomBlock, type DocxOut, type LatexOut,
+  BLOCK_KIND, Construct, docxKit, latexKit, TEX_COLUMN_RULE, type CustomBlock, type DocxOut, type LatexOut,
 } from '../../lib/plugin.ts'
 import { TABLE_LINE } from './tableSettings.ts'
 import { TABLE_CAPTION, TABLE_TEX, groupColumns, isEmptyCell, spansBothRows, type TableData } from './tableData.ts'
@@ -50,7 +50,7 @@ const TABULAR = {
   first: 'l',
   /** `count` centred columns, each followed by `after` (a rule, or nothing). */
   columns: (count: number, after: string) => `*{${count}}{${CENTRED_COLUMN}${after}}`,
-  rule: '|',
+  rule: TEX_COLUMN_RULE,
   hline: '\\hline',
   rowEnd: ' \\\\',
   cellSeparator: ' & ',

@@ -11,6 +11,7 @@ import { HighlightStyle } from '@codemirror/language'
 import { tags } from '@lezer/highlight'
 import { STORAGE_KEYS } from '../config.ts'
 import { readStored, readStoredJson, writeStored, writeStoredJson } from '../lib/data/storage.ts'
+import { COLOUR_MARK, HEX_COLOUR, SHORT_HEX_COLOUR } from './syntax.ts'
 
 /** The built-in syntax colour themes. */
 export const PRESET_THEMES = [
@@ -130,15 +131,18 @@ export function saveCustomSyntax(custom: CustomSyntax): void {
   writeStoredJson(STORAGE_KEYS.syntaxCustom, custom)
 }
 
+/** What the colour picker shows for a colour it can't read. */
+const BLACK = `${COLOUR_MARK}000000`
+
 /** `rgb(…)`, `#abc` or a colour name as #rrggbb, for the colour picker. */
 function toHex(color: string): string {
   const c = color.trim()
-  if (/^#[0-9a-f]{6}$/i.test(c)) return c.toLowerCase()
-  if (/^#[0-9a-f]{3}$/i.test(c)) return `#${[...c.slice(1)].map((d) => d + d).join('')}`.toLowerCase()
+  if (HEX_COLOUR.test(c)) return c.toLowerCase()
+  if (SHORT_HEX_COLOUR.test(c)) return `${COLOUR_MARK}${[...c.slice(COLOUR_MARK.length)].map((d) => d + d).join('')}`.toLowerCase()
   const ctx = document.createElement('canvas').getContext('2d')
-  if (!ctx) return '#000000'
+  if (!ctx) return BLACK
   ctx.fillStyle = c
-  return /^#[0-9a-f]{6}$/i.test(ctx.fillStyle) ? ctx.fillStyle : '#000000'
+  return HEX_COLOUR.test(ctx.fillStyle) ? ctx.fillStyle : BLACK
 }
 
 /**

@@ -7,6 +7,7 @@ import { moduleFigureKind } from '../../engine/index.ts'
 import { centredEquation, errorComment, gather, titleToLatex, type Equation } from '../latexKit.ts'
 import { PARA_BORDER, SPACING, baseProps, equation, fontSizeOf, picture, run, titleRuns, type Ctx, type Item } from '../docxKit.ts'
 import { EM_SPACE } from '../syntax.ts'
+import { TEX_UNNUMBERED } from '../../latex/syntax.ts'
 import { Construct, type LatexOut } from './construct.ts'
 
 /** `# Title`, `## Title`, `### Title`: a section, a subsection, a bold heading. */
@@ -15,7 +16,7 @@ export class HeadingConstruct extends Construct<HeadingBlock> {
 
   latex(b: HeadingBlock, out: LatexOut): string {
     const text = titleToLatex(b.text)
-    const star = out.o.numberSections ? '' : '*'
+    const star = out.o.numberSections ? '' : TEX_UNNUMBERED
     if (b.level === 1) return `\\section${star}{${text}}`
     if (b.level === 2) return `\\subsection${star}{${text}}`
     return `\\noindent\\textbf{${text}}`

@@ -7,6 +7,7 @@ import { LineNumbers } from './context.ts'
 import katex from '../../lib/output/katex.ts'
 import { TITLE_SEGMENT, titleSegments } from '../../lib/output/textSegments.ts'
 import { DIAGNOSTIC_KIND, type DiagnosticKind } from '../../lib/sheet/sheetIndex.ts'
+import { regex, src } from '../../lib/syntax.ts'
 
 /** LaTeX as KaTeX HTML; a mistake shows in red rather than failing. */
 const render = (latex: string, displayMode: boolean) =>
@@ -44,13 +45,16 @@ export function Title({ text, bold = false }: { text: string; bold?: boolean }) 
   )
 }
 
+/** A message that names its own line (1: the line's number, 2: the rest). */
+const SAYS_ITS_LINE = regex(src`^Line (\d+): ([\s\S]*)$`)
+
 /**
  * A message about a line, "Line 12: …", numbered as the editor shows it. A
  * message that names a line itself (a function body's) gives that line.
  */
 export function LineMessage({ kind, line, text }: { kind: DiagnosticKind; line: number; text: string }) {
   const shown = useContext(LineNumbers)
-  const own = /^Line (\d+): ([\s\S]*)$/.exec(text)
+  const own = SAYS_ITS_LINE.exec(text)
   return <p className={`calc__msg calc__msg--${kind}`}>Line {shown(own ? Number(own[1]) : line)}: {own ? own[2] : text}</p>
 }
 

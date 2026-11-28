@@ -10,7 +10,7 @@
  * A line whose left side is none of these (`x + 1 = 2`, `delta F =`) keeps its
  * tokens as they are. Like the lexer, it depends on the text alone.
  */
-import { ASSIGN, CALL, ROUND_BRACKETS, SEPARATOR, SETTING_MARK, SIGIL } from '../syntax.ts'
+import { APOSTROPHE, ASSIGN, CALL, QUOTE, ROUND_BRACKETS, SEPARATOR, SETTING_MARK, SIGIL } from '../syntax.ts'
 import { lexExpression, isTokenOf, node, partText as textOf } from './lexer.ts'
 import { NODE_KIND, TOKEN_KIND, isToken, type Part, type SyntaxNode } from './nodes.ts'
 
@@ -30,7 +30,7 @@ const argumentsOf = (call: SyntaxNode) => {
 }
 
 /** A quote that isn't closed: mathjs's quote as a delimiter of its own (a closed one is in a string token). */
-export const STRAY_QUOTES: ReadonlySet<string> = new Set(['"', '\''])
+export const STRAY_QUOTES: ReadonlySet<string> = new Set([QUOTE, APOSTROPHE])
 
 /**
  * Settings after a name or a head: none, or `:`s each with a setting after it

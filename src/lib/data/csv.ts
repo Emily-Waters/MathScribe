@@ -16,7 +16,10 @@
  * x_n gets its row's, as if typed `x_n = 0.012 m pm 0.001 m`. In the column's
  * unit, or x's if it has none; `dx (%)` is a percentage of each value.
  */
-import { IMPORT_CALL, INDENT, IS_NAME, IS_SIGNED_NUMBER, RELATIVE_MARK, LEADING_MINUS, LEADING_PLUS, LEADING_SPACES, importCall, indentOf } from '../syntax.ts'
+import {
+  IMPORT_CALL, INDENT, IS_NAME, IS_SIGNED_NUMBER, NEWLINE, QUOTE, RELATIVE_MARK, LEADING_MINUS, LEADING_PLUS, LEADING_SPACES, importCall, indentOf,
+} from '../syntax.ts'
+import { CSV_SEPARATORS, HEADER, QUOTED_VALUE, UNCERTAINTY_COLUMN } from './syntax.ts'
 
 /** One column: its variable name, unit, and each value as typed with the row it's on (1 = first data row). */
 export interface CsvColumn {
@@ -35,17 +38,8 @@ export interface CsvUncertainty {
   values: Map<number, string>
 }
 
-/**
- * A column holding another's uncertainties: dx, δx, σx, delta_x, sigma_x,
- * x_unc or x_err for column x (1: the other column's name). It only counts
- * as one when there's a column x; otherwise it's a column of its own.
- */
-export const UNCERTAINTY_COLUMN_PREFIXES = ['delta_', 'sigma_', 'd', 'δ', 'σ'] as const
-export const UNCERTAINTY_COLUMN_SUFFIXES = ['_unc', '_err'] as const
-const UNCERTAINTY_COLUMN = [
-  new RegExp(`^(?:${UNCERTAINTY_COLUMN_PREFIXES.join('|')})(.+)$`),
-  new RegExp(`^(.+)(?:${UNCERTAINTY_COLUMN_SUFFIXES.join('|')})$`),
-]
+// (A column of another's uncertainties, dx or x_unc, is named as data/syntax.ts says.)
+export { UNCERTAINTY_COLUMN_PREFIXES, UNCERTAINTY_COLUMN_SUFFIXES } from './syntax.ts'
 
 /** A unit that makes an uncertainty column a percentage of each value: dx (%). */
 export const PERCENT_UNIT = RELATIVE_MARK
@@ -88,16 +82,11 @@ export interface CsvData {
 
 
 /** The character that separates values: a tab or semicolon if the header uses one (and no commas), else a comma. */
-function separatorOf(header: string): string {
-  if (header.includes(',')) return ','
-  if (header.includes('\t')) return '\t'
-  if (header.includes(';')) return ';'
-  return ','
-}
+const separatorOf = (header: string): string => CSV_SEPARATORS.find((s) => header.includes(s)) ?? CSV_SEPARATORS[0]
 
 /** A row's values, with surrounding spaces and quotes taken off. */
 const cellsOf = (line: string, separator: string) =>
-  line.split(separator).map((c) => c.trim().replace(/^"(.*)"$/, '$1').trim())
+  line.split(separator).map((c) => c.trim().replace(QUOTED_VALUE, '$1').trim())
 
 
 /** What each piece of a row is, as rowPieces reads it: a value, a column's name, its unit, or anything else (separators, brackets). */
@@ -111,8 +100,6 @@ export interface RowPiece {
   end: number
 }
 
-/** A header: a name, then optionally a unit in brackets (groups: name and unit, and the spaces and bracket before each, for where they are). */
-const HEADER = /^(?<lead>\s*)(?<name>[^([\s]+)(?:(?<between>\s*[([]\s*)(?<unit>[^)\]]*?)\s*[)\]])?\s*$/
 
 /**
  * A row's values, names and units, where each is in it (for the editor's
@@ -184,22 +171,22 @@ export function parseCsv(lines: string[]): CsvData {
  * further, replace any it had. The line's note and commands are kept.
  */
 export function withImportedData(source: string, line: number, fileName: string, csvText: string): string {
-  const lines = source.split(/\r?\n/)
+  const lines = source.split(NEWLINE)
   const at = line - 1
   const own = lines[at] ?? ''
   const indent = LEADING_SPACES.exec(own)![0]
-  const name = fileName.replace(/"/g, '')
+  const name = fileName.replaceAll(QUOTE, '')
   const head = own.replace(IMPORT_CALL, importCall(name))
   // The rows it had: the lines straight under it, indented further (a blank line ends them).
   let end = at
   for (let i = at + 1; i < lines.length && lines[i].trim() && indentOf(lines[i]) > indentOf(own); i++) end = i
-  const rows = alignColumns(csvText.split(/\r?\n/).filter((l) => l.trim())).map((l) => indent + INDENT + l)
+  const rows = alignColumns(csvText.split(NEWLINE).filter((l) => l.trim())).map((l) => indent + INDENT + l)
   return [...lines.slice(0, at), head, ...rows, ...lines.slice(end + 1)].join('\n')
 }
 
 /** The sheet without the `@import(…)` on line `line` (1-based) and its rows. */
 export function withoutImport(source: string, line: number): string {
-  const lines = source.split(/\r?\n/)
+  const lines = source.split(NEWLINE)
   const at = line - 1
   let end = at
   for (let i = at + 1; i < lines.length && lines[i].trim() && indentOf(lines[i]) > indentOf(lines[at] ?? ''); i++) end = i

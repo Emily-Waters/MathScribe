@@ -6,6 +6,9 @@
 import { lit, named, regex, src, words, type WordOf } from './patterns.ts'
 import { ASSIGN, ROUND_BRACKETS, SQUARE_BRACKETS } from './punctuation.ts'
 
+/** The end of a line, as text is split into lines for editing: `\n`, or `\r\n`. (The tree's own reading takes a lone `\r` too: tree/lines.ts.) */
+export const NEWLINE = regex(src`\r?\n`)
+
 /** Spaces and tabs, as a line is indented or its tokens spaced: any number of them, or none. */
 export const SPACES = src`[ \t]*`
 

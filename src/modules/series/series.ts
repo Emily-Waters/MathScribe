@@ -26,7 +26,7 @@ import {
   ASSIGN, type Definition, DISPLAY_MODE, type FormLine, IS_NAME, LineForm, type LineResult, MEMBER_INDEX, type ModuleHost, NODE_KIND,
   SEPARATOR, SETTING_MARK, SLICE_COLON, SUBSCRIPT, TOKEN_KIND, attachUnit, lexExpression, lineShape, lineTokens, magnitude,
   quantity, parseSliceName, regex, SIGNED_NUMBER, src, seriesMemberName, whereOf, symbolTex, typedName, unitTex,
-  ROW_SEPARATOR, TERNARY, closingIndex, splitTopLevel,
+  ROW_SEPARATOR, TERNARY, closingIndex, splitTopLevel, DECIMAL_POINT, EXPONENT_AT, IS_DIGITS, LEADING_MINUS, WHOLE_ENDING_IN_ZERO,
 } from '../../lib/plugin.ts'
 import { rowErrors, seriesUsedIn, sharedRows, withRowValues } from './columns.ts'
 import { cellParts } from './table.ts'
@@ -56,10 +56,10 @@ const MATRIX_ROWS = ROW_SEPARATOR
 const CONDITION = TERNARY.condition
 
 /** A whole number ending in a 0 (not 0 itself), whose 0s a range means: 10, 200. */
-const TRAILING_ZERO = /^-?[1-9]\d*0$/
+const TRAILING_ZERO = WHOLE_ENDING_IN_ZERO
 
 /** A number's sign. */
-const SIGN = /^-/
+const SIGN = LEADING_MINUS
 
 /** A number as a range's from, to or step is typed, and its unit (1: the number, 2: the unit, if any). */
 const RANGE_PART = regex(src`^(${SIGNED_NUMBER})\s*(.*)$`)
@@ -74,7 +74,7 @@ const WRITTEN = {
 } as const
 
 /** A setting that's a number of sig figs: `m:3`. */
-const WHOLE = /^\d+$/
+const WHOLE = IS_DIGITS
 
 
 /**
@@ -152,8 +152,8 @@ const piecesAt = (text: string, delimiter: string): string[] => splitTopLevel(te
 
 /** Decimal places a number has as typed, or as worked out (to a sensible precision): 0.10 → 2, 2 → 0. */
 const decimalsOf = (n: string) => {
-  const point = n.indexOf('.')
-  return point < 0 || /e/i.test(n) ? 0 : n.length - point - 1
+  const point = n.indexOf(DECIMAL_POINT)
+  return point < 0 || EXPONENT_AT.test(n) ? 0 : n.length - point - DECIMAL_POINT.length
 }
 
 /**

@@ -32,7 +32,7 @@ export const UNIT_DENYLIST = new Set(['b', 'B'])
  * The micro prefix as typed: the micro sign µ, or the Greek μ often typed for
  * it, before a unit's name. mathjs writes micro as u, so `3.0 µm` is 3.0 um.
  */
-export const MICRO_SIGN = /^[µμ](?=[A-Za-z])/
+export const MICRO_SIGN = regex(src`^[µμ](?=[A-Za-z])`)
 /** A unit's name with a typed micro sign written as mathjs's u: `µm` → um. */
 export const withMicroPrefix = (id: string) => id.replace(MICRO_SIGN, 'u')
 

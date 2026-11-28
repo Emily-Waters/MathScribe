@@ -14,7 +14,7 @@
 import {
   baseMagnitude, type Definition, EXACT, fixPrefix, type FormLine, IS_NAME, isDimensionless, isQuantity, JOIN, LineForm, type LineResult,
   magnitude, magnitudeOf, memberName, type ModuleHost, normalise, parseMemberName, quantity, type Quantity, sameDimension, unitParts,
-  parseSliceName, RESERVED_NAMESPACES, ROUND_BRACKETS, whereOf, seriesDefinitions, splitArgs, SUBSCRIPT, symbolTex, closingBracketAt,
+  parseSliceName, RESERVED_NAMESPACES, ROUND_BRACKETS, whereOf, seriesDefinitions, splitArgs, SUBSCRIPT, symbolTex, closingBracketAt, TEX_ROW_BREAK,
 } from '../../lib/plugin.ts'
 import { linearFit, plotScales, type LinearFit, type PlotData, type PlotName, type PlotPoint, type PlotSeries } from './plotGraph.ts'
 import { SERIES_FIGURE } from './tableData.ts'
@@ -398,7 +398,7 @@ export class PlotForm extends LineForm {
     // (A weighted fit is two rows already, so it's gathered even on its own. With `equation off`, none is shown.)
     const shown = settings.equation ? fits : []
     return {
-      tex: shown.length > 1 || shown[0]?.includes('\\\\') ? `\\begin{gathered}${shown.join(' \\\\ ')}\\end{gathered}` : shown[0] ?? '',
+      tex: shown.length > 1 || shown[0]?.includes(TEX_ROW_BREAK) ? `\\begin{gathered}${shown.join(` ${TEX_ROW_BREAK} `)}\\end{gathered}` : shown[0] ?? '',
       figure: { type: SERIES_FIGURE.plot, data: plot },
       error: rowErrors(errors, (n) => `${n} more`),
       info: points ? undefined : 'Nothing to plot: no row has both an x and a y value.',

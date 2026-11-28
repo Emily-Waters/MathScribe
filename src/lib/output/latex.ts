@@ -9,6 +9,7 @@ import { flowing, isOmitted } from '../sheet/blocks.ts'
 import { moduleFigureKind, modulePreamble } from '../engine/index.ts'
 import { BLOCK_KIND, isContainer, type Block } from '../sheet/blocks.ts'
 import { ALIGN } from './alignment.ts'
+import { TEX_LIST } from '../latex/syntax.ts'
 import { readStoredJson, writeStoredJson } from '../data/storage.ts'
 import { LINK_COMMAND, escapeTex, fitMacroDefinition, gather, noteMacroDefinition, type Equation } from './latexKit.ts'
 import { constructOf, type LatexOut } from './constructs/index.ts'
@@ -124,7 +125,7 @@ function figurePreamble(blocks: Block[]): string[] {
 function preamble(o: LatexOptions, figures: readonly string[] = [], modules: readonly string[] = [], links = false): string[] {
   const left = o.align === ALIGN.left
   return [
-    `\\documentclass[${[o.fontSize, o.paper, ...(left ? ['fleqn'] : [])].join(',')}]{article}`,
+    `\\documentclass[${[o.fontSize, o.paper, ...(left ? ['fleqn'] : [])].join(TEX_LIST)}]{article}`,
     `\\usepackage[margin=${MARGIN_CM[o.margins]}cm]{geometry}`,
     '\\usepackage{amsmath, amssymb}',
     // (What the figures need: a plot, pgfplots.)

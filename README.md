@@ -342,8 +342,13 @@ renamed, change it there too.
   beside the code that uses it (the sheet's own in `syntax/`), and patterns are
   built with `syntax/patterns.ts`; `src/lib/literals.test.ts` checks it
 - `src/lib/syntax/`: the sheet language's words and patterns, one file per
-  concept (names and numbers, settings, text markup, blocks, constants,
-  notes, `@layout`), written with `patterns.ts` (`src`, `named`, `words`);
+  concept (punctuation, mathjs's operators, names, numbers, settings, text
+  markup, Markdown documents, blocks, constants, notes, `@layout`), written
+  with `patterns.ts` (`src`, `named`, `lit`, `inClass`, `words`). Other
+  languages have a `syntax.ts` beside their code: LaTeX's (`latex/`), the
+  Word export's (`output/`), the data formats' (`data/`), the editor's
+  (`src/editor/`), the tree's saved format (`tree/`), the maths library's
+  text (`maths/library/`), and each module's;
   `src/lib/syntax.ts` gathers them. Shared by the tree, the engine, the outputs
   and the editor
 - `src/lib/sheet/names.ts`: the names the engine makes for itself (`delta__F`, `at__c__5`,

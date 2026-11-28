@@ -10,7 +10,8 @@ import {
 } from '@codemirror/language'
 import { highlightSelectionMatches, search, searchKeymap } from '@codemirror/search'
 import type { Diagnostic, SheetSymbol } from '../lib/sheet/sheetIndex.ts'
-import { INDENT } from '../lib/syntax.ts'
+import { INDENT, regex, src } from '../lib/syntax.ts'
+import { THEME_ROOT } from '../editor/syntax.ts'
 import { moduleEditorExtensions } from '../lib/engine/index.ts'
 import { mathscribeFolding, mathscribeIndent, mathscribeLanguage } from '../editor/language.ts'
 import { SYNTAX_TOKENS, mathscribeHighlight, type Palette, type SyntaxThemeId } from '../editor/themes.ts'
@@ -28,6 +29,9 @@ import { paramHints } from '../editor/paramHints.ts'
 import { statementStart } from '../editor/sheetLines.ts'
 import type { LineValue } from '../lib/engine/index.ts'
 import { splitLines } from '../lib/tree/index.ts'
+
+/** Whitespace at the start of a line: its indentation. */
+const LEADING_WHITESPACE = regex(src`^\s*`)
 
 interface EditorPaneProps {
   value: string
@@ -178,7 +182,7 @@ export function changesTo(doc: Text, value: string): ChangeSpec[] {
 
 /** The editor's look, from the app's colour variables (so it follows light/dark). */
 const baseTheme = EditorView.theme({
-  '&': { height: '100%', fontSize: '14px', color: 'var(--text)', backgroundColor: 'var(--surface)' },
+  [THEME_ROOT]: { height: '100%', fontSize: '14px', color: 'var(--text)', backgroundColor: 'var(--surface)' },
   '&.cm-focused': { outline: 'none' },
   '.cm-scroller': { fontFamily: 'var(--mono)', lineHeight: '24px' },
   '.cm-content': { padding: '16px 0 50vh', caretColor: 'var(--text)' },
@@ -408,7 +412,7 @@ export function EditorPane({
     const v = view.current
     if (!jump || !v) return
     const line = v.state.doc.line(Math.min(Math.max(jump.line, 1), v.state.doc.lines))
-    const at = line.from + /^\s*/.exec(line.text)![0].length
+    const at = line.from + LEADING_WHITESPACE.exec(line.text)![0].length
     v.dispatch({ selection: { anchor: at }, effects: EditorView.scrollIntoView(at, { y: 'center' }) })
     v.focus()
   }, [jump])
@@ -420,7 +424,7 @@ export function EditorPane({
     const v = view.current
     if (!insert || !v) return
     const line = v.state.doc.lineAt(v.state.selection.main.head)
-    const indent = /^\s*/.exec(line.text)![0]
+    const indent = LEADING_WHITESPACE.exec(line.text)![0]
     const blank = !line.text.trim()
     const text = (blank ? '' : '\n') + indent + insert.text
     const from = blank ? line.from : line.to

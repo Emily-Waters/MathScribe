@@ -8,6 +8,7 @@
  */
 import { DATA_FILE, SHEET_FILE, STORAGE_KEYS, TIMING } from '../../config.ts'
 import { readStoredJson, writeStoredJson } from './storage.ts'
+import { EXTENSION_MARK } from './syntax.ts'
 
 /** The parts of a file handle used here (the API isn't in TypeScript's DOM types). */
 export interface FileHandle {
@@ -157,7 +158,7 @@ export const saveDrafts = (drafts: Drafts): boolean => writeStoredJson(STORAGE_K
 
 /** A file name's stem and extension: `lab 3.txt` → `lab 3` and `.txt` (a leading dot isn't an extension). */
 export function splitExtension(name: string): { stem: string; ext: string } {
-  const dot = name.lastIndexOf('.')
+  const dot = name.lastIndexOf(EXTENSION_MARK)
   return dot > 0 ? { stem: name.slice(0, dot), ext: name.slice(dot) } : { stem: name, ext: '' }
 }
 

@@ -151,7 +151,7 @@ function solve(text: string, call: RegExpExecArray, line: FormLine, prepared: Pr
   }
   const info = others.length
     ? `Also a solution: ${others.map(otherTex).join(', ')}`
-      + (guess === undefined ? `. Give a guess to choose it: @solve(…, ${x}, guess).` : '.')
+      + `${guess === undefined ? `. Give a guess to choose it: @solve(…, ${x}, guess)` : ''}.`
     : undefined
   return finish(chosen.node, chosen.value, info)
 }

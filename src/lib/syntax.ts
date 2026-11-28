@@ -8,6 +8,7 @@
  *   punctuation.ts  brackets, `=`, `:`, `,`, `;` and quotes, each written out once
  *   operators.ts  mathjs's delimiters and named delimiters, which expressions are read by
  *   numbers.ts    how a number is written: its point, exponent, sign and zeros, and patterns for its figures
+ *   markdown.ts   Markdown as documents are written in it: fences, tables, headings, escaping, anchors
  *   lexical.ts   names, numbers, the sheet's own words, @, calls, members
  *   greek.ts      Greek letters
  *   settings.ts   what follows a `:`, display names, uncertainty and series words
@@ -21,6 +22,7 @@ export * from './syntax/patterns.ts'
 export * from './syntax/punctuation.ts'
 export * from './syntax/operators.ts'
 export * from './syntax/numbers.ts'
+export * from './syntax/markdown.ts'
 export * from './syntax/lexical.ts'
 export * from './syntax/greek.ts'
 export * from './syntax/settings.ts'

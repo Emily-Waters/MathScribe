@@ -7,9 +7,10 @@
  */
 import { moduleSubscriptTex } from '../engine/index.ts'
 import {
-  EMPHASIS_MARK, EMPHASIS_MARKS, EMPHASIS_RUN, MOST_EMPHASIS_MARKS, TEXT_LINK, TEXT_SUBSCRIPT, splitInlineMath, subscriptOf,
+  EMPHASIS_MARK, EMPHASIS_MARKS, EMPHASIS_RUN, MATHS_MARK, MOST_EMPHASIS_MARKS, TEXT_LINK, TEXT_SUBSCRIPT, regex, splitInlineMath, src, subscriptOf,
   unescapeEmphasisMarks, unescapeUnderscores, words, type WordOf,
 } from '../syntax.ts'
+import { TEX_EMPTY_GROUP } from '../latex/syntax.ts'
 
 /** Each kind of piece of text: plain text, a subscript, or inline maths. */
 export const TITLE_SEGMENT = words({ text: 'text', sub: 'sub', math: 'math' })
@@ -29,7 +30,7 @@ export interface TitleSegment extends Emphasis {
 }
 
 /** In maths, nothing to put a subscript on: the text before it is its base. */
-const EMPTY_BASE = '{}'
+const EMPTY_BASE = TEX_EMPTY_GROUP
 
 /**
  * Headings, block titles, notes and prose: `2p_z` shows its subscript (as
@@ -91,7 +92,10 @@ interface Mark {
 type Piece = { math: boolean; value: string } | { marks: Mark[] } | { link: string | undefined }
 
 /** Whether a character is one emphasis can open before, or close after (not a space; maths counts). */
-const touches = (c: string | undefined) => c !== undefined && !/\s/.test(c)
+const touches = (c: string | undefined) => c !== undefined && !WHITESPACE.test(c)
+
+/** A space, or other whitespace. */
+const WHITESPACE = regex(src`\s`)
 
 /**
  * Text split into its emphasis and links: each run of marks closes the nearest
@@ -143,7 +147,7 @@ function emphasised(text: string): Emphasised[] {
 }
 
 /** What maths next to a run of marks counts as, for whether they touch it: something that isn't a space. */
-const MARKS_TOUCH_MATHS = '$'
+const MARKS_TOUCH_MATHS = MATHS_MARK
 
 /**
  * A run of `length` marks: what it closes of the marks still `open` (if it

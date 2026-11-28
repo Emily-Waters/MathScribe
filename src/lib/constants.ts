@@ -7,6 +7,8 @@
  * (elements.ts), and has the digits IUPAC gives unless written with `:n`. They,
  * and every other built-in member, are in one tree: builtins.ts.
  */
+import { SUBSCRIPT } from './syntax/lexical.ts'
+
 export interface BuiltinConstant {
   value: number
   /** mathjs unit string; empty for dimensionless. */
@@ -77,7 +79,7 @@ const MAX_SUGGESTION_DISTANCE = 2
 
 /** The known constant name closest to a mistyped one, if any is close: `kb` → `k_B`. */
 export function suggestConstant(name: string, known: Iterable<string>): string | undefined {
-  const norm = (s: string) => s.toLowerCase().replace(/_/g, '')
+  const norm = (s: string) => s.toLowerCase().replaceAll(SUBSCRIPT, '')
   let best: string | undefined
   let bestScore = Infinity
   for (const k of known) {

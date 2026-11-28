@@ -5,7 +5,7 @@
  */
 import { lexExpression } from '../../tree/lexer.ts'
 import { TOKEN_KIND, isCallKind, isToken, type Part, type Token } from '../../tree/nodes.ts'
-import { MEMBER_DOT, MEMBER_INDEX, ROUND_BRACKETS, SEPARATOR, SETTING_MARK, SIGIL, inClass, regex, src } from '../../syntax.ts'
+import { IS_DIGITS, MEMBER_DOT, MEMBER_INDEX, ROUND_BRACKETS, SEPARATOR, SETTING_MARK, SIGIL, inClass, regex, src } from '../../syntax.ts'
 import { JOIN, RESERVED_NAMESPACES, SLICE_COLON, type SliceSpec, memberName, seriesMemberName, sliceName } from '../../sheet/names.ts'
 
 /** A token of a line, and whether it's what a call calls (`f` in `f(x)`, `@chem.mm` in `@chem.mm({H2O})`). */
@@ -72,7 +72,7 @@ const isDot = (t: Token | undefined) => t?.t === TOKEN_KIND.delimiter && t.text 
 const isIndex = (t: Token | undefined, bracket: string) => t?.t === TOKEN_KIND.delimiter && t.text === bracket
 
 /** A whole number, as a member's is written: t[3]. */
-const WHOLE_NUMBER = /^\d+$/
+const WHOLE_NUMBER = IS_DIGITS
 
 /**
  * What's in a series' brackets, from token `at` (after the `[`): one member's

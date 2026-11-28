@@ -3,6 +3,7 @@ import { EXAMPLE_CALC_OPTIONS, STORAGE_KEYS } from '../config.ts'
 import { evaluateSheetSafely } from '../lib/sheet/document.ts'
 import { BUILTIN_CONSTANTS } from '../lib/constants.ts'
 import { SHORTCUTS, keyLabel, type Shortcut } from '../editor/shortcuts.ts'
+import { MAC_PLATFORM } from '../editor/syntax.ts'
 import { languageTopics } from '../lib/engine/index.ts'
 import { entryMatches, termShown } from '../lib/language/tree.ts'
 import { matchesWords, searchWords } from '../lib/search.ts'
@@ -22,7 +23,7 @@ const SHORTCUTS_ID = 'shortcuts'
 const SHORTCUTS_TITLE = 'Keyboard shortcuts'
 
 /** Whether the app is on a Mac, where Ctrl is ⌘ (and the keys are shown so). */
-const ON_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
+const ON_MAC = typeof navigator !== 'undefined' && MAC_PLATFORM.test(navigator.platform)
 
 /** A shortcut's keys as shown: each key or pair named for this computer, with what goes with them (Ctrl+Click). */
 const keysShown = (s: Shortcut) => `${s.keys.map((k) => keyLabel(k, ON_MAC)).join(' / ')}${s.also ? ` · ${s.also}` : ''}`

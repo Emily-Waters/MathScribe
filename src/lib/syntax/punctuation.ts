@@ -49,3 +49,6 @@ export const ROW_SEPARATOR = ';'
 
 /** Around quoted text: a label, `"KBr, solid"`, a setting's value, `title "Run 1"`. */
 export const QUOTE = '"'
+
+/** mathjs's other quote, which a sheet doesn't use for its labels: `'text'`. */
+export const APOSTROPHE = "'"

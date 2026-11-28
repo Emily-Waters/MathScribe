@@ -5,12 +5,12 @@
 import {
   BLOCK_CLOSE, BLOCK_OPEN, CONSTANTS_OPENER, IMPORT, LATEX_OPENER, PARAGRAPH_MARK, PROSE_LAYOUTS,
 } from '../syntax.ts'
-import { LAYOUT_SYNTAX, splitNote } from '../syntax.ts'
+import { HEADING_MARKS, LAYOUT_SYNTAX, splitNote } from '../syntax.ts'
 import { BODY_END, CONTENT, GRAMMAR_CORE, declareContexts, declareLineSyntaxes, type LineSyntax } from './grammar.ts'
 import { LINE_CONTEXT, NODE_KIND } from './nodes.ts'
 
-/** A heading's `#`s, at the start of a line. */
-export const HEADING_MARKS = /^#+/
+// (A heading's `#`s at the start of a line are the language's: syntax/text.ts.)
+export { HEADING_MARKS }
 
 /** A line in the sheet (or a block in it). */
 const SHEET = [LINE_CONTEXT.sheet] as const

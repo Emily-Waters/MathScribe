@@ -10,17 +10,15 @@
 import type { Completion, CompletionResult } from '@codemirror/autocomplete'
 import type { EditorState } from '@codemirror/state'
 import { EditorView, type Command } from '@codemirror/view'
-import { GREEK_BY_NAME, GREEK_LETTERS } from '../lib/syntax.ts'
+import { GREEK_BY_NAME, GREEK_LETTERS, MATHS_MARK } from '../lib/syntax.ts'
+import { EVERY_GREEK_TYPED, GREEK_BEING_TYPED, GREEK_ESCAPE, GREEK_SO_FAR, GREEK_TYPED } from './syntax.ts'
 import { inNote, isProseLine } from './language.ts'
 import { inNamelessBlock } from './sheetLines.ts'
 
-/** A Greek letter's name being typed after a backslash (`\Del`). */
-const BEING_TYPED = /\\[A-Za-z]*$/
-/** A whole Greek letter's name just typed (1: the name). */
-const TYPED = /\\([A-Za-z]+)$/
-
-/** Every Greek letter's name after a backslash, in some text (1: the name). */
-const EVERY_TYPED = /\\([A-Za-z]+)/g
+// (How a Greek letter's name is typed, `\delta`, is the editor's vocabulary: syntax.ts.)
+const BEING_TYPED = GREEK_BEING_TYPED
+const TYPED = GREEK_TYPED
+const EVERY_TYPED = EVERY_GREEK_TYPED
 
 /** Text with each Greek letter's name after a backslash as the letter: `\Delta E` → `ΔE` (any other `\word` stays). */
 export const withGreekLetters = (text: string): string =>
@@ -42,16 +40,16 @@ export function typeGreekInBox(input: HTMLInputElement): boolean {
 }
 
 /** Whether the text before the cursor is inside `$…$` maths. */
-const inInlineMaths = (before: string) => (before.match(/\$/g)?.length ?? 0) % 2 === 1
+const inInlineMaths = (before: string) => (before.split(MATHS_MARK).length - 1) % 2 === 1
 
 /** Every Greek letter as a suggestion: `\Delta`, which types Δ. */
-const OPTIONS: Completion[] = GREEK_LETTERS.map(([name, char]) => ({ label: `\\${name}`, apply: char, type: 'text', detail: char }))
+const OPTIONS: Completion[] = GREEK_LETTERS.map(([name, char]) => ({ label: `${GREEK_ESCAPE}${name}`, apply: char, type: 'text', detail: char }))
 
 /** Greek letters to suggest while `\…` is typed (`before`: the line up to the cursor). */
 export function greekCompletions(before: string, pos: number): CompletionResult | null {
   const m = BEING_TYPED.exec(before)
   if (!m || inInlineMaths(before)) return null
-  return { from: pos - m[0].length, options: OPTIONS, validFor: /^\\[A-Za-z]*$/ }
+  return { from: pos - m[0].length, options: OPTIONS, validFor: GREEK_SO_FAR }
 }
 
 /**

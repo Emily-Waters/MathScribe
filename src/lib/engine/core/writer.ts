@@ -11,7 +11,7 @@
  * can make an exception to the core's (a quantity of a species), tried first.
  * A part no one writes is written as it's typed; a node, as its parts.
  */
-import { ASSIGN, CALL, KEYWORD, SIGIL } from '../../syntax.ts'
+import { ASSIGN, CALL, KEYWORD, SIGIL, regex, src } from '../../syntax.ts'
 import { source } from '../../maths/library/index.ts'
 import { lexExpression } from '../../tree/lexer.ts'
 import { matchesDelimiter, splitParts } from '../../tree/topLevel.ts'
@@ -113,7 +113,7 @@ const CORE_WRITERS: Readonly<Record<string, PartWriter>> = {
 }
 
 /** A unit that's one word, which could be a variable's name. */
-const SINGLE_UNIT = /^[A-Za-z]+$/
+const SINGLE_UNIT = regex(src`^[A-Za-z]+$`)
 
 /**
  * The numbers in an expression, each by its value, as typed (`2.0`, `1.50e3`),

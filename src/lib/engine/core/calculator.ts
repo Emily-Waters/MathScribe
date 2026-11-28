@@ -6,7 +6,7 @@
 import { EXACT, countSigFigs } from '../../maths/sigfigs.ts'
 import { AGGREGATE_KIND, Variable, type Contributions, type VariableFields, type VariableSummary } from '../../sheet/values.ts'
 import { BUILTINS, isReservedConstantName } from '../../builtins.ts'
-import { ASSIGN, regex, src, SETTING_MARK, EXACT_SETTING, IS_NAME, MEMBER_DOT, PERCENT, DISPLAY_MODE, CONSTANTS_BLOCK, LABEL_WORDS, SIGIL, UNCERTAINTY_WORDS, type DisplayMode, type Precision } from '../../syntax.ts'
+import { ASSIGN, RELATIVE_MARK, regex, src, SETTING_MARK, EXACT_SETTING, IS_NAME, MEMBER_DOT, PERCENT, DISPLAY_MODE, CONSTANTS_BLOCK, LABEL_WORDS, SIGIL, UNCERTAINTY_WORDS, type DisplayMode, type Precision } from '../../syntax.ts'
 import { INLINE_VALUE_NAME, JOIN, TUPLE_FUNCTION, RESERVED_NAMESPACES, calledName, isHiddenName, memberName, parseUncertaintyName, readableMembers, unpackedName, uncertaintyName } from '../../sheet/names.ts'
 import { expandDots } from './memberAccess.ts'
 import { SheetConstants } from './sheetConstants.ts'
@@ -835,7 +835,7 @@ export class Calculator {
     const lineHead = lineShape(line.text)
     const lhs = lineHead.target?.kind === NODE_KIND.assigned ? lineHead.head : ''
     const pm = splitPm(line.text.slice(lhs.length))
-    const percent = !!pm?.[1].endsWith('%')
+    const percent = !!pm?.[1].endsWith(RELATIVE_MARK)
 
     let node: Expr
     let uncNode: Expr | undefined

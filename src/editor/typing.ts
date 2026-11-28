@@ -7,7 +7,8 @@
  */
 import { NODE_KIND, TOKEN_KIND, isToken, type Part, type SyntaxNode } from '../lib/tree/index.ts'
 import { lexExpression } from '../lib/tree/lexer.ts'
-import { ASSIGN, CALL, KEYWORD, MEMBER_DOT, ROUND_BRACKETS, SEPARATOR, SETTING_MARK, SIGIL } from '../lib/syntax.ts'
+import { ASSIGN, CALL, DECIMAL_POINT, KEYWORD, MEMBER_DOT, ROUND_BRACKETS, SEPARATOR, SETTING_MARK, SIGIL, lit, regex, src } from '../lib/syntax.ts'
+import { LETTERS_AT_END, LETTERS_SO_FAR } from './syntax.ts'
 import { words, type WordOf } from '../lib/syntax/patterns.ts'
 
 /** What can be being typed, each with its own suggestions. */
@@ -70,9 +71,9 @@ const isSpace = (p: Piece | undefined) => p?.t === TOKEN_KIND.space || p?.t === 
 const isDelimiter = (p: Piece | undefined, text: string) => p?.t === TOKEN_KIND.delimiter && p.text === text
 
 /** Letters only: what's typed of a setting or a unit. */
-const LETTERS = /^[A-Za-z]*$/
+const LETTERS = LETTERS_SO_FAR
 /** A number ending in a digit (or a digit and its point), as a unit can follow: `2.5`, `3.`, not `1e`. */
-const ENDS_IN_DIGIT = /\d\.?$/
+const ENDS_IN_DIGIT = regex(src`\d${lit(DECIMAL_POINT)}?$`)
 
 /** A word that can be what's typed of a name or a unit: as a name, a unit or a keyword reads it so far. */
 const isWord = (p: Piece | undefined) => p?.t === TOKEN_KIND.symbol || p?.t === TOKEN_KIND.unit || p?.t === TOKEN_KIND.keyword
@@ -93,7 +94,7 @@ export function typingAt(parts: readonly Part[]): Typing | undefined {
 type Reader = (pieces: readonly Piece[]) => Typing | null | undefined
 
 /** Letters at the end of a compound unit: the `s` of `m/s`, the `m` of `N*m`. */
-const UNIT_WORD_SO_FAR = /[A-Za-z]+$/
+const UNIT_WORD_SO_FAR = LETTERS_AT_END
 
 /**
  * `9.81 m/s`, `conc(n, V):mol/L`: the next unit of a compound one, as the
@@ -128,7 +129,7 @@ function builtin(pieces: readonly Piece[]): Typing | null | undefined {
     start = pieces.length - 1
   } else if (last.t === TOKEN_KIND.builtin) {
     // `@c:4`: a constant and its precision, typed (no name's being typed).
-    if (last.text.includes(':')) return null
+    if (last.text.includes(SETTING_MARK)) return null
     // `@chem.mm.N`: one token, with its dots.
     const names = last.text.slice(SIGIL.length).split(MEMBER_DOT)
     typed = names.pop()!

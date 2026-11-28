@@ -1,7 +1,7 @@
 /** Names, numbers and units as LaTeX. */
 import { AGGREGATE_KIND } from '../../sheet/values.ts'
 import { builtinConstant } from '../../builtins.ts'
-import { GREEK_BY_CHAR, GREEK_BY_NAME, GREEK_CHARS, SCIENTIFIC, SERIES_SUFFIXES, inClass, lit, regex, src } from '../../syntax.ts'
+import { GREEK_BY_CHAR, GREEK_BY_NAME, GREEK_CHARS, IS_DIGITS, SCIENTIFIC, SERIES_SUFFIXES, inClass, lit, regex, src } from '../../syntax.ts'
 import {
   ENDS_IN_SUBSCRIPT, SUBSCRIPT_TAIL, TEX_GROUP, TEX_LIST, TEX_SUPERSCRIPT, TEX_THIN_SPACE, TEX_TIE,
 } from '../../latex/syntax.ts'
@@ -36,7 +36,7 @@ export function namePart(s: string): string {
       return name ? `\\${name}` : piece
     }).join(' ')
   }
-  if (s.length === 1 || /^\d+$/.test(s)) return s
+  if (s.length === 1 || IS_DIGITS.test(s)) return s
   return `\\mathrm{${s}}`
 }
 
@@ -149,7 +149,7 @@ export const NUMBERED_LABEL = regex(src`^([A-Za-z${GREEK_CHARS}])(\d+[A-Za-z]+)$
  * final (`Ai`, `Bf`), or two capitals (`AB`). Words (`net`, `max`, `cm`, `eq`)
  * aren't, and nor are element symbols (`Na`, `Ca`, `Mg`), which stay upright.
  */
-export const LABELS = /^(?:\d+[A-Za-z]|[A-Za-z]\d+|[A-Za-z][xyz]|[A-Z][if]|[A-Z]{2})$/
+export const LABELS = regex(src`^(?:\d+[A-Za-z]|[A-Za-z]\d+|[A-Za-z][xyz]|[A-Z][if]|[A-Z]{2})$`)
 
 /** A subscript as LaTeX: labels each as itself (`fx` → f x, letters italic), a word upright (`net`). */
 export const subscriptPart = (s: string) => (LABELS.test(s) ? [...s].map(namePart).join('') : namePart(s))

@@ -10,7 +10,7 @@ import { MAX_DIGITS, countSigFigs } from '../../maths/sigfigs.ts'
 import type { VariableFields } from '../../sheet/values.ts'
 import { DEFAULT_CONSTANT_SIG_FIGS, isNamespaceConstant, suggestConstant, type BuiltinConstant, type NamespaceConstant } from '../../constants.ts'
 import { builtinConstant, builtinConstantKeys } from '../../builtins.ts'
-import { CONSTANTS_BLOCK, CONSTANT_WRITTEN, EXACT_SETTING, SIGIL, type Precision } from '../../syntax.ts'
+import { CONSTANTS_BLOCK, CONSTANT_WRITTEN, EXACT_SETTING, SIGIL, VALUE_THEN_UNIT, type Precision } from '../../syntax.ts'
 import { constantKey, constantRefName, typedConstant } from '../../sheet/names.ts'
 import { TOKEN_KIND } from '../../tree/nodes.ts'
 import { lexExpression } from '../../tree/lexer.ts'
@@ -30,7 +30,7 @@ export interface ConstantsHost {
 export function roundTo(value: unknown, digits: number): unknown {
   if (typeof value === 'number') return Number(value.toPrecision(digits))
   if (!isQuantity(value)) return value
-  const m = /^(\S+)\s+(.+)$/.exec(formatValue(value, { precision: MAX_DIGITS }))
+  const m = VALUE_THEN_UNIT.exec(formatValue(value, { precision: MAX_DIGITS }))
   return m ? convert(quantity(Number(Number(m[1]).toPrecision(digits)), m[2]), m[2]) : value
 }
 

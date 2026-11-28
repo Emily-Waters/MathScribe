@@ -6,6 +6,7 @@
  * real engine, as in the Reference tab.
  */
 import { matchesWords, searchWords } from '../search.ts'
+import { regex, src } from '../syntax.ts'
 
 export interface LibrarySymbol {
   /** As written in MathScribe (`v_0`); shown typeset. */
@@ -570,7 +571,10 @@ export const LIBRARY: LibraryTopic[] = [
 ]
 
 /** The function's name, from its source line. */
-export const entryName = (e: LibraryEntry) => /^[A-Za-z]\w*/.exec(e.source)![0]
+export const entryName = (e: LibraryEntry) => LEADING_NAME.exec(e.source)![0]
+
+/** The name a function's source line starts with: `ke(m, v) = …` → ke. */
+const LEADING_NAME = regex(src`^[A-Za-z]\w*`)
 
 /** Entries whose title, name, symbols or keywords contain every word of the query. */
 export function searchLibrary(query: string): LibraryTopic[] {

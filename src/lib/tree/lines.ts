@@ -26,7 +26,7 @@ export interface SourceLine {
 }
 
 /** What ends a line, in any of the ways a text can. */
-const LINE_END = /\r\n|\n|\r/g
+const LINE_END = regex(src`\r\n|\n|\r`, 'g')
 
 /** A text's lines, each with what ends it; joined, they're the text exactly. */
 export function splitLines(source: string): SourceLine[] {
@@ -44,8 +44,9 @@ export function splitLines(source: string): SourceLine[] {
 const EDGES = regex(src`^(${SPACES})(.*?)(${SPACES})$`, 's')
 
 /** Spaces and tabs at the start or end of a piece. */
-const LEADING_SPACE = /^[ \t]+/
-const TRAILING_SPACE = /[ \t]+$/
+const SOME_SPACES = src`[ \t]+`
+const LEADING_SPACE = regex(src`^${SOME_SPACES}`)
+const TRAILING_SPACE = regex(src`${SOME_SPACES}$`)
 
 const token = (t: string, text: string): Token => Object.freeze({ t, text })
 

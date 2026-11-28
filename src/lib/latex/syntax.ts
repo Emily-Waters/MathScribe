@@ -39,6 +39,21 @@ export const TEX_THIN_SPACE = '\\,'
 /** Between an aligned row's columns, `&= b`. */
 export const TEX_ALIGN = '&'
 
+/** The end of a row: in `aligned`, `cases`, `gathered` and a table. */
+export const TEX_ROW_BREAK = `${TEX_ESCAPE}${TEX_ESCAPE}`
+
+/** A percent sign, drawn (a bare `%` starts a comment). */
+export const TEX_PERCENT = `${TEX_ESCAPE}%`
+
+/** An empty group, `{}`: something to hang a superscript on (`{}^\circ`), or to end a command. */
+export const TEX_EMPTY_GROUP = '{}'
+
+/** A line between a table's columns, in its column spec: `{l|r}`. */
+export const TEX_COLUMN_RULE = '|'
+
+/** After a sectioning command, to leave it unnumbered: `\section*{…}`. */
+export const TEX_UNNUMBERED = '*'
+
 /** Brackets as LaTeX writes them (after `\left`/`\right` when they grow): a group's or a call's, and square ones. */
 export const TEX_ROUND = { open: '(', close: ')' } as const
 export const TEX_SQUARE = { open: '[', close: ']' } as const

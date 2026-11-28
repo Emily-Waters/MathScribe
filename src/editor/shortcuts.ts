@@ -4,6 +4,7 @@
  * Reference lists (its Keyboard shortcuts), so the list is the keys as they're bound.
  */
 import { FORMAT_KEY } from './format.ts'
+import { BETWEEN_KEY_PARTS, KEY_JOIN, KEY_LABEL } from './syntax.ts'
 
 /** The keys MathScribe binds, and CodeMirror's own that the list shows. */
 export const EDITOR_KEY = {
@@ -53,23 +54,13 @@ export const SHORTCUTS: readonly Shortcut[] = [
   { keys: [EDITOR_KEY.undo, EDITOR_KEY.redo], does: 'Undo / redo' },
 ]
 
-/** How each part of a key's name is shown: on a Mac, and elsewhere. */
-const KEY_LABEL: Readonly<Record<string, { mac: string; other: string }>> = {
-  Mod: { mac: '⌘', other: 'Ctrl' },
-  Alt: { mac: '⌥', other: 'Alt' },
-  Shift: { mac: '⇧', other: 'Shift' },
-  ArrowUp: { mac: '↑', other: '↑' },
-  ArrowDown: { mac: '↓', other: '↓' },
-  Space: { mac: 'Space', other: 'Space' },
-}
-
-/** Between a key's parts, as shown: `Ctrl+Shift+F`; on a Mac, none: `⌘⇧F`. */
-const JOIN = { mac: '', other: '+' } as const
+// (How a key's parts are shown, and joined, are the editor's vocabulary: syntax.ts.)
+const JOIN = KEY_JOIN
 
 /** A key, as CodeMirror names it (`Mod-Shift-f`), as a person reads it: `Ctrl+Shift+F`, or `⌘⇧F` on a Mac. */
 export function keyLabel(key: string, mac: boolean): string {
   // (Split at each `-` between parts: `Mod-/`'s last part is `/`, and a `-` key's is `-`.)
-  const parts = key.split(/-(?!$)/)
+  const parts = key.split(BETWEEN_KEY_PARTS)
   const shown = parts.map((part) => {
     const label = KEY_LABEL[part]
     if (label) return mac ? label.mac : label.other

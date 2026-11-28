@@ -130,7 +130,7 @@ export class VectorModule extends EngineModule {
         const negative = tex.startsWith(TEX_SIGN.minus)
         const term = `${negative ? tex.slice(1) : tex}\\,${UNIT_VECTOR_TEX[i]}`
         if (i === 0) return negative ? `-${term}` : term
-        return `${negative ? '-' : '+'} ${term}`
+        return `${negative ? TEX_SIGN.minus : TEX_SIGN.plus} ${term}`
       }).join(' ')
       // (Plain brackets: \left( would grow to fit the hats.)
       return sharedUnit ? attachUnit(`(${sum})`, sharedUnit) : sum

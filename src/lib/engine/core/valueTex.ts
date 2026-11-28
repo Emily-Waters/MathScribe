@@ -7,7 +7,7 @@
  * inLook). (Typesetting an expression, the working, is the Calculator's.)
  */
 import { EXACT, MAX_DIGITS, formatExact, formatSigFigs, formatWithUncertainty } from '../../maths/sigfigs.ts'
-import type { Notation } from '../../syntax.ts'
+import { VALUE_THEN_UNIT, type Notation } from '../../syntax.ts'
 import {
   exprTex, formatValue, isQuantity, isValueMatrix, magnitude, parse, valuesOf, type Quantity, type ValueMatrix,
 } from '../../maths/library/index.ts'
@@ -98,7 +98,7 @@ export class ValueTex {
     if (isQuantity(value)) {
       // Full precision first (the library picks the unit prefix), then round ourselves.
       const s = formatValue(displayUnit(value), { precision: MAX_DIGITS })
-      const m = /^(\S+)\s+(.+)$/.exec(s)
+      const m = VALUE_THEN_UNIT.exec(s)
       if (!m) return null
       const x = Number(m[1])
       return { x, num: this.formatNumber(x, sf, forced), unit: m[2] }

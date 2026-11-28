@@ -4,8 +4,11 @@
  */
 import {
   ASSIGN, DISPLAY_MODE, type DisplayName, IS_NAME, type ModuleHost, MEMBER_DOT, NAME, NAME_CHAR, ROUND_BRACKETS, SIGIL, inClass, lit, regex,
-  seriesMemberName, src, symbolsIn, symbolTex, unpackedColumnName,
+  seriesMemberName, src, symbolsIn, symbolTex, unpackedColumnName, DECIMAL_POINT,
 } from '../../lib/plugin.ts'
+
+/** A number just before, then spaces: what a unit follows (`2.0 m`). */
+const NUMBER_BEFORE = regex(src`\d${lit(DECIMAL_POINT)}?\s+$`)
 
 /** A column of a table or plot: its name (if it has one), its header as TeX, and the variable holding each row's value. */
 export interface SeriesColumn {
@@ -32,7 +35,7 @@ export function withRowValues(expr: string, series: Map<string, Map<number, stri
   return expr.replace(SERIES_IN_EXPRESSION, (match: string, name: string, offset: number) => {
     const member = series.get(name)?.get(n)
     // (A unit right after a number, `2.0 m`, stays a unit.)
-    if (!member || /\d\.?\s+$/.test(expr.slice(0, offset))) return match
+    if (!member || NUMBER_BEFORE.test(expr.slice(0, offset))) return match
     return member
   })
 }

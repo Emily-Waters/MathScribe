@@ -8,6 +8,7 @@ import { uncertaintySigFigs } from '../../maths/sigfigs.ts'
 import type { Contributions, Variable, VariableFields } from '../../sheet/values.ts'
 import { isArgumentUncertaintyName, isUncertaintyName, uncertaintyName } from '../../sheet/names.ts'
 import type { UncertaintyWord } from '../../syntax.ts'
+import { TEX_PERCENT } from '../../latex/syntax.ts'
 import {
   OP, add, compile, derivative, divide, evaluateCompiled, findAll, isConstant, isOp, isQuantity, isSymbol, multiply, subtract, transform,
   withBaseMagnitude, type CallExpr, type Expr, type ScopeMap, type SymbolExpr, type Value,
@@ -186,7 +187,7 @@ export class Propagation {
       const bNum = isNumberWithUnit(b) ? b.args[0] : b
       return attachUnit(`\\left(${this.host.tex(a.args[0], literals)} \\pm ${this.host.tex(bNum, literals)}\\right)`, unit)
     }
-    return `${this.host.tex(value, literals)} \\pm ${this.host.tex(unc, literals)}${percent ? '\\%' : ''}`
+    return `${this.host.tex(value, literals)} \\pm ${this.host.tex(unc, literals)}${percent ? TEX_PERCENT : ''}`
   }
 
   /**

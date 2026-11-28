@@ -4,7 +4,7 @@
  */
 import {
   BLOCK_CLOSE, BLOCK_OPEN, CONSTANTS_BLOCK, DISPLAY_MODE, EXACT_SETTING, IMPORT, LATEX_BLOCK, LATEX_OPENER, LAYOUT_STYLE, LAYOUT_SYNTAX, DISPLAY, SIGIL,
-  PARAGRAPH_MARK, COMMENT_START, HEADING_MARK, bracesBalance, splitNote, type SplitLine,
+  PARAGRAPH_MARK, COMMENT_START, HEADING_MARK, HEADING_MARKS, bracesBalance, splitNote, type SplitLine,
 } from '../syntax.ts'
 import { BLOCK_KIND, HEADING_LEVEL, SYMBOL_KIND, type CardBlock, type CardEntry, type DefinedName, type GroupBlock, type HeadingLevel, type SectionTitle, type ImportBlock, type LayoutBlock } from '../sheet/blocks.ts'
 import { NODE_KIND, TOKEN_KIND, statementOf } from '../tree/index.ts'
@@ -66,7 +66,7 @@ class ConstantsReader extends SheetWideReader<CardBlock> {
       /** Precision declarations in the block, shown once all its constants exist. */
       const declarations: number[] = []
       for (const { number, trimmed: text, parts: entry } of bodyLines(item)) {
-        if (!text || text.startsWith('#')) continue
+        if (!text || text.startsWith(HEADING_MARK)) continue
         if (parseConstantDeclaration(entry.body)) {
           declarations.push(entries.length)
           entries.push({ line: number, source: entry.body, note: entry.note, tex: '' })
@@ -111,8 +111,6 @@ class HeadingReader extends NodeReader {
   }
 }
 
-/** A heading's marks, the `#`s it starts with. */
-const HEADING_MARKS = /^#+/
 
 /** A line written as a heading, `## Title`: its level and its text (null if it isn't one). */
 function headingOf(trimmed: string): { level: HeadingLevel; text: string } | null {

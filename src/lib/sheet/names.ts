@@ -19,7 +19,7 @@
  * named plot's fit is p.slope, p.intercept, p.r2 and p.chi2.
  */
 import {
-  CALL, EXACT_SETTING, IS_NAME, MEMBER_DOT, MEMBER_INDEX, NAME, SERIES_SUFFIXES, SIGIL, UNCERTAINTY_WORDS, regex, src,
+  CALL, EXACT_SETTING, IS_NAME, MEMBER_DOT, MEMBER_INDEX, NAME, RANGE_COLON, SERIES_SUFFIXES, SIGIL, UNCERTAINTY_WORDS, oneOf, regex, src,
   type Precision, type SeriesSuffix, type UncertaintyWord,
 } from '../syntax.ts'
 
@@ -180,7 +180,7 @@ export const typedSlice = (spec: SliceSpec) =>
   [spec.from, spec.to, ...(spec.step === undefined ? [] : [spec.step])].map((n) => (n === undefined ? '' : String(n))).join(SLICE_COLON)
 
 /** Between a slice's from, to and step, as typed: t[2:10:2]. */
-export const SLICE_COLON = ':'
+export const SLICE_COLON = RANGE_COLON
 
 /**
  * The members a slice takes, of a series' members in order of their numbers
@@ -195,13 +195,13 @@ export function sliceOf<T>(members: readonly (readonly [number, T])[], spec: Sli
 // Reading
 // ---------------------------------------------------------------------------
 
-const UNCERTAINTY_NAME = regex(src`^(${UNCERTAINTY_WORDS.join('|')})${JOIN}(.+)$`)
+const UNCERTAINTY_NAME = regex(src`^(${oneOf(UNCERTAINTY_WORDS)})${JOIN}(.+)$`)
 const CONSTANT_NAME = regex(src`^${HIDDEN_PREFIX.constant}${JOIN}(.+)${JOIN}(?:\d+|${EXACT_MARK})$`)
 const HELD_NAME = regex(src`^${HIDDEN_PREFIX.held}${JOIN}(.+)$`)
 const UNPACKED_START = `${HIDDEN_PREFIX.unpacked}${JOIN}`
 
 /** A series' statistic, `t.avg` as t__avg (1: the series, 2: the statistic). */
-export const SERIES_STAT_NAME = regex(src`^(.+)${JOIN}(${Object.keys(SERIES_SUFFIXES).join('|')})$`)
+export const SERIES_STAT_NAME = regex(src`^(.+)${JOIN}(${oneOf(Object.keys(SERIES_SUFFIXES))})$`)
 
 /** A series' member, `t[1]` as t__1 (1: the series, 2: its number). */
 const NUMBERED_NAME = regex(src`^(.+)${JOIN}(\d+)$`)

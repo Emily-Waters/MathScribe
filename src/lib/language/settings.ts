@@ -16,6 +16,11 @@
  */
 import { inClass, regex, src } from '../syntax/patterns.ts'
 import { QUOTE, SEPARATOR } from '../syntax/punctuation.ts'
+import { RANGE_DASH } from '../syntax/settings.ts'
+
+/** A run of spaces, to split at; and every one, to tidy. */
+const SPACE_RUN = regex(src`\s+`)
+const ALL_SPACE = regex(src`\s+`, 'g')
 
 /** Text in quotes, as a setting's value: `"Run 1"` (its group: what's inside). */
 const QUOTED = src`${QUOTE}([^${inClass(QUOTE)}]*)${QUOTE}`
@@ -29,14 +34,11 @@ export const SETTINGS_SEPARATOR = SEPARATOR
 
 // (A setting's value is quoted, QUOTE, when it can hold commas: `title "Run 1, cart"`.)
 
-/** Between a range's ends: `rows 5-20`. */
-const RANGE_DASH = '-'
-
 /** The words settings share: a switch's `on` and `off`, a range's `from` and `to`. */
 export const SETTING_WORD = { on: 'on', off: 'off', from: 'from', to: 'to', rows: 'rows', title: 'title' } as const
 
 /** A setting as typed, tidied: trimmed, with single spaces inside. */
-export const tidySetting = (part: string) => part.trim().replace(/\s+/g, ' ')
+export const tidySetting = (part: string) => part.trim().replace(ALL_SPACE, ' ')
 
 /** Settings text split into its settings, tidied (and empty ones left out), but not at a comma inside a quoted value. */
 export function settingParts(text: string | undefined): string[] {
@@ -310,7 +312,7 @@ export class NameSetting<S> extends Setting<S> {
   protected rows<C>(panel: SettingsPanel<C>, { current, set }: SettingsState<S>): C[] {
     // (A name is one word: what's typed is taken up to its first space.)
     return [panel.row(this.about.label, panel.textBox(current()[this.key] as string | undefined, `e.g. ${this.sample}`,
-      (text) => set(changed(current(), this.key, text?.split(/\s+/)[0] || undefined))))]
+      (text) => set(changed(current(), this.key, text?.split(SPACE_RUN)[0] || undefined))))]
   }
 }
 

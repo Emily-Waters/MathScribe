@@ -28,7 +28,7 @@ import {
   EVERY_PRODUCT_SIGN, PRODUCT_SIGN, SIDE, inScientificNotation, isNumberWithUnit, needsBrackets, productSeparator, type Side,
 } from './products.ts'
 import type { ValueTex } from './valueTex.ts'
-import { TEX_GROUP, TEX_ROUND } from '../../latex/syntax.ts'
+import { TEX_GROUP, TEX_ROUND, TEX_ROW_BREAK } from '../../latex/syntax.ts'
 
 /** Spaces right after a group's brace or a round bracket opens, which the library's LaTeX leaves (1: the brace or bracket). */
 const SPACE_AFTER_OPENING = regex(src`([${inClass(TEX_GROUP.open, TEX_ROUND.open)}])\s+`, 'g')
@@ -219,7 +219,7 @@ export class WorkingTex {
           cases.push(caseTex(exprTex(at.trueExpr, options), `\\text{${CASE_WORDS.if}}\\; ${exprTex(at.condition, options)}`))
         }
         cases.push(caseTex(exprTex(at, options), `\\text{${CASE_WORDS.otherwise}}`))
-        return `\\begin{cases} ${cases.join('\\\\')}\\end{cases}`
+        return `\\begin{cases} ${cases.join(TEX_ROW_BREAK)}\\end{cases}`
       }
       // A value in scientific notation raised to a power is bracketed: (7.07 × 10⁻²)², not 7.07 × 10⁻²².
       if (isOp(n, OP.pow)) {

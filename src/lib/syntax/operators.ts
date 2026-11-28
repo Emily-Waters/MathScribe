@@ -16,5 +16,8 @@ export const MATHJS_DELIMITERS = [
 /** mathjs's conditional: `x > 0 ? x : 0` (its `:` isn't a range's or a setting's). */
 export const TERNARY = { condition: '?', otherwise: ':' } as const
 
+/** mathjs's range: `1:5`, and a series' slice, `t[2:4]`. */
+export const RANGE_COLON = ':'
+
 /** mathjs's named delimiters: words that are operators (`2 m to cm`, `a mod b`). */
 export const MATHJS_NAMED_DELIMITERS = ['mod', 'to', 'in', 'and', 'xor', 'or', 'not'] as const

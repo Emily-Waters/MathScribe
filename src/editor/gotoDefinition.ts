@@ -152,7 +152,7 @@ function goToDefinition(view: EditorView, pos: number): boolean {
 function renameSymbol(view: EditorView): boolean {
   const target = nameAt(view.state, view.state.selection.main.head)
   if (!target) return false
-  const promptName = target.name.startsWith('@') ? target.name.slice(1) : target.name
+  const promptName = target.name.startsWith(SIGIL) ? target.name.slice(SIGIL.length) : target.name
   const promptRect = view.coordsAtPos(target.from)
   if (!promptRect) return true
 

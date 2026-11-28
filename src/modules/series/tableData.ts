@@ -4,6 +4,7 @@
  * loads nothing of the engine, so the module's public face can share it (see
  * tableBlock.ts for how a table block is written to each export).
  */
+import { TEX_COLUMN_RULE } from '../../lib/plugin.ts'
 import { TABLE_LINE, type TableLines } from './tableSettings.ts'
 
 /** The series module's kinds of block, by type. */
@@ -86,7 +87,7 @@ export const TABLE_TEX = {
   cellSeparator: ' & ',
   /** A column's alignment, and the line between two. */
   column: 'r',
-  columnRule: '|',
+  columnRule: TEX_COLUMN_RULE,
   /** A text cell (a typed table's), as text in maths. */
   text: (cell: string) => `\\text{${cell}}`,
   /** A cell over `span` columns, centred. */

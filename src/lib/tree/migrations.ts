@@ -6,6 +6,7 @@
  * is the first.
  */
 import { SCHEMA, schemaId, type SheetTree } from './nodes.ts'
+import { SCHEMA_VERSION_MARK } from './syntax.ts'
 
 /** A step from one version of the schema to the next. */
 export interface Migration {
@@ -19,7 +20,7 @@ export const MIGRATIONS: readonly Migration[] = []
 
 /** A schema's version from its id, `mathscribe/1` → 1 (undefined if it isn't one of MathScribe's). */
 export function versionOf(schema: string): number | undefined {
-  const [name, version] = schema.split('/')
+  const [name, version] = schema.split(SCHEMA_VERSION_MARK)
   const n = Number(version)
   return name === SCHEMA.name && Number.isInteger(n) && n > 0 ? n : undefined
 }

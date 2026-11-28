@@ -15,6 +15,7 @@
  * Kinds are declared once (registry.ts): the core's here, a module's by the
  * module, so the whole schema can be listed (introspection) and checked.
  */
+import { SCHEMA_VERSION_MARK } from './syntax.ts'
 
 /** A run of the source's characters, of one kind: `{ t: 'indent', text: '    ' }`. */
 export interface Token {
@@ -41,7 +42,7 @@ export const isToken = (part: Part): part is Token => 't' in part
 export const SCHEMA = { name: 'mathscribe', version: 1 } as const
 
 /** The schema's version as a tree carries it: `mathscribe/1`. */
-export const schemaId = (version: number) => `${SCHEMA.name}/${version}`
+export const schemaId = (version: number) => `${SCHEMA.name}${SCHEMA_VERSION_MARK}${version}`
 
 /** A whole sheet: the schema it's in, and its lines. */
 export interface SheetTree {

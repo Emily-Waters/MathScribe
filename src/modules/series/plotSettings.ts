@@ -7,7 +7,7 @@
  * the editor writes them, so they don't need typing.
  */
 import {
-  ChoiceSetting, RowsSetting, Setting, SettingsSpec, SwitchSetting, TextSetting, TitleSetting, SIGNED_NUMBER, regex, src, type SettingAbout, type SettingsPanel,
+  ChoiceSetting, RowsSetting, Setting, SettingsSpec, SwitchSetting, TextSetting, TitleSetting, SIGNED_NUMBER, oneOf, regex, src, type SettingAbout, type SettingsPanel,
   type SettingsState,
 } from '../../lib/plugin.ts'
 import { SETTING } from './tableSettings.ts'
@@ -102,10 +102,10 @@ export type PlotAxisName = (typeof PLOT_AXES)[number]
 /** A number as typed in a setting: -1.5, 2e-3. */
 const NUM = SIGNED_NUMBER
 /** `x from 0 to 2`, `x from 0`, `x to 2` (1: axis, 2: from, 3: to). */
-const RANGE = regex(src`^(${PLOT_AXES.join('|')})(?:\s+${SETTING.from}\s+(${NUM}))?(?:\s+${SETTING.to}\s+(${NUM}))?$`)
-const LOG = regex(src`^${SETTING.log} (${PLOT_AXES.join('|')})$`)
+const RANGE = regex(src`^(${oneOf(PLOT_AXES)})(?:\s+${SETTING.from}\s+(${NUM}))?(?:\s+${SETTING.to}\s+(${NUM}))?$`)
+const LOG = regex(src`^${SETTING.log} (${oneOf(PLOT_AXES)})$`)
 /** `colour fit red`, `colour F_2 points green`, `color line black` (1: the series, if one; 2: the part; 3: the colour). */
-const COLOUR = regex(src`^(?:${SETTING.colour}|${SETTING.color})\s+(?:(\S+)\s+)?(${PLOT_PARTS.join('|')})\s+(${PLOT_COLOURS.join('|')})$`)
+const COLOUR = regex(src`^(?:${SETTING.colour}|${SETTING.color})\s+(?:(\S+)\s+)?(${oneOf(PLOT_PARTS)})\s+(${oneOf(PLOT_COLOURS)})$`)
 
 /** An axis range as a setting: `x from 0 to 2` ('' if it's open at both ends). */
 const rangeText = (axis: PlotAxisName, a: AxisSettings) => (a.from === undefined && a.to === undefined ? ''

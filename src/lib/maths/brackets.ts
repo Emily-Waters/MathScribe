@@ -15,11 +15,11 @@
 import {
   TEX_ANGLE, TEX_BAR, TEX_BRACE, TEX_ESCAPE, TEX_GROUP, TEX_LIST, TEX_NORM, TEX_NO_DELIMITER, TEX_ROUND, TEX_SIZED, TEX_SQUARE,
 } from '../latex/syntax.ts'
-import { inClass, lit, regex, src } from '../syntax/patterns.ts'
+import { inClass, lit, oneOf, regex, src } from '../syntax/patterns.ts'
 
 /** The delimiters a \left or \right can have: brackets, braces, angles, bars, or none. */
 const DELIMITERS = (side: 'open' | 'close') =>
-  [TEX_ROUND[side], TEX_SQUARE[side], TEX_BRACE[side], TEX_ANGLE[side], TEX_NORM, TEX_BAR, TEX_NO_DELIMITER].map(lit).join('|')
+  oneOf([TEX_ROUND[side], TEX_SQUARE[side], TEX_BRACE[side], TEX_ANGLE[side], TEX_NORM, TEX_BAR, TEX_NO_DELIMITER].map(lit))
 
 /** Every \left or \right with its delimiter (1: left delimiter, 2: right delimiter). */
 const DELIMITER = regex(src`${lit(TEX_SIZED.open)}(${DELIMITERS('open')})|${lit(TEX_SIZED.close)}(${DELIMITERS('close')})`, 'g')

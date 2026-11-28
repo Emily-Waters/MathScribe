@@ -18,6 +18,8 @@ import {
 } from '@codemirror/view'
 import { foldEffect, foldedRanges, foldable } from '@codemirror/language'
 import { dataBlocks, isImport } from './sheetLines.ts'
+import { CSV_SEPARATOR } from '../lib/data/syntax.ts'
+import { GLYPH } from './syntax.ts'
 
 /** A data row's number (or the header's dash), shown in place of its line number. */
 class RowNumber extends GutterMarker {
@@ -36,7 +38,7 @@ class RowNumber extends GutterMarker {
 }
 
 /** The header row's mark. */
-const HEADER_MARK = '–'
+const HEADER_MARK = GLYPH.header
 
 /** Row numbers for every data row in the sheet. */
 const rowNumbers = lineNumberMarkers.compute(['doc'], (state) => {
@@ -144,7 +146,7 @@ const tableLook = ViewPlugin.fromClass(class {
         const block = blocks.find((b) => line.number >= b.header && line.number <= (b.rows?.last ?? b.header))
         if (block && line.text.trim()) {
           marks.push((line.number === block.header ? headerLine : rowLine).range(line.from))
-          for (const m of line.text.matchAll(/[,;\t]/g)) marks.push(separator.range(line.from + m.index, line.from + m.index + 1))
+          for (const m of line.text.matchAll(CSV_SEPARATOR)) marks.push(separator.range(line.from + m.index, line.from + m.index + 1))
         }
         pos = line.to + 1
       }
@@ -163,7 +165,7 @@ export const foldingSettings = {
     const el = document.createElement('span')
     if (isData) return el
     el.className = 'cm-foldPlaceholder'
-    el.textContent = '…'
+    el.textContent = GLYPH.more
     el.title = view.state.phrase('unfold')
     el.setAttribute('aria-label', view.state.phrase('folded code'))
     el.onclick = onclick

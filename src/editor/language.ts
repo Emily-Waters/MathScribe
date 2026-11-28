@@ -14,7 +14,7 @@ import { tags } from '@lezer/highlight'
 // (The modules are registered before this runs, by src/modules/index.ts, which main.tsx loads first:
 // their kinds of line and their rules for expressions are then the tree's.)
 import {
-  BLOCK_CLOSE, CLOSING_BRACKETS, INDENT_WIDTH, LATEX_OPENER, COMMENT_START, OPENING_BRACKETS,
+  BLOCK_CLOSE, CLOSING_BRACKETS, CURLY_BRACKETS, HEADING_MARK, INDENT_WIDTH, LATEX_OPENER, COMMENT_START, OPENING_BRACKETS, PARAGRAPH_MARK,
   VALUE_BRACES, NOTED_PIECE, closesBlock, inClass, indentOf, isComment, lit, readNoted, regex, src,
 } from '../lib/syntax.ts'
 import {
@@ -337,10 +337,16 @@ export const mathscribeFolding = foldService.of((state, lineStart, lineEnd) => {
 })
 
 /** Whether a line (or the start of it) is a heading, prose, raw LaTeX or a comment, where there are no names. */
-export const isProseLine = (before: string) => /^\s*[#>]/.test(before) || LATEX_OPENER.test(before.trim()) || isComment(before)
+export const isProseLine = (before: string) => STARTS_PROSE.test(before) || LATEX_OPENER.test(before.trim()) || isComment(before)
+
+/** A line that starts (after its indentation) as a heading or prose does: `#`, `>`. */
+const STARTS_PROSE = regex(src`^\s*[${inClass(HEADING_MARK, PARAGRAPH_MARK)}]`)
 
 /** Whether a value in text, `{{…`, is being typed here, where there are names after all. */
-export const inValue = (before: string) => /\{\{[^{}]*$/.test(before) && !isComment(before)
+export const inValue = (before: string) => VALUE_BEING_TYPED.test(before) && !isComment(before)
+
+/** A value in text that's open, `{{…`, at the end of some text. */
+const VALUE_BEING_TYPED = regex(src`${lit(VALUE_BRACES.open)}[^${inClass(CURLY_BRACKETS.open, CURLY_BRACKETS.close)}]*$`)
 
 /** Whether a `//` note has started on the line before this point (as the tree reads a note: syntax/notes.ts). */
 export const inNote = (before: string) => readNoted(before).pieces.some((p) => p.kind === NOTED_PIECE.note)

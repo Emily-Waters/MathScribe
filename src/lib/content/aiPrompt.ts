@@ -13,6 +13,7 @@ import { BUILTIN_CONSTANTS } from '../constants.ts'
 import { languageTopics } from '../engine/index.ts'
 import { primerMarkdown } from '../language/reference.ts'
 import { SHEET_FILE } from '../../config.ts'
+import { FENCED_CODE, FIRST_HEADING, fencedCode, fileSlug, regex, src } from '../syntax.ts'
 
 // ---------------------------------------------------------------------------
 // What can be made, and the choices for each
@@ -125,7 +126,7 @@ Question 2 {
 }`
 
 /** The block of a sheet in an answer: its first fenced code block, or the whole answer. */
-const FENCED = /```[^\n]*\n([\s\S]*?)```/
+const FENCED = FENCED_CODE
 
 /** Between paragraphs, in the rules. */
 const BLANK_LINE = '\n\n'
@@ -133,7 +134,7 @@ const BLANK_LINE = '\n\n'
 const LINE_END = '\n'
 
 /** Code in the rules. */
-const code = (text: string) => ['```', text, '```'].join('\n')
+const code = fencedCode
 
 /** The constants, by name, for the rules. */
 const constantNames = Object.keys(BUILTIN_CONSTANTS).map((n) => `@${n}`).join(', ')
@@ -198,12 +199,18 @@ export function buildPrompt(kind: CreateKind, request: string, choices: Record<s
 /** A sheet from an AI's answer: what's in its code block (or all of it), without the fences. */
 export function sheetFromAnswer(answer: string): string {
   const fenced = FENCED.exec(answer)
-  return (fenced ? fenced[1] : answer).replace(/\r\n/g, '\n').trim() + '\n'
+  return (fenced ? fenced[1] : answer).replace(WINDOWS_LINE_END, '\n').trim() + '\n'
 }
+
+/** A Windows line end, `\r\n`, every one. */
+const WINDOWS_LINE_END = regex(src`\r\n`, 'g')
+
+/** The longest name a sheet is given from its heading. */
+const NAME_LENGTH = 60
 
 /** A name for the sheet, from its first heading: "Kinematics practice test" → kinematics-practice-test.txt. */
 export function sheetName(sheet: string, fallback: string): string {
-  const heading = /^#\s+(.+)$/m.exec(sheet)?.[1] ?? fallback
-  const slug = heading.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60)
+  const heading = FIRST_HEADING.exec(sheet)?.[1] ?? fallback
+  const slug = fileSlug(heading).slice(0, NAME_LENGTH)
   return `${slug || fallback}${SHEET_FILE.extension}`
 }

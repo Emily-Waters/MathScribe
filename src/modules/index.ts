@@ -9,7 +9,7 @@
  * class as the default of the folder's `index.ts`. To leave one out without
  * removing it, add its folder's name to DISABLED_MODULES below.
  */
-import { registerModules, type InstallableModule } from '../lib/plugin.ts'
+import { PATH_SEPARATOR, registerModules, type InstallableModule } from '../lib/plugin.ts'
 
 /** Module folders here that aren't installed: `['vectors']` leaves vectors out. */
 const DISABLED_MODULES: readonly string[] = []
@@ -18,7 +18,7 @@ const DISABLED_MODULES: readonly string[] = []
 const ENTRIES = import.meta.glob<{ default: InstallableModule }>('./*/index.ts', { eager: true })
 
 /** A module's folder's name, from its entry's path: `./chemistry/index.ts` → chemistry. */
-const folderOf = (path: string) => path.split('/')[1]
+const folderOf = (path: string) => path.split(PATH_SEPARATOR)[1]
 
 /** The modules found, each by its folder's name, those left out by DISABLED_MODULES aside. */
 export const MODULE_CLASSES: ReadonlyMap<string, InstallableModule> = new Map(

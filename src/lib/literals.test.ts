@@ -64,6 +64,9 @@ interface Finding {
 /** Characters after which a `/` starts a regular expression rather than dividing. */
 const BEFORE_REGEX = new Set(['(', ',', '=', ':', '[', '!', '&', '|', '?', '{', '}', ';', '+', '-', '*', '%', '<', '>', '~', '^'])
 
+/** Characters after which a `/` starts a regular expression even when a `>` follows it (not JSX's `<br />`). */
+const REGEX_EVEN_BEFORE_GT = new Set(['(', ',', '=', ':', '['])
+
 /** Words after which a `/` starts a regular expression. */
 const KEYWORDS_BEFORE_REGEX = new Set(['return', 'typeof', 'case', 'in', 'of', 'void', 'throw', 'yield', 'await'])
 
@@ -133,7 +136,8 @@ function findingsIn(source: string): Finding[] {
     if (templates.length && c === '{') templates[templates.length - 1]++
     if (templates.length && c === '}') templates[templates.length - 1]--
     // Regular-expression literals (not JSX's closing tags, `</div>`, or self-closing ones, `<br />`).
-    const jsxTag = last === '<' || next === '>'
+    // (After `(`, `,`, `=`, `:` or `[`, a `/` starts a regular expression even before a `>`: `.replace(/>/g, …)`.)
+    const jsxTag = last === '<' || (next === '>' && !REGEX_EVEN_BEFORE_GT.has(last))
     if (c === '/' && !jsxTag && (last === '' || BEFORE_REGEX.has(last) || KEYWORDS_BEFORE_REGEX.has(last))) {
       let j = i + 1
       let inClass = false
@@ -184,65 +188,11 @@ const FINDINGS: ReadonlyMap<string, Finding[]> = new Map(
 
 /** Each file still to move onto named punctuation and built patterns, and how many it has left. */
 const KNOWN: Readonly<Record<string, number>> = {
-  'components/blocks/shared.tsx': 1,
-  'components/EditorPane.tsx': 3,
-  'components/ReferencePane.tsx': 1,
-  'editor/dataBlockLines.ts': 5,
-  'editor/dataBlocks.ts': 3,
-  'editor/gotoDefinition.ts': 1,
-  'editor/greek.ts': 5,
-  'editor/intellisense.ts': 4,
-  'editor/language.ts': 2,
-  'editor/paramHints.ts': 1,
-  'editor/shortcuts.ts': 9,
-  'editor/themes.ts': 3,
-  'editor/typing.ts': 4,
-  'lib/constants.ts': 1,
-  'lib/content/aiPrompt.ts': 8,
-  'lib/content/library.ts': 1,
-  'lib/data/csv.ts': 15,
-  'lib/data/files.ts': 1,
-  'lib/data/share.ts': 10,
-  'lib/engine/core/calculator.ts': 1,
-  'lib/engine/core/declarations.ts': 2,
-  'lib/engine/core/displayNames.ts': 1,
-  'lib/engine/core/literals.ts': 4,
-  'lib/engine/core/memberAccess.ts': 1,
+  'lib/engine/core/literals.ts': 3,
   'lib/engine/core/normalise.ts': 1,
-  'lib/engine/core/products.ts': 1,
-  'lib/engine/core/propagation.ts': 1,
-  'lib/engine/core/results.ts': 1,
-  'lib/engine/core/sheetConstants.ts': 1,
-  'lib/engine/core/tex.ts': 21,
-  'lib/engine/core/text.ts': 2,
-  'lib/engine/core/valueTex.ts': 1,
-  'lib/engine/core/workingTex.ts': 1,
-  'lib/engine/core/writer.ts': 1,
-  'lib/language/reference.ts': 10,
-  'lib/language/settings.ts': 3,
-  'lib/maths/brackets.ts': 1,
-  'lib/maths/library/mathjs.ts': 12,
-  'lib/output/constructs/lines.ts': 1,
-  'lib/output/latex.ts': 1,
-  'lib/output/textSegments.ts': 3,
-  'lib/reading/readers.ts': 2,
-  'lib/sheet/names.ts': 3,
-  'lib/sheet/sheetIndex.ts': 1,
-  'lib/tree/core.ts': 1,
-  'lib/tree/lines.ts': 3,
-  'lib/tree/migrations.ts': 1,
-  'lib/tree/shapes.ts': 2,
+  'lib/engine/core/tex.ts': 19,
   'modules/chemistry/species.ts': 2,
-  'modules/index.ts': 1,
-  'modules/series/columns.ts': 1,
-  'modules/series/plot.ts': 1,
   'modules/series/plotGraph.ts': 14,
-  'modules/series/plotSettings.ts': 4,
-  'modules/series/series.ts': 5,
-  'modules/series/tableBlock.ts': 1,
-  'modules/series/tableData.ts': 1,
-  'modules/solve/solve.ts': 1,
-  'modules/vectors/module.ts': 2,
 }
 
 describe('punctuation and patterns', () => {
@@ -254,6 +204,7 @@ describe('punctuation and patterns', () => {
       "const h = `${i === ',' ? 'j' : 'k'}text / with ' quotes`",
       "// a comment's '(' isn't code",
       "return /y/.test(z)",
+      "s.replace(/>/g, '&gt;')",
     ].join('\n'))
     expect(sample.map((f) => [f.kind, f.line, f.text])).toEqual([
       [FOUND.regex, 1, '/\\{x\\}/g'],
@@ -261,6 +212,7 @@ describe('punctuation and patterns', () => {
       [FOUND.punctuation, 3, "'('"],
       [FOUND.punctuation, 4, "','"],
       [FOUND.regex, 6, '/y/'],
+      [FOUND.regex, 7, '/>/g'],
     ])
   })
 

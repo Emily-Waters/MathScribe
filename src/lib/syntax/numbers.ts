@@ -64,6 +64,15 @@ export const EXPONENT_AT = regex(EXPONENT)
 /** Anything that makes a number more than digits: a decimal point or an exponent. */
 export const NOT_JUST_DIGITS = regex(src`[${inClass(DECIMAL_POINT)}${EXPONENT_MARK}${EXPONENT_MARK.toUpperCase()}]`)
 
+/** Digits only: a whole number with no sign, `12`. */
+export const IS_DIGITS = regex(src`^\d+$`)
+
+/** A whole number ending in a 0 (not 0 itself), whose 0s count as typed in a range: `10`, `-200`. */
+export const WHOLE_ENDING_IN_ZERO = regex(src`^${lit(SIGN.minus)}?[1-9]\d*${ZERO}$`)
+
+/** A value as written with its unit after it: `9.81 m/s^2` (1: the number, 2: the unit). */
+export const VALUE_THEN_UNIT = regex(src`^(\S+)\s+(.+)$`)
+
 /** A number that starts with a digit, perhaps after a minus: `2.5`, `-3` (not `x`, not `(`). */
 export const STARTS_WITH_DIGIT = regex(src`^${lit(SIGN.minus)}?\d`)
 

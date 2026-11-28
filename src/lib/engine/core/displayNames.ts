@@ -4,10 +4,13 @@
  * the templates that make them (`massName(x) = "m_{{x}}"`, used as
  * `m_w:massName(H2O) = …`).
  */
-import { VALUE_IN_TEXT, IS_NAME, splitInlineMath } from '../../syntax.ts'
+import { VALUE_IN_TEXT, IS_NAME, regex, splitInlineMath, src } from '../../syntax.ts'
 import { outsideMaths, wordsTex } from './text.ts'
 import { symbolTex } from './tex.ts'
 import type { LineResult } from './results.ts'
+
+/** Words with the spaces at their ends apart (1: before, 2: the words, 3: after). */
+const EDGE_SPACES = regex(src`^(\s*)([\s\S]*?)(\s*)$`)
 
 /** What display names need of the Calculator they're the sheet's of. */
 export interface DisplayNamesHost {
@@ -47,7 +50,7 @@ export class DisplayNames {
     }))
     // (Spaces at the ends of the words are explicit spaces, outside \text, so they survive.)
     const words = (part: string) => {
-      const [, before, inner, after] = /^(\s*)([\s\S]*?)(\s*)$/.exec(part)!
+      const [, before, inner, after] = EDGE_SPACES.exec(part)!
       const space = (s: string) => (s ? '\\ ' : '')
       return `${space(before)}${inner ? wordsTex(inner) : ''}${space(after)}`
     }

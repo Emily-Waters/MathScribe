@@ -73,6 +73,9 @@ export const TEMPLATE_USE = regex(src`^${named('template', NAME)}${lit(OPEN)}${n
 export const UNCERTAINTY_WORDS = ['delta', 'Delta'] as const
 export type UncertaintyWord = typeof UNCERTAINTY_WORDS[number]
 
+/** Between a range's ends, in a call's settings: `rows 5-20`. */
+export const RANGE_DASH = '-'
+
 /** After an uncertainty that's a percentage of its value: `2.0 kg pm 5%` (and an imported uncertainty column's unit, `dx (%)`). */
 export const RELATIVE_MARK = '%'
 

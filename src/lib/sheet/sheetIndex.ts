@@ -10,7 +10,7 @@ import { NODE_KIND } from '../tree/nodes.ts'
 import { assignedOf, lineShape } from '../tree/shapes.ts'
 import { BLOCK_KIND, SYMBOL_KIND, isContainer, type Block, type CalcBlock, type SymbolKind } from './blocks.ts'
 import type { Sheet } from '../reading/sheetReader.ts'
-import { MEMBER_DOT, NAME, SETTING_MARK, inClass, regex, src, words, type WordOf } from '../syntax.ts'
+import { MEMBER_DOT, NAME, NEWLINE, SETTING_MARK, inClass, regex, src, words, type WordOf } from '../syntax.ts'
 import { parseMemberName, parseNumberedName } from './names.ts'
 
 /**
@@ -80,7 +80,7 @@ export interface SheetSymbol {
  * signature) and `@constants`, each with the lines it's visible on.
  */
 export function collectSymbols(sheet: Sheet, source: string): SheetSymbol[] {
-  const lines = source.split(/\r?\n/)
+  const lines = source.split(NEWLINE)
   const out: SheetSymbol[] = []
   // Each scope's variables by name (a sheet can have thousands, from imported data).
   const byName = new WeakMap<() => VariableSummary[], Map<string, VariableSummary>>()

@@ -20,8 +20,12 @@ import { EditorSelection, EditorState, Facet, type Extension, type StateEffect }
 import { Decoration, EditorView, WidgetType, keymap, type Command, type KeyBinding } from '@codemirror/view'
 import { foldEffect, foldState, foldable, foldedRanges, unfoldEffect } from '@codemirror/language'
 import { dataBlocks, isImport } from './sheetLines.ts'
-import { IMPORT_CALL } from '../lib/syntax.ts'
+import { IMPORT_CALL, NEWLINE, ROUND_BRACKETS, regex, src } from '../lib/syntax.ts'
 import { EDITOR_KEY } from './shortcuts.ts'
+import { GLYPH } from './syntax.ts'
+
+/** Text that starts with a new line: Enter typed. */
+const STARTS_WITH_NEWLINE = regex(src`^${NEWLINE}`)
 
 /** A data block's lines: its import line, then its rows (1-based, inclusive). */
 interface Unit {
@@ -170,7 +174,7 @@ const guardImports = EditorState.transactionFilter.of((tr) => {
       const lineStart = Math.max(0, importLine.from - 1)
       if (fromA === toA ? fromA > lineStart && fromA <= importLine.to : fromA < importLine.to && toA > lineStart) touchesImport = true
       // Folded, the rows; but a new line started after them (Enter at the end) is fine.
-      const newLineAfter = fromA === toA && fromA === lastRow.to && /^\r?\n/.test(inserted.sliceString(0, 2))
+      const newLineAfter = fromA === toA && fromA === lastRow.to && STARTS_WITH_NEWLINE.test(inserted.sliceString(0, 2))
       if (folded && !newLineAfter && (fromA === toA ? fromA > importLine.to && fromA <= lastRow.to : fromA < lastRow.to && toA > importLine.to)) {
         touchesHidden = true
       }
@@ -193,7 +197,7 @@ class RemoveImport extends WidgetType {
   toDOM(view: EditorView) {
     const button = document.createElement('button')
     button.className = 'cm-ms-import-button cm-ms-remove-import'
-    button.textContent = '×'
+    button.textContent = GLYPH.remove
     button.title = 'Remove this import and its data'
     button.setAttribute('aria-label', button.title)
     button.addEventListener('mousedown', (e) => e.preventDefault())
@@ -261,7 +265,7 @@ function importButtons(state: EditorState) {
     if (!isImport(line.text)) continue
     const m = IMPORT_CALL.exec(line.text)
     if (!m) continue
-    const open = line.from + m.index + m[0].indexOf('(') + 1
+    const open = line.from + m.index + m[0].indexOf(ROUND_BRACKETS.open) + ROUND_BRACKETS.open.length
     const close = line.from + m.index + m[0].length - 1
     // The name, in its quotes, shown as the button; or the button in the empty brackets.
     marks.push(m.groups?.file !== undefined
@@ -290,7 +294,7 @@ class FoldToggle extends WidgetType {
   toDOM(view: EditorView) {
     const button = document.createElement('button')
     button.className = `cm-ms-import-button cm-ms-fold-toggle${this.folded ? '' : ' cm-ms-fold-toggle--open'}`
-    button.textContent = this.folded ? '▼' : '▲'
+    button.textContent = this.folded ? GLYPH.folded : GLYPH.unfolded
     button.title = this.folded ? 'Show the data' : 'Hide the data'
     button.setAttribute('aria-label', button.title)
     button.setAttribute('aria-expanded', String(!this.folded))

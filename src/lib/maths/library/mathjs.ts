@@ -18,6 +18,7 @@ import {
   type SymbolNode, type Unit,
 } from 'mathjs'
 import { words } from '../../syntax/patterns.ts'
+import { MATHJS_SAYS, OP_SYMBOL, UNIT_LOOKS } from './syntax.ts'
 
 /** The library's instance: the one every sheet works with, so units and functions added to it work everywhere. */
 export const math = create(all)
@@ -91,17 +92,8 @@ export type Op = (typeof OP)[keyof typeof OP]
 /** The library's names for comparisons: `<`, `<=`, `>`, `>=`, `==`, `!=`. */
 export const COMPARISONS: ReadonlySet<string> = new Set(['smaller', 'smallerEq', 'larger', 'largerEq', 'equal', 'unequal'])
 
-/** The symbol each is written with (an OperatorExpr needs both, and the library's types check they match). */
-export const OP_SYMBOL = {
-  add: '+',
-  subtract: '-',
-  multiply: '*',
-  divide: '/',
-  pow: '^',
-  unaryMinus: '-',
-  unaryPlus: '+',
-  to: 'to',
-} as const satisfies Record<Op, string>
+// (The symbol each is written with, the units with a look of their own, and mathjs's wording of its errors: syntax.ts.)
+export { OP_SYMBOL, UNIT_LOOKS }
 
 /**
  * Functions the engine calls by name in the text it gives the library (a
@@ -146,13 +138,6 @@ export const UNIT = {
 /** The library's names for the base dimensions the engine reads. */
 export const BASE_DIMENSION = { mass: 'MASS', amount: 'AMOUNT_OF_SUBSTANCE' } as const
 
-/** Units with a look of their own, as LaTeX and as plain text (others are their name, upright). */
-export const UNIT_LOOKS: Readonly<Record<string, { tex: string; text: string }>> = {
-  deg: { tex: '^{\\circ}', text: '°' },
-  ohm: { tex: '\\Omega', text: 'Ω' },
-  angstrom: { tex: '\\text{\\AA}', text: 'Å' },
-  angstroms: { tex: '\\text{\\AA}', text: 'Å' },
-}
 
 // ---------------------------------------------------------------------------
 // Expressions: read, worked out, looked through, rewritten, typeset, made
@@ -478,13 +463,6 @@ export type MathsError =
   | { readonly kind: typeof MATHS_ERROR.cannotConvert; readonly to: string; readonly from: string }
   | { readonly kind: typeof MATHS_ERROR.other; readonly message: string }
 
-/** mathjs's wording of each (its messages are the only way it says which). */
-const MATHJS_SAYS = {
-  undefinedName: /^Undefined symbol (\S+)$/,
-  undefinedFunction: /^Undefined function (\S+)$/,
-  unitsDiffer: /^Units do not match$/,
-  cannotConvert: /^Units do not match \('(.+)' != '[-+\d.e]+\s*(.*)'\)$/,
-} as const
 
 /**
  * A problem the library reported, by its kind: from the error it threw, or a

@@ -41,6 +41,7 @@ import { inNote, inValue, isProseLine } from './language.ts'
 import { inDataBlock, inNamelessBlock, readAs } from './sheetLines.ts'
 import { TYPING, typingAt, typingInValue } from './typing.ts'
 import { greekCompletions, greekOnSpace } from './greek.ts'
+import { LETTERS_SO_FAR, WORD_CHARS_SO_FAR } from './syntax.ts'
 
 // ---------------------------------------------------------------------------
 // What the sheet defines
@@ -318,7 +319,7 @@ export function complete(ctx: CompletionContext): CompletionResult | null {
       return {
         from: ctx.pos - bracedSoFar[1].length,
         options: named.map((s): Completion => ({ label: s.name, type: 'variable', detail: s.detail, info: () => symbolInfo(s) })),
-        validFor: /^\w*$/,
+        validFor: WORD_CHARS_SO_FAR,
       }
     }
   }
@@ -356,7 +357,7 @@ export function complete(ctx: CompletionContext): CompletionResult | null {
           ...members.flatMap((m) => memberOptions(m, top ? SIGIL : '')),
           ...custom.map((s): Completion => ({ label: s.name, type: 'constant', detail: 'your constant', info: () => symbolInfo(s) })),
         ],
-        validFor: top ? BUILTIN_SO_FAR : /^\w*$/,
+        validFor: top ? BUILTIN_SO_FAR : WORD_CHARS_SO_FAR,
       }
     }
 
@@ -370,7 +371,7 @@ export function complete(ctx: CompletionContext): CompletionResult | null {
           ...SETTING_WORDS.map((s): Completion => ({ label: s.name, type: s.name === PERCENT ? 'unit' : 'keyword', detail: s.description })),
           ...unitOptions,
         ],
-        validFor: /^[A-Za-z]*$/,
+        validFor: LETTERS_SO_FAR,
       }
 
     // After a number or `to`, or in a compound unit (`m/s`): a unit.
@@ -381,7 +382,7 @@ export function complete(ctx: CompletionContext): CompletionResult | null {
         options: typing.afterTo
           ? [{ label: PERCENT, type: 'unit', detail: SETTING_WORDS.find((s) => s.name === PERCENT)!.description }, ...unitOptions]
           : unitOptions,
-        validFor: /^[A-Za-z]*$/,
+        validFor: LETTERS_SO_FAR,
       }
 
     // `a.`: a namespace's members (a slice's series, a named import's columns, a named plot's fit);

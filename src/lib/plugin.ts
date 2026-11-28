@@ -46,6 +46,8 @@ export { markupText } from './engine/core/module.ts'
 export * from './syntax.ts'
 // (LaTeX's own vocabulary: what a module looks for in LaTeX it reads, and its marks, `TEX_LIST`, `TEX_THIN_SPACE`.)
 export * from './latex/syntax.ts'
+// (Between a path's folders: for the list of modules, which finds each module's folder from its path.)
+export { PATH_SEPARATOR } from './data/syntax.ts'
 export { BlockMember, ConstantMember, FunctionMember, LineFormMember, Namespace, type Expansion, type Member } from './builtins.ts'
 export { isNamespaceConstant, type BuiltinConstant, type NamespaceConstant } from './constants.ts'
 export {

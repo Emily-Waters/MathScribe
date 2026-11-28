@@ -78,7 +78,7 @@ export function layoutEquation(mode: DisplayMode, p: EquationParts, multiline = 
   }
   const shown = parts.filter((s): s is string => !!s)
   // Steps that differ only in spacing (`- 2.0` vs `-2.0`) look the same, so show one.
-  const key = (s: string) => s.replace(/\s+/g, '')
+  const key = (s: string) => s.replace(ALL_SPACE, '')
   const steps = shown.filter((s, i) => i === 0 || key(s) !== key(shown[i - 1]))
   // The relation before each step after the first: =, or ≈ before a rounded result.
   const rels = steps.slice(1).map((s, i) =>
@@ -236,6 +236,9 @@ export interface ParsedLine {
 
 /** `… to percent` at the end of a line. */
 export const TO_PERCENT = regex(src`\s+${KEYWORD.to}\s+${PERCENT}\s*$`)
+
+/** Every run of spaces in some text (to compare steps that differ only in spacing). */
+const ALL_SPACE = regex(src`\s+`, 'g')
 
 /** Marks a SymbolExpr whose name is pre-rendered TeX (used for substituted values). */
 export const RAW = '\u0001'

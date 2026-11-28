@@ -95,6 +95,16 @@ Completed items with their resolution notes live in `CHANGELOG.md`.
       import `.xlsx`.
 - [ ] `[medium]` **Text columns** in imported data (labels, categories), to
       group and filter by.
+- [ ] `[medium]` **A formula in a plot's axis label, drawn as one** (2026-11-28,
+      found in the visual check). A display name with a species in it, `n:"Count
+      of {CuSO4}"`, labels its axis `Count of {CuSO4}`, braces and all, in the
+      plot as it's drawn (series/plotGraph.ts's `axisLabel`, the Rendered tab and
+      the Word export's picture); the LaTeX export's pgfplots label shows
+      Count of CuSO₄. The drawing's label text should go through the modules'
+      notation, as the LaTeX does (a module's way of writing a formula as text:
+      a hook on `EngineModule` if there's none yet), so a formula reads CuSO₄
+      there too. In `visual/showcase.txt` already (its log plot), so the visual
+      check shows the fix.
 
 ## 4. Chemistry
 

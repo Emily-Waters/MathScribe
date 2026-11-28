@@ -1,4 +1,7 @@
-import type { Notation } from '../syntax.ts'
+import {
+  AMBIGUOUS_ZEROS, DECIMAL_POINT, EXPONENT_AT, EXPONENT_MARK, LEADING_SIGN, LEADING_ZEROS, NOT_JUST_DIGITS, NOTATION, TRAILING_FRACTION_ZEROS,
+  TRAILING_POINT, TRAILING_ZEROS, ZERO, ZERO_POWER, ZEROS_BEFORE_POWER, type Notation,
+} from '../syntax.ts'
 
 /**
  * Significant-figure helpers, following the usual textbook rules:
@@ -31,19 +34,19 @@ const SHARED_EXPONENT_FROM = { above: 5, below: -4 }
 
 /** Count the significant figures in a number as typed, e.g. "0.0250" → 3. */
 export function countSigFigs(literal: string): number {
-  const mantissa = literal.trim().replace(/^[+-]/, '').split(/[eE]/)[0]
-  const hasPoint = mantissa.includes('.')
-  const digits = mantissa.replace('.', '').replace(/^0+/, '')
+  const mantissa = literal.trim().replace(LEADING_SIGN, '').split(EXPONENT_AT)[0]
+  const hasPoint = mantissa.includes(DECIMAL_POINT)
+  const digits = mantissa.replace(DECIMAL_POINT, '').replace(LEADING_ZEROS, '')
   if (!digits) {
     // All zeros: "0" → 1, "0.00" → 2
-    return Math.max(1, hasPoint ? mantissa.split('.')[1].length : 0)
+    return Math.max(1, hasPoint ? mantissa.split(DECIMAL_POINT)[1].length : 0)
   }
-  return hasPoint ? digits.length : digits.replace(/0+$/, '').length
+  return hasPoint ? digits.length : digits.replace(TRAILING_ZEROS, '').length
 }
 
 /** True for whole numbers like "300" whose trailing zeros are ambiguous. */
 export function hasAmbiguousZeros(literal: string): boolean {
-  return /^[+-]?\d*[1-9]0+$/.test(literal.trim())
+  return AMBIGUOUS_ZEROS.test(literal.trim())
 }
 
 /**
@@ -76,11 +79,11 @@ const RELIABLE_DIGITS = 15
  */
 export function roundSig(x: number, digits: number): number {
   if (x === 0 || !Number.isFinite(x) || digits >= RELIABLE_DIGITS) return x
-  const [mantissa, exponent] = Math.abs(x).toExponential(RELIABLE_DIGITS - 1).split('e')
-  const all = mantissa.replace('.', '')
+  const [mantissa, exponent] = Math.abs(x).toExponential(RELIABLE_DIGITS - 1).split(EXPONENT_MARK)
+  const all = mantissa.replace(DECIMAL_POINT, '')
   let kept = BigInt(all.slice(0, digits))
   if (Number(all[digits]) >= 5) kept += 1n
-  return Math.sign(x) * Number(`${kept}e${Number(exponent) - digits + 1}`)
+  return Math.sign(x) * Number(`${kept}${EXPONENT_MARK}${Number(exponent) - digits + 1}`)
 }
 
 /**
@@ -92,18 +95,18 @@ export function roundSig(x: number, digits: number): number {
 export function formatSigFigs(value: number, sf: number, notation?: Notation): string {
   const digits = Math.min(Math.max(Math.round(sf), 1), MAX_DIGITS)
   // A zero's "sig figs" are its decimal places (see countSigFigs): 0.00 → 2 → "0.00".
-  if (value === 0) return digits === 1 ? '0' : (0).toFixed(digits)
+  if (value === 0) return digits === 1 ? ZERO : (0).toFixed(digits)
   if (!Number.isFinite(value)) return String(value)
   const x = roundSig(value, digits)
   // (× 10⁰ goes without saying.)
-  if (notation === 'sci') return x.toExponential(digits - 1).replace(/e\+0$/, '')
-  if (notation === 'dec') return decimal(x, digits)
+  if (notation === NOTATION.sci) return x.toExponential(digits - 1).replace(ZERO_POWER, '')
+  if (notation === NOTATION.dec) return decimal(x, digits)
   const plain = x.toPrecision(digits)
-  if (!/e/i.test(plain) && x !== 0 && countSigFigs(plain) !== digits) {
+  if (!EXPONENT_AT.test(plain) && x !== 0 && countSigFigs(plain) !== digits) {
     // Trailing zeros that count, as typed: 90 to 2 sig figs is "90.", the same
     // notation as input (`300.` is 3 sig figs). Where a decimal point can't say it
     // (1500 to 3 sig figs), scientific notation does: 1.50e+3.
-    if (!plain.includes('.') && countSigFigs(`${plain}.`) === digits) return `${plain}.`
+    if (!plain.includes(DECIMAL_POINT) && countSigFigs(`${plain}${DECIMAL_POINT}`) === digits) return `${plain}${DECIMAL_POINT}`
     return x.toExponential(digits - 1)
   }
   return plain
@@ -128,7 +131,7 @@ function decimal(x: number, digits: number): string {
   const place = Math.floor(Math.log10(Math.abs(rounded))) - digits + 1
   if (Math.abs(rounded) >= MAX_PLAIN || -place > MAX_DECIMALS) return x.toExponential(digits - 1)
   const s = rounded.toFixed(Math.max(0, -place))
-  if (!s.includes('.') && countSigFigs(s) !== digits && countSigFigs(`${s}.`) === digits) return `${s}.`
+  if (!s.includes(DECIMAL_POINT) && countSigFigs(s) !== digits && countSigFigs(`${s}${DECIMAL_POINT}`) === digits) return `${s}${DECIMAL_POINT}`
   return s
 }
 
@@ -138,12 +141,12 @@ function decimal(x: number, digits: number): string {
  */
 export function formatExact(x: number, digits: number, notation: Notation): string {
   if (x === 0 || !Number.isFinite(x)) return String(x)
-  if (notation === 'sci') {
-    return x.toExponential(Math.max(digits - 1, 0)).replace(/\.?0+e/, 'e').replace(/e\+0$/, '')
+  if (notation === NOTATION.sci) {
+    return x.toExponential(Math.max(digits - 1, 0)).replace(ZEROS_BEFORE_POWER, EXPONENT_MARK).replace(ZERO_POWER, '')
   }
   const s = decimal(x, digits)
-  if (/e/.test(s)) return s.replace(/\.?0+e/, 'e')
-  return s.includes('.') ? s.replace(/\.?0+$/, '') : s.replace(/\.$/, '')
+  if (s.includes(EXPONENT_MARK)) return s.replace(ZEROS_BEFORE_POWER, EXPONENT_MARK)
+  return s.includes(DECIMAL_POINT) ? s.replace(TRAILING_FRACTION_ZEROS, '') : s.replace(TRAILING_POINT, '')
 }
 
 // ---------------------------------------------------------------------------
@@ -181,8 +184,8 @@ export function formatWithUncertainty(
   const sf = Math.max(1, mag - place + 1)
   // A shared power of ten: for very large or small values, or always (except
   // 10⁰) in scientific notation; never in decimal notation.
-  const shareExp = notation === 'sci' ? mag !== 0
-    : notation === 'dec' ? -place > MAX_DECIMALS || mag > MAX_PLAIN_EXPONENT
+  const shareExp = notation === NOTATION.sci ? mag !== 0
+    : notation === NOTATION.dec ? -place > MAX_DECIMALS || mag > MAX_PLAIN_EXPONENT
       : mag >= SHARED_EXPONENT_FROM.above || mag <= SHARED_EXPONENT_FROM.below
   if (shareExp) {
     const decimals = Math.max(0, mag - place)
@@ -198,5 +201,5 @@ export function formatWithUncertainty(
  * exponent marks a measured value. Numbers with a unit are always measured.
  */
 export function isMeasuredLiteral(literal: string): boolean {
-  return /[.eE]/.test(literal)
+  return NOT_JUST_DIGITS.test(literal)
 }

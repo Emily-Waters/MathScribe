@@ -12,7 +12,7 @@ import type { Variable } from '../../sheet/values.ts'
 import {
   INV_FUNCTION, JOIN, TUPLE_FUNCTION, parseNumberedName, parseSeriesStatName, seriesMemberName, seriesStatName,
 } from '../../sheet/names.ts'
-import { SUBSCRIPT, inClass, regex, src } from '../../syntax.ts'
+import { SIGN, SUBSCRIPT, inClass, regex, src } from '../../syntax.ts'
 import {
   FN, OP, call as callExpr, constant, copyExpr, exprTex, findAll, formatValue, isCall, isConditional, isConstant, isLibraryName, isOp,
   isSymbol, operator, paren, symbol, transform, type CallExpr, type Expr, type SymbolExpr, type TexOptions,
@@ -160,7 +160,7 @@ export class WorkingTex {
     const numTex = numberTex(parts.num)
     // A negative value is bracketed, so its sign doesn't read as an operator:
     // ½ · (−9.81 m/s²) · t², not ½ · −9.81 m/s² · t².
-    if (parts.num.startsWith('-')) {
+    if (parts.num.startsWith(SIGN.minus)) {
       return rawNode(`\\left(${parts.unit ? attachUnit(numTex, unitTex(parts.unit)) : numTex}\\right)`)
     }
     if (!parts.unit) return rawNode(numTex)

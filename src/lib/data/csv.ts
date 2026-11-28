@@ -16,7 +16,7 @@
  * x_n gets its row's, as if typed `x_n = 0.012 m pm 0.001 m`. In the column's
  * unit, or x's if it has none; `dx (%)` is a percentage of each value.
  */
-import { IMPORT_CALL, INDENT, IS_NAME, LEADING_SPACES, importCall, indentOf } from '../syntax.ts'
+import { IMPORT_CALL, INDENT, IS_NAME, IS_SIGNED_NUMBER, LEADING_MINUS, LEADING_PLUS, LEADING_SPACES, importCall, indentOf } from '../syntax.ts'
 
 /** One column: its variable name, unit, and each value as typed with the row it's on (1 = first data row). */
 export interface CsvColumn {
@@ -73,7 +73,7 @@ function pairUncertainties(columns: CsvColumn[]): { columns: CsvColumn[]; error?
       column: c.name,
       unit: c.unit === PERCENT_UNIT ? undefined : c.unit,
       percent: c.unit === PERCENT_UNIT,
-      values: new Map(c.values.map((v) => [v.row, v.text.replace(/^-/, '')])),
+      values: new Map(c.values.map((v) => [v.row, v.text.replace(LEADING_MINUS, '')])),
     }
   }
   return { columns: out }
@@ -99,8 +99,6 @@ function separatorOf(header: string): string {
 const cellsOf = (line: string, separator: string) =>
   line.split(separator).map((c) => c.trim().replace(/^"(.*)"$/, '$1').trim())
 
-/** A plain number as typed: 2, 0.10, -1.5e-3. */
-const NUMBER = /^[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?$/
 
 /** What each piece of a row is, as rowPieces reads it: a value, a column's name, its unit, or anything else (separators, brackets). */
 export const ROW_PIECE = { number: 'number', name: 'name', unit: 'unit' } as const
@@ -128,7 +126,7 @@ export function rowPieces(row: string): RowPiece[] {
   for (const cell of row.split(separator)) {
     const text = cell.trim()
     const start = at + cell.indexOf(text)
-    if (text && NUMBER.test(text)) out.push({ kind: ROW_PIECE.number, start, end: start + text.length })
+    if (text && IS_SIGNED_NUMBER.test(text)) out.push({ kind: ROW_PIECE.number, start, end: start + text.length })
     else {
       const m = HEADER.exec(cell)
       if (m && IS_NAME.test(m.groups!.name)) {
@@ -170,10 +168,10 @@ export function parseCsv(lines: string[]): CsvData {
     }
     for (const [c, text] of cells.entries()) {
       if (!text) continue
-      if (!NUMBER.test(text)) {
+      if (!IS_SIGNED_NUMBER.test(text)) {
         return { columns: [], rows: 0, error: `Row ${r + 1}, column ${columns[c].name}: "${text}" isn't a number.` }
       }
-      columns[c].values.push({ row: r + 1, text: text.replace(/^\+/, '') })
+      columns[c].values.push({ row: r + 1, text: text.replace(LEADING_PLUS, '') })
     }
   }
   const paired = pairUncertainties(columns)

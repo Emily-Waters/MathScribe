@@ -27,11 +27,7 @@ export const NAME = src`[A-Za-z${GREEK_CHARS}]${NAME_CHAR}*`
 /** Exactly a name. */
 export const IS_NAME = regex(src`^${NAME}$`)
 
-/** A number as typed: `2`, `2.`, `.5`, `2.50`, `6.02e23`. */
-export const NUMBER = src`(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?`
-
-/** A number with any sign before it: `-2.5`, `+3e8`, `0.1` (a setting's, a series' value read as it's typed). */
-export const SIGNED_NUMBER = src`[-+]?${NUMBER}`
+// (Numbers are numbers.ts's.)
 
 /** Words with a meaning of their own in a line: a conversion, `2.0 m to cm`; an uncertainty, `2.0 kg pm 0.1 kg`. */
 export const KEYWORD = words({ to: 'to', pm: 'pm' })

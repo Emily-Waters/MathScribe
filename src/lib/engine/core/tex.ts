@@ -1,7 +1,7 @@
 /** Names, numbers and units as LaTeX. */
 import { AGGREGATE_KIND } from '../../sheet/values.ts'
 import { builtinConstant } from '../../builtins.ts'
-import { GREEK_BY_CHAR, GREEK_BY_NAME, GREEK_CHARS, SERIES_SUFFIXES, inClass, lit, regex, src } from '../../syntax.ts'
+import { GREEK_BY_CHAR, GREEK_BY_NAME, GREEK_CHARS, SCIENTIFIC, SERIES_SUFFIXES, inClass, lit, regex, src } from '../../syntax.ts'
 import {
   ENDS_IN_SUBSCRIPT, SUBSCRIPT_TAIL, TEX_GROUP, TEX_LIST, TEX_SUPERSCRIPT, TEX_THIN_SPACE, TEX_TIE,
 } from '../../latex/syntax.ts'
@@ -156,7 +156,7 @@ export const subscriptPart = (s: string) => (LABELS.test(s) ? [...s].map(namePar
 
 /** `1.235e+8` → 1.235 \times 10^{8} */
 export function numberTex(s: string): string {
-  const m = /^(-?[\d.]+)e([+-]?\d+)$/i.exec(s)
+  const m = SCIENTIFIC.exec(s)
   return m ? `${m[1]} \\times 10^{${Number(m[2])}}` : s
 }
 

@@ -9,7 +9,7 @@
  *
  * (Each delta F, @c and value a module holds, such as @solve's answer, is in a hidden variable: see names.ts.)
  */
-import { KEYWORD, NAME, NAME_CHAR_RE, ROUND_BRACKETS, SETTING_MARK, UNCERTAINTY_WORDS, inClass, lit, regex, src } from '../../syntax.ts'
+import { KEYWORD, LOOSE_NUMBER, LOOSE_SIGNED_NUMBER, NAME, NAME_CHAR_RE, ROUND_BRACKETS, SETTING_MARK, UNCERTAINTY_WORDS, inClass, lit, regex, src } from '../../syntax.ts'
 import { PM_WORD } from './literals.ts'
 import { unitPartsAt } from '../../tree/lexer.ts'
 
@@ -21,7 +21,7 @@ export const DELTA_REF = regex(src`\b(${UNCERTAINTY_WORDS.join('|')})\s+(${NAME}
 
 /** `(2.0 pm 0.1)`: a bracketed value with its uncertainty (1: value, 2: uncertainty, 3: `%` if relative). */
 export const PAREN_PM = regex(
-  src`${lit(ROUND_BRACKETS.open)}\s*([-+]?[\d.]+(?:[eE][+-]?\d+)?)\s*${KEYWORD.pm}\b\s*([\d.]+(?:[eE][+-]?\d+)?)(%?)\s*${lit(ROUND_BRACKETS.close)}`, 'g',
+  src`${lit(ROUND_BRACKETS.open)}\s*(${LOOSE_SIGNED_NUMBER})\s*${KEYWORD.pm}\b\s*(${LOOSE_NUMBER})(%?)\s*${lit(ROUND_BRACKETS.close)}`, 'g',
 )
 
 /** `(2.0 pm 0.1) kg` → `2.0 kg pm 0.1 kg` (the unit as typed, with what's part of it: `mol {EDTA}`). */

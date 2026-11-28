@@ -12,7 +12,7 @@ import { INV_FUNCTION } from '../../sheet/names.ts'
 import { symbolTex, isUnitCall, unitCallText, isLitCall } from './tex.ts'
 import { unwrap, seeThrough } from './nodes.ts'
 import { TEX_ANGLE, TEX_NORM, TEX_ROUND, TEX_SIZED, TEX_SQUARE, TEX_UPRIGHT } from '../../latex/syntax.ts'
-import { lit, oneOf, regex, src } from '../../syntax.ts'
+import { EXPONENT_AT, STARTS_WITH_DIGIT, lit, oneOf, regex, src } from '../../syntax.ts'
 
 /** A number followed by its unit: `2.0 kg`. */
 export const isNumberWithUnit = (n: Expr): n is OperatorExpr =>
@@ -96,7 +96,7 @@ const isBracketedValue = (n: Expr) =>
 
 /** A number, with or without its unit, as typed or substituted. */
 const isValue = (n: Expr) => isConstant(n) || isLitCall(n) || isNumberWithUnit(n)
-  || (isSymbol(n) && n.name.startsWith(RAW) && /^-?\d/.test(n.name.slice(RAW.length)))
+  || (isSymbol(n) && n.name.startsWith(RAW) && STARTS_WITH_DIGIT.test(n.name.slice(RAW.length)))
 
 /** What `node` shows at its `side` edge (in a product). */
 export function edgeOf(node: Expr, side: Side): Edge {
@@ -140,7 +140,7 @@ export function inScientificNotation(node: Expr): boolean {
   let n = unwrap(node)
   if (isNumberWithUnit(n)) n = unwrap(n.args[0])
   if (isSymbol(n) && n.name.startsWith(RAW)) return n.name.includes('\\times') && !n.name.startsWith(`${RAW}\\left`)
-  if (isLitCall(n)) return /e/i.test(unitCallText(n))
+  if (isLitCall(n)) return EXPONENT_AT.test(unitCallText(n))
   return false
 }
 

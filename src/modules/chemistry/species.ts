@@ -2,7 +2,7 @@
 import {
   BASE_DIMENSION, type BuiltinConstant, type CallExpr, declareUnit, type Expr, isConstant, isNamespaceConstant, isQuantity,
   isUnitCall, magnitude, mapValues, multiply, type NamespaceConstant, parse, quantity, type Quantity, sameDimension, source, transform,
-  UNIT, type UnitPart, unitCallText, unitParts, unitText, type Value, valuesOf, dimensionPower, isValueMatrix,
+  UNIT, type UnitPart, unitCallText, unitParts, unitText, type Value, valuesOf, dimensionPower, isValueMatrix, NOT_JUST_DIGITS,
 } from '../../lib/plugin.ts'
 import { SPECIES_KINDS, SpeciesError, isSpeciesUnit, speciesOf, speciesPowers, speciesUnit, type SpeciesKind } from './chemistry.ts'
 
@@ -170,6 +170,6 @@ export function isOneMole(number: Expr, unit: Expr, literals: Map<number, string
  */
 export function isSpeciesCount(number: Expr, unit: Expr, literals: Map<number, string>): boolean {
   if (!isConstant(number) || typeof number.value !== 'number' || !Number.isInteger(number.value)) return false
-  if (/[.eE]/.test(literals.get(number.value) ?? '')) return false
+  if (NOT_JUST_DIGITS.test(literals.get(number.value) ?? '')) return false
   return isUnitCall(unit) && unitCallText(unit as CallExpr).split(/[\s*/^]+/).some(isSpeciesUnit)
 }

@@ -8,7 +8,7 @@
  */
 import {
   attachUnit, type DerivedVariable, EngineModule, type Expansion, FunctionMember, type LookSetting, type Member, tupleOf, type Value, type CallExpr, type Expr,
-  type ModuleGrammar, type ModuleHost, needsBrackets, type PartWriter, SETTING_PLACE, type SettingPlace, SIDE,
+  type ModuleGrammar, type ModuleHost, needsBrackets, type PartWriter, SETTING_PLACE, type SettingPlace, SIDE, TEX_SIGN,
   type TupleLook,
 } from '../../lib/plugin.ts'
 import { componentsOf } from './components.ts'
@@ -127,7 +127,7 @@ export class VectorModule extends EngineModule {
     if (look === VECTOR_LOOK.unitVectors && values.length >= 2 && values.length <= UNIT_VECTOR_TEX.length) {
       // 3.0 î − 4.0 ĵ: each value's sign joins the terms.
       const sum = values.map((tex, i) => {
-        const negative = tex.startsWith('-')
+        const negative = tex.startsWith(TEX_SIGN.minus)
         const term = `${negative ? tex.slice(1) : tex}\\,${UNIT_VECTOR_TEX[i]}`
         if (i === 0) return negative ? `-${term}` : term
         return `${negative ? '-' : '+'} ${term}`

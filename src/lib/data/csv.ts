@@ -16,7 +16,7 @@
  * x_n gets its row's, as if typed `x_n = 0.012 m pm 0.001 m`. In the column's
  * unit, or x's if it has none; `dx (%)` is a percentage of each value.
  */
-import { IMPORT_CALL, INDENT, IS_NAME, IS_SIGNED_NUMBER, LEADING_MINUS, LEADING_PLUS, LEADING_SPACES, importCall, indentOf } from '../syntax.ts'
+import { IMPORT_CALL, INDENT, IS_NAME, IS_SIGNED_NUMBER, RELATIVE_MARK, LEADING_MINUS, LEADING_PLUS, LEADING_SPACES, importCall, indentOf } from '../syntax.ts'
 
 /** One column: its variable name, unit, and each value as typed with the row it's on (1 = first data row). */
 export interface CsvColumn {
@@ -48,7 +48,7 @@ const UNCERTAINTY_COLUMN = [
 ]
 
 /** A unit that makes an uncertainty column a percentage of each value: dx (%). */
-export const PERCENT_UNIT = '%'
+export const PERCENT_UNIT = RELATIVE_MARK
 
 /** The column `name` holds the uncertainties of, if any. */
 function uncertaintyOf(name: string, names: Set<string>): string | undefined {

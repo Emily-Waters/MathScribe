@@ -124,7 +124,5 @@ export function readUnit(src: string, pos: number): { text: string; end: number 
 export const NAME_IN_LINE = regex(src`(?<!${NAME_CHAR}|[\\${inClass(MEMBER_DOT)}])(${NAME})${NOT_GOING_ON}`, 'g')
 /** After a unit, another term (a name or a bracket), not `to` or `in`: `1/2 m v^2`. */
 export const MORE_TERMS = regex(src`^[ \t]+(?!(?:${KEYWORD.to}|${LIBRARY_IN})(?!${NAME_CHAR}))(?:${NAME_CHAR}|${lit(OPEN)})`)
-/** `pm` as a word (not the start of a name like `pmax`). */
-export const PM_WORD = regex(src`^${KEYWORD.pm}(?!${NAME_CHAR})`)
 /** A conversion that's all that's left of a line: `to cm` (1: the unit). */
 export const CONVERSION_TAIL = regex(src`^${KEYWORD.to}\s+(.+)$`)

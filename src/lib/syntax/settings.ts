@@ -73,6 +73,9 @@ export const TEMPLATE_USE = regex(src`^${named('template', NAME)}${lit(OPEN)}${n
 export const UNCERTAINTY_WORDS = ['delta', 'Delta'] as const
 export type UncertaintyWord = typeof UNCERTAINTY_WORDS[number]
 
+/** After an uncertainty that's a percentage of its value: `2.0 kg pm 5%` (and an imported uncertainty column's unit, `dx (%)`). */
+export const RELATIVE_MARK = '%'
+
 /**
  * A series' statistics, each a member of it: `t.avg`, `t.std`, … and what each
  * works out. (`t` on its own is the series.)

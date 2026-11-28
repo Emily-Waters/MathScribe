@@ -663,6 +663,10 @@ describe('bareTuple', () => {
     expect(bareTuple('r = (x, y, z)')).toBe('(x, y, z)')
     expect(bareTuple('f(a, b) + 2 * (1, (2, 3))')).toBe('(1, (2, 3))')
     expect(bareTuple('(1 + 2) * max(3, 4) + [1, 2] + @tuple(5, 6)')).toBeNull()
+    // (Read from the tree: a comma in a vector, a label in quotes or a call's arguments isn't a list's; one inside a call is found.)
+    expect(bareTuple('2 * (<3.0, 4.0> N)')).toBeNull()
+    expect(bareTuple('("a, b")')).toBeNull()
+    expect(bareTuple('f((a, b))')).toBe('(a, b)')
   })
 })
 

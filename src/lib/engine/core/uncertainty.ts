@@ -9,19 +9,22 @@
  *
  * (Each delta F, @c and value a module holds, such as @solve's answer, is in a hidden variable: see names.ts.)
  */
-import { KEYWORD, LOOSE_NUMBER, LOOSE_SIGNED_NUMBER, NAME, NAME_CHAR_RE, ROUND_BRACKETS, SETTING_MARK, UNCERTAINTY_WORDS, inClass, lit, regex, src } from '../../syntax.ts'
-import { PM_WORD } from './literals.ts'
-import { unitPartsAt } from '../../tree/lexer.ts'
+import {
+  KEYWORD, LOOSE_NUMBER, LOOSE_SIGNED_NUMBER, NAME, RELATIVE_MARK, ROUND_BRACKETS, SETTING_MARK, UNCERTAINTY_WORDS, inClass, lit, oneOf, regex, src,
+} from '../../syntax.ts'
+import { isTokenOf, unitPartsAt } from '../../tree/lexer.ts'
+import { topLevelAt } from '../../tree/topLevel.ts'
+import { TOKEN_KIND } from '../../tree/nodes.ts'
 
 /** A value in text with settings on its name: `V:4 to mL` (1: the name, 2: the settings, 3: the rest). */
 export const NAME_THEN_SETTINGS = regex(src`^(${NAME})((?:${SETTING_MARK}[^${inClass(SETTING_MARK)}\s]+)+)(.*)$`)
 
 /** `delta F` (or `Delta F`): F's uncertainty (1: the letter, 2: the name). */
-export const DELTA_REF = regex(src`\b(${UNCERTAINTY_WORDS.join('|')})\s+(${NAME})`, 'g')
+export const DELTA_REF = regex(src`\b(${oneOf(UNCERTAINTY_WORDS)})\s+(${NAME})`, 'g')
 
 /** `(2.0 pm 0.1)`: a bracketed value with its uncertainty (1: value, 2: uncertainty, 3: `%` if relative). */
 export const PAREN_PM = regex(
-  src`${lit(ROUND_BRACKETS.open)}\s*(${LOOSE_SIGNED_NUMBER})\s*${KEYWORD.pm}\b\s*(${LOOSE_NUMBER})(%?)\s*${lit(ROUND_BRACKETS.close)}`, 'g',
+  src`${lit(ROUND_BRACKETS.open)}\s*(${LOOSE_SIGNED_NUMBER})\s*${KEYWORD.pm}\b\s*(${LOOSE_NUMBER})(${lit(RELATIVE_MARK)}?)\s*${lit(ROUND_BRACKETS.close)}`, 'g',
 )
 
 /** `(2.0 pm 0.1) kg` → `2.0 kg pm 0.1 kg` (the unit as typed, with what's part of it: `mol {EDTA}`). */
@@ -32,23 +35,14 @@ export function expandParenPm(src: string): string {
     const after = m.index + m[0].length
     const unit = unitPartsAt(src, after)
     const u = unit ? ` ${src.slice(after, after + unit.length).trim()}` : ''
-    out += `${src.slice(last, m.index)}${m[1]}${u} pm ${m[2]}${m[3] ? '%' : u}`
+    out += `${src.slice(last, m.index)}${m[1]}${u} ${KEYWORD.pm} ${m[2]}${m[3] ? RELATIVE_MARK : u}`
     last = after + (unit?.length ?? 0)
   }
   return out + src.slice(last)
 }
 
 /** Split `value pm uncertainty` at a top-level pm. */
-export function splitPm(src: string): [string, string] | null {
-  let depth = 0
-  for (let i = 0; i < src.length; i++) {
-    const c = src[i]
-    if (c === '(' || c === '[') depth++
-    else if (c === ')' || c === ']') depth--
-    if (depth !== 0) continue
-    if (PM_WORD.test(src.slice(i)) && (i === 0 || !NAME_CHAR_RE.test(src[i - 1]))) {
-      return [src.slice(0, i).trim(), src.slice(i + KEYWORD.pm.length).trim()]
-    }
-  }
-  return null
+export function splitPm(text: string): [string, string] | null {
+  const at = topLevelAt(text, (part) => isTokenOf(part, TOKEN_KIND.keyword, KEYWORD.pm))
+  return at < 0 ? null : [text.slice(0, at).trim(), text.slice(at + KEYWORD.pm.length).trim()]
 }

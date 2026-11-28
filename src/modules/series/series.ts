@@ -26,6 +26,7 @@ import {
   ASSIGN, type Definition, DISPLAY_MODE, type FormLine, IS_NAME, LineForm, type LineResult, MEMBER_INDEX, type ModuleHost, NODE_KIND,
   SEPARATOR, SETTING_MARK, SLICE_COLON, SUBSCRIPT, TOKEN_KIND, attachUnit, closesBracket, lexExpression, lineShape, lineTokens, magnitude,
   opensBracket, quantity, parseSliceName, regex, SIGNED_NUMBER, src, seriesMemberName, whereOf, symbolTex, typedName, unitTex,
+  ROW_SEPARATOR, TERNARY, splitTopLevel,
 } from '../../lib/plugin.ts'
 import { rowErrors, seriesUsedIn, sharedRows, withRowValues } from './columns.ts'
 import { cellParts } from './table.ts'
@@ -49,10 +50,10 @@ const SERIES_TEX = {
 const MOST_RANGE_VALUES = 10_000
 
 /** Between the rows of a matrix, which a series' brackets don't take. */
-const MATRIX_ROWS = ';'
+const MATRIX_ROWS = ROW_SEPARATOR
 
 /** A ternary's `?`, whose `:` isn't a range's. */
-const CONDITION = '?'
+const CONDITION = TERNARY.condition
 
 /** A whole number ending in a 0 (not 0 itself), whose 0s a range means: 10, 200. */
 const TRAILING_ZERO = /^-?[1-9]\d*0$/
@@ -153,23 +154,8 @@ function bracketed(value: string): string | undefined {
   return depth === 0 ? value.trim().slice(1, -1) : undefined
 }
 
-/** Text split at a delimiter outside any brackets (a call's, a member's, a label's), as the tree reads it. */
-function splitTopLevel(text: string, delimiter: string): string[] {
-  const parts = ['']
-  let depth = 0
-  for (const { token: t } of lineTokens(lexExpression(text))) {
-    if (t.t === TOKEN_KIND.delimiter) {
-      if (opensBracket(t.text)) depth++
-      else if (closesBracket(t.text)) depth--
-      else if (depth === 0 && t.text === delimiter) {
-        parts.push('')
-        continue
-      }
-    }
-    parts[parts.length - 1] += t.text
-  }
-  return parts.map((p) => p.trim())
-}
+/** Text split at a delimiter at its top level (not in a call's, a member's or a label's brackets), as the tree reads it, each piece trimmed. */
+const piecesAt = (text: string, delimiter: string): string[] => splitTopLevel(text, delimiter).map((piece) => piece.trim())
 
 /** Decimal places a number has as typed, or as worked out (to a sensible precision): 0.10 → 2, 2 → 0. */
 const decimalsOf = (n: string) => {
@@ -271,10 +257,10 @@ export class SeriesForm extends LineForm {
     const ownFigures = nameSettings.some((s) => WHOLE.test(s))
     const assigned = (n: number) => `${seriesMemberName(name, n)}${[...nameSettings, ...(figures[n - 1] && !ownFigures ? [String(figures[n - 1])] : [])]
       .map((s) => `${SETTING_MARK}${s}`).join('')}`
-    if (splitTopLevel(inner!, MATRIX_ROWS).length > 1) {
+    if (piecesAt(inner!, MATRIX_ROWS).length > 1) {
       return { tex: '', error: `Square brackets make a series, a list of values: ${WRITTEN.listed}. A ; between rows (a matrix) isn't one.` }
     }
-    let args = splitTopLevel(inner!, SEPARATOR).filter(Boolean)
+    let args = piecesAt(inner!, SEPARATOR).filter(Boolean)
     if (!args.length) {
       return { tex: '', error: `Give the series its values, ${WRITTEN.listed}, a rule, ${WRITTEN.rule}, or a range, ${WRITTEN.range}.` }
     }
@@ -289,7 +275,7 @@ export class SeriesForm extends LineForm {
     }
 
     // A range, `[0 s:2.0 s:0.1 s]`: its values, listed.
-    const range = args.length === 1 && !args[0].includes(CONDITION) ? splitTopLevel(args[0], SLICE_COLON) : []
+    const range = args.length === 1 && !args[0].includes(CONDITION) ? piecesAt(args[0], SLICE_COLON) : []
     if (range.length > 1) {
       if (range.length > 3) return { tex: '', error: `A range is from, to and step: ${WRITTEN.range}.` }
       const made = rangeValues(range)
@@ -383,7 +369,7 @@ export class SeriesForm extends LineForm {
  */
 export class UnpackedSeriesForm extends LineForm {
   evaluate(line: FormLine, host: ModuleHost): LineResult | undefined {
-    const sides = splitTopLevel(line.text, ASSIGN)
+    const sides = piecesAt(line.text, ASSIGN)
     if (sides.length !== 2) return undefined
     const inner = bracketed(sides[0])
     if (inner === undefined) return undefined
@@ -392,7 +378,7 @@ export class UnpackedSeriesForm extends LineForm {
     if (!rows.size) return { tex: '', error: `What's taken apart is a series: ${WRITTEN.unpacked}, with x a series.` }
     const members = [...rows.entries()].sort((a, b) => a[0] - b[0]).map(([, m]) => m)
 
-    const names = splitTopLevel(inner, SEPARATOR)
+    const names = piecesAt(inner, SEPARATOR)
     const restAt = names.findIndex((n) => n.startsWith(SPREAD))
     const rest = restAt < 0 ? undefined : names[restAt].slice(SPREAD.length).trim()
     const single = restAt < 0 ? names : names.slice(0, restAt)

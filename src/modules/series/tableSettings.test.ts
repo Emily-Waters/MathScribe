@@ -8,6 +8,9 @@ describe('table settings', () => {
   it('splits the columns from the settings at the first semicolon outside brackets', () => {
     expect(splitCallArgs('t, x; rows 1-5')).toEqual({ columns: 't, x', settings: ' rows 1-5' })
     expect(splitCallArgs('t, f(a; b)')).toEqual({ columns: 't, f(a; b)' })
+    // (As the tree reads it: a semicolon in a label in quotes, or in a list's brackets, isn't the settings'.)
+    expect(splitCallArgs('t, x; title "Runs; first"')).toEqual({ columns: 't, x', settings: ' title "Runs; first"' })
+    expect(splitCallArgs('[1, 2; 3, 4]')).toEqual({ columns: '[1, 2; 3, 4]' })
   })
 
   it('writes settings into a call over several lines on a line of their own, as the formatter lays it out', () => {

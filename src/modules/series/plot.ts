@@ -14,7 +14,7 @@
 import {
   baseMagnitude, type Definition, EXACT, fixPrefix, type FormLine, IS_NAME, isDimensionless, isQuantity, JOIN, LineForm, type LineResult,
   magnitude, magnitudeOf, memberName, type ModuleHost, normalise, parseMemberName, quantity, type Quantity, sameDimension, unitParts,
-  parseSliceName, RESERVED_NAMESPACES, ROUND_BRACKETS, whereOf, seriesDefinitions, splitArgs, SUBSCRIPT, symbolTex,
+  parseSliceName, RESERVED_NAMESPACES, ROUND_BRACKETS, whereOf, seriesDefinitions, splitArgs, SUBSCRIPT, symbolTex, closingBracketAt,
 } from '../../lib/plugin.ts'
 import { linearFit, plotScales, type LinearFit, type PlotData, type PlotName, type PlotPoint, type PlotSeries } from './plotGraph.ts'
 import { SERIES_FIGURE } from './tableData.ts'
@@ -45,12 +45,8 @@ const DATASET = ROUND_BRACKETS
 function bracketedDataset(arg: string): string[] | null {
   if (!arg.startsWith(DATASET.open) || !arg.endsWith(DATASET.close)) return null
   // (Its first bracket closes at its end: not `(a + b) / (c + d)`.)
-  let depth = 0
-  for (let i = 0; i < arg.length - 1; i++) {
-    if (arg[i] === DATASET.open) depth++
-    else if (arg[i] === DATASET.close && --depth === 0) return null
-  }
-  const parts = splitArgs(arg.slice(1, -1)).map((a) => a.trim()).filter(Boolean)
+  if (closingBracketAt(arg, 0) !== arg.length - DATASET.close.length) return null
+  const parts = splitArgs(arg.slice(DATASET.open.length, -DATASET.close.length)).filter(Boolean)
   return parts.length >= 2 ? parts : null
 }
 

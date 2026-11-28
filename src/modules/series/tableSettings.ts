@@ -10,7 +10,7 @@
  */
 
 import {
-  CLOSING_BRACKETS, ChoiceSetting, FlagSetting, INDENT, NameSetting, OPENING_BRACKETS, QUOTE, RowsSetting, SettingsSpec, SwitchSetting, TitleSetting,
+  ChoiceSetting, FlagSetting, INDENT, NameSetting, RowsSetting, SettingsSpec, SwitchSetting, TitleSetting, matchesDelimiter, topLevelAt,
 } from '../../lib/plugin.ts'
 import { SETTINGS_START } from './syntax.ts'
 
@@ -75,20 +75,12 @@ export const SETTING = {
 const LINE_BREAK = '\n'
 /**
  * What's between a table's or plot's brackets, split at its first semicolon
- * (outside any brackets or quotes) into the columns and the settings.
+ * at the top level (as the tree reads it: not in brackets or a label in
+ * quotes) into the columns and the settings.
  */
 export function splitCallArgs(inner: string): { columns: string; settings?: string } {
-  let depth = 0
-  let quoted = false
-  for (let i = 0; i < inner.length; i++) {
-    const c = inner[i]
-    if (c === QUOTE) quoted = !quoted
-    else if (quoted) continue
-    else if (OPENING_BRACKETS.has(c)) depth++
-    else if (CLOSING_BRACKETS.has(c)) depth--
-    else if (c === SETTINGS_START && depth === 0) return { columns: inner.slice(0, i), settings: inner.slice(i + 1) }
-  }
-  return { columns: inner }
+  const at = topLevelAt(inner, matchesDelimiter(SETTINGS_START))
+  return at < 0 ? { columns: inner } : { columns: inner.slice(0, at), settings: inner.slice(at + SETTINGS_START.length) }
 }
 
 /**

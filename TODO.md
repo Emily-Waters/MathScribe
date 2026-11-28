@@ -456,6 +456,24 @@ tests, or the Create prompt:
       `bareTuple`, and the `LineStep`s that read `line.text`. Its own plan, one
       rewrite at a time, each run side by side with the text version over the
       whole suite first.
+- [ ] `[medium]` **Units read from the library's parts, not its text**
+      (2026-11-28, Emily; the guard's group C). Code outside the maths adapter
+      still parses mathjs's unit strings (`kg*m/s^2`, `(J)/(mol K)`, `mol*molEDTA`)
+      with patterns of its own, though the library's interface already gives a
+      quantity's units as parts (`unitParts`: name, prefix, power), so a change
+      of library would break them (CLAUDE.md: one maths adapter). The 39 cases
+      left in `src/lib/literals.test.ts`'s `KNOWN` are all these:
+      `unitTex` and `splitUnit` (core/tex.ts: normalising and typesetting a
+      unit, its numerator and denominator, label units and powers); the plot's
+      unit as plain text (series/plotGraph.ts); a unit's names split out for
+      species (chemistry/species.ts); how `readUnit` joins a unit's pieces
+      (core/literals.ts); and counting a unit's names (core/normalise.ts).
+      Instead: where there's a quantity, read its `unitParts`; where there's
+      only text (a unit as typed, `to km/h`), have the library read it into
+      parts (an interface function, e.g. `unitPartsOf(text)`), and typeset
+      from parts. Add to the interface what's missing (a part's place above
+      or below the line, a label unit). Behaviour-neutral, golden tests and
+      the visual check proving it; each file comes off `KNOWN` as it's done.
 
 ## 9. Mobile view (Level 2: touch & small screens)
 

@@ -24,30 +24,21 @@
  * the module's own constants.
  */
 import { isElement, type ElementSymbol } from './elements.ts'
-import { ExplainedError, MEMBER_DOT, outsideMaths, regex, SIGIL, src } from '../../lib/plugin.ts'
-import { BRACE_CLOSE, BRACE_OPEN, BRACED_SPECIES, CHEM_FUNCTION, CHEM_NAMESPACE, FORMULA_IN_TEXT, SPECIES_BRACES, SPECIES_DISPLAY, SPECIES_FUNCTION, type SpeciesDisplay } from './syntax.ts'
+import { ExplainedError, MEMBER_DOT, oneOf, outsideMaths, regex, SIGIL, src, TEX_GROUP } from '../../lib/plugin.ts'
+import {
+  AFTER_A_NAME, BETWEEN_SPECIES, BRACE_CLOSE, BRACE_OPEN, BRACED_SPECIES, CE_COMMAND, CHARGE, CHARGE_SUFFIX, CHEM_FUNCTION, CHEM_NAMESPACE, COEFFICIENT,
+  COUNT, ELECTRON, ELEMENT_COUNT, FORMULA_IN_TEXT, FORMULA_MARK, FORMULA_SUBSCRIPT, GROUP_BRACKETS, HYDRATE_DOT, NOT_IN_A_NAME, PLAIN_FORMULA,
+  REACTION_ARROW, SPECIES_BRACES, SPECIES_DISPLAY, SPECIES_FUNCTION, STATE_SUFFIX, SYMBOL, type SpeciesDisplay,
+} from './syntax.ts'
 
 /** A line that's a formula on its own, a reaction: `{OH^- + H3O^+ -> 2 H2O}` (1: the formula). */
 export const REACTION_LINE = regex(src`^${BRACED_SPECIES}$`)
 
 /** A formula as LaTeX, drawn by mhchem: `Ca^2+` → \ce{Ca^2+}. */
-export const formulaTex = (formula: string) => `\\ce{${formula.trim()}}`
-
-/**
- * A subscript in words that's a formula: it starts with a capital, as every
- * element does (`m_{H2O}`, `c_{Na^+}`, `m_H2O`), so it's drawn as chemistry, H₂O.
- * Subscripts of words (`x_{max}`, `F_net`) start with a small letter or a digit;
- * a capitalised word with no digits or charge (`m_Ball`) looks the same either way.
- */
-const FORMULA_SUBSCRIPT = /^[A-Z]/
+export const formulaTex = (formula: string) => `${CE_COMMAND}${TEX_GROUP.open}${formula.trim()}${TEX_GROUP.close}`
 
 /** Whether a subscript in words is a formula (see FORMULA_SUBSCRIPT). */
 export const isFormulaSubscript = (subscript: string) => FORMULA_SUBSCRIPT.test(subscript.trim())
-
-/** Each element symbol in a formula without brackets or charge, with its count: `H2O` → H2, O (1: the symbol). */
-const ELEMENT_COUNT = /([A-Z][a-z]?)\d*/g
-/** A formula of element symbols and counts alone: `H2O`, `NaCl`. */
-const PLAIN_FORMULA = /^(?:[A-Z][a-z]?\d*)+$/
 
 /**
  * Whether a subscript of a variable's name is a formula: two or more
@@ -70,7 +61,7 @@ export const withFormulas = (text: string) =>
   }))
 
 /** Whether LaTeX uses a formula (so a LaTeX document needs mhchem). */
-export const usesFormulas = (tex: string) => tex.includes('\\ce{')
+export const usesFormulas = (tex: string) => tex.includes(`${CE_COMMAND}${TEX_GROUP.open}`)
 
 // ---------------------------------------------------------------------------
 // Species as units
@@ -109,7 +100,10 @@ function letters(n: number): string {
 }
 
 /** A formula as a species is known by: spaces don't matter (`Na^+` and `Na ^+` are one species). */
-export const speciesKey = (formula: string) => formula.replace(/\s+/g, '')
+export const speciesKey = (formula: string) => formula.replace(ALL_SPACE, '')
+
+/** Every run of spaces in some text. */
+const ALL_SPACE = regex(src`\s+`, 'g')
 
 /**
  * The unit a species is measured in, by what it qualifies and its formula;
@@ -135,7 +129,7 @@ export const formulaOf = (unitName: string): string | undefined => speciesByUnit
 export const isSpeciesUnit = (unitName: string) => speciesByUnit.has(unitName)
 
 /** A species unit's name, anywhere in some text. */
-const SPECIES_UNIT_NAME = regex(src`\b(?:${Object.values(SPECIES_UNIT_PREFIX).join('|')})[a-z]+\b`, 'g')
+const SPECIES_UNIT_NAME = regex(src`\b${oneOf(Object.values(SPECIES_UNIT_PREFIX))}[a-z]+\b`, 'g')
 
 /** Text with species units written as their formulas: `mol amountofa` → mol EDTA. */
 export const readableSpecies = (text: string) =>
@@ -157,25 +151,6 @@ export function speciesPowers(massPower: number, amountPower: number): Record<Sp
 // ---------------------------------------------------------------------------
 // Molar mass from a formula: a substance's, `X.M`
 // ---------------------------------------------------------------------------
-
-/** Brackets a group of atoms can be written in, `Ca(OH)2`, `K4[Fe(CN)6]`: each opener's closer. */
-const GROUP_BRACKETS = { '(': ')', '[': ']' } as const
-type GroupOpener = keyof typeof GROUP_BRACKETS
-
-/** Between a salt and its water of crystallization: `CuSO4*5H2O` (as typed in formulas), or `·`. */
-const HYDRATE_DOT = /[*·]/
-
-/** A state after a formula, which says nothing about its mass: `(aq)`, `(s)`, `(l)`, `(g)`. */
-const STATE_SUFFIX = /\((?:aq|s|l|g)\)$/
-
-/** A charge after a formula, which doesn't change its molar mass (an electron's mass is negligible): `^2+`, `^-`, `+`. */
-const CHARGE_SUFFIX = /(?:\^[\d+-]+|[+-]+)$/
-
-/** An element's symbol: a capital, then any small letters. */
-const SYMBOL = /^[A-Z][a-z]*/
-
-/** A count after a symbol or group, `2`, or a multiplier before a hydrate's water, `5H2O`. */
-const COUNT = /^\d+/
 
 /** How many of each element a formula has, in the order they first appear. */
 export type AtomCounts = Map<ElementSymbol, number>
@@ -199,7 +174,7 @@ function countPart(part: string, formula: string): AtomCounts | { error: string 
   while (i < part.length) {
     const c = part[i]
     if (Object.hasOwn(GROUP_BRACKETS, c)) {
-      open.push({ atoms: new Map(), closer: GROUP_BRACKETS[c as GroupOpener] })
+      open.push({ atoms: new Map(), closer: GROUP_BRACKETS[c] })
       i++
     } else if (open.length > 1 && c === open.at(-1)!.closer) {
       i++
@@ -217,13 +192,6 @@ function countPart(part: string, formula: string): AtomCounts | { error: string 
   if (open.length > 1) return { error: `{${formula}} is missing a closing ${open.at(-1)!.closer}.` }
   return open[0].atoms
 }
-
-/**
- * A coefficient before a formula, as in a balanced equation: `2 H2O`, `2H2O`,
- * `1/2 O2` (1: the coefficient, a whole number or a fraction; 2: any space after
- * it; 3: the formula).
- */
-const COEFFICIENT = /^\s*(\d+(?:\/\d+)?)(\s*)([A-Z([].*|e(?:\^?[+-]).*)$/s
 
 /**
  * A formula's coefficient, if it has one (`2 H2O` → 2 and H2O); otherwise the
@@ -246,7 +214,7 @@ export function splitCoefficient(formula: string): { coefficient?: string; compo
  * (splitCoefficient), so here one is an error.
  */
 export function parseFormula(formula: string): AtomCounts | { error: string } {
-  const compact = formula.replace(/\s+/g, '').replace(STATE_SUFFIX, '').replace(CHARGE_SUFFIX, '')
+  const compact = formula.replace(ALL_SPACE, '').replace(STATE_SUFFIX, '').replace(CHARGE_SUFFIX, '')
   if (!compact) return { error: 'The formula is empty: write one in the braces, as in {H2O}.' }
   const parts = compact.split(HYDRATE_DOT)
   // (A formula of one part can't start with a number: that's a coefficient, which splitCoefficient takes off.)
@@ -285,15 +253,6 @@ export function molarMassSum(atoms: AtomCounts): string {
 // Reactions: `r = @chem.reaction({2 H2 + O2 -> 2 H2O})`
 // ---------------------------------------------------------------------------
 
-/** The arrows between a reaction's sides: `->`, `<=>`, `<->`, `=` (as mhchem writes them). */
-const REACTION_ARROW = /\s*(?:<=>|<->|->|=)\s*/
-
-/** Between a side's species: a `+` with space around it (a charge's `+`, `Na^+`, has none after it). */
-const BETWEEN_SPECIES = /\s+\+\s+/
-
-/** A charge as written after a formula (1: its size, if written; 2: its sign): `^2+`, `^-`, `+`. */
-const CHARGE = /(?:\^(\d*)([+-])|([+-]))$/
-
 /** One species of a reaction, with its coefficient. */
 export interface ReactionTerm {
   /** How many of it, from the balanced equation (1 if none is written). */
@@ -311,18 +270,12 @@ export interface Reaction {
   products: ReactionTerm[]
 }
 
-/** An electron, as written in a half-reaction: `e^-`. */
-const ELECTRON = 'e'
-
-/** Characters a formula has that a name can't: brackets, charges, a hydrate's dot. */
-const NOT_IN_A_NAME = /[^A-Za-z0-9]/g
-
 /** A reaction's species as a member name, by its letters and digits: H2O → H2O, Ca(OH)2 → CaOH2, Na^+ → Na. */
 export const reactionMemberName = (formula: string) => formula.replace(STATE_SUFFIX, '').replace(NOT_IN_A_NAME, '')
 
 /** A coefficient's value: `2` → 2, `1/2` → 0.5. */
 function coefficientValue(text: string): number {
-  const [top, bottom] = text.split('/').map(Number)
+  const [top, bottom] = text.split(FORMULA_MARK.fraction).map(Number)
   return bottom ? top / bottom : top
 }
 
@@ -330,7 +283,7 @@ function coefficientValue(text: string): number {
 function chargeOf(formula: string): number {
   const m = CHARGE.exec(formula.replace(STATE_SUFFIX, '').trim())
   if (!m) return 0
-  const sign = (m[2] ?? m[3]) === '-' ? -1 : 1
+  const sign = (m[2] ?? m[3]) === FORMULA_MARK.minus ? -1 : 1
   return sign * (m[1] ? Number(m[1]) : 1)
 }
 
@@ -464,7 +417,7 @@ export class SpeciesNames {
   private pattern(): RegExp {
     // (Names are letters, digits and underscores, so they need no escaping; longest first, so one doesn't cut another short.)
     const names = [...this.byName.keys()].sort((a, b) => b.length - a.length)
-    return regex(src`(^|\s|\d)(${names.join('|')})(?=$|[\s^(+-])`, 'g')
+    return regex(src`(^|\s|\d)(${oneOf(names)})(?=$|${AFTER_A_NAME})`, 'g')
   }
 }
 

@@ -4,7 +4,8 @@
  * own syntax is in src/lib/syntax.ts, which this builds on.)
  */
 import {
-  ASSIGN, blockOpener, CURLY_BRACKETS, MEMBER_DOT, ROUND_BRACKETS, SETTING_MARK, SIGIL, SUBSCRIPT, inClass, lit, memberName, NAME, named, regex, src,
+  ASSIGN, blockOpener, CURLY_BRACKETS, MEMBER_DOT, ROUND_BRACKETS, SETTING_MARK, SIGIL, SQUARE_BRACKETS, SUBSCRIPT, inClass, lit, memberName, NAME,
+  named, oneOf, regex, src, texCommand,
 } from '../../lib/plugin.ts'
 
 /** Around a species or a formula, as typed: `2.0 mol {Na^+}`, `{Na^+}` in text. */
@@ -86,6 +87,95 @@ export const SPECIES_OPENER = blockOpener(src`${CHEM_NAMESPACE}${lit(MEMBER_DOT)
 
 /** One species named on a line of its own: `@chem.species dietzeite = {7Ca(IO3)2*8CaCrO4}` (1–3 as SPECIES_ENTRY). */
 export const SPECIES_LINE = regex(src`^${CHEM_PREFIX}${SPECIES_BLOCK}\s+(${NAME})${NAMED_SPECIES}`)
+
+// ---------------------------------------------------------------------------
+// Formulas: what's written in a species' braces, `{7Ca(IO3)2*8CaCrO4}`, `{SO4^2-}`
+// ---------------------------------------------------------------------------
+
+/** A formula's marks: between a salt and its water (`CuSO4*5H2O`, or `·`), before a charge's size (`^2+`), a charge's signs, and a coefficient's fraction bar (`1/2 O2`). */
+export const FORMULA_MARK = { hydrate: ['*', '·'], charge: '^', plus: '+', minus: '-', fraction: '/' } as const
+
+/** Brackets a group of atoms can be written in, `Ca(OH)2`, `K4[Fe(CN)6]`: each opener's closer. */
+export const GROUP_BRACKETS: Readonly<Record<string, string>> = {
+  [ROUND_BRACKETS.open]: ROUND_BRACKETS.close, [SQUARE_BRACKETS.open]: SQUARE_BRACKETS.close,
+}
+
+/** The states a formula can end with, in brackets: `(aq)`, `(s)`, `(l)`, `(g)`. */
+export const STATES = ['aq', 's', 'l', 'g'] as const
+
+/** The arrows between a reaction's sides, as mhchem writes them (longest first): `<=>`, `<->`, `->`, `=`. */
+export const REACTION_ARROWS = ['<=>', '<->', '->', '='] as const
+
+/** An electron, as written in a half-reaction: `e^-`. */
+export const ELECTRON = 'e'
+
+/** mhchem's command, which draws a formula: `\ce{Ca^2+}`. */
+export const CE_COMMAND = texCommand('ce')
+
+/** An element's symbol starts with a capital, then a small letter or none; a formula's count is digits. */
+const CAPITAL = src`[A-Z]`
+const SMALL = src`[a-z]`
+const ELEMENT_SYMBOL = src`${CAPITAL}${SMALL}?`
+
+/** A charge's sign. */
+const CHARGE_SIGN = src`[${inClass(FORMULA_MARK.plus, FORMULA_MARK.minus)}]`
+
+/** What a formula starts with: an element's capital, or a group's bracket. */
+const FORMULA_START = src`[A-Z${inClass(ROUND_BRACKETS.open, SQUARE_BRACKETS.open)}]`
+
+/**
+ * A subscript in words that's a formula: it starts with a capital, as every
+ * element does (`m_{H2O}`, `c_{Na^+}`, `m_H2O`), so it's drawn as chemistry, H₂O.
+ * Subscripts of words (`x_{max}`, `F_net`) start with a small letter or a digit;
+ * a capitalised word with no digits or charge (`m_Ball`) looks the same either way.
+ */
+export const FORMULA_SUBSCRIPT = regex(src`^${CAPITAL}`)
+
+/** Each element symbol in a formula without brackets or charge, with its count: `H2O` → H2, O (1: the symbol). */
+export const ELEMENT_COUNT = regex(src`(${ELEMENT_SYMBOL})\d*`, 'g')
+
+/** A formula of element symbols and counts alone: `H2O`, `NaCl`. */
+export const PLAIN_FORMULA = regex(src`^(?:${ELEMENT_SYMBOL}\d*)+$`)
+
+/** Between a salt and its water of crystallization. */
+export const HYDRATE_DOT = regex(src`[${inClass(...FORMULA_MARK.hydrate)}]`)
+
+/** A state after a formula, which says nothing about its mass: `(aq)`, `(s)`, `(l)`, `(g)`. */
+export const STATE_SUFFIX = regex(src`${lit(ROUND_BRACKETS.open)}${oneOf(STATES)}${lit(ROUND_BRACKETS.close)}$`)
+
+/** A charge after a formula, which doesn't change its molar mass (an electron's mass is negligible): `^2+`, `^-`, `+`. */
+export const CHARGE_SUFFIX = regex(src`(?:${lit(FORMULA_MARK.charge)}[\d${inClass(FORMULA_MARK.plus, FORMULA_MARK.minus)}]+|${CHARGE_SIGN}+)$`)
+
+/** A charge as written after a formula (1: its size, if written; 2 or 3: its sign): `^2+`, `^-`, `+`. */
+export const CHARGE = regex(src`(?:${lit(FORMULA_MARK.charge)}(\d*)(${CHARGE_SIGN})|(${CHARGE_SIGN}))$`)
+
+/** An element's symbol, at the start: a capital, then any small letters. */
+export const SYMBOL = regex(src`^${CAPITAL}${SMALL}*`)
+
+/** A count after a symbol or group, `2`, or a multiplier before a hydrate's water, `5H2O`, at the start. */
+export const COUNT = regex(src`^\d+`)
+
+/**
+ * A coefficient before a formula, as in a balanced equation: `2 H2O`, `2H2O`,
+ * `1/2 O2` (1: the coefficient, a whole number or a fraction; 2: any space after
+ * it; 3: the formula, which starts with an element, a group, or an electron).
+ */
+export const COEFFICIENT = regex(
+  src`^\s*(\d+(?:${lit(FORMULA_MARK.fraction)}\d+)?)(\s*)(${FORMULA_START}.*|${ELECTRON}(?:${lit(FORMULA_MARK.charge)}?${CHARGE_SIGN}).*)$`,
+  's',
+)
+
+/** The arrow between a reaction's sides, with any spaces around it. */
+export const REACTION_ARROW = regex(src`\s*${oneOf(REACTION_ARROWS.map(lit))}\s*`)
+
+/** Between a side's species: a `+` with space around it (a charge's `+`, `Na^+`, has none after it). */
+export const BETWEEN_SPECIES = regex(src`\s+${lit(FORMULA_MARK.plus)}\s+`)
+
+/** What can follow a species' name in a formula: a space, a charge, a group, a sign. */
+export const AFTER_A_NAME = src`[\s${inClass(FORMULA_MARK.charge, ROUND_BRACKETS.open, FORMULA_MARK.plus, FORMULA_MARK.minus)}]`
+
+/** Characters a formula has that a name can't: brackets, charges, a hydrate's dot. */
+export const NOT_IN_A_NAME = regex(src`[^A-Za-z0-9]`, 'g')
 
 // ---------------------------------------------------------------------------
 // Inside names

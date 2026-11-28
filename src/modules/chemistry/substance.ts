@@ -234,7 +234,7 @@ export class SubstanceForm extends LineForm {
   /** What a substance's members are, for a member it doesn't have (or one that can't be set). */
   private unknownMember(name: string, s: Substance, path: string[], setting: boolean): string {
     const element = [...s.atoms.keys()][0]
-    const typed = `${name}.${path.join('.')}`
+    const typed = `${name}${MEMBER_DOT}${path.join(MEMBER_DOT)}`
     if (setting) {
       return `${typed} can't be set: set ${name}'s amount or mass (${name}.n, ${name}.m), or an element's (${name}.${element}.n, ${name}.${element}.m); `
         + 'the rest follow from it.'

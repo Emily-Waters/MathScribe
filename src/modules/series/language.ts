@@ -78,10 +78,11 @@ export const SERIES_TOPICS: readonly PlacedTopic[] = [
       },
       {
         explain: 'A series can have a display name, as any name can: t:"Time" = […] is shown as Time on its line, '
-          + 'heads its column in @table and labels it on @plot (its axis, or its row of the legend).',
+          + 'heads its column in @table and labels it on @plot (its axis, its row of the legend, and its fit\'s equation).',
         rules: [
           'The display name is the series\', not each value\'s: t[2] is still shown as t₂. Other settings on the '
             + 'name, t:"Time":3, are its values\', as on t[2]:3.',
+          'Its statistics are made from it: t.avg is Time with a bar over it, t.std σ with Time below.',
           'A series made again without one loses it. A plot\'s own label, xlabel "…", wins over it.',
         ],
         examples: [{
@@ -89,7 +90,8 @@ export const SERIES_TOPICS: readonly PlacedTopic[] = [
             't:"Time" = [0.10 s, 0.20 s, 0.30 s]',
             'h:"Height" = [0.95 m, 0.80 m, 0.56 m]',
             '@table(t, h)',
-            '@plot(t, h)',
+            '@plot(t, h; fit linear)',
+            't.avg',
           ].join('\n'),
         }],
       },

@@ -67,7 +67,7 @@ export class DisplayNames {
     if (bad !== undefined) return { tex: '', error: `"${bad}" isn't a parameter name: write ${name}(x, y) = "…{{x}}…".` }
     this.templates.set(name, { params: [...params], words })
     const shown = this.tex(this.fillWords(words, params, params))
-    return { tex: `${symbolTex(name)}\\left(${params.map(symbolTex).join(', ')}\\right) = ${shown.tex}`, error: shown.error }
+    return { tex: `${symbolTex(name)}\\left(${params.map((p) => symbolTex(p)).join(', ')}\\right) = ${shown.tex}`, error: shown.error }
   }
 
   /** The display name a template makes from its arguments, `massName(H2O)` → "m_{H2O}", or what's wrong. */

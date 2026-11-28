@@ -245,12 +245,18 @@ export const CORE_TOPICS: readonly LanguageTopic[] = [
             + 'combines with the other settings: n:3:"Moles":sci = ….',
           'Subscripts work as in names: m_ball, x_{max}, F_net_x; one starting with a capital letter is a '
             + 'formula, m_{H2O}. $…$ is maths.',
+          'A name made from it is made from its words: its uncertainty, delta T2, is shown as δ before them.',
         ],
         examples: [{
           source: [
             'V_s = 25.00 mL',
             'n_X = 0.00120 mol',
             'n_Ca:"Moles of {Ca^2+} in {{V_s}}" = n_X / 6',
+          ].join('\n'),
+        }, {
+          source: [
+            'T2:"$T^2$" = 4.0 s^2 pm 0.2 s^2',
+            'delta T2',
           ].join('\n'),
         }],
       },

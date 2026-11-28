@@ -48,6 +48,17 @@ describe("a series' display name", () => {
     expect(several).toContain('\\addlegendentry{$\\text{Depth}$}')
   })
 
+  it("names the series in a plot's fit equation", () => {
+    expect(last(`${DATA}@plot(t, x; fit linear)`).tex)
+      .toMatch(/^\\text\{Height \}\\text\{h\}_\{\\text\{0\}\} = \\left\(.*\\right\) \\text\{Time\} \+ /)
+  })
+
+  it('makes its statistics, and their uncertainties, from it', () => {
+    expect(last(`${DATA}t.avg`).tex).toMatch(/^\\overline\{\\text\{Time\}\} = \\frac\{1\}\{2\}\\sum_\{i=1\}\^\{2\} t_\{i\}/)
+    expect(last(`${DATA}delta t.avg`).tex).toMatch(/^\\delta \\overline\{\\text\{Time\}\} = /)
+    expect(last(`${DATA}t.std`).tex).toMatch(/^\\sigma_\{\\text\{Time\}\} = /)
+  })
+
   it("gives way to a plot's own axis label", () => {
     const plot = last(`${DATA}@plot(t, x; xlabel "Elapsed")`).plot!
     expect(plotSvg(plot, PRINT_PALETTE)).toContain('>Elapsed [s]<')

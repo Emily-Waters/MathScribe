@@ -32,6 +32,8 @@ import type { ValueTex } from './valueTex.ts'
 /** What the working's LaTeX needs of the Calculator: its variables and values, options, modules, and how values are shown. */
 export interface WorkingTexHost {
   variable(name: string): Variable | undefined
+  /** How a name is shown in place of its symbol, if it is: a variable's or a series' display name (see ShownName). */
+  shownName(name: string): string | undefined
   value(name: string): unknown
   has(name: string): boolean
   options(): CalcOptions
@@ -162,10 +164,12 @@ export class WorkingTex {
     return paren(operator(OP.multiply, [rawNode(numTex), unit]))
   }
 
-  /** How a variable's name is shown: its display name, if it has one. */
-  private nameTex(name: string): string {
-    const v = this.host.variable(name)
-    return v?.label ?? v?.symbol ?? symbolTex(name)
+  /**
+   * How a name is shown: its display name, if it has one; one made from another
+   * name (`delta a`, `t.avg`) made from that name's display name, if it has one.
+   */
+  nameTex(name: string): string {
+    return this.host.shownName(name) ?? symbolTex(name, (n) => this.host.shownName(n))
   }
 
   /** An expression as the working shows it, its numbers as typed (`literals`). */

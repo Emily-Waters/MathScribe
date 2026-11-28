@@ -16,7 +16,7 @@ import {
   magnitude, magnitudeOf, memberName, type ModuleHost, normalise, parseMemberName, quantity, type Quantity, sameDimension, unitParts,
   parseSliceName, RESERVED_NAMESPACES, whereOf, seriesDefinitions, splitArgs, SUBSCRIPT, symbolTex,
 } from '../../lib/plugin.ts'
-import { linearFit, plotScales, type LinearFit, type PlotData, type PlotPoint, type PlotSeries } from './plotGraph.ts'
+import { linearFit, plotScales, type LinearFit, type PlotData, type PlotName, type PlotPoint, type PlotSeries } from './plotGraph.ts'
 import { SERIES_FIGURE } from './tableData.ts'
 import { splitCallArgs } from './tableSettings.ts'
 import { PLOT_FIT, parsePlotSettings } from './plotSettings.ts'
@@ -113,9 +113,10 @@ function curvePoints(
  * A series' best-fit line as an equation, y = (a ± δa) x + (b ± δb), R² = …;
  * and its slope and intercept as variables, with their uncertainties, for
  * later lines to use, named by `target` (p.slope, or y.slope; none if undefined).
+ * Its y and x are shown as the plot shows them: by their display names, if they have them.
  */
 function fitTex(
-  host: ModuleHost, s: PlotSeries, fit: LinearFit, xName: string | undefined, xUnit: string | undefined, yUnit: string | undefined,
+  host: ModuleHost, s: PlotSeries, fit: LinearFit, xOf: PlotName | undefined, xUnit: string | undefined, yUnit: string | undefined,
   target: (suffix: string) => string | undefined,
 ): string {
   // The slope's unit is y's over x's, as the series give them (N/m, not kg/s², for N against m),
@@ -144,8 +145,8 @@ function fitTex(
     if (to) host.store(to, { value: p.value, sf, contributions: new Map([[host.newSource(), p.unc]]) })
     return host.valueTex(p.value, sf, fit.slopeUnc || fit.interceptUnc ? p.unc : undefined)
   })
-  const y = symbolTex(s.name ?? UNNAMED_SERIES)
-  const x = xName ? symbolTex(xName) : 'x'
+  const y = s.label?.tex ?? symbolTex(s.name ?? UNNAMED_SERIES)
+  const x = xOf?.label?.tex ?? (xOf?.name ? symbolTex(xOf.name) : 'x')
   // The slope in brackets with its unit, so the unit doesn't run into x: [(0.50 ± 0.01) m/s] t.
   const line = `${y} = \\left(${parts[0]}\\right) ${x} + ${parts[1]}`
   const r2 = `R^{2} = ${fit.r2.toFixed(FIT_DIGITS.r2)}`
@@ -376,7 +377,7 @@ export class PlotForm extends LineForm {
         const target = (suffix: string) => (plotName
           ? memberName(plotName, data.length === 1 ? suffix : memberName(own, suffix))
           : s.name ? memberName(s.name, suffix) : undefined)
-        fits.push(fitTex(host, s, fit, xOf.get(s)?.name, xUnit, yUnit, target))
+        fits.push(fitTex(host, s, fit, xOf.get(s), xUnit, yUnit, target))
         for (const [suffix, v] of [[FIT.r2, fit.r2], [FIT.chi2, fit.chi2]] as const) {
           const to = plotName && v !== undefined ? target(suffix) : undefined
           if (to) host.store(to, { value: v, sf: EXACT })

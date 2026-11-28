@@ -15,7 +15,7 @@ import {
 import { STEP, UNCERTAINTY_WORKING, type UncertaintyWorking } from './results.ts'
 import { isSumOfInputs, powerTex, productPowers } from './uncertaintyForms.ts'
 import { DELTA_REF } from './uncertainty.ts'
-import { symbolTex, unitTex, attachUnit, unitCallText } from './tex.ts'
+import { unitTex, attachUnit, unitCallText } from './tex.ts'
 import { unwrap } from './nodes.ts'
 import { magnitudeOf } from './normalise.ts'
 import { isNumberWithUnit, signBeforeTex } from './products.ts'
@@ -77,6 +77,8 @@ export interface PropagationHost {
   displayNumber(value: unknown): number | undefined
   /** An expression as LaTeX, its numbers as typed. */
   tex(node: Expr, literals: Map<number, string>): string
+  /** A name as the working shows it: its display name, if it has one (WorkingTex.nameTex). */
+  nameTex(name: string): string
   /** A variable's value for the substitution step, at its own sig figs. */
   variableNode(name: string): Expr
   /** An uncertainty on its own as LaTeX, in the unit of the value it belongs to. */
@@ -200,9 +202,11 @@ export class Propagation {
     const sources = inputs.map((n) => new Set(this.host.variable(n)?.contributions!.keys()))
     if (sources.some((a, i) => sources.slice(i + 1).some((b) => [...a].some((s) => b.has(s))))) return []
 
-    const target = symbolTex(name)
+    // (Each name as the working shows it: its display name, δ before it for its uncertainty.)
+    const nameTex = (n: string) => this.host.nameTex(n)
+    const target = nameTex(name)
     // Same letter the user asked with: δx for `delta F`, Δx for `Delta F`.
-    const uncOf = (n: string) => symbolTex(uncertaintyName(letter, n))
+    const uncOf = (n: string) => nameTex(uncertaintyName(letter, n))
     const sqrt = (terms: string[]) => `\\sqrt{${terms.join(' + ')}}`
     if (this.host.uncertaintyWorking() === UNCERTAINTY_WORKING.relative) {
       const relative = this.relativeWorking(name, def, inputs, uncOf, sqrt)
@@ -211,7 +215,7 @@ export class Propagation {
     // (∂v/∂d δd, and its values (1/1.21 s) × 0.02 m: × before a number, as in any product.)
     const term = (factor: string, delta: string) => `\\left(${factor}${signBeforeTex(delta)}${delta}\\right)^{2}`
     const steps = [sqrt(inputs.map((n) =>
-      term(`\\frac{\\partial ${target}}{\\partial ${symbolTex(n)}}`, uncOf(n))))]
+      term(`\\frac{\\partial ${target}}{\\partial ${nameTex(n)}}`, uncOf(n))))]
     try {
       const derivs = inputs.map((n) => derivative(def, n))
       const wrap = (d: Expr, tex: string) =>
@@ -255,7 +259,7 @@ export class Propagation {
         const factor = Math.abs(power) === 1 ? '' : `${powerTex(power)}\\,`
         return squared(`${factor}\\frac{${delta}}{${of}}`)
       }
-      const steps = [`${symbolTex(name)}\\,${sqrt(inputs.map((n) => term(n, uncOf(n), symbolTex(n))))}`]
+      const steps = [`${this.host.nameTex(name)}\\,${sqrt(inputs.map((n) => term(n, uncOf(n), this.host.nameTex(n))))}`]
       if (substituted) steps.push(`${valueTex(name)} \\times ${sqrt(inputs.map((n) => term(n, uncTex(n), valueTex(n))))}`)
       return steps
     }

@@ -92,6 +92,8 @@ export class Calculator {
   /** Expressions as the working shows them, and each variable's value in the substitution step (workingTex.ts). */
   private readonly working = new WorkingTex({
     variable: (name) => this.vars.get(name),
+    // (A variable's display name, or how it's typeset another way; or a series' display name.)
+    shownName: (name) => this.vars.get(name)?.label ?? this.vars.get(name)?.symbol ?? this.seriesNames.get(name)?.tex,
     value: (name) => this.scope.get(name),
     has: (name) => this.scope.has(name),
     options: () => this.options,
@@ -147,6 +149,7 @@ export class Calculator {
     store: (name, fields) => this.store(name, fields),
     displayNumber: (value) => this.display.split(value, EXACT)?.x,
     tex: (node, literals) => this.working.tex(node, literals),
+    nameTex: (name) => this.working.nameTex(name),
     variableNode: (name) => this.working.variableNode(name),
     uncertaintyTex: (unc, like, uncSf) => this.display.uncertaintyTex(unc, like, uncSf),
     showsSubstitution: () => this.options.showSubstitution,
@@ -847,7 +850,7 @@ export class Calculator {
     }
 
     if (isFunctionAssign(node)) {
-      const lhs = `${symbolTex(node.name)}\\left(${node.params.map(symbolTex).join(', ')}\\right)`
+      const lhs = `${symbolTex(node.name)}\\left(${node.params.map((p) => symbolTex(p)).join(', ')}\\right)`
       const tex = `${lhs} = ${this.working.tex(node.expr, literals)}`
       const warning = warnings.join(' ') || undefined
       try {

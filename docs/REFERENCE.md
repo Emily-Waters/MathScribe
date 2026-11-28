@@ -193,11 +193,17 @@ A name can be shown as words, with a setting in quotes on the name being assigne
 
 - It can hold formulas and values; a value in it is the one when the variable was defined. It combines with the other settings: n:3:"Moles":sci = ….
 - Subscripts work as in names: m\_ball, x\_\{max\}, F\_net\_x; one starting with a capital letter is a formula, m\_\{H2O\}. \$…\$ is maths.
+- A name made from it is made from its words: its uncertainty, delta T2, is shown as δ before them.
 
 ```
 V_s = 25.00 mL
 n_X = 0.00120 mol
 n_Ca:"Moles of {Ca^2+} in {{V_s}}" = n_X / 6
+```
+
+```
+T2:"$T^2$" = 4.0 s^2 pm 0.2 s^2
+delta T2
 ```
 
 A line that leaves a ( or \[ open carries on over the lines after it, up to the one that closes it, so a long series, @table or @plot (or any call) can list one thing a line.
@@ -462,16 +468,18 @@ t.sum
 t[2]
 ```
 
-A series can have a display name, as any name can: t:"Time" = \[…\] is shown as Time on its line, heads its column in @table and labels it on @plot (its axis, or its row of the legend).
+A series can have a display name, as any name can: t:"Time" = \[…\] is shown as Time on its line, heads its column in @table and labels it on @plot (its axis, its row of the legend, and its fit's equation).
 
 - The display name is the series', not each value's: t\[2\] is still shown as t₂. Other settings on the name, t:"Time":3, are its values', as on t\[2\]:3.
+- Its statistics are made from it: t.avg is Time with a bar over it, t.std σ with Time below.
 - A series made again without one loses it. A plot's own label, xlabel "…", wins over it.
 
 ```
 t:"Time" = [0.10 s, 0.20 s, 0.30 s]
 h:"Height" = [0.95 m, 0.80 m, 0.56 m]
 @table(t, h)
-@plot(t, h)
+@plot(t, h; fit linear)
+t.avg
 ```
 
 max(t) and min(t), given a series on its own, are its largest and smallest values: the member each is, so the working says which, max(t) = t\[3\] = 1.24 s.

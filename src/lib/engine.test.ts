@@ -785,3 +785,18 @@ describe('MathScribe’s own functions, written with @', () => {
     expect(last('t = [1.0 s, 2.0 s]\nx = 2 * @table(t)').error).toMatch(/@table\(…\) is written on a line of its own/)
   })
 })
+
+describe('names made from a name with a display name', () => {
+  const T2 = 'squared.T:"$T^2$" = 4.0 s^2 pm 0.2 s^2\n'
+
+  it('shows its uncertainty as the display name with δ (or Δ) before it', () => {
+    expect(last(`${T2}delta squared.T`).tex).toBe('\\delta T^2 = 0.2\\,\\mathrm{s}^{2}')
+    expect(last(`${T2}Delta squared.T`).tex).toMatch(/^\\Delta T\^2 = /)
+    expect(last(`${T2}q = 2 * delta squared.T`).tex).toMatch(/^q = 2 \\delta T\^2 = /)
+  })
+
+  it('shows it so in an uncertainty’s working too', () => {
+    expect(last(`${T2}r = squared.T / 2\ndelta r`).tex)
+      .toMatch(/^\\delta r = \\sqrt\{\\left\(\\frac\{\\partial r\}\{\\partial T\^2\}\\,\\delta T\^2\\right\)\^\{2\}\}/)
+  })
+})

@@ -62,7 +62,7 @@ function solveSystem(entries: readonly string[], equationsText: string, line: Fo
   } catch (e) {
     return fail((e as Error).message)
   }
-  const shownNames = names.map(symbolTex).join(', ')
+  const shownNames = names.map((n) => symbolTex(n)).join(', ')
   const prelude: TraceLine[] = equations.map((e, i) => ({
     tex: `${host.tex(e.lhs, literals)} = ${host.tex(e.rhs, literals)}`,
     // (The unknowns as they're drawn, d_stop as d with stop below: the note's `$…$` is maths.)

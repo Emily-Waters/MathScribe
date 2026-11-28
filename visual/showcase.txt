@@ -91,6 +91,7 @@ x2 = [0.08 m pm 0.004 m, 0.13 m pm 0.004 m, 0.17 m pm 0.004 m, 0.22 m pm 0.004 m
 @plot((t, x), (t2, x2); fit linear, legend outside)
 n:"Trial" = [1:6]
 y:"Count of {CuSO4}" = [n^2]
+delta y.avg
 @plot(n, y; log x, log y, style both)
 
 # Layouts

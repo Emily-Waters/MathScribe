@@ -40,11 +40,21 @@ export function namePart(s: string): string {
 /** A name of letters then digits, `a2`, `ω1` (1: the letters, 2: the digits), which reads a₂. */
 export const TRAILING_DIGITS = new RegExp(String.raw`^([A-Za-z${GREEK_CHARS}]+?)(\d+)$`)
 
-/** `v_0` → v_{0}, `F_net` → F_{\mathrm{net}}, `F_net_x` → F_{\mathrm{net},x}, `theta` → \theta, `a2` → a_{2} */
-export function symbolTex(name: string): string {
+/**
+ * How a name is shown in place of its symbol, if it is: its display name
+ * (`a:"Acceleration"`, a series' `t:"Time"`), as LaTeX; undefined if it has none.
+ */
+export type ShownName = (name: string) => string | undefined
+
+/**
+ * `v_0` → v_{0}, `F_net` → F_{\mathrm{net}}, `F_net_x` → F_{\mathrm{net},x}, `theta` → \theta, `a2` → a_{2}.
+ * A name made from another, its uncertainty or a series' statistic, is made from
+ * the other as `shown` shows it, if it does: `delta a` → δ Acceleration, `t.avg` → Time with a bar.
+ */
+export function symbolTex(name: string, shown?: ShownName): string {
   if (name === 'Infinity') return '\\infty'
   const unc = parseUncertaintyName(name)
-  if (unc) return `\\${unc.letter} ${symbolTex(unc.of)}`
+  if (unc) return `\\${unc.letter} ${shown?.(unc.of) ?? symbolTex(unc.of, shown)}`
   const constant = parseConstantRefName(name)
   if (constant) return builtinConstant(constant)?.tex ?? symbolTex(constant)
   // A value a module holds for itself, shown as the name it stands for (@solve's answer, held__x → x).
@@ -71,6 +81,17 @@ export function symbolTex(name: string): string {
   // Statistics of a series: a.avg → ā, a.std → σ_a, a.sem → σ_ā, a.count → n_a, a.sum → Σa
   const stat = parseSeriesStatName(name)
   if (stat) {
+    // A series with a display name: its statistics are made from it, the mean's bar over the whole of it.
+    const named = shown?.(stat.base)
+    if (named !== undefined) {
+      switch (SERIES_SUFFIXES[stat.suffix]) {
+        case AGGREGATE_KIND.std: return `\\sigma_{${named}}`
+        case AGGREGATE_KIND.sem: return `\\sigma_{\\overline{${named}}}`
+        case AGGREGATE_KIND.count: return `n_{${named}}`
+        case AGGREGATE_KIND.sum: return `\\Sigma ${named}`
+        case AGGREGATE_KIND.mean: return `\\overline{${named}}`
+      }
+    }
     const base = symbolTex(stat.base)
     switch (SERIES_SUFFIXES[stat.suffix]) {
       case AGGREGATE_KIND.std: return `\\sigma_{${base}}`

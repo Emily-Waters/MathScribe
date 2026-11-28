@@ -14,7 +14,7 @@
 import {
   baseMagnitude, type Definition, EXACT, fixPrefix, type FormLine, IS_NAME, isDimensionless, isQuantity, JOIN, LineForm, type LineResult,
   magnitude, magnitudeOf, memberName, type ModuleHost, normalise, parseMemberName, quantity, type Quantity, sameDimension, unitParts,
-  parseSliceName, RESERVED_NAMESPACES, whereOf, seriesDefinitions, splitArgs, SUBSCRIPT, symbolTex,
+  parseSliceName, RESERVED_NAMESPACES, ROUND_BRACKETS, whereOf, seriesDefinitions, splitArgs, SUBSCRIPT, symbolTex,
 } from '../../lib/plugin.ts'
 import { linearFit, plotScales, type LinearFit, type PlotData, type PlotName, type PlotPoint, type PlotSeries } from './plotGraph.ts'
 import { SERIES_FIGURE } from './tableData.ts'
@@ -39,7 +39,7 @@ interface DatasetArgs {
 }
 
 /** The brackets around a dataset of its own, `(t2, x2)`. */
-const DATASET = { open: '(', close: ')' } as const
+const DATASET = ROUND_BRACKETS
 
 /** A dataset written in brackets, `(t2, x2)`, as its parts (x first); null if it's anything else, `(x / t)` too. */
 function bracketedDataset(arg: string): string[] | null {

@@ -5,6 +5,7 @@
  */
 import { NAME } from './lexical.ts'
 import { named, regex, src, words, type WordOf } from './patterns.ts'
+import { QUOTE } from './punctuation.ts'
 
 // ---------------------------------------------------------------------------
 // Settings after a `:`
@@ -41,7 +42,7 @@ export const PERCENT = 'percent'
 // ---------------------------------------------------------------------------
 
 /** Around a display name: `n_Na:"Moles of {Na^+}"`. */
-export const LABEL_QUOTE = '"'
+export const LABEL_QUOTE = QUOTE
 
 /**
  * A display-name template's words: a one-line function whose body is words in

@@ -11,10 +11,9 @@
  * can make an exception to the core's (a quantity of a species), tried first.
  * A part no one writes is written as it's typed; a node, as its parts.
  */
-import { CALL, KEYWORD, SIGIL } from '../../syntax.ts'
+import { ASSIGN, CALL, KEYWORD, SIGIL } from '../../syntax.ts'
 import { source } from '../../maths/library/index.ts'
 import { closesBracket, lexExpression, opensBracket } from '../../tree/lexer.ts'
-import { ASSIGN } from '../../tree/shapes.ts'
 import { textOf } from '../../tree/codec.ts'
 import { NODE_KIND, TOKEN_KIND, isToken, type Part } from '../../tree/nodes.ts'
 import { MORE_TERMS, readUnit } from './literals.ts'

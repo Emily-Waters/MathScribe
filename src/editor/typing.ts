@@ -7,7 +7,7 @@
  */
 import { NODE_KIND, TOKEN_KIND, isToken, type Part, type SyntaxNode } from '../lib/tree/index.ts'
 import { lexExpression } from '../lib/tree/lexer.ts'
-import { CALL, KEYWORD, MEMBER_DOT, SIGIL } from '../lib/syntax.ts'
+import { ASSIGN, CALL, KEYWORD, MEMBER_DOT, ROUND_BRACKETS, SEPARATOR, SETTING_MARK, SIGIL } from '../lib/syntax.ts'
 import { words, type WordOf } from '../lib/syntax/patterns.ts'
 
 /** What can be being typed, each with its own suggestions. */
@@ -165,15 +165,15 @@ function setting(pieces: readonly Piece[]): Typing | null | undefined {
     typed = last.text
     end--
   }
-  if (!isDelimiter(pieces[end - 1], ':')) return undefined
+  if (!isDelimiter(pieces[end - 1], SETTING_MARK)) return undefined
   // Back to the start of the name and its settings: after a space, a `(` or a `,`.
   let start = end - 1
-  while (start > 0 && !isSpace(pieces[start - 1]) && !isDelimiter(pieces[start - 1], '(') && !isDelimiter(pieces[start - 1], ',')) start--
+  while (start > 0 && !isSpace(pieces[start - 1]) && !isDelimiter(pieces[start - 1], ROUND_BRACKETS.open) && !isDelimiter(pieces[start - 1], SEPARATOR)) start--
   const head = pieces[start]
   const settings = pieces.slice(start + 1, end)
   // Each setting is a `:` and its value (no `=`, and no `:` without one).
-  if (settings.some((p, i) => isDelimiter(p, '=') || (isDelimiter(p, ':') && isDelimiter(settings[i + 1], ':')))) return undefined
-  if (!isDelimiter(settings[0], ':')) return undefined
+  if (settings.some((p, i) => isDelimiter(p, ASSIGN) || (isDelimiter(p, SETTING_MARK) && isDelimiter(settings[i + 1], SETTING_MARK)))) return undefined
+  if (!isDelimiter(settings[0], SETTING_MARK)) return undefined
   const before = pieces.slice(0, start)
   const atLineStart = before.every(isSpace)
   // A name being assigned, or a function's result: at the line's start.
@@ -181,8 +181,8 @@ function setting(pieces: readonly Piece[]): Typing | null | undefined {
   // A name being unpacked: in `@tuple(…`, at the line's start, after its `(` or a `,`.
   if (head.t !== TOKEN_KIND.symbol) return undefined
   const [opener, bracket, ...inside] = before.filter((p) => !isSpace(p))
-  const inTuple = opener?.t === TOKEN_KIND.builtin && opener.text === `${SIGIL}${CALL.tuple}` && isDelimiter(bracket, '(')
-    && !inside.some((p) => isDelimiter(p, '(') || isDelimiter(p, ')') || isDelimiter(p, '='))
+  const inTuple = opener?.t === TOKEN_KIND.builtin && opener.text === `${SIGIL}${CALL.tuple}` && isDelimiter(bracket, ROUND_BRACKETS.open)
+    && !inside.some((p) => isDelimiter(p, ROUND_BRACKETS.open) || isDelimiter(p, ROUND_BRACKETS.close) || isDelimiter(p, ASSIGN))
   return inTuple ? { kind: TYPING.setting, typed } : undefined
 }
 

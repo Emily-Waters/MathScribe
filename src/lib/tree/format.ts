@@ -24,12 +24,12 @@
  * data's rows move with their import; raw LaTeX and prose are kept as written.
  * Formatting a formatted sheet changes nothing.
  */
-import { INDENT_WIDTH, indentOf, isComment } from '../syntax.ts'
+import { ASSIGN, INDENT_WIDTH, ROUND_BRACKETS, ROW_SEPARATOR, SEPARATOR, SQUARE_BRACKETS, indentOf, isComment } from '../syntax.ts'
 import { CONTENT, contextInfo, type Content } from './grammar.ts'
 import { LINE_CONTEXT, NODE_KIND, TOKEN_KIND, isToken, type Part, type SyntaxNode, type Token } from './nodes.ts'
 import { splitLines, startsClosing, type SourceLine } from './lines.ts'
-import { ROUND_BRACKETS, SQUARE_BRACKETS, closesBracket, opensBracket } from './lexer.ts'
-import { ROW_SEPARATOR, SEPARATOR, STRAY_QUOTES } from './shapes.ts'
+import { closesBracket, opensBracket } from './lexer.ts'
+import { STRAY_QUOTES } from './shapes.ts'
 import { LINE_ROLE, TOP, stepLine, type Step } from './stream.ts'
 import { statementOfLines, type PlacedToken } from './statements.ts'
 
@@ -133,7 +133,7 @@ const QUIET: ReadonlySet<string> = new Set([
  * between a call's or a list's values, and a condition's `?` and `:`
  * (`a > b ? "yes" : "no"`).
  */
-const SPACED = { equals: '=', comma: SEPARATOR, semicolon: ROW_SEPARATOR, condition: '?', otherwise: ':' } as const
+const SPACED = { equals: ASSIGN, comma: SEPARATOR, semicolon: ROW_SEPARATOR, condition: '?', otherwise: ':' } as const
 
 /** One space, as spacing puts between tokens. */
 const SPACE = ' '

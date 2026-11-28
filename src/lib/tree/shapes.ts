@@ -10,18 +10,9 @@
  * A line whose left side is none of these (`x + 1 = 2`, `delta F =`) keeps its
  * tokens as they are. Like the lexer, it depends on the text alone.
  */
-import { CALL, SIGIL } from '../syntax.ts'
-import { ROUND_BRACKETS, lexExpression, isTokenOf, node, partText as textOf } from './lexer.ts'
+import { ASSIGN, CALL, ROUND_BRACKETS, SEPARATOR, SETTING_MARK, SIGIL } from '../syntax.ts'
+import { lexExpression, isTokenOf, node, partText as textOf } from './lexer.ts'
 import { NODE_KIND, TOKEN_KIND, isToken, type Part, type SyntaxNode } from './nodes.ts'
-
-/** The `=` that assigns. */
-export const ASSIGN = '='
-/** Before each of a name's settings: `v:3:km/h`. */
-export const SETTING_MARK = ':'
-/** Between a call's parameters or arguments. */
-export const SEPARATOR = ','
-/** mathjs's `;`: between a matrix's rows (and, in a module's call, between its arguments and its settings: `@table(t, x; rows 2-3)`). */
-export const ROW_SEPARATOR = ';'
 
 /** `@tuple`, as typed. */
 const TUPLE_CALL = `${SIGIL}${CALL.tuple}`

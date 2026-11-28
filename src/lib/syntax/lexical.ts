@@ -4,6 +4,7 @@
  * once, here.
  */
 import { named, regex, src, words, type WordOf } from './patterns.ts'
+import { SQUARE_BRACKETS } from './punctuation.ts'
 
 /** Greek letters (the Greek and Coptic block, U+0370 to U+03FF), which names can contain: `ΔE`, `ω_0`. */
 export const GREEK_CHARS = `${String.fromCodePoint(0x370)}-${String.fromCodePoint(0x3ff)}`
@@ -58,4 +59,4 @@ export const MEMBER_DOT = '.'
 export const SUBSCRIPT = '_'
 
 /** Around a series' member's number, as typed: t[3]. */
-export const MEMBER_INDEX = { open: '[', close: ']' } as const
+export const MEMBER_INDEX = SQUARE_BRACKETS

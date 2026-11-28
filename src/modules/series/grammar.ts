@@ -8,7 +8,7 @@
 import {
   BODY_END, CONTENT, LINE_CONTEXT, type LexRule, type ModuleGrammar, SIGIL, token, TOKEN_KIND, TOKEN_ROLE,
 } from '../../lib/plugin.ts'
-import { SERIES_CALL, SPREAD, TYPED_TABLE_OPENER } from './syntax.ts'
+import { SERIES_CALL, SETTINGS_START, SPREAD, TYPED_TABLE_OPENER } from './syntax.ts'
 
 /** The series module's kinds of node: a typed table's. */
 export const SERIES_NODE = {
@@ -29,8 +29,6 @@ export const SERIES_TOKEN = {
   settings: 'settings',
 } as const
 
-/** Between a call's series and its settings. */
-const SETTINGS_SEPARATOR = ';'
 
 /** The calls with settings after a `;`, as typed: `@table`, `@plot`. */
 const CALLS: ReadonlySet<string> = new Set(Object.values(SERIES_CALL).map((c) => `${SIGIL}${c}`))
@@ -38,13 +36,13 @@ const CALLS: ReadonlySet<string> = new Set(Object.values(SERIES_CALL).map((c) =>
 const SETTINGS_RULE: LexRule = {
   describes: 'the settings after a ; in @table(…) or @plot(…), as one token',
   read: (pos, state) => {
-    if (state.text[pos] !== SETTINGS_SEPARATOR || !state.callee || !CALLS.has(state.callee)) return undefined
+    if (state.text[pos] !== SETTINGS_START || !state.callee || !CALLS.has(state.callee)) return undefined
     const rest = state.text.slice(pos + 1, state.end)
     const lead = /^[ \t]*/.exec(rest)![0]
     const settings = rest.slice(lead.length)
     return {
       parts: [
-        token(TOKEN_KIND.delimiter, SETTINGS_SEPARATOR), ...(lead ? [token(TOKEN_KIND.space, lead)] : []),
+        token(TOKEN_KIND.delimiter, SETTINGS_START), ...(lead ? [token(TOKEN_KIND.space, lead)] : []),
         ...(settings ? [token(SERIES_TOKEN.settings, settings)] : []),
       ],
       length: state.end - pos,

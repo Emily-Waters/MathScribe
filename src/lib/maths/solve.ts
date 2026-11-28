@@ -15,6 +15,7 @@ import {
   FN, MATH_CONSTANT, OP, call, constant, derivative, findAll, isCall, isConstant, isOp, isOperator, isParen, isSymbol, mapParts,
   operator, paren, simplify, symbol, transform, type Expr,
 } from './library/index.ts'
+import { QUOTE } from '../syntax/punctuation.ts'
 
 /** What kind of polynomial @solve(…) found f to be in x. */
 export const POLYNOMIAL_KIND = { linear: 'linear', quadratic: 'quadratic' } as const
@@ -205,8 +206,7 @@ export function splitEquation(text: string): [string, string] | null {
   return at < 0 ? null : [text.slice(0, at).trim(), text.slice(at + width).trim()]
 }
 
-/** A label's quote marks, as mathjs reads a string, and what keeps a quote mark in one from ending it: `"a \"b\""`. */
-const QUOTE = '"'
+/** What keeps a label's quote mark (QUOTE, as mathjs reads a string) from ending it: `"a \"b\""`. */
 const ESCAPE = '\\'
 
 /** Split function arguments at top-level commas (not ones in brackets, or in a label in quotes). */

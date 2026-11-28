@@ -5,6 +5,9 @@
  */
 import { builtinFunctionName, named, optional, regex, src } from '../../lib/plugin.ts'
 
+/** A vector's brackets, as typed: `<3.0, 4.0> N`. */
+export const ANGLE_BRACKETS = { open: '<', close: '>' } as const
+
 /** A vector typed with its function: `@vector(3.0, 4.0) N`, the same as `<3.0, 4.0> N`. */
 export const VECTOR_CALL = 'vector'
 

@@ -3,10 +3,9 @@
  * the inside names they stand for (a__x_1, t__3), read from the line's tokens (the lexer's, tree/lexer.ts), so what
  * a dot is (a member's, not a number's, not in a label) is the lexer's to say.
  */
-import { ROUND_BRACKETS, lexExpression } from '../../tree/lexer.ts'
-import { SEPARATOR } from '../../tree/shapes.ts'
+import { lexExpression } from '../../tree/lexer.ts'
 import { TOKEN_KIND, isCallKind, isToken, type Part, type Token } from '../../tree/nodes.ts'
-import { MEMBER_DOT, MEMBER_INDEX, SIGIL } from '../../syntax.ts'
+import { MEMBER_DOT, MEMBER_INDEX, ROUND_BRACKETS, SEPARATOR, SIGIL } from '../../syntax.ts'
 import { JOIN, RESERVED_NAMESPACES, SLICE_COLON, type SliceSpec, memberName, seriesMemberName, sliceName } from '../../sheet/names.ts'
 
 /** A token of a line, and whether it's what a call calls (`f` in `f(x)`, `@chem.mm` in `@chem.mm({H2O})`). */

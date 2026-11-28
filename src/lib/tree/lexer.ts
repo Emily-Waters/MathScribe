@@ -14,7 +14,10 @@
  * A rule sees only the text and what's before it on the line, so an
  * expression's tokens depend on its text alone, and are cached with its line.
  */
-import { CARRIED_JOIN, CONSTANT_PRECISION, NAME, NAME_CHAR, SIGIL, KEYWORD, UNCERTAINTY_WORDS } from '../syntax.ts'
+import {
+  ASSIGN, CARRIED_JOIN, CONSTANT_PRECISION, NAME, NAME_CHAR, QUOTE, ROUND_BRACKETS, ROW_SEPARATOR, SEPARATOR, SIGIL, SQUARE_BRACKETS, KEYWORD,
+  UNCERTAINTY_WORDS,
+} from '../syntax.ts'
 import { FIRST_UNIT, NEXT_UNIT, POWER, isUnitName } from '../engine/core/literals.ts'
 import { NODE_KIND, TOKEN_KIND, isToken, type Part, type SyntaxNode, type Token } from './nodes.ts'
 
@@ -35,13 +38,9 @@ export const MATHJS_NAMED_DELIMITERS = ['mod', 'to', 'in', 'and', 'xor', 'or', '
 /** A number, as mathjs reads one: digits, a decimal mark, an exponent (`2.00`, `.5`, `1.2e-3`). */
 const NUMBER = /(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?/y
 
-/** Brackets that open and close (a call's, a group's). */
-export const ROUND_BRACKETS = { open: '(', close: ')' } as const
+/** Round brackets (a call's, a group's). */
 const OPEN = ROUND_BRACKETS.open
 const CLOSE = ROUND_BRACKETS.close
-
-/** Brackets around a list or a matrix: `[1, 2; 3, 4]`. */
-export const SQUARE_BRACKETS = { open: '[', close: ']' } as const
 
 /** The brackets a line can leave open, carrying it on over the lines after it (see openBrackets). */
 const CARRYING_BRACKETS = [ROUND_BRACKETS, SQUARE_BRACKETS] as const
@@ -202,7 +201,7 @@ function readSpan(text: string, start: number, end: number, callee: string | und
     for (const p of read.parts) {
       if (isToken(p) && p.t === TOKEN_KIND.space) continue
       prev = p
-      if (isToken(p) && p.t === TOKEN_KIND.delimiter && p.text === ASSIGNS) lhs = false
+      if (isToken(p) && p.t === TOKEN_KIND.delimiter && p.text === ASSIGN) lhs = false
     }
     pos += read.length
   }
@@ -222,15 +221,12 @@ export function lexTail(said: string, text: string): readonly Part[] {
   return partsFrom(lexExpression(before + text), before.length)
 }
 
-/** The `=` after which a line is no longer the name being assigned (LexState.lhs). */
-const ASSIGNS = '='
-
 /**
  * Where reading can start again within a span, the same as before: at a `,` or
  * `;` between its parts (each read whole by one rule, a call's settings after
  * `;` too), kept with what's after it, so what's read before it doesn't matter.
  */
-const RESTARTS: ReadonlySet<string> = new Set([',', ';'])
+const RESTARTS: ReadonlySet<string> = new Set([SEPARATOR, ROW_SEPARATOR])
 
 /**
  * Where reading has to start again from, at the latest, for an opener a later
@@ -280,9 +276,9 @@ export function carriedContext(text: string): string {
       lhsBefore.push(lhs)
       if (isToken(p) && p.t === TOKEN_KIND.space) continue
       last = i
-      if (isTokenOf(p, TOKEN_KIND.delimiter, ASSIGNS)) lhs = false
+      if (isTokenOf(p, TOKEN_KIND.delimiter, ASSIGN)) lhs = false
     }
-    const flipped = (at: number) => (lhsAtStart && !lhsBefore[at] ? `${ASSIGNS} ` : '')
+    const flipped = (at: number) => (lhsAtStart && !lhsBefore[at] ? `${ASSIGN} ` : '')
     const rest = (at: number) => [...pieces, flipped(at), parts.slice(at).map(partText).join('')].join('')
     // A quote (or brace, or `<`) not closed yet: a later line's can close it,
     // making one part of what's after it (its commas, a call), so reading starts again no later.
@@ -447,8 +443,6 @@ const BUILTIN_AT = new RegExp(String.raw`${SIGIL}${NAME}(?:\.${NAME})*`)
 const PRECISION_AT = new RegExp(CONSTANT_PRECISION)
 /** A label in quotes, as mathjs reads a string (`\"` inside it). */
 const STRING_AT = /"(?:[^"\\]|\\.)*"/
-/** A label's quote. */
-const QUOTE = '"'
 /** Words with a meaning of their own: mathjs's named delimiters, MathScribe's keywords, and `delta F`. */
 const KEYWORDS: ReadonlySet<string> = new Set<string>([...MATHJS_NAMED_DELIMITERS, ...KEYWORD.words, ...UNCERTAINTY_WORDS])
 /** A word ends here (no more name characters after it). */

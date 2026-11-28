@@ -6,7 +6,7 @@ import {
   builtinOpening, isToken, lexExpression, type LexRule, type ModuleGrammar, node, type Part, type PartWriter, token,
   TOKEN_KIND, withUnit,
 } from '../../lib/plugin.ts'
-import { VECTOR_CALL, VECTOR_FUNCTION } from './syntax.ts'
+import { ANGLE_BRACKETS, VECTOR_CALL, VECTOR_FUNCTION } from './syntax.ts'
 import { vectorEnd, vectorPending } from './literals.ts'
 
 /** The vectors module's kinds of node. */
@@ -15,8 +15,7 @@ export const VECTOR_NODE = {
   vector: 'vector',
 } as const
 
-/** A vector's brackets, as typed. */
-const ANGLE = { open: '<', close: '>' } as const
+const ANGLE = ANGLE_BRACKETS
 
 const VECTOR_RULE: LexRule = {
   describes: 'a vector, <3.0, 4.0>, where a value can start (otherwise < is a comparison); with a unit after it, a quantity',

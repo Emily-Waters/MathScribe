@@ -4,13 +4,11 @@
  * text.ts.) How a line is shown is set by the `@layout` block around it.
  */
 import { words, type WordOf } from './patterns.ts'
+import { QUOTE } from './punctuation.ts'
 import { COMMENT_START } from './text.ts'
 
 /** Where a note starts: the line's first `//` outside a quoted string (`@import("http://…")` keeps its own). */
 const NOTE_MARK = COMMENT_START
-
-/** The quote a string is written in: `@import("run1.csv")`. */
-const QUOTE = '"'
 
 /** A line split into its body and its note. */
 export interface SplitLine {

@@ -3,7 +3,7 @@
  * and a typed table, `@table { … }`. (A series itself is in square brackets: series.ts.)
  */
 import {
-  BLOCK_ARGS, SERIES_STAT_SUFFIX, SIGIL, builtinFunctionName, builtinOpening, NAMED, optional, regex, src, words, type WordOf,
+  BLOCK_ARGS, ROW_SEPARATOR, SERIES_STAT_SUFFIX, SIGIL, builtinFunctionName, builtinOpening, NAMED, optional, regex, src, words, type WordOf,
 } from '../../lib/plugin.ts'
 
 /** The series module's functions, each written after @: `@table(t, x)`. */
@@ -62,4 +62,7 @@ export const SPREAD = '...'
 
 /** The calls with settings after a semicolon, and their ⚙ in the editor. */
 export const CALLS_WITH_SETTINGS = [SERIES_CALL.table, SERIES_CALL.plot] as const
+
+/** Between a call's columns and its settings: `@plot(t, x; fit linear)`. */
+export const SETTINGS_START = ROW_SEPARATOR
 export type CallWithSettings = (typeof CALLS_WITH_SETTINGS)[number]

@@ -1,4 +1,6 @@
 /** Vectors typed `<3.0, 4.0> N`: where one opens and closes (the lexer reads them by this: grammar.ts). */
+import { CLOSING_BRACKETS, OPENING_BRACKETS, SEPARATOR } from '../../lib/plugin.ts'
+import { ANGLE_BRACKETS as ANGLE } from './syntax.ts'
 
 /** Characters after which a `<` opens a vector rather than comparing: the start, `=`, `(`, `[`, `,`, an operator. */
 export const VECTOR_OPENS_AFTER = /(?:^|[=([,+\-*/^<])\s*$/
@@ -14,15 +16,15 @@ export function vectorEnd(src: string, start: number): number {
   let comma = false
   for (let i = start + 1; i < src.length; i++) {
     const c = src[i]
-    if (c === '(' || c === '[' || c === '{') depth++
-    else if (c === ')' || c === ']' || c === '}') {
+    if (OPENING_BRACKETS.has(c)) depth++
+    else if (CLOSING_BRACKETS.has(c)) {
       if (--depth < 0) return -1
-    } else if (c === '<' && depth === 0) {
+    } else if (c === ANGLE.open && depth === 0) {
       const inner = vectorEnd(src, i)
       if (inner < 0) return -1
       i = inner
-    } else if (c === ',' && depth === 0) comma = true
-    else if (c === '>' && depth === 0) return comma ? i : -1
+    } else if (c === SEPARATOR && depth === 0) comma = true
+    else if (c === ANGLE.close && depth === 0) return comma ? i : -1
   }
   return -1
 }
@@ -44,14 +46,14 @@ function vectorDecidedBy(src: string, start: number): number {
   let depth = 0
   for (let i = start + 1; i < src.length; i++) {
     const c = src[i]
-    if (c === '(' || c === '[' || c === '{') depth++
-    else if (c === ')' || c === ']' || c === '}') {
+    if (OPENING_BRACKETS.has(c)) depth++
+    else if (CLOSING_BRACKETS.has(c)) {
       if (--depth < 0) return -1
-    } else if (c === '<' && depth === 0) {
+    } else if (c === ANGLE.open && depth === 0) {
       const inner = vectorDecidedBy(src, i)
       if (inner < 0) return inner
       i = inner
-    } else if (c === '>' && depth === 0) return i
+    } else if (c === ANGLE.close && depth === 0) return i
   }
   return UNDECIDED
 }

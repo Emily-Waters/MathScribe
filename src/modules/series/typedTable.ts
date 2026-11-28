@@ -11,7 +11,7 @@
  * grid editor in the Output pane (tableEditor.tsx) writes the whole of it.
  */
 import {
-  BLOCK_CLOSE, BLOCK_KIND, CELL_SEPARATOR, NODE_KIND, NodeReader, SIGIL, TOKEN_KIND, isToken, textOf,
+  BLOCK_CLOSE, BLOCK_KIND, CELL_SEPARATOR, NODE_KIND, NodeReader, ROUND_BRACKETS, SIGIL, TOKEN_KIND, isToken, textOf,
   type Part, type SheetReader, type TreeItem,
 } from '../../lib/plugin.ts'
 import { SERIES_NODE } from './grammar.ts'
@@ -23,7 +23,7 @@ import { TYPED_TABLE_SETTINGS } from './tableSettings.ts'
 export const TABLE_NAME = `${SIGIL}${SERIES_CALL.table}`
 
 /** A typed table's opener's brackets. */
-const BRACKETS = { open: '(', close: ')' } as const
+const BRACKETS = ROUND_BRACKETS
 
 /** What's in a typed table's opener's brackets, from its name as the tree read it (`@table(title "Runs")`): its settings. */
 export function openerSettingsText(name: string): string | undefined {

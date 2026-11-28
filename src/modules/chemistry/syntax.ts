@@ -3,7 +3,10 @@
  * lines are read with, and the inside names of its functions. (MathScribe's
  * own syntax is in src/lib/syntax.ts, which this builds on.)
  */
-import { memberName, NAME, named, regex, src } from '../../lib/plugin.ts'
+import { CURLY_BRACKETS, memberName, NAME, named, regex, src } from '../../lib/plugin.ts'
+
+/** Around a species or a formula, as typed: `2.0 mol {Na^+}`, `{Na^+}` in text. */
+export const SPECIES_BRACES = CURLY_BRACKETS
 
 /**
  * A formula in text, `{Na^+}`: single braces, not a value's `{{…}}`, nor a

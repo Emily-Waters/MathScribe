@@ -23,7 +23,7 @@
  * them, as a selection does. A series made again replaces the one before.
  */
 import {
-  type Definition, DISPLAY_MODE, type FormLine, IS_NAME, LineForm, type LineResult, MEMBER_INDEX, type ModuleHost, NODE_KIND,
+  ASSIGN, type Definition, DISPLAY_MODE, type FormLine, IS_NAME, LineForm, type LineResult, MEMBER_INDEX, type ModuleHost, NODE_KIND,
   SEPARATOR, SETTING_MARK, SLICE_COLON, SUBSCRIPT, TOKEN_KIND, attachUnit, closesBracket, lexExpression, lineShape, lineTokens, magnitude,
   opensBracket, quantity, parseSliceName, seriesMemberName, whereOf, symbolTex, typedName, unitTex,
 } from '../../lib/plugin.ts'
@@ -75,8 +75,6 @@ const WRITTEN = {
 /** A setting that's a number of sig figs: `m:3`. */
 const WHOLE = /^\d+$/
 
-/** Between what's assigned and its value. */
-const ASSIGNS = '='
 
 /**
  * A series' values, spread in place of `...x` (or `...x[2:]`): their names, and
@@ -385,7 +383,7 @@ export class SeriesForm extends LineForm {
  */
 export class UnpackedSeriesForm extends LineForm {
   evaluate(line: FormLine, host: ModuleHost): LineResult | undefined {
-    const sides = splitTopLevel(line.text, ASSIGNS)
+    const sides = splitTopLevel(line.text, ASSIGN)
     if (sides.length !== 2) return undefined
     const inner = bracketed(sides[0])
     if (inner === undefined) return undefined

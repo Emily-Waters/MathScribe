@@ -6,7 +6,7 @@
  */
 import { Calculator, markupText, outsideMaths, sheetModules, type CalcOptions, type EngineModule } from '../engine/index.ts'
 import type { VariableSummary } from '../sheet/values.ts'
-import { BLOCK_CLOSE, EXACT_SETTING, LAYOUT_STYLE, LAYOUT_SYNTAX, DISPLAY, SIGIL, SUB_LIST_MARKER, VALUE_IN_TEXT, closesBlock, type Notation } from '../syntax.ts'
+import { BLOCK_CLOSE, CURLY_BRACKETS, EXACT_SETTING, LAYOUT_STYLE, LAYOUT_SYNTAX, DISPLAY, SIGIL, SUB_LIST_MARKER, VALUE_IN_TEXT, closesBlock, type Notation } from '../syntax.ts'
 import { BLOCK_KIND, type Block, type Display, type GroupBlock, type LayoutBlock } from '../sheet/blocks.ts'
 import { NODE_KIND, TOKEN_KIND, encode, isBlockKind, isToken, splitLines, statementOf, type SyntaxNode } from '../tree/index.ts'
 import { parseConstantDeclaration } from './lineSyntax.ts'
@@ -170,7 +170,8 @@ export class SheetReader {
    * wrong with the first value that can't be worked out.
    */
   withValues(text: string): { text: string; error?: string } {
-    if (!text.includes('{')) return { text }
+    // (Both a value, `{{x}}`, and a module's notation start with a curly bracket: without one, there's nothing to fill.)
+    if (!text.includes(CURLY_BRACKETS.open)) return { text }
     let error: string | undefined
     const filled = outsideMaths(text, (part) => part.replace(VALUE_IN_TEXT, (whole, source: string) => {
       const v = this.calc.inlineValue(source)

@@ -10,8 +10,9 @@
  */
 
 import {
-  ChoiceSetting, FlagSetting, INDENT, NameSetting, RowsSetting, SettingsSpec, SwitchSetting, TitleSetting,
+  CLOSING_BRACKETS, ChoiceSetting, FlagSetting, INDENT, NameSetting, OPENING_BRACKETS, QUOTE, RowsSetting, SettingsSpec, SwitchSetting, TitleSetting,
 } from '../../lib/plugin.ts'
+import { SETTINGS_START } from './syntax.ts'
 
 // (The settings text's own pieces are the language's: lib/language/settings.ts.)
 export { formatRowRange, parseRowRange, settingParts } from '../../lib/plugin.ts'
@@ -69,8 +70,6 @@ export const SETTING = {
   to: 'to',
 } as const
 
-/** Between the columns and the settings, in a call's brackets. */
-export const SETTINGS_START = ';'
 
 /** Between a call's lines, when it's over several. */
 const LINE_BREAK = '\n'
@@ -83,10 +82,10 @@ export function splitCallArgs(inner: string): { columns: string; settings?: stri
   let quoted = false
   for (let i = 0; i < inner.length; i++) {
     const c = inner[i]
-    if (c === '"') quoted = !quoted
+    if (c === QUOTE) quoted = !quoted
     else if (quoted) continue
-    else if (c === '(' || c === '[' || c === '{') depth++
-    else if (c === ')' || c === ']' || c === '}') depth--
+    else if (OPENING_BRACKETS.has(c)) depth++
+    else if (CLOSING_BRACKETS.has(c)) depth--
     else if (c === SETTINGS_START && depth === 0) return { columns: inner.slice(0, i), settings: inner.slice(i + 1) }
   }
   return { columns: inner }

@@ -5,16 +5,17 @@
  */
 import { CALL, NAME, NAMED, SIGIL, builtinOpening } from './lexical.ts'
 import { named, optional, regex, src } from './patterns.ts'
+import { CURLY_BRACKETS } from './punctuation.ts'
 
 // ---------------------------------------------------------------------------
 // Braces
 // ---------------------------------------------------------------------------
 
 /** A block's opening brace, at the end of its opener. */
-export const BLOCK_OPEN = '{'
+export const BLOCK_OPEN = CURLY_BRACKETS.open
 
 /** A block's closing brace, at the start of a line. */
-export const BLOCK_CLOSE = '}'
+export const BLOCK_CLOSE = CURLY_BRACKETS.close
 
 /** What's in a block name's brackets: anything but brackets, or quoted text, which can hold them (`title "Mass (g)"`). */
 export const BLOCK_ARGS = String.raw`\((?:"[^"\n]*"|[^()"\n])*\)`

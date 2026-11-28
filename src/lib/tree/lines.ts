@@ -10,13 +10,13 @@
  * its text (codec.ts), and later its evaluation.
  */
 import {
-  BLOCK_NAME, BLOCK_OPEN, CELL_SEPARATOR, INLINE_MATHS, MATHS_MARK, NOTED_PIECE, PARAGRAPH_MARK, VALUE_BRACES, VALUE_IN_TEXT, isComment, readNoted, regex,
+  BLOCK_NAME, BLOCK_OPEN, CELL_SEPARATOR, ROW_SEPARATOR, SEPARATOR, INLINE_MATHS, MATHS_MARK, NOTED_PIECE, PARAGRAPH_MARK, VALUE_BRACES, VALUE_IN_TEXT, isComment, readNoted, regex,
   type NotedLine,
 } from '../syntax.ts'
 import { CONTENT, contextInfo, syntaxesIn, type Body, type Content } from './grammar.ts'
 import { HEADING_MARKS } from './core.ts'
 import { closesBracket, isTokenOf, lexExpression, lexTail, node, openBrackets, opensBracket } from './lexer.ts'
-import { ROW_SEPARATOR, SEPARATOR, lexLine, lineShape } from './shapes.ts'
+import { lexLine, lineShape } from './shapes.ts'
 import { NODE_KIND, TOKEN_KIND, isToken, type Part, type SyntaxNode, type Token } from './nodes.ts'
 
 /** A line, and what ends it: `\n`, `\r\n`, `\r`, or '' (the last line, if the text doesn't end with one). */

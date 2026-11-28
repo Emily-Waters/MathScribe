@@ -57,15 +57,14 @@ export { LINE_CONTEXT, NODE_KIND, TOKEN_KIND, isToken, type Part } from './tree/
 export { TOKEN_ROLE } from './tree/registry.ts'
 export { BODY_END, CONTENT } from './tree/grammar.ts'
 // (opensBracket, closesBracket: whether a delimiter opens or closes a bracket, for following a call's depth over its tokens.)
-export { ROUND_BRACKETS, closesBracket, lexExpression, node, opensBracket, token, withUnit, type LexRule } from './tree/lexer.ts'
+export { closesBracket, lexExpression, node, opensBracket, token, withUnit, type LexRule } from './tree/lexer.ts'
 export type { TextRule } from './tree/lines.ts'
 // (encode: a sheet's text as its tree, for a module's part of the editor that finds its lines in it, as the series' ⚙ does;
 // sheetStatements: each thing it says, as one line over however many it's written, every token where it is.)
 export { encode, textOf } from './tree/codec.ts'
 export { sheetStatements, type PlacedToken, type SheetStatement, type Statement } from './tree/statements.ts'
-// (SETTING_MARK: the `:` before each of a name's settings, for writing a name with its settings back out; ASSIGN: the `=` that assigns;
-// SEPARATOR: the `,` between a call's arguments.)
-export { ASSIGN, SEPARATOR, SETTING_MARK, lineShape, soleCall } from './tree/shapes.ts'
+// (The punctuation a line is built from, `=`, `:`, `,`, brackets, is the language's: syntax/punctuation.ts, above.)
+export { lineShape, soleCall } from './tree/shapes.ts'
 
 // Reading a sheet into blocks.
 export { NodeReader, SheetWideReader, bodyLines, type ReadsLines, type TreeItem } from './reading/reader.ts'

@@ -4,7 +4,7 @@
  */
 import { BODY_END, CONTENT, type LexRule, LINE_CONTEXT, type ModuleGrammar, type TextRule, token, TOKEN_ROLE } from '../../lib/plugin.ts'
 import { REACTION_LINE } from './chemistry.ts'
-import { FORMULA_AT, SPECIES_LINE, SPECIES_OPENER } from './syntax.ts'
+import { FORMULA_AT, SPECIES_BRACES, SPECIES_LINE, SPECIES_OPENER } from './syntax.ts'
 
 /** The chemistry module's kinds of node. */
 export const CHEM_NODE = {
@@ -43,14 +43,14 @@ const SPECIES_RULE: LexRule = {
 }
 
 /** What opens a species: `{`. */
-const SPECIES_OPEN = '{'
+const SPECIES_OPEN = SPECIES_BRACES.open
 /** A brace, of which a species has none inside it. */
 const BRACE = /[{}]/
 
 /** A formula in text, `{Na^+}`: drawn as one, in prose and headings. */
 const FORMULA_RULE: TextRule = {
   describes: 'a formula in braces in text, {Na^+}',
-  starts: '{',
+  starts: SPECIES_OPEN,
   read: (pos, text) => {
     FORMULA_AT.lastIndex = pos
     const m = FORMULA_AT.exec(text)

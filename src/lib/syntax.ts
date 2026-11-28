@@ -5,7 +5,8 @@
  * them, for code that uses several.
  *
  *   patterns.ts   how patterns and word lists are written (src, named, words)
- *   lexical.ts    names, numbers, the sheet's own words, @, calls, members
+ *   punctuation.ts  brackets, `=`, `:`, `,`, `;` and quotes, each written out once
+ *   lexical.ts   names, numbers, the sheet's own words, @, calls, members
  *   greek.ts      Greek letters
  *   settings.ts   what follows a `:`, display names, uncertainty and series words
  *   text.ts       comments, and markup in text: subscripts, {{values}}, $maths$
@@ -15,6 +16,7 @@
  *   layout.ts     @layout blocks: their members (how lines are shown), and LayoutSyntax for their openers
  */
 export * from './syntax/patterns.ts'
+export * from './syntax/punctuation.ts'
 export * from './syntax/lexical.ts'
 export * from './syntax/greek.ts'
 export * from './syntax/settings.ts'

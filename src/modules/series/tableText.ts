@@ -20,7 +20,8 @@ import {
 } from '../../lib/plugin.ts'
 import { SERIES_NODE } from './grammar.ts'
 import { CALLS_WITH_SETTINGS, SERIES_CALL, type CallWithSettings as CallKind } from './syntax.ts'
-import { SETTINGS_START, splitCallArgs } from './tableSettings.ts'
+import { splitCallArgs } from './tableSettings.ts'
+import { SETTINGS_START } from './syntax.ts'
 import { TABLE_NAME, openerSettingsText, rowCells } from './typedTable.ts'
 
 // ---------------------------------------------------------------------------

@@ -25,7 +25,7 @@
  */
 import { isElement, type ElementSymbol } from './elements.ts'
 import { ExplainedError, MEMBER_DOT, outsideMaths, SIGIL } from '../../lib/plugin.ts'
-import { CHEM_FUNCTION, CHEM_NAMESPACE, FORMULA_IN_TEXT, SPECIES_DISPLAY, SPECIES_FUNCTION, type SpeciesDisplay } from './syntax.ts'
+import { CHEM_FUNCTION, CHEM_NAMESPACE, FORMULA_IN_TEXT, SPECIES_BRACES, SPECIES_DISPLAY, SPECIES_FUNCTION, type SpeciesDisplay } from './syntax.ts'
 
 /** A line that's a formula on its own, a reaction: `{OH^- + H3O^+ -> 2 H2O}` (1: the formula). */
 export const REACTION_LINE = /^\{(?!\{)([^{}]+)\}$/
@@ -450,7 +450,7 @@ export class SpeciesNames {
    * space or a coefficient. (A value in braces, `{{x}}`, is left alone.)
    */
   expand(text: string): string {
-    if (!this.byName.size || !text.includes('{')) return text
+    if (!this.byName.size || !text.includes(SPECIES_BRACES.open)) return text
     return text.replace(BRACED, (_whole: string, inside: string) => `{${this.expandFormula(inside)}}`)
   }
 

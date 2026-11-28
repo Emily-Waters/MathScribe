@@ -15,9 +15,9 @@
  */
 import { StateEffect, StateField, type EditorState, type Transaction } from '@codemirror/state'
 import { EditorView, keymap, showTooltip, type Tooltip } from '@codemirror/view'
-import { SIGIL, MEMBER_DOT } from '../lib/syntax.ts'
+import { MEMBER_DOT, ROUND_BRACKETS, ROW_SEPARATOR, SEPARATOR, SIGIL } from '../lib/syntax.ts'
 import { NODE_KIND, TOKEN_KIND, isCallKind, isToken, type Part, type SyntaxNode } from '../lib/tree/index.ts'
-import { ROUND_BRACKETS, closesBracket, lexExpression, opensBracket } from '../lib/tree/lexer.ts'
+import { closesBracket, lexExpression, opensBracket } from '../lib/tree/lexer.ts'
 import { builtinFunction } from '../lib/builtins.ts'
 import { SYMBOL_KIND } from '../lib/sheet/blocks.ts'
 import { BUILTIN_FUNCTIONS } from './vocabulary.ts'
@@ -26,7 +26,7 @@ import { isProseLine } from './language.ts'
 import { inDataBlock, inNamelessBlock, sheetLine } from './sheetLines.ts'
 
 /** Between a call's arguments, and between its arguments and its settings (a module's: `@table(t, x; rows 2-3)`). */
-const SEPARATOR = { argument: ',', settings: ';' } as const
+const BETWEEN = { argument: SEPARATOR, settings: ROW_SEPARATOR } as const
 
 /** What a function takes, for its hint: what it's called, its parameters, and its settings (after a `;`), if it has any. */
 export interface Signature {
@@ -44,8 +44,8 @@ export interface CallPlace {
 
 /** A function's parameters, as written (`n, m [kg]; rows 2-3`), split: at top-level commas, and its settings after a `;`. */
 export function splitParameters(text: string): { params: string[]; settings?: string } {
-  const [positional, settings] = text.split(SEPARATOR.settings)
-  const params = positional.split(SEPARATOR.argument).map((p) => p.trim()).filter(Boolean)
+  const [positional, settings] = text.split(BETWEEN.settings)
+  const params = positional.split(BETWEEN.argument).map((p) => p.trim()).filter(Boolean)
   return { params, settings: settings?.trim() || undefined }
 }
 
@@ -80,8 +80,8 @@ export function callPlace(before: string): CallPlace | undefined {
     if (opensBracket(p.text)) depth++
     else if (closesBracket(p.text)) depth--
     else if (depth > 0) continue
-    else if (p.text === SEPARATOR.argument && !inSettings) argument++
-    else if (p.text === SEPARATOR.settings) inSettings = true
+    else if (p.text === BETWEEN.argument && !inSettings) argument++
+    else if (p.text === BETWEEN.settings) inSettings = true
   }
   return { callee: head.text, argument, inSettings }
 }
@@ -96,7 +96,7 @@ export function signatureOf(state: EditorState, n: number, callee: string): Sign
   if (own?.kind === SYMBOL_KIND.function) return { name: callee, ...splitParameters(own.params ?? '') }
   const builtin = BUILTIN_FUNCTIONS.find((f) => f.name === callee)
   if (builtin) {
-    const inside = builtin.signature.slice(builtin.signature.indexOf('(') + 1, builtin.signature.lastIndexOf(')'))
+    const inside = builtin.signature.slice(builtin.signature.indexOf(ROUND_BRACKETS.open) + 1, builtin.signature.lastIndexOf(ROUND_BRACKETS.close))
     return { name: callee, ...splitParameters(inside) }
   }
   return undefined
@@ -130,11 +130,11 @@ function hintNode(signature: Signature, place: CallPlace): HTMLElement {
   const current = currentParameter(signature, place)
   el.append(piece(`${signature.name}(`, false))
   signature.params.forEach((p, i) => {
-    if (i > 0) el.append(piece(`${SEPARATOR.argument} `, false))
+    if (i > 0) el.append(piece(`${BETWEEN.argument} `, false))
     el.append(piece(p, i === current))
   })
-  if (signature.settings) el.append(piece(`${SEPARATOR.settings} `, false), piece(signature.settings, place.inSettings))
-  el.append(piece(')', false))
+  if (signature.settings) el.append(piece(`${BETWEEN.settings} `, false), piece(signature.settings, place.inSettings))
+  el.append(piece(ROUND_BRACKETS.close, false))
   return el
 }
 
@@ -155,7 +155,7 @@ function hintAt(state: EditorState): Tooltip | null {
 }
 
 /** What opens a hint, typed: a call's `(`, or a `,` or `;` in one. */
-const OPENS_HINT = new Set(['(', SEPARATOR.argument, SEPARATOR.settings])
+const OPENS_HINT: ReadonlySet<string> = new Set([ROUND_BRACKETS.open, BETWEEN.argument, BETWEEN.settings])
 
 /** Whether a transaction is typing (not a paste, an undo, or a change from elsewhere) that puts in a character that opens a hint. */
 function typesOpener(tr: Transaction): boolean {

@@ -25,7 +25,7 @@ import {
   MEMBER_DOT, memberName, type ModuleHost, NAME, NODE_KIND, NUMBER, SIGIL, UNIT, unitParts,
 } from '../../lib/plugin.ts'
 import { formulaTex, isSpeciesUnit, molarMassSum, parseFormula, speciesKey, splitCoefficient, type AtomCounts } from './chemistry.ts'
-import { CHEM_FUNCTION, CHEM_NAMESPACE, SPECIES_FUNCTION } from './syntax.ts'
+import { CHEM_FUNCTION, CHEM_NAMESPACE, SPECIES_BRACES, SPECIES_FUNCTION } from './syntax.ts'
 import type { ElementSymbol } from './elements.ts'
 
 /** A substance's own members: its amount, mass and molar mass. */
@@ -117,7 +117,7 @@ function setValue(value: string, member: string, species: string, host: ModuleHo
 
 /** Whether a value, as typed, is of a species already (if it can be worked out here: otherwise its line explains it). */
 function hasSpecies(value: string, host: ModuleHost): boolean {
-  if (value.includes('{')) return true
+  if (value.includes(SPECIES_BRACES.open)) return true
   try {
     const v = host.evaluateExpression(expandDots(value))
     return isQuantity(v) && unitParts(v).some((u) => isSpeciesUnit(u.name))

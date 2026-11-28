@@ -14,16 +14,16 @@
  * of rows, …); a module declares its calls' settings as a list of them, and
  * may add kinds of its own (a plot's axes, its colours).
  */
+import { QUOTE, SEPARATOR } from '../syntax/punctuation.ts'
 
 // ---------------------------------------------------------------------------
 // Settings text: its parts, and the pieces several kinds of setting share
 // ---------------------------------------------------------------------------
 
 /** Between settings: `rows 5-20, lines grid`. */
-export const SETTINGS_SEPARATOR = ','
+export const SETTINGS_SEPARATOR = SEPARATOR
 
-/** A setting's value is quoted when it can hold commas: `title "Run 1, cart"`. */
-const QUOTE = '"'
+// (A setting's value is quoted, QUOTE, when it can hold commas: `title "Run 1, cart"`.)
 
 /** Between a range's ends: `rows 5-20`. */
 const RANGE_DASH = '-'

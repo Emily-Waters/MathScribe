@@ -22,8 +22,8 @@
 import {
   LINE_STAGE, type LineInProgress, type LineResult, LineStep, MEMBER_DOT, MEMBER_INDEX, OP, ROUND_BRACKETS, SEPARATOR, SLICE_COLON,
   SERIES_STAT_SUFFIX, TOKEN_KIND, closesBracket, constant, isCall, isConstant, isOp, isOperator, isParen, lexExpression, lineTokens,
-  NODE_KIND, SETTING_MARK, SUBSCRIPT, lineShape, opensBracket, operator, paren, parseSliceName, symbolsIn, transform, typedName, whereOf,
-  type ModuleHost,
+  NODE_KIND, SETTING_MARK, SUBSCRIPT, lineShape, operator, paren, parseSliceName, symbolsIn, transform, typedName, whereOf,
+  type ModuleHost, closingIndex, splitWithin,
   type CallExpr, type Expr,
 } from '../../lib/plugin.ts'
 import { LIST_STAT_FUNCTION, SPREAD, type ListStat } from './syntax.ts'
@@ -137,22 +137,17 @@ function definedRulesAsLists(text: string): string {
 
 /** A call's arguments as typed, from its `(` at token `open`, and its `)`. */
 function argumentsAt(tokens: readonly Token[], open: number): { args: string[]; close: number } | undefined {
-  const args = ['']
-  let depth = 0
-  for (let i = open + 1; i < tokens.length; i++) {
-    const t = tokens[i]
-    if (t.t === TOKEN_KIND.delimiter) {
-      if (opensBracket(t.text)) depth++
-      else if (closesBracket(t.text) && depth-- === 0) return { args: args.map((a) => a.trim()), close: i }
-      else if (depth === 0 && t.text === SEPARATOR) {
-        args.push('')
-        continue
-      }
-    }
-    args[args.length - 1] += t.text
-  }
-  return undefined
+  const close = closingIndex(tokens, open)
+  if (close < 0) return undefined
+  return { args: splitWithin(tokens, open, close, isSeparator).map(typedText), close }
 }
+
+/** Whether a token is a `,` between values, or a spread or range's mark (which makes a list more than its values). */
+const isSeparator = (t: Token) => isDelimiter(t, SEPARATOR)
+const isSpreadOrRange = (t: Token) => isDelimiter(t, SPREAD) || isDelimiter(t, SLICE_COLON)
+
+/** Some tokens' text, as typed, trimmed. */
+const typedText = (tokens: readonly Token[]) => tokens.map((t) => t.text).join('').trim()
 
 /** A rule's series, each as its value in row i: x → x_i (a slice's or condition's as its series': F[2:4] → F_i). */
 const inRowI = (ids: Iterable<string>) =>
@@ -183,25 +178,10 @@ function rowsOf(value: string, host: ModuleHost, params: ReadonlySet<string>):
  * spread or a range in it (`[...x].sum`, `[0:5].sum`), nor one with a value missing.
  */
 function listAt(tokens: readonly Token[], open: number): { values: string[]; stat: ListStat; end: number } | undefined {
-  const values = ['']
-  let depth = 0
-  let close = -1
-  for (let i = open + 1; i < tokens.length && close < 0; i++) {
-    const t = tokens[i]
-    if (t.t === TOKEN_KIND.delimiter) {
-      if (opensBracket(t.text)) depth++
-      else if (closesBracket(t.text) && depth-- === 0) {
-        close = i
-        continue
-      } else if (depth === 0 && t.text === SEPARATOR) {
-        values.push('')
-        continue
-      } else if (depth === 0 && (t.text === SPREAD || t.text === SLICE_COLON)) return undefined
-    }
-    values[values.length - 1] += t.text
-  }
+  const close = closingIndex(tokens, open)
   if (close < 0 || !isDelimiter(tokens[close], MEMBER_INDEX.close)) return undefined
-  const trimmed = values.map((v) => v.trim())
+  if (splitWithin(tokens, open, close, isSpreadOrRange).length > 1) return undefined
+  const trimmed = splitWithin(tokens, open, close, isSeparator).map(typedText)
   if (trimmed.some((v) => !v)) return undefined
   // `].sum`: the dot, then the statistic's name, right after the bracket.
   const [dot, name] = [tokens[close + 1], tokens[close + 2]]

@@ -16,8 +16,8 @@
 import { StateEffect, StateField, type EditorState, type Transaction } from '@codemirror/state'
 import { EditorView, keymap, showTooltip, type Tooltip } from '@codemirror/view'
 import { MEMBER_DOT, ROUND_BRACKETS, ROW_SEPARATOR, SEPARATOR, SIGIL } from '../lib/syntax.ts'
-import { NODE_KIND, TOKEN_KIND, isCallKind, isToken, type Part, type SyntaxNode } from '../lib/tree/index.ts'
-import { closesBracket, lexExpression, opensBracket } from '../lib/tree/lexer.ts'
+import { NODE_KIND, TOKEN_KIND, isCallKind, isToken, splitWithin, type Part, type SyntaxNode } from '../lib/tree/index.ts'
+import { lexExpression } from '../lib/tree/lexer.ts'
 import { builtinFunction } from '../lib/builtins.ts'
 import { SYMBOL_KIND } from '../lib/sheet/blocks.ts'
 import { BUILTIN_FUNCTIONS } from './vocabulary.ts'
@@ -71,19 +71,14 @@ export function callPlace(before: string): CallPlace | undefined {
   if (!call) return undefined
   const [head, ...rest] = call.parts
   if (!isToken(head)) return undefined
-  // (The commas directly in the call: a closed call's inside it are in its node; a bracket's, counted by depth.)
-  let argument = 0
-  let inSettings = false
-  let depth = 0
-  for (const p of rest.slice(rest.findIndex((r) => isToken(r) && r.text === ROUND_BRACKETS.open) + 1)) {
-    if (!isToken(p) || p.t !== TOKEN_KIND.delimiter) continue
-    if (opensBracket(p.text)) depth++
-    else if (closesBracket(p.text)) depth--
-    else if (depth > 0) continue
-    else if (p.text === BETWEEN.argument && !inSettings) argument++
-    else if (p.text === BETWEEN.settings) inSettings = true
-  }
-  return { callee: head.text, argument, inSettings }
+  // (What's directly in the call, still open: a closed call's inside it is in its node, a bracket's at a depth of its own.
+  // Its arguments, up to a `;`, then its settings; which argument is the commas before it, in the arguments.)
+  const tokenOf = (p: Part) => (isToken(p) ? p : undefined)
+  const isDelimiter = (text: string) => (t: { t: string; text: string }) => t.t === TOKEN_KIND.delimiter && t.text === text
+  const open = rest.findIndex((r) => isToken(r) && r.text === ROUND_BRACKETS.open)
+  const [args, ...settings] = splitWithin(rest, open, rest.length, isDelimiter(BETWEEN.settings), tokenOf)
+  const argument = splitWithin(args, -1, args.length, isDelimiter(BETWEEN.argument), tokenOf).length - 1
+  return { callee: head.text, argument, inSettings: settings.length > 0 }
 }
 
 /** What a function called `callee` takes, as the editor knows it at line `n`; undefined if it doesn't. */

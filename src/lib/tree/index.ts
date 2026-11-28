@@ -13,7 +13,8 @@ export { decode, encode, textOf } from './codec.ts'
 export { notedOf, readLine, splitLines, trailingSeparatorAt, type ReadLine, type SourceLine } from './lines.ts'
 export { startsByClosing } from './lexer.ts'
 export {
-  closingBracketAt, levelled, matchesDelimiter, splitArgs, splitEquation, splitParts, splitTopLevel, topLevelAt, type LevelledPart,
+  closingBracketAt, closingIndex, levelled, matchesDelimiter, openingIndex, splitArgs, splitEquation, splitParts, splitTopLevel, splitWithin, topLevelAt,
+  type LevelledPart, type TokenOf,
 } from './topLevel.ts'
 export { formatChanges, formatSheet, type TextChange } from './format.ts'
 export { rawOf, sheetStatements, statementOf, statementOfLines, type PlacedToken, type SheetStatement, type Statement } from './statements.ts'

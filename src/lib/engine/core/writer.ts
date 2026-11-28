@@ -13,7 +13,8 @@
  */
 import { ASSIGN, CALL, KEYWORD, SIGIL } from '../../syntax.ts'
 import { source } from '../../maths/library/index.ts'
-import { closesBracket, lexExpression, opensBracket } from '../../tree/lexer.ts'
+import { lexExpression } from '../../tree/lexer.ts'
+import { matchesDelimiter, splitParts } from '../../tree/topLevel.ts'
 import { textOf } from '../../tree/codec.ts'
 import { NODE_KIND, TOKEN_KIND, isToken, type Part } from '../../tree/nodes.ts'
 import { MORE_TERMS, readUnit } from './literals.ts'
@@ -170,19 +171,6 @@ export function preprocess(src: string, isVariable: (id: string) => boolean): { 
  */
 export function formulaSides(src: string): string[] {
   const notes: WriteNotes = { isVariable: () => false, shadowed: new Set(), symbolic: true }
-  const sides: Part[][] = [[]]
-  let depth = 0
-  for (const part of lexExpression(src)) {
-    if (isToken(part) && part.t === TOKEN_KIND.delimiter) {
-      if (opensBracket(part.text)) depth++
-      else if (closesBracket(part.text)) depth--
-      else if (part.text === ASSIGN && depth === 0) {
-        sides.push([])
-        continue
-      }
-    }
-    sides[sides.length - 1].push(part)
-  }
-  return sides.map((parts) => writeParts(parts, notes).trim())
+  return splitParts(lexExpression(src), matchesDelimiter(ASSIGN)).map((parts) => writeParts(parts, notes).trim())
 }
 

@@ -16,7 +16,7 @@
  */
 import {
   IS_NAME, LINE_STAGE, type LineInProgress, type LineResult, LineStep, MEMBER_INDEX, type ModuleHost, TOKEN_KIND,
-  closesBracket, describeName, expandDots, isQuantity, isTuple, lexExpression, lineTokens, opensBracket, seriesMemberName, symbolTex,
+  closingIndex, describeName, expandDots, isQuantity, isTuple, lexExpression, lineTokens, seriesMemberName, symbolTex,
   typedName, whereName,
 } from '../../lib/plugin.ts'
 import { seriesUsedIn, withRowValues } from './columns.ts'
@@ -51,17 +51,7 @@ export class WhereStep extends LineStep {
       const open = tokens[i + 1]
       // A series' name with a bracket straight after it, `x[`: what's in it, to its `]`.
       if (t.t === TOKEN_KIND.symbol && open?.t === TOKEN_KIND.delimiter && open.text === MEMBER_INDEX.open) {
-        let depth = 0
-        let close = -1
-        for (let j = i + 1; j < tokens.length; j++) {
-          const u = tokens[j]
-          if (u.t !== TOKEN_KIND.delimiter) continue
-          if (opensBracket(u.text)) depth++
-          else if (closesBracket(u.text) && --depth === 0) {
-            close = j
-            break
-          }
-        }
+        const close = closingIndex(tokens, i + 1)
         const rows = IS_NAME.test(t.text) && !host.has(t.text) ? host.seriesRows(t.text) : new Map<number, string>()
         if (close > 0 && rows.size) {
           const condition = tokens.slice(i + 2, close).map((u) => u.text).join('').trim()

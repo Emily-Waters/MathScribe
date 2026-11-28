@@ -29,6 +29,7 @@ import { CONTENT, contextInfo, type Content } from './grammar.ts'
 import { LINE_CONTEXT, NODE_KIND, TOKEN_KIND, isToken, type Part, type SyntaxNode, type Token } from './nodes.ts'
 import { splitLines, startsClosing, type SourceLine } from './lines.ts'
 import { closesBracket, opensBracket } from './lexer.ts'
+import { splitWithin } from './topLevel.ts'
 import { STRAY_QUOTES } from './shapes.ts'
 import { LINE_ROLE, TOP, stepLine, type Step } from './stream.ts'
 import { statementOfLines, type PlacedToken } from './statements.ts'
@@ -380,13 +381,6 @@ function isSeparatorIn(tokens: readonly Placed[], i: number, open: number, close
   const text = tokens[i].token.text
   if (text !== SEPARATOR && text !== ROW_SEPARATOR) return false
   if (tokens[open].token.text !== SQUARE_BRACKETS.open) return true
-  let depth = 0
-  let rows = false
-  for (let j = open + 1; j < close && !rows; j++) {
-    const t = tokens[j]
-    if (isDelimiter(t) && opensBracket(t.token.text)) depth++
-    else if (isDelimiter(t) && closesBracket(t.token.text)) depth--
-    else if (depth === 0 && isDelimiter(t, ROW_SEPARATOR)) rows = true
-  }
+  const rows = splitWithin(tokens, open, close, (t) => t.t === TOKEN_KIND.delimiter && t.text === ROW_SEPARATOR, (p) => p.token).length > 1
   return !rows || text === ROW_SEPARATOR
 }

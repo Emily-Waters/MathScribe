@@ -16,7 +16,7 @@
  */
 import {
   ASSIGN, BLOCK_CLOSE, BLOCK_OPEN, CELL_SEPARATOR, INDENT, LEADING_SPACES, MATHS_MARK, ROUND_BRACKETS, SEPARATOR, SIGIL, TOKEN_KIND, encode, isToken,
-  outsideMaths, sheetStatements, splitArgs, textOf, type Part, type SheetStatement,
+  closingIndex, outsideMaths, sheetStatements, splitArgs, textOf, type Part, type SheetStatement,
 } from '../../lib/plugin.ts'
 import { SERIES_NODE } from './grammar.ts'
 import { CALLS_WITH_SETTINGS, SERIES_CALL, type CallWithSettings as CallKind } from './syntax.ts'
@@ -67,14 +67,7 @@ function startsLine(tokens: readonly Placed[], i: number): boolean {
 }
 
 /** The index of the `)` closing the `(` at `open` (on a later line, for a call over several), or -1. */
-function closingAt(tokens: readonly Placed[], open: number): number {
-  let depth = 0
-  for (let i = open; i < tokens.length; i++) {
-    if (isDelimiter(tokens[i], ROUND_BRACKETS.open)) depth++
-    else if (isDelimiter(tokens[i], ROUND_BRACKETS.close) && --depth === 0) return i
-  }
-  return -1
-}
+const closingAt = (tokens: readonly Placed[], open: number): number => closingIndex(tokens, open)
 
 /**
  * Every table and plot written as a line of its own (or a line carried on over

@@ -61,7 +61,8 @@ export { BODY_END, CONTENT } from './tree/grammar.ts'
 // (opensBracket, closesBracket: whether a delimiter opens or closes a bracket, for following a call's depth over its tokens.)
 // (An expression's top level, as the tree reads it: split at a delimiter, a bracket's close; instead of scanning text.)
 export {
-  closingBracketAt, levelled, matchesDelimiter, splitArgs, splitEquation, splitParts, splitTopLevel, topLevelAt, type LevelledPart,
+  closingBracketAt, closingIndex, levelled, matchesDelimiter, openingIndex, splitArgs, splitEquation, splitParts, splitTopLevel, splitWithin, topLevelAt,
+  type LevelledPart, type TokenOf,
 } from './tree/topLevel.ts'
 export { closesBracket, lexExpression, node, opensBracket, token, withUnit, type LexRule } from './tree/lexer.ts'
 export type { TextRule } from './tree/lines.ts'

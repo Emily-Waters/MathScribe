@@ -18,8 +18,8 @@ import katex from 'katex'
 import { Decoration, EditorView, WidgetType, type DecorationSet } from '@codemirror/view'
 import type { EditorState, Extension, Range } from '@codemirror/state'
 import {
-  ASSIGN, MEMBER_DOT, MEMBER_INDEX, SEPARATOR, TOKEN_KIND, closesBracket, encode, inlineHintsShown, opensBracket, seriesMemberName,
-  sheetStatements, symbolTex, type SheetStatement,
+  ASSIGN, MEMBER_DOT, MEMBER_INDEX, SEPARATOR, TOKEN_KIND, closingIndex, encode, inlineHintsShown, seriesMemberName,
+  sheetStatements, splitWithin, symbolTex, type SheetStatement,
 } from '../../lib/plugin.ts'
 
 /** A token of a statement, and where it starts in the sheet's text. */
@@ -59,33 +59,13 @@ export function memberLabels(text: string): MemberLabel[] {
     if (!isDelimiter(said[2].t, MEMBER_INDEX.open)) continue
     const name = said[0].t.text
     const open = said[2].i
-    // The values directly in the brackets: each starts at the first token said after `[` or a top-level comma.
-    const starts: number[] = []
-    let depth = 0
-    let waiting = true
-    let multiline = false
-    let close = tokens.length
-    for (let i = open + 1; i < tokens.length; i++) {
-      const t = tokens[i]
-      if (t.t === TOKEN_KIND.eol) multiline = true
-      if (QUIET.has(t.t)) continue
-      if (t.t === TOKEN_KIND.delimiter && depth === 0) {
-        if (closesBracket(t.text)) {
-          close = i
-          break
-        }
-        if (t.text === SEPARATOR) {
-          waiting = true
-          continue
-        }
-      }
-      if (waiting) {
-        starts.push(t.at)
-        waiting = false
-      }
-      if (t.t === TOKEN_KIND.delimiter && opensBracket(t.text)) depth++
-      else if (t.t === TOKEN_KIND.delimiter && closesBracket(t.text)) depth--
-    }
+    // The values directly in the brackets (to the end, if they aren't closed): each starts at the first token said after `[` or a top-level comma.
+    const closing = closingIndex(tokens, open)
+    const close = closing < 0 ? tokens.length : closing
+    const multiline = tokens.slice(open + 1, close).some((t) => t.t === TOKEN_KIND.eol)
+    const starts = splitWithin(tokens, open, close, (t) => t.t === TOKEN_KIND.delimiter && t.text === SEPARATOR)
+      .map((value) => value.find((t) => !QUIET.has(t.t))?.at)
+      .filter((at): at is number => at !== undefined)
     // (A list added up or averaged where it is, `x = [ … ].sum`, makes no series.)
     if (!multiline || isDelimiter(tokens.slice(close + 1).find((t) => !QUIET.has(t.t)), MEMBER_DOT)) continue
     starts.forEach((at, k) => labels.push({ at, name: seriesMemberName(name, k + 1) }))

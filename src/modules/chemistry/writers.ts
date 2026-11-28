@@ -9,7 +9,7 @@
  */
 import {
   GREEK_CHARS, inClass, isConversionUnit, isToken, isTokenOf, MEMBER_DOT, regex, src, multiply, NODE_KIND, type Part, partBefore, type PartWriter, quantity, type Quantity,
-  quantitySource, ROUND_BRACKETS, textOf, TOKEN_KIND, unitCallSource, unitSource, unitText,
+  quantitySource, ROUND_BRACKETS, textOf, TOKEN_KIND, unitCallSource, unitSource, unitText, openingIndex,
 } from '../../lib/plugin.ts'
 import { CHEM_TOKEN } from './grammar.ts'
 import { speciesUnits } from './species.ts'
@@ -32,7 +32,6 @@ const isValue = (part: Part) =>
   !isToken(part) || part.t === TOKEN_KIND.symbol || part.t === TOKEN_KIND.number || part.t === TOKEN_KIND.builtin
   || isTokenOf(part, TOKEN_KIND.delimiter, CLOSE)
 
-const OPEN = ROUND_BRACKETS.open
 const CLOSE = ROUND_BRACKETS.close
 
 /** Where the value ending at `last` starts: back to its bracket, and over what runs on into it (`r.H2O`, `2(x)`); -1 if it isn't one. */
@@ -40,11 +39,7 @@ function valueStart(parts: readonly Part[], last: number): number {
   if (!isValue(parts[last])) return -1
   let start = last
   if (isTokenOf(parts[last], TOKEN_KIND.delimiter, CLOSE)) {
-    let depth = 0
-    for (; start >= 0; start--) {
-      if (isTokenOf(parts[start], TOKEN_KIND.delimiter, CLOSE)) depth++
-      else if (isTokenOf(parts[start], TOKEN_KIND.delimiter, OPEN) && --depth === 0) break
-    }
+    start = openingIndex(parts, last, (p) => (isToken(p) ? p : undefined))
     if (start < 0) return -1
   }
   while (start > 0 && isToken(parts[start - 1]) && RUNS_ON.test(textOf(parts[start - 1]))) start--

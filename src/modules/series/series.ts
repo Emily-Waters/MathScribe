@@ -24,9 +24,9 @@
  */
 import {
   ASSIGN, type Definition, DISPLAY_MODE, type FormLine, IS_NAME, LineForm, type LineResult, MEMBER_INDEX, type ModuleHost, NODE_KIND,
-  SEPARATOR, SETTING_MARK, SLICE_COLON, SUBSCRIPT, TOKEN_KIND, attachUnit, closesBracket, lexExpression, lineShape, lineTokens, magnitude,
-  opensBracket, quantity, parseSliceName, regex, SIGNED_NUMBER, src, seriesMemberName, whereOf, symbolTex, typedName, unitTex,
-  ROW_SEPARATOR, TERNARY, splitTopLevel,
+  SEPARATOR, SETTING_MARK, SLICE_COLON, SUBSCRIPT, TOKEN_KIND, attachUnit, lexExpression, lineShape, lineTokens, magnitude,
+  quantity, parseSliceName, regex, SIGNED_NUMBER, src, seriesMemberName, whereOf, symbolTex, typedName, unitTex,
+  ROW_SEPARATOR, TERNARY, closingIndex, splitTopLevel,
 } from '../../lib/plugin.ts'
 import { rowErrors, seriesUsedIn, sharedRows, withRowValues } from './columns.ts'
 import { cellParts } from './table.ts'
@@ -143,15 +143,8 @@ function bracketed(value: string): string | undefined {
   const tokens = lineTokens(lexExpression(value)).map((l) => l.token)
   const first = tokens[0]
   if (first?.t !== TOKEN_KIND.delimiter || first.text !== MEMBER_INDEX.open) return undefined
-  let depth = 0
-  for (const [i, t] of tokens.entries()) {
-    if (t.t !== TOKEN_KIND.delimiter) continue
-    if (opensBracket(t.text)) depth++
-    else if (closesBracket(t.text) && --depth === 0) {
-      if (i !== tokens.length - 1 || t.text !== MEMBER_INDEX.close) return undefined
-    }
-  }
-  return depth === 0 ? value.trim().slice(1, -1) : undefined
+  const close = closingIndex(tokens, 0)
+  return close === tokens.length - 1 && tokens[close].text === MEMBER_INDEX.close ? value.trim().slice(1, -1) : undefined
 }
 
 /** Text split at a delimiter at its top level (not in a call's, a member's or a label's brackets), as the tree reads it, each piece trimmed. */

@@ -81,6 +81,65 @@ export function topLevelAt(text: string, test: (part: Part) => boolean): number 
   return levelled(lexExpression(text)).find(({ part, depth }) => depth === 0 && test(part))?.at ?? -1
 }
 
+// ---------------------------------------------------------------------------
+// In a flat list of tokens (a line's, or a statement's over several lines)
+// ---------------------------------------------------------------------------
+
+/** How to see an item of a flat list as a token: it is one (the default), holds one, or is a node (undefined). */
+export type TokenOf<T> = (item: T) => Token | undefined
+
+/** An item that is a token, as itself. */
+const itself = <T>(item: T) => item as unknown as Token
+
+/** Whether a token opens or closes a bracket: `(`, `[`, `{` as a delimiter. */
+const opens = (t: Token | undefined) => !!t && opensAt(t)
+const closes = (t: Token | undefined) => !!t && closesAt(t)
+
+/** Where the bracket at index `open` of a flat list closes: its index, or -1 (if it doesn't, or there's no bracket at `open`). */
+export function closingIndex<T>(items: readonly T[], open: number, tokenOf: TokenOf<T> = itself): number {
+  if (!opens(tokenOf(items[open]))) return -1
+  let depth = 0
+  for (let i = open; i < items.length; i++) {
+    const t = tokenOf(items[i])
+    if (opens(t)) depth++
+    else if (closes(t) && --depth === 0) return i
+  }
+  return -1
+}
+
+/** Where the bracket at index `close` of a flat list opens, back from it: its index, or -1. */
+export function openingIndex<T>(items: readonly T[], close: number, tokenOf: TokenOf<T> = itself): number {
+  if (!closes(tokenOf(items[close]))) return -1
+  let depth = 0
+  for (let i = close; i >= 0; i--) {
+    const t = tokenOf(items[i])
+    if (closes(t)) depth++
+    else if (opens(t) && --depth === 0) return i
+  }
+  return -1
+}
+
+/**
+ * The items of a flat list after `open` and before `end` (a bracket's close, or
+ * the list's end for one still open), split at the tokens `isSplit` picks that
+ * are directly in it (not in a bracket inside it), which are left out.
+ */
+export function splitWithin<T>(items: readonly T[], open: number, end: number, isSplit: (token: Token) => boolean, tokenOf: TokenOf<T> = itself): T[][] {
+  const pieces: T[][] = [[]]
+  let depth = 0
+  for (let i = open + 1; i < end; i++) {
+    const t = tokenOf(items[i])
+    if (opens(t)) depth++
+    else if (closes(t)) depth--
+    else if (depth === 0 && t && isSplit(t)) {
+      pieces.push([])
+      continue
+    }
+    pieces[pieces.length - 1].push(items[i])
+  }
+  return pieces
+}
+
 /** A token, with where it starts in the text. */
 interface PlacedToken {
   readonly token: Token

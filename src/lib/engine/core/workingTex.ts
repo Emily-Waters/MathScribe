@@ -28,7 +28,7 @@ import {
   EVERY_PRODUCT_SIGN, PRODUCT_SIGN, SIDE, inScientificNotation, isNumberWithUnit, needsBrackets, productSeparator, type Side,
 } from './products.ts'
 import type { ValueTex } from './valueTex.ts'
-import { TEX_GROUP, TEX_ROUND } from '../../latex.ts'
+import { TEX_GROUP, TEX_ROUND } from '../../latex/syntax.ts'
 
 /** Spaces right after a group's brace or a round bracket opens, which the library's LaTeX leaves (1: the brace or bracket). */
 const SPACE_AFTER_OPENING = regex(src`([${inClass(TEX_GROUP.open, TEX_ROUND.open)}])\s+`, 'g')

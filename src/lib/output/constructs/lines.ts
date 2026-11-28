@@ -6,7 +6,7 @@ import { BLOCK_KIND, type CalcBlock, type HeadingBlock, type LatexBlock, type Ru
 import { moduleFigureKind } from '../../engine/index.ts'
 import { centredEquation, errorComment, gather, titleToLatex, type Equation } from '../latexKit.ts'
 import { PARA_BORDER, SPACING, baseProps, equation, fontSizeOf, picture, run, titleRuns, type Ctx, type Item } from '../docxKit.ts'
-import { EM_SPACE } from '../omml.ts'
+import { EM_SPACE } from '../syntax.ts'
 import { Construct, type LatexOut } from './construct.ts'
 
 /** `# Title`, `## Title`, `### Title`: a section, a subsection, a bold heading. */

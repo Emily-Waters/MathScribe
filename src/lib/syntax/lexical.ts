@@ -6,6 +6,12 @@
 import { lit, named, regex, src, words, type WordOf } from './patterns.ts'
 import { ASSIGN, ROUND_BRACKETS, SQUARE_BRACKETS } from './punctuation.ts'
 
+/** Spaces and tabs, as a line is indented or its tokens spaced: any number of them, or none. */
+export const SPACES = src`[ \t]*`
+
+/** The spaces and tabs at the start of some text (none, too). */
+export const LEADING_SPACES = regex(src`^${SPACES}`)
+
 /** Greek letters (the Greek and Coptic block, U+0370 to U+03FF), which names can contain: `ΔE`, `ω_0`. */
 export const GREEK_CHARS = `${String.fromCodePoint(0x370)}-${String.fromCodePoint(0x3ff)}`
 

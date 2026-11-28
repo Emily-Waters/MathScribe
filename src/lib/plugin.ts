@@ -45,7 +45,7 @@ export { markupText } from './engine/core/module.ts'
 // The sheet's language: its words and patterns, and what's built in under `@`.
 export * from './syntax.ts'
 // (LaTeX's own vocabulary: what a module looks for in LaTeX it reads, and its marks, `TEX_LIST`, `TEX_THIN_SPACE`.)
-export * from './latex.ts'
+export * from './latex/syntax.ts'
 export { BlockMember, ConstantMember, FunctionMember, LineFormMember, Namespace, type Expansion, type Member } from './builtins.ts'
 export { isNamespaceConstant, type BuiltinConstant, type NamespaceConstant } from './constants.ts'
 export {

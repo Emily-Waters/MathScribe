@@ -11,7 +11,7 @@ import { RAW } from './results.ts'
 import { INV_FUNCTION } from '../../sheet/names.ts'
 import { symbolTex, isUnitCall, unitCallText, isLitCall } from './tex.ts'
 import { unwrap, seeThrough } from './nodes.ts'
-import { TEX_ANGLE, TEX_NORM, TEX_ROUND, TEX_SIZED, TEX_SQUARE, TEX_UPRIGHT } from '../../latex.ts'
+import { TEX_ANGLE, TEX_NORM, TEX_ROUND, TEX_SIZED, TEX_SQUARE, TEX_UPRIGHT } from '../../latex/syntax.ts'
 import { lit, oneOf, regex, src } from '../../syntax.ts'
 
 /** A number followed by its unit: `2.0 kg`. */

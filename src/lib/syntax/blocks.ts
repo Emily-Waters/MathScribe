@@ -3,7 +3,7 @@
  * import line (whose data is indented under it), and indentation. (`@layout`'s
  * blocks are in layout.ts, `@constants { }` in constants.ts.)
  */
-import { CALL, MEMBER_DOT, NAME, NAMED, SIGIL, builtinOpening } from './lexical.ts'
+import { CALL, LEADING_SPACES, MEMBER_DOT, NAME, NAMED, SIGIL, builtinOpening } from './lexical.ts'
 import { inClass, lit, named, optional, regex, src, type Piece } from './patterns.ts'
 import { CURLY_BRACKETS, QUOTE, ROUND_BRACKETS } from './punctuation.ts'
 
@@ -99,4 +99,7 @@ export const INDENT_WIDTH = 4
 export const INDENT = ' '.repeat(INDENT_WIDTH)
 
 /** How far a line is indented, counting a tab as one level. */
-export const indentOf = (line: string) => /^[ \t]*/.exec(line)![0].replace(/\t/g, INDENT).length
+export const indentOf = (line: string) => LEADING_SPACES.exec(line)![0].replaceAll(TAB, INDENT).length
+
+/** A tab, which counts as one indentation level. */
+const TAB = '\t'

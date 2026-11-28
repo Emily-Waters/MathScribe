@@ -13,8 +13,8 @@ import { isOmitted } from '../sheet/blocks.ts'
 import { BLOCK_KIND, type Block } from '../sheet/blocks.ts'
 import { ALIGN } from './alignment.ts'
 import { MARGIN_CM, type LatexOptions } from './latex.ts'
-import { xmlEscape } from './omml.ts'
-import { LIST_MARKER, type ListMarker } from '../syntax.ts'
+import { WORD_BULLETS, WORD_NUMBER_MARK, xmlEscape } from './syntax.ts'
+import { LIST_MARKER, regex, src, type ListMarker } from '../syntax.ts'
 import {
   CAPTION_STYLE, FONTS, HEADING_SIZE_STEP, LANGUAGE, LIST_INDENT, MATH_WRAP_INDENT, NOTE_CHAR_EMS, NOTE_COLUMN, NOTE_PADDING, PAPER, SPACING,
   TITLE_SIZE_STEP, TITLE_STYLE, TWIPS_PER_CM, TWIPS_PER_EM_PER_HALF_POINT, WORKING_SIZE_STEP, fontSizeOf, imageRel, itemXml, run,
@@ -88,10 +88,9 @@ const WORD_NUMBERING: Readonly<Record<ListMarker, string>> = {
  * marker), and an instance for each list.
  */
 function numberingXml(nums: Ctx['nums']): string {
-  const BULLETS = ['•', '◦', '▪']
   const lvl = (i: number, marker: ListMarker | undefined) =>
     `<w:lvl w:ilvl="${i}"><w:start w:val="1"/><w:numFmt w:val="${marker ? WORD_NUMBERING[marker] : 'bullet'}"/>`
-    + `<w:lvlText w:val="${marker ? `%${i + 1}${i === 0 ? '.' : ')'}` : BULLETS[i]}"/><w:lvlJc w:val="left"/>`
+    + `<w:lvlText w:val="${marker ? `%${i + 1}${i === 0 ? WORD_NUMBER_MARK.top : WORD_NUMBER_MARK.nested}` : WORD_BULLETS[i]}"/><w:lvlJc w:val="left"/>`
     + `<w:pPr><w:ind w:left="${LIST_INDENT.hanging * (i + 1) + LIST_INDENT.gap}" w:hanging="${LIST_INDENT.hanging}"/></w:pPr></w:lvl>`
   // (Bullets are style 0; each marker the style after.)
   const styles = [undefined, ...LIST_MARKER.words]
@@ -125,9 +124,12 @@ const settingsXml = (o: LatexOptions) =>
   + `<m:defJc m:val="${o.align === ALIGN.center ? 'centerGroup' : ALIGN.left}"/><m:wrapIndent m:val="${MATH_WRAP_INDENT}"/>`
   + '<m:intLim m:val="subSup"/><m:naryLim m:val="undOvr"/></m:mathPr></w:settings>'
 
+/** A time's fraction of a second and its zone, `.123Z`, which Word's properties leave out of the seconds. */
+const SECONDS_FRACTION = regex(src`\.\d+Z$`)
+
 /** The document's properties: title, author and when it was made. */
 function coreXml(o: LatexOptions): string {
-  const now = new Date().toISOString().replace(/\.\d+Z$/, 'Z')
+  const now = new Date().toISOString().replace(SECONDS_FRACTION, 'Z')
   return `${HEAD}<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" `
     + 'xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" '
     + 'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">'

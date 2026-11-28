@@ -9,7 +9,7 @@ import { DISPLAY } from '../../syntax.ts'
 import { errorComment, gather, heading as latexHeading, titleToLatex, titled as latexTitled, type Equation } from '../latexKit.ts'
 import { moduleBlockKind } from '../../engine/index.ts'
 import { equation, heading as docxHeading, run, titled as docxTitled, type Ctx, type Item } from '../docxKit.ts'
-import { EM_SPACE } from '../omml.ts'
+import { EM_SPACE } from '../syntax.ts'
 import { Construct, type DocxOut, type LatexOut } from './construct.ts'
 
 /** The LaTeX counter a block titled as a heading takes its number from, by level (none for a bold paragraph's). */

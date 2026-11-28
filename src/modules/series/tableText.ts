@@ -15,7 +15,7 @@
  *   or a column worked out from them) and its settings, after a semicolon.
  */
 import {
-  ASSIGN, BLOCK_CLOSE, BLOCK_OPEN, CELL_SEPARATOR, INDENT, MATHS_MARK, ROUND_BRACKETS, SEPARATOR, SIGIL, TOKEN_KIND, encode, isToken,
+  ASSIGN, BLOCK_CLOSE, BLOCK_OPEN, CELL_SEPARATOR, INDENT, LEADING_SPACES, MATHS_MARK, ROUND_BRACKETS, SEPARATOR, SIGIL, TOKEN_KIND, encode, isToken,
   outsideMaths, sheetStatements, splitArgs, textOf, type Part, type SheetStatement,
 } from '../../lib/plugin.ts'
 import { SERIES_NODE } from './grammar.ts'
@@ -118,7 +118,7 @@ export interface SheetTable {
 
 const LINE_BREAK = '\n'
 const lineAt = (text: string, offset: number) => text.slice(0, offset).split(LINE_BREAK).length
-const indentAt = (text: string, offset: number) => /^[ \t]*/.exec(text.slice(text.lastIndexOf(LINE_BREAK, offset - 1) + 1))![0]
+const indentAt = (text: string, offset: number) => LEADING_SPACES.exec(text.slice(text.lastIndexOf(LINE_BREAK, offset - 1) + 1))![0]
 
 /** The typed tables in a sheet's tree, each closed by its `}` (one that isn't runs to the end of the sheet, so isn't offered). */
 function typedTables(text: string): SheetTable[] {

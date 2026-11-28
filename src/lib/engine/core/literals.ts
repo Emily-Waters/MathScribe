@@ -1,5 +1,5 @@
 /** Unit literals (`9.81 m/s^2` as a number times a unit) and numbers kept as typed. */
-import { KEYWORD, MEMBER_DOT, NAME, NAME_CHAR, ROUND_BRACKETS, inClass, lit, regex, src } from '../../syntax.ts'
+import { KEYWORD, MEMBER_DOT, NAME, NAME_CHAR, ROUND_BRACKETS, SPACES, inClass, lit, regex, src } from '../../syntax.ts'
 import {
   LIBRARY_IN, convert, formatValue, inSI, isValuelessUnit, quantity, sameDimension, unitNames as libraryUnitNames, unitParts, unitText,
 } from '../../maths/library/index.ts'
@@ -85,7 +85,7 @@ export const POWER = regex(src`\^(${lit(OPEN)}-?\d+(?:\.\d+)?${lit(CLOSE)}|-?\d+
 const NOT_GOING_ON = src`(?!${NAME_CHAR}|${lit(OPEN)})`
 /** A unit's name, which may start with a typed micro sign (µm). */
 export const UNIT_WORD = src`(?:[µμ](?=[A-Za-z]))?[A-Za-z]+`
-export const FIRST_UNIT = regex(src`[ \t]*(${UNIT_WORD})${NOT_GOING_ON}`, 'y')
+export const FIRST_UNIT = regex(src`${SPACES}(${UNIT_WORD})${NOT_GOING_ON}`, 'y')
 export const NEXT_UNIT = regex(src`([*/·])(${UNIT_WORD})${NOT_GOING_ON}`, 'y')
 
 /** A power's brackets, left out of the unit: `^(-1)` → `^-1`. */

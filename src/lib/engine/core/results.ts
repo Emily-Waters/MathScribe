@@ -1,5 +1,5 @@
 /** What evaluating a line gives back, and how its equation is laid out. */
-import { TEX_RELATION } from '../../latex.ts'
+import { TEX_RELATION } from '../../latex/syntax.ts'
 import { PERCENT, KEYWORD, DISPLAY_MODE, SIGIL, regex, src, words, type DisplayMode, type Notation, type Precision, type WordOf } from '../../syntax.ts'
 import { seriesMemberName } from '../../sheet/names.ts'
 import { FunctionMember, builtinAt } from '../../builtins.ts'

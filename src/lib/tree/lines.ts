@@ -10,7 +10,7 @@
  * its text (codec.ts), and later its evaluation.
  */
 import {
-  BLOCK_NAME, BLOCK_OPEN, CELL_SEPARATOR, ROW_SEPARATOR, SEPARATOR, INLINE_MATHS, MATHS_MARK, NOTED_PIECE, PARAGRAPH_MARK, VALUE_BRACES, VALUE_IN_TEXT, isComment, lit, readNoted, regex, src,
+  BLOCK_NAME, BLOCK_OPEN, CELL_SEPARATOR, ROW_SEPARATOR, SEPARATOR, INLINE_MATHS, MATHS_MARK, NOTED_PIECE, PARAGRAPH_MARK, VALUE_BRACES, VALUE_IN_TEXT, isComment, lit, readNoted, regex, SPACES, src,
   type NotedLine,
 } from '../syntax.ts'
 import { CONTENT, contextInfo, syntaxesIn, type Body, type Content } from './grammar.ts'
@@ -41,7 +41,7 @@ export function splitLines(source: string): SourceLine[] {
 }
 
 /** A line's leading and trailing spaces and tabs, and what's between them. */
-const EDGES = /^([ \t]*)(.*?)([ \t]*)$/s
+const EDGES = regex(src`^(${SPACES})(.*?)(${SPACES})$`, 's')
 
 /** Spaces and tabs at the start or end of a piece. */
 const LEADING_SPACE = /^[ \t]+/
@@ -82,7 +82,7 @@ const continuationBody: BodyReader = (text, into) => spaced(TOKEN_KIND.body, tex
 const tailBody = (said: string): BodyReader => (text, into) => spaced(TOKEN_KIND.body, text, into, (t) => lexTail(said, t))
 
 /** A block's `{`, and any spaces after it, at the end of its opener. */
-const OPENING_BRACE = regex(src`${lit(BLOCK_OPEN)}[ \t]*$`)
+const OPENING_BRACE = regex(src`${lit(BLOCK_OPEN)}${SPACES}$`)
 
 /**
  * A block opener's body: its `@` name at the start, if it has one

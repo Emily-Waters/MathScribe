@@ -5,11 +5,11 @@
  * export (latex.ts) being involved.
  */
 import { TITLE_SEGMENT, titleSegments } from './textSegments.ts'
-import { GREEK_BY_CHAR, inClass, lit, regex, src } from '../syntax.ts'
+import { inClass, lit, regex, src } from '../syntax.ts'
 import {
-  ANY_COMMAND, TEX_ALIGN, TEX_ENVIRONMENT, TEX_ESCAPE, TEX_GROUP, TEX_LIST, TEX_RELATION, TEX_ROUND, TEX_SUBSCRIPT, TEX_SUPERSCRIPT, commands, escapeTexChars,
-  escapedBraceAt, texCommand,
-} from '../latex.ts'
+  ANY_COMMAND, HREF_SPECIAL, TEXT_AS_MATHS, TEXT_AS_MATHS_CHAR, TEX_ALIGN, TEX_ENVIRONMENT, TEX_ESCAPE, TEX_GROUP, TEX_LIST, TEX_RELATION,
+  TEX_ROUND, TEX_SIGN, TEX_SUBSCRIPT, TEX_SUPERSCRIPT, commands, escapeTexChars, escapedBraceAt, texCommand,
+} from '../latex/syntax.ts'
 import type { LatexOptions } from './latex.ts'
 
 // ---------------------------------------------------------------------------
@@ -20,22 +20,7 @@ import type { LatexOptions } from './latex.ts'
 export const escapeTex = (s: string) =>
   escapeTexChars(s)
     // (Characters pdflatex can't set in text, past Latin-1, as a little maths: σ as $\sigma$.)
-    .replace(TEXT_MATHS_CHAR, (c) => `$${TEXT_MATHS.get(c)}$`)
-
-/**
- * Characters past Latin-1 that a sheet's text uses (Greek letters, √, ≈, ≤, …),
- * which pdflatex can't set as text, as the maths that draws them. (±, ×, °, µ
- * and the like are Latin-1, which it sets as they are.)
- */
-const TEXT_MATHS: ReadonlyMap<string, string> = new Map<string, string>([
-  ...[...GREEK_BY_CHAR].map(([char, name]): [string, string] => [char, `\\${name}`]),
-  ['√', '\\surd'], ['≈', '\\approx'], ['≤', '\\le'], ['≥', '\\ge'], ['≠', '\\ne'], ['∞', '\\infty'],
-  ['→', '\\to'], ['←', '\\leftarrow'], ['⇌', '\\rightleftharpoons'], ['−', '-'], ['∑', '\\sum'],
-  ['∆', '\\Delta'], ['′', '\\prime'], ['∝', '\\propto'], ['∂', '\\partial'],
-])
-
-/** Any of TEXT_MATHS's characters. */
-const TEXT_MATHS_CHAR = regex(src`[${inClass(...TEXT_MATHS.keys())}]`, 'gu')
+    .replace(TEXT_AS_MATHS_CHAR, (c) => `$${TEXT_AS_MATHS.get(c)}$`)
 
 /**
  * A heading, block title or text in LaTeX: `2p_z` → 2p\textsubscript{z},
@@ -49,15 +34,12 @@ export function titleToLatex(text: string): string {
     // (Maths is bold by \boldsymbol, and italic already.)
     const italic = s.italic && s.kind !== TITLE_SEGMENT.math ? `\\textit{${piece}}` : piece
     const bold = s.bold && s.kind !== TITLE_SEGMENT.math ? `\\textbf{${italic}}` : italic
-    return s.href === undefined ? bold : `\\${LINK_COMMAND}{${s.href.replace(HREF_SPECIAL, '\\$&')}}{${bold}}`
+    return s.href === undefined ? bold : `\\${LINK_COMMAND}{${s.href.replace(HREF_SPECIAL, `${TEX_ESCAPE}$&`)}}{${bold}}`
   }).join('')
 }
 
 /** hyperref's command for a link, `\href{url}{text}` (the preamble loads hyperref when the document has one). */
 export const LINK_COMMAND = 'href'
-
-/** What an address in \href needs a backslash before. */
-const HREF_SPECIAL = /[%#]/g
 
 /** Title and note of a block, as one heading. */
 export const heading = (title: string, note?: string) =>
@@ -195,7 +177,10 @@ const ONE_SYMBOL = regex(ANY_COMMAND, 'g')
 const MARKUP = regex(src`[${inClass(TEX_GROUP.open, TEX_GROUP.close, TEX_SUPERSCRIPT, TEX_SUBSCRIPT, TEX_ALIGN)}\s]`, 'g')
 
 /** About how many characters an equation draws: its LaTeX without markup. */
-const drawnLength = (tex: string) => tex.replace(DRAWS_NOTHING, '').replace(ONE_SYMBOL, '#').replace(MARKUP, '').length
+const drawnLength = (tex: string) => tex.replace(DRAWS_NOTHING, '').replace(ONE_SYMBOL, ONE_CHARACTER).replace(MARKUP, '').length
+
+/** What a command that draws one symbol counts as: one character, any. */
+const ONE_CHARACTER = 'x'
 
 /** The relations an equation's steps are joined with (as layoutEquation joins them), at a position. */
 const RELATION_AT = regex(src` (${lit(TEX_RELATION.equals)}|${lit(TEX_RELATION.approx)}) `, 'y')
@@ -259,10 +244,10 @@ export function fitted(tex: string, share = 1): string {
 }
 
 /** A + or − between terms, at a position (as the engine writes them: `a+ b`, `a- b`). */
-const TERM_SIGN_AT = /[+-]/y
+const TERM_SIGN_AT = regex(src`[${inClass(TEX_SIGN.plus, TEX_SIGN.minus)}]`, 'y')
 /** What a sign right after makes it a number's or a term's own sign, not one between terms. */
 const BEFORE_OWN_SIGN = regex(
-  src`(?:^|[${inClass(TEX_RELATION.equals, TEX_ROUND.open, TEX_LIST)}+-]|${lit(texCommand('times'))}|${lit(texCommand('cdot'))}|${lit(texCommand('pm'))})\s*$`,
+  src`(?:^|[${inClass(TEX_RELATION.equals, TEX_ROUND.open, TEX_LIST, TEX_SIGN.plus, TEX_SIGN.minus)}]|${lit(texCommand('times'))}|${lit(texCommand('cdot'))}|${lit(texCommand('pm'))})\s*$`,
 )
 
 /** A row's terms, split before each + or − at its top level (not in brackets, braces or a number's own sign). */

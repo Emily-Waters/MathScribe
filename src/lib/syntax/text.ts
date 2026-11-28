@@ -6,12 +6,21 @@
  */
 import { SUBSCRIPT } from './lexical.ts'
 import { inClass, lit, named, regex, src } from './patterns.ts'
-import { CURLY_BRACKETS } from './punctuation.ts'
+import { CURLY_BRACKETS, ROUND_BRACKETS, SQUARE_BRACKETS } from './punctuation.ts'
 
 const { open: BRACE_OPEN, close: BRACE_CLOSE } = CURLY_BRACKETS
 
 /** A character that isn't a brace. */
 const NO_BRACES = src`[^${inClass(BRACE_OPEN, BRACE_CLOSE)}]`
+
+/** Before a mark in words that's meant as itself: `\_` a plain underscore, `\*` a plain asterisk. */
+export const TEXT_ESCAPE = '\\'
+
+/** Where a mark isn't meant as itself: not straight after the escape. */
+const NOT_ESCAPED = src`(?<!${lit(TEXT_ESCAPE)})`
+
+/** A letter or digit, which a subscript in words is attached to. */
+const LETTER_OR_DIGIT = src`[A-Za-z0-9]`
 
 /** A comment line starts with this: `// check the units`. It's never shown or worked out. */
 export const COMMENT_START = '//'
@@ -30,10 +39,12 @@ export const isComment = (line: string) => line.trimStart().startsWith(COMMENT_S
  * names: `2p_z`, `m_ball`, `x_{max}`, after a letter or digit. `\_` is a plain
  * underscore. (Its group: subscript, braces and all.)
  */
-export const TEXT_SUBSCRIPT = regex(src`(?<=[A-Za-z0-9])(?<!\\)${lit(SUBSCRIPT)}${named('subscript', src`${lit(BRACE_OPEN)}${NO_BRACES}*${lit(BRACE_CLOSE)}|[A-Za-z0-9]+`)}`, 'g')
+export const TEXT_SUBSCRIPT = regex(
+  src`(?<=${LETTER_OR_DIGIT})${NOT_ESCAPED}${lit(SUBSCRIPT)}${named('subscript', src`${lit(BRACE_OPEN)}${NO_BRACES}*${lit(BRACE_CLOSE)}|${LETTER_OR_DIGIT}+`)}`, 'g',
+)
 
 /** The letters or digits a subscript in words is attached to, at the end of the text before it: the `m` of `Mass of m_ball`. */
-export const SUBSCRIPT_BASE = /[A-Za-z0-9]+$/
+export const SUBSCRIPT_BASE = regex(src`${LETTER_OR_DIGIT}+$`)
 
 /** A subscript as typed, without any braces: `{max}` → max. */
 export const subscriptOf = (typed: string) => typed.replace(SUBSCRIPT_BRACES, '')
@@ -42,7 +53,7 @@ export const subscriptOf = (typed: string) => typed.replace(SUBSCRIPT_BRACES, ''
 const SUBSCRIPT_BRACES = regex(src`^${lit(BRACE_OPEN)}|${lit(BRACE_CLOSE)}$`, 'g')
 
 /** `\_`, written for a plain underscore in words. */
-const ESCAPED_UNDERSCORE = /\\_/g
+const ESCAPED_UNDERSCORE = regex(lit(TEXT_ESCAPE + SUBSCRIPT), 'g')
 
 /** Words with each `\_` as the plain underscore it stands for. */
 export const unescapeUnderscores = (text: string) => text.replace(ESCAPED_UNDERSCORE, SUBSCRIPT)
@@ -62,45 +73,72 @@ export const EMPHASIS_MARKS = { italic: 1, bold: 2 } as const
 export const MOST_EMPHASIS_MARKS = EMPHASIS_MARKS.bold + EMPHASIS_MARKS.italic
 
 /** A run of emphasis marks, not after a `\`. */
-export const EMPHASIS_RUN = /(?<!\\)\*+/g
+export const EMPHASIS_RUN = regex(src`${NOT_ESCAPED}${lit(EMPHASIS_MARK)}+`, 'g')
 
 /** `\*`, written for a plain asterisk in words. */
-const ESCAPED_EMPHASIS_MARK = /\\\*/g
+const ESCAPED_EMPHASIS_MARK = regex(lit(TEXT_ESCAPE + EMPHASIS_MARK), 'g')
 
 /** Words with each `\*` as the plain asterisk it stands for. */
 export const unescapeEmphasisMarks = (text: string) => text.replace(ESCAPED_EMPHASIS_MARK, EMPHASIS_MARK)
+
+/** Around a link's text, and then its address: `[the data](https://example.com/run1)`. */
+const LINK_TEXT = SQUARE_BRACKETS
+const LINK_ADDRESS = ROUND_BRACKETS
+
+/** What an address that makes a link starts with: the web's, or mail's. */
+const LINK_SCHEMES = src`(?:https?:\/\/|mailto:)`
 
 /**
  * A link in text, as Markdown writes it: `[the data](https://example.com/run1)`.
  * Only a web or mail address makes one; anything else is left as typed. (Its
  * groups: text, and url.)
  */
-export const TEXT_LINK = /\[(?<text>[^[\]]+)\]\((?<url>(?:https?:\/\/|mailto:)[^\s()]+)\)/g
+export const TEXT_LINK = regex(
+  src`${lit(LINK_TEXT.open)}${named('text', src`[^${inClass(LINK_TEXT.open, LINK_TEXT.close)}]+`)}${lit(LINK_TEXT.close)}`
+  + src`${lit(LINK_ADDRESS.open)}${named('url', src`${LINK_SCHEMES}[^\s${inClass(LINK_ADDRESS.open, LINK_ADDRESS.close)}]+`)}${lit(LINK_ADDRESS.close)}`,
+  'g',
+)
 
 // ---------------------------------------------------------------------------
 // Markdown in an @layout.text block: its kinds of paragraph
 // ---------------------------------------------------------------------------
 
+/** The most marks a heading can have (Markdown's six levels). */
+const MOST_HEADING_MARKS = 6
+
 /**
  * A heading of a text block's own, `# Method` (`##`, `###` smaller): not
  * numbered, unlike a heading line outside one. (Its groups: marks, text.)
  */
-export const TEXT_HEADING = /^(?<marks>#{1,6})\s+(?<text>.*)$/
+export const TEXT_HEADING = regex(src`^${named('marks', src`${lit(HEADING_MARK)}{1,${String(MOST_HEADING_MARKS)}}`)}\s+${named('text', '.*')}$`)
 
 /** The levels a text block's headings come in: `####` and more are drawn as `###`. */
 export const TEXT_HEADING_LEVELS = 3
 
+/** What starts each line of a quote in a text block: `> what they said`. */
+export const TEXT_QUOTE_MARK = '>'
+
 /** A quote in a text block: `> what they said`, each line of it. (Its group: text.) */
-export const TEXT_QUOTE = /^>\s?(?<text>.*)$/
+export const TEXT_QUOTE = regex(src`^${lit(TEXT_QUOTE_MARK)}\s?${named('text', '.*')}$`)
+
+/** A rule across the page in a text block: its mark, at least so many times on a line of its own, `---`. */
+export const RULE_MARK = '-'
+const FEWEST_RULE_MARKS = 3
 
 /** A rule across the page in a text block: `---` on a line of its own (three or more). */
-export const TEXT_RULE = /^-{3,}$/
+export const TEXT_RULE = regex(src`^${lit(RULE_MARK)}{${String(FEWEST_RULE_MARKS)},}$`)
+
+/** What starts a bulleted list's item in a text block: `- item`. */
+export const BULLET_MARK = '-'
 
 /** A bulleted list's item in a text block: `- item`. (Its group: text.) */
-export const TEXT_BULLET = /^-\s+(?<text>.*)$/
+export const TEXT_BULLET = regex(src`^${lit(BULLET_MARK)}\s+${named('text', '.*')}$`)
+
+/** After a numbered list's item's number: `1. item`. */
+export const NUMBERED_MARK = '.'
 
 /** A numbered list's item in a text block: `1. item` (the first item's number starts the list). (Its groups: number, text.) */
-export const TEXT_NUMBERED = /^(?<number>\d+)\.\s+(?<text>.*)$/
+export const TEXT_NUMBERED = regex(src`^${named('number', src`\d+`)}${lit(NUMBERED_MARK)}\s+${named('text', '.*')}$`)
 
 /** Displayed maths in a text block: `$$…$$`, over one line or several, on lines of its own. */
 export const DISPLAY_MATHS_MARK = '$$'
@@ -128,7 +166,7 @@ export const MATHS_MARK = '$'
  * `{{` in it is the maths's, not a value. The one definition the tree, the
  * outputs and the engine's labels all go by.
  */
-export const INLINE_MATHS = /\$[^$]+\$/
+export const INLINE_MATHS = regex(src`${lit(MATHS_MARK)}[^${inClass(MATHS_MARK)}]+${lit(MATHS_MARK)}`)
 
 /** Text split at its inline maths, each kept as a piece (for split). */
 const AT_INLINE_MATHS = regex(src`(${INLINE_MATHS})`)

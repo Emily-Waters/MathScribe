@@ -6,7 +6,7 @@
  * `@table { … }`, its lines each a row of cells.
  */
 import {
-  BODY_END, CONTENT, LINE_CONTEXT, type LexRule, type ModuleGrammar, SIGIL, token, TOKEN_KIND, TOKEN_ROLE,
+  BODY_END, CONTENT, LEADING_SPACES, LINE_CONTEXT, type LexRule, type ModuleGrammar, SIGIL, token, TOKEN_KIND, TOKEN_ROLE,
 } from '../../lib/plugin.ts'
 import { SERIES_CALL, SETTINGS_START, SPREAD, TYPED_TABLE_OPENER } from './syntax.ts'
 
@@ -38,7 +38,7 @@ const SETTINGS_RULE: LexRule = {
   read: (pos, state) => {
     if (state.text[pos] !== SETTINGS_START || !state.callee || !CALLS.has(state.callee)) return undefined
     const rest = state.text.slice(pos + 1, state.end)
-    const lead = /^[ \t]*/.exec(rest)![0]
+    const lead = LEADING_SPACES.exec(rest)![0]
     const settings = rest.slice(lead.length)
     return {
       parts: [

@@ -15,25 +15,15 @@
  * expression's tokens depend on its text alone, and are cached with its line.
  */
 import {
-  ASSIGN, CARRIED_JOIN, CONSTANT_PRECISION, DOTTED_NAME, NAME, NAME_CHAR, NAME_CHAR_RE, NUMBER, QUOTE, ROUND_BRACKETS, ROW_SEPARATOR, SEPARATOR,
-  SIGIL, SQUARE_BRACKETS, KEYWORD, UNCERTAINTY_WORDS, inClass, regex, src,
+  ASSIGN, CARRIED_JOIN, CONSTANT_PRECISION, DOTTED_NAME, MATHJS_DELIMITERS, MATHJS_NAMED_DELIMITERS, NAME, NAME_CHAR, NAME_CHAR_RE, NUMBER, QUOTE, ROUND_BRACKETS, ROW_SEPARATOR, SEPARATOR,
+  SETTING_MARK, SIGIL, SQUARE_BRACKETS, KEYWORD, LEADING_SPACES, UNCERTAINTY_WORDS, inClass, regex, src,
 } from '../syntax.ts'
 import { FIRST_UNIT, NEXT_UNIT, POWER, isUnitName } from '../engine/core/literals.ts'
 import { NODE_KIND, TOKEN_KIND, isToken, type Part, type SyntaxNode, type Token } from './nodes.ts'
 
 // ---------------------------------------------------------------------------
-// mathjs's own (as in its parser, mathjs/lib/esm/expression/parse.js)
+// mathjs's own (its delimiters are the language's: syntax/operators.ts)
 // ---------------------------------------------------------------------------
-
-/** mathjs's delimiters: operators, brackets, separators. Longest first, as mathjs tries them. */
-export const MATHJS_DELIMITERS = [
-  '>>>',
-  '.*', './', '.^', '^|', '?.', '??', '==', '!=', '<=', '>=', '<<', '>>',
-  ',', '.', '(', ')', '[', ']', '{', '}', '"', '\'', ';', '+', '-', '*', '/', '%', '^', '~', '!', '&', '|', '=', ':', '?', '<', '>',
-] as const
-
-/** mathjs's named delimiters: words that are operators (`2 m to cm`, `a mod b`). */
-export const MATHJS_NAMED_DELIMITERS = ['mod', 'to', 'in', 'and', 'xor', 'or', 'not'] as const
 
 /** A number, as mathjs reads one: digits, a decimal mark, an exponent (`2.00`, `.5`, `1.2e-3`). */
 const NUMBER_AT = regex(NUMBER, 'y')
@@ -336,7 +326,7 @@ export function closingBracket(text: string, open: number, end: number): number 
   let quoted = false
   for (let i = open; i < end; i++) {
     const c = text[i]
-    if (c === '"') quoted = !quoted
+    if (c === QUOTE) quoted = !quoted
     if (quoted) continue
     if (c === OPEN) depth++
     else if (c === CLOSE && --depth === 0) return i
@@ -371,7 +361,7 @@ export function unitAt(text: string, pos: number): number {
 }
 
 /** Spaces and tabs at a position: their length. */
-const spacesAt = (text: string, pos: number) => /^[ \t]*/.exec(text.slice(pos))![0].length
+const spacesAt = (text: string, pos: number) => LEADING_SPACES.exec(text.slice(pos))![0].length
 
 /**
  * A part with the unit after it, if one follows (a space between them, or not):
@@ -501,7 +491,7 @@ const CORE_RULES: LexRule[] = [
       // A unit: after `to` (a conversion), or a setting on the name being assigned (`phi:3:deg = …`).
       // (Before the name: a unit can start with a micro sign, `to µm`, which a name can't.)
       const afterTo = isTokenOf(state.prev, TOKEN_KIND.keyword, KEYWORD.to)
-      const setting = state.lhs && isTokenOf(state.prev, TOKEN_KIND.delimiter, ':')
+      const setting = state.lhs && isTokenOf(state.prev, TOKEN_KIND.delimiter, SETTING_MARK)
       if (afterTo || setting) {
         const unit = unitAt(state.text, pos)
         if (unit) return one(token(TOKEN_KIND.unit, state.text.slice(pos, pos + unit)), unit)

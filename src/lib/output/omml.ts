@@ -9,6 +9,11 @@
  */
 import katex from './katex.ts'
 import { ALIGN } from './alignment.ts'
+import { lit, regex, src } from '../syntax/patterns.ts'
+import {
+  ACCENTS, BARS, EM_SPACE, FUNCTION_APPLICATION, NARY, THIN_SPACE, WIDE_OPERATORS, XML_ATTRIBUTE, XML_CHARACTER, XML_ENTITIES,
+  XML_ENTITY, XML_TOKEN, xmlEscape,
+} from './syntax.ts'
 
 // ---------------------------------------------------------------------------
 // A small XML reader, enough for KaTeX's MathML (no DOM needed, so it runs in tests too)
@@ -22,14 +27,14 @@ export interface XmlNode {
   text?: string
 }
 
-/** The named entities XML has. */
-const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" }
-
 /** XML text with its entities replaced by the characters they stand for. */
 function decode(s: string): string {
-  return s.replace(/&(#x[0-9a-f]+|#\d+|\w+);/gi, (m, e: string) => {
-    if (e[0] === '#') return String.fromCodePoint(e[1] === 'x' || e[1] === 'X' ? parseInt(e.slice(2), 16) : Number(e.slice(1)))
-    return ENTITIES[e] ?? m
+  return s.replace(XML_ENTITY, (m, e: string) => {
+    if (e[0] === XML_CHARACTER.number) {
+      const hex = e[1] === XML_CHARACTER.hex || e[1] === XML_CHARACTER.hexCapital
+      return String.fromCodePoint(hex ? parseInt(e.slice(2), 16) : Number(e.slice(1)))
+    }
+    return XML_ENTITIES[e] ?? m
   })
 }
 
@@ -37,8 +42,7 @@ function decode(s: string): string {
 export function parseXml(xml: string): XmlNode {
   const root: XmlNode = { tag: '#root', attrs: {}, children: [] }
   const stack = [root]
-  const token = /<\?[^>]*\?>|<!--[\s\S]*?-->|<(\/?)([\w:.-]+)((?:\s+[\w:.-]+\s*=\s*"[^"]*")*)\s*(\/?)>|([^<]+)/g
-  for (const m of xml.matchAll(token)) {
+  for (const m of xml.matchAll(XML_TOKEN)) {
     const [, close, tag, attrText, selfClose, text] = m
     const top = stack[stack.length - 1]
     if (text !== undefined) {
@@ -48,7 +52,7 @@ export function parseXml(xml: string): XmlNode {
       stack.pop()
     } else if (tag) {
       const attrs: Record<string, string> = {}
-      for (const a of (attrText ?? '').matchAll(/([\w:.-]+)\s*=\s*"([^"]*)"/g)) attrs[a[1]] = decode(a[2])
+      for (const a of (attrText ?? '').matchAll(XML_ATTRIBUTE)) attrs[a[1]] = decode(a[2])
       const node: XmlNode = { tag, attrs, children: [] }
       top.children.push(node)
       if (!selfClose) stack.push(node)
@@ -61,13 +65,6 @@ export function parseXml(xml: string): XmlNode {
 // ---------------------------------------------------------------------------
 // MathML → OMML
 // ---------------------------------------------------------------------------
-
-/** Escape text for XML. */
-export const xmlEscape = (s: string) =>
-  s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!)
-    // Characters XML can't hold at all.
-    // eslint-disable-next-line no-control-regex
-    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
 
 /** How a run of maths is set: italic (a variable), upright, bold, or ordinary text. */
 type RunStyle = 'i' | 'p' | 'b' | 'text'
@@ -83,35 +80,15 @@ interface Ctx {
   bold?: boolean
 }
 
-/** Characters that can't be seen in the source, by name. */
-const char = String.fromCodePoint
-/** The invisible operator MathML puts between a function's name and its argument (sin x). */
-const FUNCTION_APPLICATION = char(0x2061)
-const THIN_SPACE = char(0x2009)
-export const EM_SPACE = char(0x2003)
-/** Combining characters: Word draws an accent as one of these over its letter. */
-const COMBINING = {
-  grave: char(0x300), acute: char(0x301), circumflex: char(0x302), tilde: char(0x303), overline: char(0x305),
-  dot: char(0x307), diaeresis: char(0x308), caron: char(0x30c), rightArrow: char(0x20d7),
-}
-
-/** Accents on a letter (`\hat x`): KaTeX's character → the combining character Word uses. */
-const ACCENTS: Record<string, string> = {
-  '^': COMBINING.circumflex, 'ˆ': COMBINING.circumflex, '~': COMBINING.tilde, '˜': COMBINING.tilde,
-  '˙': COMBINING.dot, '¨': COMBINING.diaeresis, 'ˇ': COMBINING.caron, '´': COMBINING.acute, '`': COMBINING.grave,
-  '→': COMBINING.rightArrow, [COMBINING.rightArrow]: COMBINING.rightArrow,
-}
-/** Marks KaTeX uses for a bar over a letter (`\bar t`), which Word draws as a bar, not an accent. */
-const BARS = new Set(['ˉ', '¯', '‾', '_', COMBINING.overline])
-
 /** An `mspace` at least this wide (in ems) becomes an em space; narrower ones a thin space. */
 const WIDE_SPACE_EMS = 0.9
 
 /** Every function-application operator in some text, to remove. */
-const ALL_FUNCTION_APPLICATIONS = new RegExp(FUNCTION_APPLICATION, 'g')
+const ALL_FUNCTION_APPLICATIONS = regex(lit(FUNCTION_APPLICATION), 'g')
 
-/** Big operators that take limits and a body: ∑ᵢ tᵢ. */
-const NARY = new Set(['∑', '∏', '∐', '∫', '∬', '∭', '∮', '⋃', '⋂', '⋁', '⋀'])
+/** Whitespace: a run of it, and one character of it. */
+const WHITESPACE_RUN = regex(src`\s+`)
+const WHITESPACE = regex(src`\s`)
 
 /** All the text inside a node. */
 const textOf = (n: XmlNode): string => (n.tag === '#text' ? n.text ?? '' : n.children.map(textOf).join(''))
@@ -235,7 +212,7 @@ function scriptOnLast(n: XmlNode, script: (typeof SCRIPTS)[keyof typeof SCRIPTS]
 }
 
 /** Letters only: an element's symbol, or part of one, as a base for a script (not a number or a sign). */
-const LETTERS = /^\p{L}+$/u
+const LETTERS = regex(src`^\p{L}+$`, 'u')
 
 /** A MathML node as OMML pieces. */
 function convert(n: XmlNode, ctx: Ctx): Piece[] {
@@ -314,7 +291,7 @@ function convert(n: XmlNode, ctx: Ctx): Piece[] {
 function table(n: XmlNode, ctx: Ctx): string {
   const rows = elements(n).filter((r) => r.tag === 'mtr' || r.tag === 'mlabeledtr')
   const cols = Math.max(1, ...rows.map((r) => elements(r).length))
-  const aligns = (n.attrs.columnalign ?? '').split(/\s+/).filter(Boolean)
+  const aligns = (n.attrs.columnalign ?? '').split(WHITESPACE_RUN).filter(Boolean)
   const jc = (i: number) => {
     const al = aligns[Math.min(i, aligns.length - 1)] ?? ALIGN.center
     return al === ALIGN.right ? ALIGN.right : al === ALIGN.left ? ALIGN.left : ALIGN.center
@@ -332,9 +309,6 @@ function table(n: XmlNode, ctx: Ctx): string {
 // ---------------------------------------------------------------------------
 // Width, roughly
 // ---------------------------------------------------------------------------
-
-/** Operators set with space on both sides (= + ±), so wider than one character. */
-const WIDE_OPERATORS = new Set(['=', '+', '−', '-', '±', '≈', '→', '<', '>', '≤', '≥'])
 
 /** Rough widths in Cambria Math, in ems, for estimating an equation's width. */
 const WIDTH_EMS = {
@@ -372,7 +346,7 @@ function width(n: XmlNode): number {
       return WIDE_OPERATORS.has(t) ? WIDTH_EMS.wideOperator : [...t].length * WIDTH_EMS.operatorCharacter
     }
     case 'mtext':
-      return [...textOf(n)].reduce((w, c) => w + (/\s/.test(c) ? WIDTH_EMS.textSpace : WIDTH_EMS.textCharacter), 0)
+      return [...textOf(n)].reduce((w, c) => w + (WHITESPACE.test(c) ? WIDTH_EMS.textSpace : WIDTH_EMS.textCharacter), 0)
     case 'mspace':
       return parseFloat(n.attrs.width ?? '0') || 0
     case 'mfrac':

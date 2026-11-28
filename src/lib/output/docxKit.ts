@@ -12,7 +12,8 @@ import type { CaptionKind } from '../sheet/blocks.ts'
 // (How a paragraph lines up, for a module's constructs: ALIGN.center.)
 export { ALIGN, type Align }
 import type { LatexOptions } from './latex.ts'
-import { texToMath, texToOmml, xmlEscape } from './omml.ts'
+import { texToMath, texToOmml } from './omml.ts'
+import { xmlEscape } from './syntax.ts'
 import { words, type ListMarker, type WordOf } from '../syntax.ts'
 
 // ---------------------------------------------------------------------------

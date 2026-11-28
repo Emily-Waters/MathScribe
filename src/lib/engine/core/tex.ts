@@ -4,7 +4,7 @@ import { builtinConstant } from '../../builtins.ts'
 import { GREEK_BY_CHAR, GREEK_BY_NAME, GREEK_CHARS, SERIES_SUFFIXES, inClass, lit, regex, src } from '../../syntax.ts'
 import {
   ENDS_IN_SUBSCRIPT, SUBSCRIPT_TAIL, TEX_GROUP, TEX_LIST, TEX_SUPERSCRIPT, TEX_THIN_SPACE, TEX_TIE,
-} from '../../latex.ts'
+} from '../../latex/syntax.ts'
 import { JOIN, parseConstantRefName, parseMemberName, parseNumberedName, parseSeriesStatName, parseSliceName, typedSlice, describedName, parseHeldName, parseUncertaintyName } from '../../sheet/names.ts'
 import {
   FN, UNIT_LOOKS, isCall, isConstant, quantity, unitParts, type CallExpr, type ConstantExpr, type Expr,

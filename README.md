@@ -334,9 +334,13 @@ renamed, change it there too.
   `sheet/` (the blocks, their values and names, and what the editor is told),
   `output/` (the Rendered tab's pieces and the two exports, with `constructs/`),
   `content/` (the sample, Reference, Library and Create's prompt), `data/`
-  (imported data, files, browser storage) and `maths/` (sig figs, algebra,
-  brackets, mathjs's names). `builtins.ts` and `constants.ts` (everything under
-  `@`) are at its top.
+  (imported data, files, browser storage), `maths/` (sig figs, algebra,
+  brackets, mathjs's names) and `latex/` (LaTeX's vocabulary, `syntax.ts`: what
+  code reads back out of the LaTeX it writes). `builtins.ts` and `constants.ts`
+  (everything under `@`) are at its top.
+- Each language's punctuation and patterns are named once, in a `syntax.ts`
+  beside the code that uses it (the sheet's own in `syntax/`), and patterns are
+  built with `syntax/patterns.ts`; `src/lib/literals.test.ts` checks it
 - `src/lib/syntax/`: the sheet language's words and patterns, one file per
   concept (names and numbers, settings, text markup, blocks, constants,
   notes, `@layout`), written with `patterns.ts` (`src`, `named`, `words`);

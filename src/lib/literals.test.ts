@@ -6,9 +6,12 @@
  *
  *   - no regular-expression literal (`/\{[^}]*\}/`), and no `new RegExp(…)`:
  *     patterns are built with `regex(src…)` from named pieces (syntax/patterns.ts);
- *   - no quoted punctuation (`'('`, `','`, `'\\'`): the character is named,
- *     in the sheet's punctuation (syntax/punctuation.ts), LaTeX's (latex.ts),
- *     or a module's syntax.ts.
+ *   - no quoted punctuation (`'('`, `','`, `'\\'`): the character is named, in
+ *     its language's syntax file: a `syntax.ts` beside the code that uses it
+ *     (LaTeX's latex/syntax.ts, a module's), or the sheet's src/lib/syntax/.
+ *
+ * Syntax files may quote punctuation (that's where it's named), but build their
+ * patterns with the regex builder too.
  *
  * What's still written the old way is listed in KNOWN, a count per file, which
  * only goes down: a file over its count fails, and so does one under it, until
@@ -34,13 +37,12 @@ const BUILDS_PATTERNS: ReadonlySet<string> = new Set(['lib/syntax/patterns.ts'])
 
 /**
  * Where punctuation is defined, so it can be quoted (patterns are still built
- * with regex): the sheet's (syntax/), LaTeX's, a module's syntax.ts; and the
- * language tree, whose examples are sheet text.
+ * with regex): the sheet's (src/lib/syntax/), any language's `syntax.ts`; and
+ * the language tree, whose examples are sheet text.
  */
 const DEFINES_PUNCTUATION = [
   /^lib\/syntax\//,
-  /^lib\/latex\.ts$/,
-  /^modules\/[^/]+\/syntax\.ts$/,
+  /(?:^|\/)syntax\.ts$/,
   /^lib\/language\/topics\.ts$/,
   /^modules\/[^/]+\/language\.ts$/,
 ]
@@ -198,7 +200,7 @@ const KNOWN: Readonly<Record<string, number>> = {
   'lib/constants.ts': 1,
   'lib/content/aiPrompt.ts': 8,
   'lib/content/library.ts': 1,
-  'lib/data/csv.ts': 20,
+  'lib/data/csv.ts': 19,
   'lib/data/files.ts': 1,
   'lib/data/share.ts': 10,
   'lib/engine/core/calculator.ts': 1,
@@ -225,20 +227,14 @@ const KNOWN: Readonly<Record<string, number>> = {
   'lib/maths/sigfigs.ts': 21,
   'lib/maths/solve.ts': 15,
   'lib/output/constructs/lines.ts': 1,
-  'lib/output/docx.ts': 6,
   'lib/output/latex.ts': 1,
-  'lib/output/latexKit.ts': 20,
-  'lib/output/omml.ts': 51,
   'lib/output/textSegments.ts': 3,
   'lib/reading/readers.ts': 2,
   'lib/sheet/names.ts': 3,
   'lib/sheet/sheetIndex.ts': 1,
-  'lib/syntax/blocks.ts': 2,
-  'lib/syntax/text.ts': 11,
   'lib/tree/core.ts': 1,
   'lib/tree/format.ts': 2,
-  'lib/tree/lexer.ts': 42,
-  'lib/tree/lines.ts': 4,
+  'lib/tree/lines.ts': 3,
   'lib/tree/migrations.ts': 1,
   'lib/tree/shapes.ts': 2,
   'modules/chemistry/chemistry.ts': 23,
@@ -246,14 +242,12 @@ const KNOWN: Readonly<Record<string, number>> = {
   'modules/chemistry/substance.ts': 1,
   'modules/index.ts': 1,
   'modules/series/columns.ts': 1,
-  'modules/series/grammar.ts': 1,
   'modules/series/plot.ts': 1,
   'modules/series/plotGraph.ts': 14,
   'modules/series/plotSettings.ts': 4,
   'modules/series/series.ts': 7,
   'modules/series/tableBlock.ts': 1,
   'modules/series/tableData.ts': 1,
-  'modules/series/tableText.ts': 1,
   'modules/solve/solve.ts': 1,
   'modules/vectors/module.ts': 3,
 }

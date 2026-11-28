@@ -16,7 +16,7 @@
  * x_n gets its row's, as if typed `x_n = 0.012 m pm 0.001 m`. In the column's
  * unit, or x's if it has none; `dx (%)` is a percentage of each value.
  */
-import { IMPORT_CALL, INDENT, IS_NAME, importCall, indentOf } from '../syntax.ts'
+import { IMPORT_CALL, INDENT, IS_NAME, LEADING_SPACES, importCall, indentOf } from '../syntax.ts'
 
 /** One column: its variable name, unit, and each value as typed with the row it's on (1 = first data row). */
 export interface CsvColumn {
@@ -189,7 +189,7 @@ export function withImportedData(source: string, line: number, fileName: string,
   const lines = source.split(/\r?\n/)
   const at = line - 1
   const own = lines[at] ?? ''
-  const indent = /^[ \t]*/.exec(own)![0]
+  const indent = LEADING_SPACES.exec(own)![0]
   const name = fileName.replace(/"/g, '')
   const head = own.replace(IMPORT_CALL, importCall(name))
   // The rows it had: the lines straight under it, indented further (a blank line ends them).

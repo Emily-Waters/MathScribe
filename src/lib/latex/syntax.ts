@@ -8,7 +8,8 @@
  * where the character is the same. LaTeX that's written out stays as it reads
  * (`\\frac{${a}}{${b}}`); what's here is what code looks for in it.
  */
-import { inClass, lit, regex, src } from './syntax/patterns.ts'
+import { GREEK_BY_CHAR } from '../syntax/greek.ts'
+import { inClass, lit, regex, src } from '../syntax/patterns.ts'
 
 // ---------------------------------------------------------------------------
 // Characters
@@ -52,6 +53,27 @@ const TEXT_SPECIAL = regex(src`[${inClass(...Object.keys(TEXT_ESCAPES))}]`, 'g')
 
 /** Text with the characters LaTeX treats specially escaped: `50% of a_b` → `50\% of a\_b`. */
 export const escapeTexChars = (text: string) => text.replace(TEXT_SPECIAL, (c) => TEXT_ESCAPES[c])
+
+/** What an address in `\href{…}` needs the escape before. */
+export const HREF_SPECIAL = regex(src`[${inClass('%', '#')}]`, 'g')
+
+/**
+ * Characters past Latin-1 that a sheet's text uses (Greek letters, √, ≈, ≤, …),
+ * which pdflatex can't set as text, as the maths that draws them. (±, ×, °, µ
+ * and the like are Latin-1, which it sets as they are.)
+ */
+export const TEXT_AS_MATHS: ReadonlyMap<string, string> = new Map<string, string>([
+  ...[...GREEK_BY_CHAR].map(([char, name]): [string, string] => [char, `${TEX_ESCAPE}${name}`]),
+  ['√', '\\surd'], ['≈', '\\approx'], ['≤', '\\le'], ['≥', '\\ge'], ['≠', '\\ne'], ['∞', '\\infty'],
+  ['→', '\\to'], ['←', '\\leftarrow'], ['⇌', '\\rightleftharpoons'], ['−', '-'], ['∑', '\\sum'],
+  ['∆', '\\Delta'], ['′', '\\prime'], ['∝', '\\propto'], ['∂', '\\partial'],
+])
+
+/** Any of TEXT_AS_MATHS's characters. */
+export const TEXT_AS_MATHS_CHAR = regex(src`[${inClass(...TEXT_AS_MATHS.keys())}]`, 'gu')
+
+/** The signs between terms, as the engine writes them: `a+ b`, `a- b`. */
+export const TEX_SIGN = { plus: '+', minus: '-' } as const
 
 // ---------------------------------------------------------------------------
 // Commands

@@ -14,7 +14,7 @@
  */
 import {
   TEX_ANGLE, TEX_BAR, TEX_BRACE, TEX_ESCAPE, TEX_GROUP, TEX_LIST, TEX_NORM, TEX_NO_DELIMITER, TEX_ROUND, TEX_SIZED, TEX_SQUARE,
-} from '../latex.ts'
+} from '../latex/syntax.ts'
 import { inClass, lit, regex, src } from '../syntax/patterns.ts'
 
 /** The delimiters a \left or \right can have: brackets, braces, angles, bars, or none. */

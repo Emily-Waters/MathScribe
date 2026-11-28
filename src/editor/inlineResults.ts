@@ -12,7 +12,7 @@ import katex from 'katex'
 import type { LineValue } from '../lib/engine/index.ts'
 import { readStored, writeStored } from '../lib/data/storage.ts'
 import { STORAGE_KEYS } from '../config.ts'
-import { TEX_RELATION } from '../lib/latex.ts'
+import { TEX_RELATION } from '../lib/latex/syntax.ts'
 
 /** The results, by line number, as the evaluated sheet has them. */
 export const setInlineResults = StateEffect.define<ReadonlyMap<number, LineValue>>()

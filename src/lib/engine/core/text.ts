@@ -1,6 +1,6 @@
 /** Words in display names and text, as LaTeX. */
 import { SUBSCRIPT_BASE, TEXT_SUBSCRIPT, outsideMaths, splitInlineMath, subscriptOf, unescapeUnderscores } from '../../syntax.ts'
-import { TEX_LIST, escapeTexChars } from '../../latex.ts'
+import { TEX_LIST, escapeTexChars } from '../../latex/syntax.ts'
 import { moduleSubscriptTex } from './module.ts'
 
 // (Where inline maths is in text is syntax's, the one definition: syntax/text.ts.)

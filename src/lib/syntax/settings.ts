@@ -4,8 +4,19 @@
  * name: its uncertainty (`delta F`) and a series' statistics (`t_avg`).
  */
 import { NAME } from './lexical.ts'
-import { named, regex, src, words, type WordOf } from './patterns.ts'
-import { QUOTE } from './punctuation.ts'
+import { inClass, lit, named, regex, src, words, type WordOf } from './patterns.ts'
+import { ASSIGN, QUOTE, ROUND_BRACKETS, SETTING_MARK } from './punctuation.ts'
+
+const { open: OPEN, close: CLOSE } = ROUND_BRACKETS
+
+/** What's inside quotes: anything but a quote. */
+const UNQUOTED = src`[^${inClass(QUOTE)}]*`
+
+/** What's inside round brackets with none inside them. */
+const NO_BRACKETS = src`[^${inClass(OPEN, CLOSE)}]*`
+
+/** Round brackets with none inside them: `(H2O)`. */
+const IN_BRACKETS = src`${lit(OPEN)}${NO_BRACKETS}${lit(CLOSE)}`
 
 // ---------------------------------------------------------------------------
 // Settings after a `:`
@@ -16,10 +27,10 @@ import { QUOTE } from './punctuation.ts'
  * (which can hold spaces and colons); a display-name template's use, `massName(H2O)`
  * (whose brackets can hold spaces); or a word, `3`, `deg`, `sci`.
  */
-const SETTING_VALUE = src`"[^"]*"|${NAME}\([^()]*\)|[^:=\s"]+`
+const SETTING_VALUE = src`${QUOTE}${UNQUOTED}${QUOTE}|${NAME}${IN_BRACKETS}|[^${inClass(SETTING_MARK, ASSIGN)}\s${inClass(QUOTE)}]+`
 
 /** One display setting after a name, with its colon: `:3`, `:deg`, `:"Moles"`, `:massName(H2O)`. */
-const SETTING = src`:(?:${SETTING_VALUE})`
+const SETTING = src`${SETTING_MARK}(?:${SETTING_VALUE})`
 
 /** Any number of settings: `:3:deg`, or none. */
 export const SETTINGS = src`(?:${SETTING})*`
@@ -49,10 +60,10 @@ export const LABEL_QUOTE = QUOTE
  * quotes, with `{{x}}` where each argument's text goes: `massName(x) = "m_{{x}}"`
  * (its group: words).
  */
-export const LABEL_WORDS = regex(src`^${LABEL_QUOTE}${named('words', '[^"]*')}${LABEL_QUOTE}$`)
+export const LABEL_WORDS = regex(src`^${LABEL_QUOTE}${named('words', UNQUOTED)}${LABEL_QUOTE}$`)
 
 /** A display name made with a template, as a setting: `massName(H2O)` (its groups: template, and its arguments). */
-export const TEMPLATE_USE = regex(src`^${named('template', NAME)}\(${named('arguments', '[^()]*')}\)$`)
+export const TEMPLATE_USE = regex(src`^${named('template', NAME)}${lit(OPEN)}${named('arguments', NO_BRACKETS)}${lit(CLOSE)}$`)
 
 // ---------------------------------------------------------------------------
 // Names made from a name

@@ -1,9 +1,13 @@
 /** Vectors typed `<3.0, 4.0> N`: where one opens and closes (the lexer reads them by this: grammar.ts). */
-import { CLOSING_BRACKETS, OPENING_BRACKETS, SEPARATOR } from '../../lib/plugin.ts'
+import {
+  ASSIGN, CLOSING_BRACKETS, OPENING_BRACKETS, ROUND_BRACKETS, SEPARATOR, SQUARE_BRACKETS, inClass, regex, src,
+} from '../../lib/plugin.ts'
 import { ANGLE_BRACKETS as ANGLE } from './syntax.ts'
 
 /** Characters after which a `<` opens a vector rather than comparing: the start, `=`, `(`, `[`, `,`, an operator. */
-export const VECTOR_OPENS_AFTER = /(?:^|[=([,+\-*/^<])\s*$/
+export const VECTOR_OPENS_AFTER = regex(
+  src`(?:^|[${inClass(ASSIGN, ROUND_BRACKETS.open, SQUARE_BRACKETS.open, SEPARATOR)}+\-*/^${inClass(ANGLE.open)}])\s*$`,
+)
 
 /**
  * Where the vector opened by the `<` at `start` closes: the index of its `>`,

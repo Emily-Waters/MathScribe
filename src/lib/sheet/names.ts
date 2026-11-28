@@ -19,7 +19,7 @@
  * named plot's fit is p.slope, p.intercept, p.r2 and p.chi2.
  */
 import {
-  CALL, EXACT_SETTING, IS_NAME, MEMBER_DOT, MEMBER_INDEX, NAME, SERIES_SUFFIXES, SIGIL, UNCERTAINTY_WORDS,
+  CALL, EXACT_SETTING, IS_NAME, MEMBER_DOT, MEMBER_INDEX, NAME, SERIES_SUFFIXES, SIGIL, UNCERTAINTY_WORDS, regex, src,
   type Precision, type SeriesSuffix, type UncertaintyWord,
 } from '../syntax.ts'
 
@@ -126,7 +126,7 @@ export const whereName = (base: string, id: number) => `${base}${JOIN}${WHERE}${
 const WHERE = 'where'
 
 /** The rows where a condition holds (1: the series): x__where3 → x. */
-const WHERE_NAME = new RegExp(String.raw`^(.+)${JOIN}${WHERE}\d+$`)
+const WHERE_NAME = regex(src`^(.+)${JOIN}${WHERE}\d+$`)
 
 /** The series a name of the rows where a condition holds is of: x__where3 → x (undefined if it isn't one). */
 export const whereOf = (name: string): string | undefined => WHERE_NAME.exec(name)?.[1]
@@ -162,7 +162,7 @@ export const sliceName = (base: string, spec: SliceSpec) =>
     .map(([mark, n]) => (n === undefined ? '' : `${SLICE.between}${mark}${n}`)).join('')}`
 
 /** A slice's inside name (1: the series; 2, 3, 4: from, to and step, if given). */
-const SLICE_NAME = new RegExp(String.raw`^(.+)${JOIN}${SLICE.word}(?:${SLICE.between}${SLICE.from}(\d+))?(?:${SLICE.between}${SLICE.to}(\d+))?(?:${SLICE.between}${SLICE.step}(\d+))?$`)
+const SLICE_NAME = regex(src`^(.+)${JOIN}${SLICE.word}(?:${SLICE.between}${SLICE.from}(\d+))?(?:${SLICE.between}${SLICE.to}(\d+))?(?:${SLICE.between}${SLICE.step}(\d+))?$`)
 
 /** A slice's series and what it takes: t__slice_f2_t10 → t, { from: 2, to: 10 } (null if it isn't one). */
 export function parseSliceName(name: string): { of: string; spec: SliceSpec } | null {
@@ -195,16 +195,16 @@ export function sliceOf<T>(members: readonly (readonly [number, T])[], spec: Sli
 // Reading
 // ---------------------------------------------------------------------------
 
-const UNCERTAINTY_NAME = new RegExp(`^(${UNCERTAINTY_WORDS.join('|')})${JOIN}(.+)$`)
-const CONSTANT_NAME = new RegExp(String.raw`^${HIDDEN_PREFIX.constant}${JOIN}(.+)${JOIN}(?:\d+|${EXACT_MARK})$`)
-const HELD_NAME = new RegExp(`^${HIDDEN_PREFIX.held}${JOIN}(.+)$`)
+const UNCERTAINTY_NAME = regex(src`^(${UNCERTAINTY_WORDS.join('|')})${JOIN}(.+)$`)
+const CONSTANT_NAME = regex(src`^${HIDDEN_PREFIX.constant}${JOIN}(.+)${JOIN}(?:\d+|${EXACT_MARK})$`)
+const HELD_NAME = regex(src`^${HIDDEN_PREFIX.held}${JOIN}(.+)$`)
 const UNPACKED_START = `${HIDDEN_PREFIX.unpacked}${JOIN}`
 
 /** A series' statistic, `t.avg` as t__avg (1: the series, 2: the statistic). */
-export const SERIES_STAT_NAME = new RegExp(`^(.+)${JOIN}(${Object.keys(SERIES_SUFFIXES).join('|')})$`)
+export const SERIES_STAT_NAME = regex(src`^(.+)${JOIN}(${Object.keys(SERIES_SUFFIXES).join('|')})$`)
 
 /** A series' member, `t[1]` as t__1 (1: the series, 2: its number). */
-const NUMBERED_NAME = new RegExp(String.raw`^(.+)${JOIN}(\d+)$`)
+const NUMBERED_NAME = regex(src`^(.+)${JOIN}(\d+)$`)
 
 /** A series' member's series and number: t__1 → t, 1; run1__x__12 → run1__x, 12 (null if it isn't one). */
 export function parseNumberedName(name: string): { base: string; n: number } | null {
@@ -257,7 +257,7 @@ export function parseMemberName(name: string): { namespace: string; member: stri
 // (Members as typed, `a.x_1`, are read into their inside names from the line's tokens: engine/core/memberAccess.ts.)
 
 /** A built-in function as typed: builtin__tuple → @tuple. */
-const BUILTIN_FUNCTION_NAME = new RegExp(String.raw`^${HIDDEN_PREFIX.builtin}${JOIN}(${NAME})$`)
+const BUILTIN_FUNCTION_NAME = regex(src`^${HIDDEN_PREFIX.builtin}${JOIN}(${NAME})$`)
 
 /** A member as typed: a__x_1 → a.x_1, t__3 → t[3], builtin__tuple → @tuple (other names as they are). */
 export function typedName(name: string): string {
@@ -278,4 +278,4 @@ export function typedName(name: string): string {
 }
 
 /** Inside names in a message written back as typed: a__x_1 → a.x_1. */
-export const readableMembers = (text: string) => text.replace(new RegExp(String.raw`\b${NAME}`, 'g'), typedName)
+export const readableMembers = (text: string) => text.replace(regex(src`\b${NAME}`, 'g'), typedName)

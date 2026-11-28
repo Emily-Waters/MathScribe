@@ -3,7 +3,7 @@
  * read as a node holding its values; and how that node is written for mathjs.
  */
 import {
-  builtinOpening, isToken, lexExpression, type LexRule, type ModuleGrammar, node, type Part, type PartWriter, token,
+  builtinOpening, isToken, lexExpression, type LexRule, type ModuleGrammar, node, type Part, type PartWriter, regex, token,
   TOKEN_KIND, withUnit,
 } from '../../lib/plugin.ts'
 import { ANGLE_BRACKETS, VECTOR_CALL, VECTOR_FUNCTION } from './syntax.ts'
@@ -37,7 +37,7 @@ const holdsVector = (parts: readonly Part[]): boolean =>
   parts.some((p) => !isToken(p) && (p.kind === VECTOR_NODE.vector || holdsVector(p.parts)))
 
 /** A call to `@vector`, as typed: `@vector(`. */
-const VECTOR_CALL_OPENING = new RegExp(builtinOpening(VECTOR_CALL))
+const VECTOR_CALL_OPENING = regex(builtinOpening(VECTOR_CALL))
 
 /** Whether some text has a vector written `<…>` or `@vector(…)` in it. */
 export const hasVector = (src: string) => holdsVector(lexExpression(src)) || VECTOR_CALL_OPENING.test(src)

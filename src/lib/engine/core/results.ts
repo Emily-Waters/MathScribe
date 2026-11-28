@@ -1,5 +1,5 @@
 /** What evaluating a line gives back, and how its equation is laid out. */
-import { PERCENT, KEYWORD, DISPLAY_MODE, SIGIL, words, type DisplayMode, type Notation, type Precision, type WordOf } from '../../syntax.ts'
+import { PERCENT, KEYWORD, DISPLAY_MODE, SIGIL, regex, src, words, type DisplayMode, type Notation, type Precision, type WordOf } from '../../syntax.ts'
 import { seriesMemberName } from '../../sheet/names.ts'
 import { FunctionMember, builtinAt } from '../../builtins.ts'
 import type { VariableSummary } from '../../sheet/values.ts'
@@ -234,7 +234,7 @@ export interface ParsedLine {
 }
 
 /** `… to percent` at the end of a line. */
-export const TO_PERCENT = new RegExp(String.raw`\s+${KEYWORD.to}\s+${PERCENT}\s*$`)
+export const TO_PERCENT = regex(src`\s+${KEYWORD.to}\s+${PERCENT}\s*$`)
 
 /** Marks a SymbolExpr whose name is pre-rendered TeX (used for substituted values). */
 export const RAW = '\u0001'

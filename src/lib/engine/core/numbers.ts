@@ -1,5 +1,5 @@
 /** Numerical settings (digits shown, tolerances) and function parameters. */
-import { NAME, KEYWORD } from '../../syntax.ts'
+import { NAME, KEYWORD, regex, src } from '../../syntax.ts'
 import { convert, formatValue, isQuantity, quantity } from '../../maths/library/index.ts'
 
 // ---------------------------------------------------------------------------
@@ -41,7 +41,7 @@ export function addLiteral(literals: Map<number, string>, text: string): void {
 }
 
 /** A function parameter: `m`, or `m to kg` (cast to kg on the way in) (1: the name, 2: the unit). */
-export const PARAMETER = new RegExp(String.raw`^(${NAME})(?:\s+${KEYWORD.to}\s+(\S+))?$`)
+export const PARAMETER = regex(src`^(${NAME})(?:\s+${KEYWORD.to}\s+(\S+))?$`)
 
 /** A function parameter's name and unit (null if it isn't one). */
 export function parseParam(spec: string): { name: string; unit?: string } | null {

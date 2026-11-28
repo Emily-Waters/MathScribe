@@ -14,7 +14,11 @@
  * of rows, …); a module declares its calls' settings as a list of them, and
  * may add kinds of its own (a plot's axes, its colours).
  */
+import { inClass, regex, src } from '../syntax/patterns.ts'
 import { QUOTE, SEPARATOR } from '../syntax/punctuation.ts'
+
+/** Text in quotes, as a setting's value: `"Run 1"` (its group: what's inside). */
+const QUOTED = src`${QUOTE}([^${inClass(QUOTE)}]*)${QUOTE}`
 
 // ---------------------------------------------------------------------------
 // Settings text: its parts, and the pieces several kinds of setting share
@@ -54,7 +58,7 @@ export function settingParts(text: string | undefined): string[] {
 export const joinSettings = (parts: readonly string[]) => parts.join(`${SETTINGS_SEPARATOR} `)
 
 /** `rows 5-20`, `rows 5-`, `rows -20` (1: from, 2: to); or one row, `rows 7` (3). */
-const ROWS = new RegExp(String.raw`^${SETTING_WORD.rows}\s+(?:(\d*)\s*${RANGE_DASH}\s*(\d*)|(\d+))$`)
+const ROWS = regex(src`^${SETTING_WORD.rows}\s+(?:(\d*)\s*${RANGE_DASH}\s*(\d*)|(\d+))$`)
 
 /** A row range setting's rows (either end may be open), or null if `part` isn't one. */
 export function parseRowRange(part: string): { from?: number; to?: number } | null {
@@ -71,7 +75,7 @@ export function formatRowRange(from: number | undefined, to: number | undefined)
 }
 
 /** `title "Run 1"` (1: the title). */
-const TITLE = new RegExp(`^${SETTING_WORD.title}\\s+${QUOTE}([^${QUOTE}]*)${QUOTE}$`)
+const TITLE = regex(src`^${SETTING_WORD.title}\s+${QUOTED}$`)
 
 /** A title setting's title (`title "Run 1"` → Run 1), or undefined if `part` isn't one. */
 export const parseTitle = (part: string): string | undefined => TITLE.exec(part)?.[1]
@@ -294,7 +298,7 @@ export class NameSetting<S> extends Setting<S> {
     return [`${this.word} ${this.sample}`]
   }
   read(part: string, into: S): boolean {
-    const m = new RegExp(`^${this.word}\\s+(\\S+)$`).exec(part)
+    const m = regex(src`^${this.word}\s+(\S+)$`).exec(part)
     if (!m) return false
     put(into, this.key, m[1])
     return true
@@ -364,7 +368,7 @@ export class TextSetting<S> extends Setting<S> {
     return [`${this.word} ${QUOTE}${this.sample}${QUOTE}`]
   }
   read(part: string, into: S): boolean {
-    const m = new RegExp(`^${this.word}\\s+${QUOTE}([^${QUOTE}]*)${QUOTE}$`).exec(part)
+    const m = regex(src`^${this.word}\s+${QUOTED}$`).exec(part)
     if (!m) return false
     put(into, this.key, m[1] || undefined)
     return true

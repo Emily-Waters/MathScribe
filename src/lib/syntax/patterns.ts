@@ -5,7 +5,8 @@
  * Patterns: `src` writes regular-expression source as it reads (no doubled
  * backslashes), taking other pieces in as they are; `named` gives a piece a
  * name, read back as `m.groups.name` rather than by its position; `regex` makes
- * the finished source a RegExp.
+ * the finished source a RegExp; `lit` takes in text to match as it is (the
+ * language's punctuation, `lit(BLOCK_OPEN)`), and `inClass` characters into square brackets.
  *
  *   const OPENER = regex(src`^${LAYOUT_NAME}(?:\s+${named('title', '.*?')})?\s*\{$`)
  *   OPENER.exec(line)?.groups?.title
@@ -37,6 +38,26 @@ export const oneOf = (pieces: readonly Piece[]) => `(?:${pieces.map(sourceOf).jo
 
 /** Finished source as a pattern. */
 export const regex = (piece: Piece, flags = '') => new RegExp(sourceOf(piece), flags)
+
+/** What has a meaning of its own in a pattern, outside brackets. */
+const PATTERN_CHARS = /[\\^$.*+?()[\]{}|]/g
+
+/** What has a meaning of its own in a pattern's square brackets. */
+const CLASS_CHARS = /[\\\]^-]/g
+
+/**
+ * Text matched as it is, whatever it's made of: lit(BLOCK_OPEN) → `\{`,
+ * lit(MEMBER_DOT) → `\.`. How a pattern takes in punctuation the language
+ * names (syntax/punctuation.ts) rather than typing it again.
+ */
+export const lit = (text: string) => text.replace(PATTERN_CHARS, '\\$&')
+
+/**
+ * Characters as they are, for inside a pattern's square brackets: one of them,
+ * `[${inClass(ROUND_BRACKETS.close, SQUARE_BRACKETS.close)}]` → `[)\]]`, or
+ * none of them, `[^${inClass(QUOTE)}\n]`.
+ */
+export const inClass = (...chars: readonly string[]) => chars.map((c) => c.replace(CLASS_CHARS, '\\$&')).join('')
 
 /** A set of words, by name: `{ sym: 'sym', val: 'val' }`. */
 type WordSet = Readonly<Record<string, string>>

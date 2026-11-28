@@ -3,14 +3,17 @@
  * other pattern is built from, so a change to what a name looks like is made
  * once, here.
  */
-import { named, regex, src, words, type WordOf } from './patterns.ts'
-import { SQUARE_BRACKETS } from './punctuation.ts'
+import { lit, named, regex, src, words, type WordOf } from './patterns.ts'
+import { ASSIGN, ROUND_BRACKETS, SQUARE_BRACKETS } from './punctuation.ts'
 
 /** Greek letters (the Greek and Coptic block, U+0370 to U+03FF), which names can contain: `ΔE`, `ω_0`. */
 export const GREEK_CHARS = `${String.fromCodePoint(0x370)}-${String.fromCodePoint(0x3ff)}`
 
 /** A character that can continue a name: a letter, digit, underscore or Greek letter. */
 export const NAME_CHAR = src`[\w${GREEK_CHARS}]`
+
+/** Whether a character (or anything in some text) can continue a name. */
+export const NAME_CHAR_RE = regex(NAME_CHAR)
 
 /** A name: a letter (Latin or Greek), then letters, digits or underscores (`m`, `v_0`, `E_k`, `ΔE`). */
 export const NAME = src`[A-Za-z${GREEK_CHARS}]${NAME_CHAR}*`
@@ -20,6 +23,9 @@ export const IS_NAME = regex(src`^${NAME}$`)
 
 /** A number as typed: `2`, `2.`, `.5`, `2.50`, `6.02e23`. */
 export const NUMBER = src`(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?`
+
+/** A number with any sign before it: `-2.5`, `+3e8`, `0.1` (a setting's, a series' value read as it's typed). */
+export const SIGNED_NUMBER = src`[-+]?${NUMBER}`
 
 /** Words with a meaning of their own in a line: a conversion, `2.0 m to cm`; an uncertainty, `2.0 kg pm 0.1 kg`. */
 export const KEYWORD = words({ to: 'to', pm: 'pm' })
@@ -44,16 +50,19 @@ export const CALL = words({ import: 'import', tuple: 'tuple', inv: 'inv' })
 export const NAMESPACE = words({ layout: 'layout' })
 
 /** A call by name, up to its opening bracket: `import (`. */
-const opening = (call: string) => src`${call}\s*\(`
+const opening = (call: string) => src`${call}\s*${lit(ROUND_BRACKETS.open)}`
 
 /** A built-in call, up to its opening bracket: `@table (` (for building patterns). */
 export const builtinOpening = (call: string) => opening(`${SIGIL}${call}`)
 
 /** `name = ` before a call that can be named: `p = @plot(…)` (its group: name). */
-export const NAMED = src`(?:${named('name', NAME)}\s*=\s*)`
+export const NAMED = src`(?:${named('name', NAME)}\s*${ASSIGN}\s*)`
 
 /** Between a namespace and its member, as typed: a.x_1. */
 export const MEMBER_DOT = '.'
+
+/** A name, then any members after dots: `c`, `chem.mm.Na`, `layout.list`. */
+export const DOTTED_NAME = src`${NAME}(?:${lit(MEMBER_DOT)}${NAME})*`
 
 /** Before a subscript in a name, `v_0`; it's part of the name (v_0 is a name of its own, not a member of v). */
 export const SUBSCRIPT = '_'

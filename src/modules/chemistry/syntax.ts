@@ -3,17 +3,32 @@
  * lines are read with, and the inside names of its functions. (MathScribe's
  * own syntax is in src/lib/syntax.ts, which this builds on.)
  */
-import { CURLY_BRACKETS, memberName, NAME, named, regex, src } from '../../lib/plugin.ts'
+import {
+  ASSIGN, blockOpener, CURLY_BRACKETS, MEMBER_DOT, ROUND_BRACKETS, SETTING_MARK, SIGIL, SUBSCRIPT, inClass, lit, memberName, NAME, named, regex, src,
+} from '../../lib/plugin.ts'
 
 /** Around a species or a formula, as typed: `2.0 mol {Na^+}`, `{Na^+}` in text. */
 export const SPECIES_BRACES = CURLY_BRACKETS
+
+/** A species' opening and closing braces, in a pattern. */
+export const BRACE_OPEN = lit(SPECIES_BRACES.open)
+export const BRACE_CLOSE = lit(SPECIES_BRACES.close)
+
+/** What's in a species' braces: a formula, anything but a brace. */
+export const SPECIES_INSIDE = src`[^${inClass(SPECIES_BRACES.open, SPECIES_BRACES.close)}]+`
+
+/** A species in its braces, `{Na^+}` (its group: the formula inside). */
+export const BRACED_SPECIES = src`${BRACE_OPEN}(${SPECIES_INSIDE})${BRACE_CLOSE}`
+
+/** `=` between a name and its value, with any spaces. */
+const ASSIGNED = src`\s*${ASSIGN}\s*`
 
 /**
  * A formula in text, `{Na^+}`: single braces, not a value's `{{…}}`, nor a
  * subscript's `_{…}` (its group: formula). The one definition the tree (a
  * formula token), the outputs and the editor go by.
  */
-const FORMULA_IN_TEXT_SOURCE = src`(?<![{_])\{${named('formula', '[^{}]+')}\}(?!\})`
+const FORMULA_IN_TEXT_SOURCE = src`(?<![${inClass(SPECIES_BRACES.open, SUBSCRIPT)}])${BRACE_OPEN}${named('formula', SPECIES_INSIDE)}${BRACE_CLOSE}(?!${BRACE_CLOSE})`
 
 /** Every formula in some text. */
 export const FORMULA_IN_TEXT = regex(FORMULA_IN_TEXT_SOURCE, 'g')
@@ -34,13 +49,16 @@ export const CHEM_NAMESPACE = 'chem'
  */
 export const CHEM_FUNCTION = { substance: 'substance', molarMass: 'mm', total: 'total', reaction: 'reaction' } as const
 
+/** What starts a member of @chem, as typed: `@chem.`. */
+export const CHEM_PREFIX = src`${SIGIL}${CHEM_NAMESPACE}${lit(MEMBER_DOT)}`
+
 /**
  * A reaction, named, on a line of its own: `r = @chem.reaction({2 H2 + O2 -> 2 H2O})`.
  * Its species' coefficients are its members, as amounts: r.H2O is 2 mol H2O
  * (1: the name, 2: the reaction).
  */
-export const REACTION_DEFINITION = new RegExp(
-  String.raw`^(${NAME})\s*=\s*@${CHEM_NAMESPACE}\.${CHEM_FUNCTION.reaction}\(\s*\{(.+)\}\s*\)\s*$`)
+export const REACTION_DEFINITION = regex(
+  src`^(${NAME})${ASSIGNED}${CHEM_PREFIX}${CHEM_FUNCTION.reaction}${lit(ROUND_BRACKETS.open)}\s*${BRACE_OPEN}(.+)${BRACE_CLOSE}\s*${lit(ROUND_BRACKETS.close)}\s*$`)
 
 // ---------------------------------------------------------------------------
 // Species names: `@chem.species { dietzeite = {7Ca(IO3)2*8CaCrO4} }`
@@ -55,16 +73,19 @@ export type SpeciesDisplay = (typeof SPECIES_DISPLAY)[keyof typeof SPECIES_DISPL
 export const SPECIES_DISPLAYS: readonly SpeciesDisplay[] = Object.values(SPECIES_DISPLAY)
 
 /** How a species name is shown, as a setting on it or on a line: `dietzeite:formula = {…}`, `m:name = …`. */
-const SPECIES_DISPLAY_SETTING = String.raw`(?::(${SPECIES_DISPLAYS.join('|')}))?`
+const SPECIES_DISPLAY_SETTING = src`(?:${SETTING_MARK}(${SPECIES_DISPLAYS.join('|')}))?`
+
+/** A species named, after its name: its display setting, `=`, and its formula in braces. */
+const NAMED_SPECIES = src`${SPECIES_DISPLAY_SETTING}${ASSIGNED}${BRACED_SPECIES}\s*$`
 
 /** A species' name, as declared: `dietzeite = {7Ca(IO3)2*8CaCrO4}`, `edta:formula = {EDTA^4-}` (1: name, 2: how it's shown, 3: the formula). */
-export const SPECIES_ENTRY = new RegExp(String.raw`^(${NAME})${SPECIES_DISPLAY_SETTING}\s*=\s*\{([^{}]+)\}\s*$`)
+export const SPECIES_ENTRY = regex(src`^(${NAME})${NAMED_SPECIES}`)
 
 /** The opener of an `@chem.species { }` block. */
-export const SPECIES_OPENER = new RegExp(String.raw`^@${CHEM_NAMESPACE}\.${SPECIES_BLOCK}\s*\{$`)
+export const SPECIES_OPENER = blockOpener(src`${CHEM_NAMESPACE}${lit(MEMBER_DOT)}${SPECIES_BLOCK}`)
 
 /** One species named on a line of its own: `@chem.species dietzeite = {7Ca(IO3)2*8CaCrO4}` (1–3 as SPECIES_ENTRY). */
-export const SPECIES_LINE = new RegExp(String.raw`^@${CHEM_NAMESPACE}\.${SPECIES_BLOCK}\s+(${NAME})${SPECIES_DISPLAY_SETTING}\s*=\s*\{([^{}]+)\}\s*$`)
+export const SPECIES_LINE = regex(src`^${CHEM_PREFIX}${SPECIES_BLOCK}\s+(${NAME})${NAMED_SPECIES}`)
 
 // ---------------------------------------------------------------------------
 // Inside names

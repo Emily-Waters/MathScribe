@@ -31,7 +31,10 @@ import { SYMBOL_KIND, type SheetSymbol } from '../lib/sheet/sheetIndex.ts'
 import { describeUnit, isUnitName, numberTex, symbolTex, unitNames, unitTex } from '../lib/engine/index.ts'
 import { STORAGE_KEYS } from '../config.ts'
 import { readStored, writeStored } from '../lib/data/storage.ts'
-import { GREEK_CHARS, KEYWORD, MEMBER_DOT, MEMBER_INDEX, NAME, NAME_CHAR, PERCENT, SERIES_STAT_SUFFIX, SIGIL, VALUE_BRACES } from '../lib/syntax.ts'
+import {
+  CURLY_BRACKETS, GREEK_CHARS, KEYWORD, MEMBER_DOT, MEMBER_INDEX, NAME, NAME_CHAR, PERCENT, ROUND_BRACKETS, SERIES_STAT_SUFFIX, SIGIL, VALUE_BRACES,
+  inClass, lit, regex, src,
+} from '../lib/syntax.ts'
 import { memberName, parseMemberName, parseNumberedName, seriesMemberName, typedName } from '../lib/sheet/names.ts'
 import { BUILTIN_FUNCTIONS, KEYWORDS, MATH_CONSTANTS, SERIES_SUFFIXES, SETTING_WORDS } from './vocabulary.ts'
 import { inNote, inValue, isProseLine } from './language.ts'
@@ -100,10 +103,13 @@ const constantTex = (c: BuiltinConstant | NamespaceConstant) => {
 }
 
 /** `@` and any namespaces with their dots, just before a word: the `@chem.mm.` of `@chem.mm.Na` (1: the namespaces and dots). */
-const BUILTIN_BEFORE = /@((?:\w+\.)*)$/
+const BUILTIN_BEFORE = regex(src`${SIGIL}((?:\w+${lit(MEMBER_DOT)})*)$`)
+
+/** A member's brackets and what's in them, `(3)` of `column(3)`. */
+const MEMBER_BRACKETS = regex(src`${lit(ROUND_BRACKETS.open)}[^${inClass(ROUND_BRACKETS.open, ROUND_BRACKETS.close)}\n]*${lit(ROUND_BRACKETS.close)}`, 'g')
 
 /** Namespaces as typed, each with its dot, as a path of names: `chem.mm.` → chem, mm. */
-const pathOf = (dotted: string) => dotted.replace(/\([^()\n]*\)/g, '').split(MEMBER_DOT).filter(Boolean) // (a member's brackets, `column(3)`, aren't its name)
+const pathOf = (dotted: string) => dotted.replace(MEMBER_BRACKETS, '').split(MEMBER_DOT).filter(Boolean) // (a member's brackets, `column(3)`, aren't its name)
 
 /**
  * The namespace whose members come after a path: chem, mm → @chem.mm. In a
@@ -162,14 +168,19 @@ function memberInfo(m: Member): HTMLElement {
   return infoNode(undefined, `${m.typed} { }`, m.description)
 }
 
+/** A brace on its own, not a value's `{{`. */
+const SINGLE_BRACE = src`(?<!${lit(CURLY_BRACKETS.open)})${lit(CURLY_BRACKETS.open)}`
+/** A character that isn't a brace. */
+const NO_BRACES = src`[^${inClass(CURLY_BRACKETS.open, CURLY_BRACKETS.close)}]`
+
 /**
  * In single braces, where a formula starts (just after the brace, or after a
  * space or coefficient), what's typed of a name: `{dietz`, `{2 dietz` (1: what's typed).
  */
-const BRACED_SO_FAR = /(?<!\{)\{(?:[^{}]*[\s\d])?([a-z]\w*|)$/
+const BRACED_SO_FAR = regex(src`${SINGLE_BRACE}(?:${NO_BRACES}*[\s\d])?([a-z]\w*|)$`)
 
 /** A name in braces just before a word, for its hover: the `{` of `{dietzeite}`. */
-const IN_BRACES = /(?<!\{)\{(?:[^{}]*[\s\d])?$/
+const IN_BRACES = regex(src`${SINGLE_BRACE}(?:${NO_BRACES}*[\s\d])?$`)
 
 /** Where a name is defined, for its information panel. */
 const where = (s: SheetSymbol) => `Defined on line ${s.line}`
@@ -200,7 +211,7 @@ function symbolInfo(s: SheetSymbol): HTMLElement {
 // ---------------------------------------------------------------------------
 
 /** Where a unit goes, for hovering one: after a number or `to`, or inside a compound unit (m/s^2). */
-const UNIT_PLACE = new RegExp(String.raw`(?:\d\.?|\b${KEYWORD.to})\s+$|[A-Za-z][/*]$`)
+const UNIT_PLACE = regex(src`(?:\d\.?|\b${KEYWORD.to})\s+$|[A-Za-z][/*]$`)
 
 /** A series' member, as the suggestion list shows it: t[n]. */
 const MEMBER_N = `${MEMBER_INDEX.open}n${MEMBER_INDEX.close}`
@@ -345,7 +356,7 @@ export function complete(ctx: CompletionContext): CompletionResult | null {
           ...members.flatMap((m) => memberOptions(m, top ? SIGIL : '')),
           ...custom.map((s): Completion => ({ label: s.name, type: 'constant', detail: 'your constant', info: () => symbolInfo(s) })),
         ],
-        validFor: top ? /^@\w*$/ : /^\w*$/,
+        validFor: top ? BUILTIN_SO_FAR : /^\w*$/,
       }
     }
 
@@ -425,7 +436,10 @@ function allNameOptions(visible: SheetSymbol[]): Completion[] {
 }
 
 /** What may follow a name being typed while the list stays open (Greek letters included). */
-const WORD_SO_FAR = new RegExp(`^${NAME_CHAR}*$`)
+const WORD_SO_FAR = regex(src`^${NAME_CHAR}*$`)
+
+/** What may follow `@` being typed while the list of built-ins stays open. */
+const BUILTIN_SO_FAR = regex(src`^${SIGIL}\w*$`)
 
 /** Tab accepts a suggestion when the list is open. */
 export const acceptOnTab: Command = acceptCompletion
@@ -522,7 +536,7 @@ const hoverInfo = hoverTooltip((view, pos) => {
 
   // A namespace's member, `a.x_1`.
   const visible = visibleAt(state, line.number)
-  const ns = new RegExp(String.raw`(?<![\w.${GREEK_CHARS}])(${NAME})\.$`).exec(before)
+  const ns = regex(src`(?<![\w${inClass(MEMBER_DOT)}${GREEK_CHARS}])(${NAME})${lit(MEMBER_DOT)}$`).exec(before)
   if (ns) {
     const full = memberName(ns[1], name)
     const member = visible.get(full)

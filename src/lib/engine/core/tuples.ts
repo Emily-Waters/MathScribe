@@ -1,8 +1,8 @@
 /** Tuples: what isn't one (a bare bracketed list), and how one is bracketed in a substitution. */
-import { CLOSING_BRACKETS, NAME_CHAR, OPENING_BRACKETS, ROUND_BRACKETS, SEPARATOR } from '../../syntax.ts'
+import { CLOSING_BRACKETS, NAME_CHAR, OPENING_BRACKETS, ROUND_BRACKETS, SEPARATOR, SQUARE_BRACKETS, inClass, regex, src } from '../../syntax.ts'
 
 /** Text ending where a bracket would start a call's arguments: after a name (`f`, `λ`) or a closing bracket. */
-export const CALL_BEFORE = new RegExp(String.raw`(?:${NAME_CHAR}|[)\]])$`)
+export const CALL_BEFORE = regex(src`(?:${NAME_CHAR}|[${inClass(ROUND_BRACKETS.close, SQUARE_BRACKETS.close)}])$`)
 
 /**
  * The first bracketed list with commas, `(a, b)`, that isn't a function call's

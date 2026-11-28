@@ -5,7 +5,13 @@
  * Markdown an `@layout.text` block reads (headings, lists, quotes, rules, `$$…$$`).
  */
 import { SUBSCRIPT } from './lexical.ts'
-import { named, regex, src } from './patterns.ts'
+import { inClass, lit, named, regex, src } from './patterns.ts'
+import { CURLY_BRACKETS } from './punctuation.ts'
+
+const { open: BRACE_OPEN, close: BRACE_CLOSE } = CURLY_BRACKETS
+
+/** A character that isn't a brace. */
+const NO_BRACES = src`[^${inClass(BRACE_OPEN, BRACE_CLOSE)}]`
 
 /** A comment line starts with this: `// check the units`. It's never shown or worked out. */
 export const COMMENT_START = '//'
@@ -24,13 +30,16 @@ export const isComment = (line: string) => line.trimStart().startsWith(COMMENT_S
  * names: `2p_z`, `m_ball`, `x_{max}`, after a letter or digit. `\_` is a plain
  * underscore. (Its group: subscript, braces and all.)
  */
-export const TEXT_SUBSCRIPT = regex(src`(?<=[A-Za-z0-9])(?<!\\)_${named('subscript', src`\{[^{}]*\}|[A-Za-z0-9]+`)}`, 'g')
+export const TEXT_SUBSCRIPT = regex(src`(?<=[A-Za-z0-9])(?<!\\)${lit(SUBSCRIPT)}${named('subscript', src`${lit(BRACE_OPEN)}${NO_BRACES}*${lit(BRACE_CLOSE)}|[A-Za-z0-9]+`)}`, 'g')
 
 /** The letters or digits a subscript in words is attached to, at the end of the text before it: the `m` of `Mass of m_ball`. */
 export const SUBSCRIPT_BASE = /[A-Za-z0-9]+$/
 
 /** A subscript as typed, without any braces: `{max}` → max. */
-export const subscriptOf = (typed: string) => typed.replace(/^\{|\}$/g, '')
+export const subscriptOf = (typed: string) => typed.replace(SUBSCRIPT_BRACES, '')
+
+/** A subscript's braces, at its ends. */
+const SUBSCRIPT_BRACES = regex(src`^${lit(BRACE_OPEN)}|${lit(BRACE_CLOSE)}$`, 'g')
 
 /** `\_`, written for a plain underscore in words. */
 const ESCAPED_UNDERSCORE = /\\_/g
@@ -97,10 +106,10 @@ export const TEXT_NUMBERED = /^(?<number>\d+)\.\s+(?<text>.*)$/
 export const DISPLAY_MATHS_MARK = '$$'
 
 /** A value in text's braces, as typed: `{{c_Na}}`. */
-export const VALUE_BRACES = { open: '{{', close: '}}' } as const
+export const VALUE_BRACES = { open: BRACE_OPEN.repeat(2), close: BRACE_CLOSE.repeat(2) } as const
 
 /** A value in text, `{{c_Na}}`, `{{V:4 to mL}}` (its group: value, what's between the braces). */
-export const VALUE_IN_TEXT = regex(src`\{\{${named('value', '[^{}]+')}\}\}`, 'g')
+export const VALUE_IN_TEXT = regex(src`${lit(VALUE_BRACES.open)}${named('value', src`${NO_BRACES}+`)}${lit(VALUE_BRACES.close)}`, 'g')
 
 /**
  * Between the cells of a row of text (a typed table's: `1 | 12.3 g | pale blue`);

@@ -6,7 +6,7 @@
  * (plotFigure.ts).
  */
 import {
-  type DisplayName, GREEK_BY_NAME, GREEK_CHARS, SUBSCRIPT, TEXT_SUBSCRIPT, UNIT_LOOKS, parseMemberName, subscriptOf, typedName,
+  type DisplayName, GREEK_BY_NAME, GREEK_CHARS, SUBSCRIPT, TEXT_SUBSCRIPT, UNIT_LOOKS, parseMemberName, regex, src, subscriptOf, typedName,
   unescapeUnderscores,
 } from '../../lib/plugin.ts'
 import {
@@ -311,7 +311,7 @@ const escapeXml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').
 
 /** A name's base and subscript as SVG text: `v_f` → v with f lowered, `theta` → θ; one letter in italics. */
 /** A letter, then a number (and maybe letters), with no underscore: `m1`, `v1x` (1: the letter, 2: the rest). */
-const LETTER_THEN_NUMBER = new RegExp(String.raw`^([A-Za-z${GREEK_CHARS}])(\d+[A-Za-z]*)$`)
+const LETTER_THEN_NUMBER = regex(src`^([A-Za-z${GREEK_CHARS}])(\d+[A-Za-z]*)$`)
 
 /**
  * A display name's words as SVG text, each subscript lowered as in names

@@ -9,18 +9,20 @@
  *
  * (Each delta F, @c and value a module holds, such as @solve's answer, is in a hidden variable: see names.ts.)
  */
-import { NAME, KEYWORD, UNCERTAINTY_WORDS } from '../../syntax.ts'
-import { PM_WORD, NAME_CHAR_RE } from './literals.ts'
+import { KEYWORD, NAME, NAME_CHAR_RE, ROUND_BRACKETS, SETTING_MARK, UNCERTAINTY_WORDS, inClass, lit, regex, src } from '../../syntax.ts'
+import { PM_WORD } from './literals.ts'
 import { unitPartsAt } from '../../tree/lexer.ts'
 
 /** A value in text with settings on its name: `V:4 to mL` (1: the name, 2: the settings, 3: the rest). */
-export const NAME_THEN_SETTINGS = new RegExp(String.raw`^(${NAME})((?::[^:\s]+)+)(.*)$`)
+export const NAME_THEN_SETTINGS = regex(src`^(${NAME})((?:${SETTING_MARK}[^${inClass(SETTING_MARK)}\s]+)+)(.*)$`)
 
 /** `delta F` (or `Delta F`): F's uncertainty (1: the letter, 2: the name). */
-export const DELTA_REF = new RegExp(String.raw`\b(${UNCERTAINTY_WORDS.join('|')})\s+(${NAME})`, 'g')
+export const DELTA_REF = regex(src`\b(${UNCERTAINTY_WORDS.join('|')})\s+(${NAME})`, 'g')
 
 /** `(2.0 pm 0.1)`: a bracketed value with its uncertainty (1: value, 2: uncertainty, 3: `%` if relative). */
-export const PAREN_PM = new RegExp(String.raw`\(\s*([-+]?[\d.]+(?:[eE][+-]?\d+)?)\s*${KEYWORD.pm}\b\s*([\d.]+(?:[eE][+-]?\d+)?)(%?)\s*\)`, 'g')
+export const PAREN_PM = regex(
+  src`${lit(ROUND_BRACKETS.open)}\s*([-+]?[\d.]+(?:[eE][+-]?\d+)?)\s*${KEYWORD.pm}\b\s*([\d.]+(?:[eE][+-]?\d+)?)(%?)\s*${lit(ROUND_BRACKETS.close)}`, 'g',
+)
 
 /** `(2.0 pm 0.1) kg` → `2.0 kg pm 0.1 kg` (the unit as typed, with what's part of it: `mol {EDTA}`). */
 export function expandParenPm(src: string): string {

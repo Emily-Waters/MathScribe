@@ -10,7 +10,7 @@
  * its text (codec.ts), and later its evaluation.
  */
 import {
-  BLOCK_NAME, BLOCK_OPEN, CELL_SEPARATOR, ROW_SEPARATOR, SEPARATOR, INLINE_MATHS, MATHS_MARK, NOTED_PIECE, PARAGRAPH_MARK, VALUE_BRACES, VALUE_IN_TEXT, isComment, readNoted, regex,
+  BLOCK_NAME, BLOCK_OPEN, CELL_SEPARATOR, ROW_SEPARATOR, SEPARATOR, INLINE_MATHS, MATHS_MARK, NOTED_PIECE, PARAGRAPH_MARK, VALUE_BRACES, VALUE_IN_TEXT, isComment, lit, readNoted, regex, src,
   type NotedLine,
 } from '../syntax.ts'
 import { CONTENT, contextInfo, syntaxesIn, type Body, type Content } from './grammar.ts'
@@ -82,7 +82,7 @@ const continuationBody: BodyReader = (text, into) => spaced(TOKEN_KIND.body, tex
 const tailBody = (said: string): BodyReader => (text, into) => spaced(TOKEN_KIND.body, text, into, (t) => lexTail(said, t))
 
 /** A block's `{`, and any spaces after it, at the end of its opener. */
-const OPENING_BRACE = /\{[ \t]*$/
+const OPENING_BRACE = regex(src`${lit(BLOCK_OPEN)}[ \t]*$`)
 
 /**
  * A block opener's body: its `@` name at the start, if it has one

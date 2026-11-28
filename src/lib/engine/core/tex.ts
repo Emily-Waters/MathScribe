@@ -1,7 +1,7 @@
 /** Names, numbers and units as LaTeX. */
 import { AGGREGATE_KIND } from '../../sheet/values.ts'
 import { builtinConstant } from '../../builtins.ts'
-import { GREEK_BY_CHAR, GREEK_BY_NAME, GREEK_CHARS, SERIES_SUFFIXES } from '../../syntax.ts'
+import { GREEK_BY_CHAR, GREEK_BY_NAME, GREEK_CHARS, SERIES_SUFFIXES, regex, src } from '../../syntax.ts'
 import { JOIN, parseConstantRefName, parseMemberName, parseNumberedName, parseSeriesStatName, parseSliceName, typedSlice, describedName, parseHeldName, parseUncertaintyName } from '../../sheet/names.ts'
 import {
   FN, UNIT_LOOKS, isCall, isConstant, quantity, unitParts, type CallExpr, type ConstantExpr, type Expr,
@@ -16,7 +16,7 @@ export const LABEL_GAP = '~'
 // ---------------------------------------------------------------------------
 
 /** A Greek letter in a name, as a piece of its own (to split `ΔE` into Δ and E). */
-export const GREEK_LETTER = new RegExp(`([${GREEK_CHARS}])`)
+export const GREEK_LETTER = regex(src`([${GREEK_CHARS}])`)
 
 /**
  * One part of a name, as LaTeX: Greek letters (spelled out, `theta`, or typed,
@@ -38,7 +38,7 @@ export function namePart(s: string): string {
 }
 
 /** A name of letters then digits, `a2`, `ω1` (1: the letters, 2: the digits), which reads a₂. */
-export const TRAILING_DIGITS = new RegExp(String.raw`^([A-Za-z${GREEK_CHARS}]+?)(\d+)$`)
+export const TRAILING_DIGITS = regex(src`^([A-Za-z${GREEK_CHARS}]+?)(\d+)$`)
 
 /**
  * How a name is shown in place of its symbol, if it is: its display name
@@ -138,7 +138,7 @@ export function symbolTex(name: string, shown?: ShownName): string {
 }
 
 /** One letter, then a number and letters, without an underscore: `v1x` (1: the letter, 2: the rest). */
-export const NUMBERED_LABEL = new RegExp(String.raw`^([A-Za-z${GREEK_CHARS}])(\d+[A-Za-z]+)$`)
+export const NUMBERED_LABEL = regex(src`^([A-Za-z${GREEK_CHARS}])(\d+[A-Za-z]+)$`)
 
 /**
  * A short subscript made of labels rather than a word: a number and a letter

@@ -19,6 +19,3 @@ export function parseAggregateName(name: string): { base: string; kind: Aggregat
   const stat = parseSeriesStatName(name)
   return stat ? { base: stat.base, kind: SERIES_SUFFIXES[stat.suffix] } : null
 }
-
-/** Text, escaped to match literally in a regular expression. */
-export const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')

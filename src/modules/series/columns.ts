@@ -3,8 +3,8 @@
  * one worked out row by row from the series it uses (`v = x / t`).
  */
 import {
-  DISPLAY_MODE, type DisplayName, IS_NAME, type ModuleHost, NAME, NAME_CHAR, seriesMemberName, symbolsIn, symbolTex,
-  unpackedColumnName,
+  ASSIGN, DISPLAY_MODE, type DisplayName, IS_NAME, type ModuleHost, MEMBER_DOT, NAME, NAME_CHAR, ROUND_BRACKETS, SIGIL, inClass, lit, regex,
+  seriesMemberName, src, symbolsIn, symbolTex, unpackedColumnName,
 } from '../../lib/plugin.ts'
 
 /** A column of a table or plot: its name (if it has one), its header as TeX, and the variable holding each row's value. */
@@ -19,10 +19,10 @@ export interface SeriesColumn {
 }
 
 /** A column of a table worked out row by row, with a name: `v = x / t` (1: the name, 2: the expression). */
-export const TABLE_COLUMN = new RegExp(String.raw`^(${NAME})\s*=(?!=)\s*(.+)$`)
+export const TABLE_COLUMN = regex(src`^(${NAME})\s*${ASSIGN}(?!${ASSIGN})\s*(.+)$`)
 
 /** A series' name where it stands for a value: not part of a longer name, a call, or a unit after a number. */
-export const SERIES_IN_EXPRESSION = new RegExp(String.raw`(?<!${NAME_CHAR}|[.@])(${NAME})(?!${NAME_CHAR}|\s*\()`, 'g')
+export const SERIES_IN_EXPRESSION = regex(src`(?<!${NAME_CHAR}|[${inClass(MEMBER_DOT, SIGIL)}])(${NAME})(?!${NAME_CHAR}|\s*${lit(ROUND_BRACKETS.open)})`, 'g')
 
 /**
  * A table column's expression for row `n`: each series it uses, replaced by

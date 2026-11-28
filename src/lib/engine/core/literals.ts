@@ -1,10 +1,12 @@
 /** Unit literals (`9.81 m/s^2` as a number times a unit) and numbers kept as typed. */
-import { NAME, NAME_CHAR, KEYWORD } from '../../syntax.ts'
+import { KEYWORD, MEMBER_DOT, NAME, NAME_CHAR, ROUND_BRACKETS, inClass, lit, regex, src } from '../../syntax.ts'
 import {
   LIBRARY_IN, convert, formatValue, inSI, isValuelessUnit, quantity, sameDimension, unitNames as libraryUnitNames, unitParts, unitText,
 } from '../../maths/library/index.ts'
 import { DERIVED_UNITS } from './normalise.ts'
 import { MESSAGE_DIGITS } from './numbers.ts'
+
+const { open: OPEN, close: CLOSE } = ROUND_BRACKETS
 
 /** mathjs's built-in constants. Series sums never take these names. */
 export const BUILTIN_CONSTANT_NAMES = new Set([
@@ -78,12 +80,16 @@ export function describeUnit(name: string): string | null {
 }
 
 /** Pieces of a unit expression, read one after another: a power (`^2`, `^(-1)`), the first unit, then `/unit` or `*unit`. */
-export const POWER = /\^(\(-?\d+(?:\.\d+)?\)|-?\d+(?:\.\d+)?)/y
+export const POWER = regex(src`\^(${lit(OPEN)}-?\d+(?:\.\d+)?${lit(CLOSE)}|-?\d+(?:\.\d+)?)`, 'y')
 /** (A unit ends where a name or a call would go on: `2 mλ` has no unit.) */
+const NOT_GOING_ON = src`(?!${NAME_CHAR}|${lit(OPEN)})`
 /** A unit's name, which may start with a typed micro sign (µm). */
-export const UNIT_WORD = String.raw`(?:[µμ](?=[A-Za-z]))?[A-Za-z]+`
-export const FIRST_UNIT = new RegExp(String.raw`[ \t]*(${UNIT_WORD})(?!${NAME_CHAR}|\()`, 'y')
-export const NEXT_UNIT = new RegExp(String.raw`([*/·])(${UNIT_WORD})(?!${NAME_CHAR}|\()`, 'y')
+export const UNIT_WORD = src`(?:[µμ](?=[A-Za-z]))?[A-Za-z]+`
+export const FIRST_UNIT = regex(src`[ \t]*(${UNIT_WORD})${NOT_GOING_ON}`, 'y')
+export const NEXT_UNIT = regex(src`([*/·])(${UNIT_WORD})${NOT_GOING_ON}`, 'y')
+
+/** A power's brackets, left out of the unit: `^(-1)` → `^-1`. */
+const POWER_BRACKETS = regex(src`[${inClass(OPEN, CLOSE)}]`, 'g')
 
 /** Read a unit expression like `m/s^2` or `kg*m^2` starting at `pos`. */
 export function readUnit(src: string, pos: number): { text: string; end: number } | null {
@@ -97,7 +103,7 @@ export function readUnit(src: string, pos: number): { text: string; end: number 
     POWER.lastIndex = end
     const p = POWER.exec(src)
     if (p) {
-      text += `^${p[1].replace(/[()]/g, '')}`
+      text += `^${p[1].replace(POWER_BRACKETS, '')}`
       end = POWER.lastIndex
     }
   }
@@ -115,12 +121,10 @@ export function readUnit(src: string, pos: number): { text: string; end: number 
 }
 
 /** Every name in a line that isn't a call: not part of a longer name, or after `.` or `\`. */
-export const NAME_IN_LINE = new RegExp(String.raw`(?<!${NAME_CHAR}|[\\.])(${NAME})(?!${NAME_CHAR}|\()`, 'g')
+export const NAME_IN_LINE = regex(src`(?<!${NAME_CHAR}|[\\${inClass(MEMBER_DOT)}])(${NAME})${NOT_GOING_ON}`, 'g')
 /** After a unit, another term (a name or a bracket), not `to` or `in`: `1/2 m v^2`. */
-export const MORE_TERMS = new RegExp(String.raw`^[ \t]+(?!(?:${KEYWORD.to}|${LIBRARY_IN})(?!${NAME_CHAR}))(?:${NAME_CHAR}|\()`)
+export const MORE_TERMS = regex(src`^[ \t]+(?!(?:${KEYWORD.to}|${LIBRARY_IN})(?!${NAME_CHAR}))(?:${NAME_CHAR}|${lit(OPEN)})`)
 /** `pm` as a word (not the start of a name like `pmax`). */
-export const PM_WORD = new RegExp(`^${KEYWORD.pm}(?!${NAME_CHAR})`)
-/** A character that can be part of a name. */
-export const NAME_CHAR_RE = new RegExp(NAME_CHAR)
+export const PM_WORD = regex(src`^${KEYWORD.pm}(?!${NAME_CHAR})`)
 /** A conversion that's all that's left of a line: `to cm` (1: the unit). */
-export const CONVERSION_TAIL = new RegExp(String.raw`^${KEYWORD.to}\s+(.+)$`)
+export const CONVERSION_TAIL = regex(src`^${KEYWORD.to}\s+(.+)$`)

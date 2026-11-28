@@ -7,7 +7,10 @@ import type { BlockSettings, Columns, LayoutBlock } from '../sheet/blocks.ts'
 import { MEMBER_DOT, NAME, NAME_CHAR, NAMESPACE, SIGIL } from './lexical.ts'
 import { NOTATION, type Notation } from './settings.ts'
 import { BLOCK_OPEN } from './blocks.ts'
-import { named, optional, regex, src, words, type WordOf } from './patterns.ts'
+import { inClass, lit, named, optional, regex, src, words, type WordOf } from './patterns.ts'
+import { ROUND_BRACKETS } from './punctuation.ts'
+
+const { open: OPEN, close: CLOSE } = ROUND_BRACKETS
 
 // ---------------------------------------------------------------------------
 // How lines are shown
@@ -143,7 +146,7 @@ export interface LayoutMember {
  */
 export class LayoutSyntax {
   /** One member, with what's in its brackets if it has them: `.column(3)` (its groups: name, argument). */
-  private static readonly MEMBER = regex(src`\.${named('name', NAME)}${optional(src`\(${named('argument', '[^()\\n]*')}\)`)}`, 'g')
+  private static readonly MEMBER = regex(src`${lit(MEMBER_DOT)}${named('name', NAME)}${optional(src`${lit(OPEN)}${named('argument', src`[^${inClass(OPEN, CLOSE)}\n]*`)}${lit(CLOSE)}`)}`, 'g')
 
   /**
    * The block's name at the start of some text, with any number of members:

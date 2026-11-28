@@ -24,11 +24,11 @@
  * the module's own constants.
  */
 import { isElement, type ElementSymbol } from './elements.ts'
-import { ExplainedError, MEMBER_DOT, outsideMaths, SIGIL } from '../../lib/plugin.ts'
-import { CHEM_FUNCTION, CHEM_NAMESPACE, FORMULA_IN_TEXT, SPECIES_BRACES, SPECIES_DISPLAY, SPECIES_FUNCTION, type SpeciesDisplay } from './syntax.ts'
+import { ExplainedError, MEMBER_DOT, outsideMaths, regex, SIGIL, src } from '../../lib/plugin.ts'
+import { BRACE_CLOSE, BRACE_OPEN, BRACED_SPECIES, CHEM_FUNCTION, CHEM_NAMESPACE, FORMULA_IN_TEXT, SPECIES_BRACES, SPECIES_DISPLAY, SPECIES_FUNCTION, type SpeciesDisplay } from './syntax.ts'
 
 /** A line that's a formula on its own, a reaction: `{OH^- + H3O^+ -> 2 H2O}` (1: the formula). */
-export const REACTION_LINE = /^\{(?!\{)([^{}]+)\}$/
+export const REACTION_LINE = regex(src`^${BRACED_SPECIES}$`)
 
 /** A formula as LaTeX, drawn by mhchem: `Ca^2+` → \ce{Ca^2+}. */
 export const formulaTex = (formula: string) => `\\ce{${formula.trim()}}`
@@ -135,7 +135,7 @@ export const formulaOf = (unitName: string): string | undefined => speciesByUnit
 export const isSpeciesUnit = (unitName: string) => speciesByUnit.has(unitName)
 
 /** A species unit's name, anywhere in some text. */
-const SPECIES_UNIT_NAME = new RegExp(String.raw`\b(?:${Object.values(SPECIES_UNIT_PREFIX).join('|')})[a-z]+\b`, 'g')
+const SPECIES_UNIT_NAME = regex(src`\b(?:${Object.values(SPECIES_UNIT_PREFIX).join('|')})[a-z]+\b`, 'g')
 
 /** Text with species units written as their formulas: `mol amountofa` → mol EDTA. */
 export const readableSpecies = (text: string) =>
@@ -464,12 +464,12 @@ export class SpeciesNames {
   private pattern(): RegExp {
     // (Names are letters, digits and underscores, so they need no escaping; longest first, so one doesn't cut another short.)
     const names = [...this.byName.keys()].sort((a, b) => b.length - a.length)
-    return new RegExp(String.raw`(^|\s|\d)(${names.join('|')})(?=$|[\s^(+-])`, 'g')
+    return regex(src`(^|\s|\d)(${names.join('|')})(?=$|[\s^(+-])`, 'g')
   }
 }
 
 /** A formula in single braces, not a value's `{{…}}` (1: what's inside). */
-const BRACED = /(?<!\{)\{([^{}]+)\}(?!\})/g
+const BRACED = regex(src`(?<!${BRACE_OPEN})${BRACED_SPECIES}(?!${BRACE_CLOSE})`, 'g')
 
 /** The sheet's species names while it's worked out and drawn: units and messages show a named species by its name. */
 let activeSpeciesNames: SpeciesNames | undefined

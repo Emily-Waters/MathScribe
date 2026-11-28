@@ -6,7 +6,7 @@
 import { EXACT, countSigFigs } from '../../maths/sigfigs.ts'
 import { AGGREGATE_KIND, Variable, type Contributions, type VariableFields, type VariableSummary } from '../../sheet/values.ts'
 import { BUILTINS, isReservedConstantName } from '../../builtins.ts'
-import { ASSIGN, SETTING_MARK, EXACT_SETTING, IS_NAME, MEMBER_DOT, PERCENT, DISPLAY_MODE, CONSTANTS_BLOCK, LABEL_WORDS, SIGIL, UNCERTAINTY_WORDS, type DisplayMode, type Precision } from '../../syntax.ts'
+import { ASSIGN, regex, src, SETTING_MARK, EXACT_SETTING, IS_NAME, MEMBER_DOT, PERCENT, DISPLAY_MODE, CONSTANTS_BLOCK, LABEL_WORDS, SIGIL, UNCERTAINTY_WORDS, type DisplayMode, type Precision } from '../../syntax.ts'
 import { INLINE_VALUE_NAME, JOIN, TUPLE_FUNCTION, RESERVED_NAMESPACES, calledName, isHiddenName, memberName, parseUncertaintyName, readableMembers, unpackedName, uncertaintyName } from '../../sheet/names.ts'
 import { expandDots } from './memberAccess.ts'
 import { SheetConstants } from './sheetConstants.ts'
@@ -48,6 +48,9 @@ import { withRows } from './rows.ts'
 import { PERCENT_SCALE, isValidUnit, castArgument } from './numbers.ts'
 import { isNumberWithUnit } from './products.ts'
 import { uncertaintyUnitError, columnValues } from './data.ts'
+
+/** A `=` at the end of a line, `delta F =`: a prompt, nothing assigned. */
+const TRAILING_ASSIGN = regex(src`${ASSIGN}\s*$`)
 
 /** Evaluates a sheet line by line, keeping its variables, their sig figs and uncertainties, and the functions it defines. */
 /** A line on its way through the core's steps: what they read of it, for the steps after. */
@@ -805,7 +808,7 @@ export class Calculator {
   private expand(line: CoreLine): LineResult | undefined {
     const { declaration } = line
     // `delta F =` asks for F's uncertainty; a trailing = is just a prompt.
-    const constants = this.constants.expand(line.text.replace(/=\s*$/, '').trim())
+    const constants = this.constants.expand(line.text.replace(TRAILING_ASSIGN, '').trim())
     if (constants.error) return { tex: '', error: constants.error }
     const cleaned = constants.text
     const cleanedShape = lineShape(cleaned)

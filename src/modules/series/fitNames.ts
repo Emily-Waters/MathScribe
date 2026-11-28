@@ -3,11 +3,11 @@
  * its R² and χ² typeset as they're written by hand, and a missing `p.slope`
  * explained (the series module's EngineModule.memberTex and explainMessage).
  */
-import { MATHS_ERROR, mathsError } from '../../lib/plugin.ts'
+import { MATHS_ERROR, MEMBER_DOT, lit, mathsError, regex, src } from '../../lib/plugin.ts'
 import { FIT } from './syntax.ts'
 
 /** A named plot's fit member, as a message names it once its names are as typed: p.slope (1: which). */
-const FIT_MEMBER = new RegExp(String.raw`^\S+\.(${FIT.alternation})$`)
+const FIT_MEMBER = regex(src`^\S+${lit(MEMBER_DOT)}(${FIT.alternation})$`)
 
 /** A missing p.slope (or intercept, r2, chi2) explained: a plot has one only with a fit. */
 export function fitMessage(message: string): string | undefined {

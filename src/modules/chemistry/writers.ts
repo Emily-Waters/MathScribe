@@ -8,7 +8,7 @@
  *  - After nothing it can be given to, it's left for mathjs to explain.
  */
 import {
-  GREEK_CHARS, isConversionUnit, isToken, isTokenOf, multiply, NODE_KIND, type Part, partBefore, type PartWriter, quantity, type Quantity,
+  GREEK_CHARS, inClass, isConversionUnit, isToken, isTokenOf, MEMBER_DOT, regex, src, multiply, NODE_KIND, type Part, partBefore, type PartWriter, quantity, type Quantity,
   quantitySource, ROUND_BRACKETS, textOf, TOKEN_KIND, unitCallSource, unitSource, unitText,
 } from '../../lib/plugin.ts'
 import { CHEM_TOKEN } from './grammar.ts'
@@ -25,7 +25,7 @@ function speciesUnitSource(unit: string, formula: string): string {
 }
 
 /** A token that runs on into the value before it, with no space between: a name's, a number's, a member's dot. */
-const RUNS_ON = new RegExp(String.raw`^[\w.${GREEK_CHARS}]+$`)
+const RUNS_ON = regex(src`^[\w${inClass(MEMBER_DOT)}${GREEK_CHARS}]+$`)
 
 /** Whether a part is a value a species can be given to (or a bracket closing one). */
 const isValue = (part: Part) =>

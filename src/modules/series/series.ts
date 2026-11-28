@@ -25,7 +25,7 @@
 import {
   ASSIGN, type Definition, DISPLAY_MODE, type FormLine, IS_NAME, LineForm, type LineResult, MEMBER_INDEX, type ModuleHost, NODE_KIND,
   SEPARATOR, SETTING_MARK, SLICE_COLON, SUBSCRIPT, TOKEN_KIND, attachUnit, closesBracket, lexExpression, lineShape, lineTokens, magnitude,
-  opensBracket, quantity, parseSliceName, seriesMemberName, whereOf, symbolTex, typedName, unitTex,
+  opensBracket, quantity, parseSliceName, regex, SIGNED_NUMBER, src, seriesMemberName, whereOf, symbolTex, typedName, unitTex,
 } from '../../lib/plugin.ts'
 import { rowErrors, seriesUsedIn, sharedRows, withRowValues } from './columns.ts'
 import { cellParts } from './table.ts'
@@ -61,7 +61,7 @@ const TRAILING_ZERO = /^-?[1-9]\d*0$/
 const SIGN = /^-/
 
 /** A number as a range's from, to or step is typed, and its unit (1: the number, 2: the unit, if any). */
-const RANGE_PART = /^([-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?)\s*(.*)$/
+const RANGE_PART = regex(src`^(${SIGNED_NUMBER})\s*(.*)$`)
 
 /** How a series is written, for messages. */
 const WRITTEN = {

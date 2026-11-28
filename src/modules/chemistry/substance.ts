@@ -22,10 +22,10 @@
  */
 import {
   DISPLAY_MODE, expandDots, type FormLine, isToken, JOIN, lexExpression, LINE_STAGE, LineForm, type LineResult, isQuantity,
-  MEMBER_DOT, memberName, type ModuleHost, NAME, NODE_KIND, NUMBER, SIGIL, UNIT, unitParts,
+  MEMBER_DOT, memberName, type ModuleHost, NAME, NODE_KIND, NUMBER, SIGIL, UNIT, unitParts, ASSIGN, ROUND_BRACKETS, lit, regex, src,
 } from '../../lib/plugin.ts'
 import { formulaTex, isSpeciesUnit, molarMassSum, parseFormula, speciesKey, splitCoefficient, type AtomCounts } from './chemistry.ts'
-import { CHEM_FUNCTION, CHEM_NAMESPACE, SPECIES_BRACES, SPECIES_FUNCTION } from './syntax.ts'
+import { BRACED_SPECIES, CHEM_FUNCTION, CHEM_NAMESPACE, CHEM_PREFIX, SPECIES_BRACES, SPECIES_FUNCTION } from './syntax.ts'
 import type { ElementSymbol } from './elements.ts'
 
 /** A substance's own members: its amount, mass and molar mass. */
@@ -37,17 +37,17 @@ export const ELEMENT_MEMBER = { amount: 'n', mass: 'm', molarMass: 'M', massFrac
 const DEFAULT_AMOUNT = '1'
 
 /** `H2SO4 = @chem.substance({H2SO4})` (1: the name, 2: what's in the brackets, the formula in braces). */
-export const SUBSTANCE_DEFINITION = new RegExp(
-  String.raw`^(${NAME})\s*=\s*@${CHEM_NAMESPACE}\.${CHEM_FUNCTION.substance}\((.*)\)\s*$`)
+export const SUBSTANCE_DEFINITION = regex(
+  src`^(${NAME})\s*${ASSIGN}\s*${CHEM_PREFIX}${CHEM_FUNCTION.substance}${lit(ROUND_BRACKETS.open)}(.*)${lit(ROUND_BRACKETS.close)}\s*$`)
 
 /** A formula in braces, as the whole of what's in the brackets: `{CuSO4*5H2O}` (1: the formula). */
-const FORMULA_ARGUMENT = /^\s*\{([^{}]+)\}\s*$/
+const FORMULA_ARGUMENT = regex(src`^\s*${BRACED_SPECIES}\s*$`)
 
 /** A member of a substance, set or on its own: `H2SO4.H.m = 0.10 g`, `H2SO4.m` (1: the name, 2: the path, dots first, 3: what it's set to). */
-const MEMBER_LINE = new RegExp(String.raw`^(${NAME})((?:\.${NAME}){1,2})\s*(?:=(?!=)\s*(.*))?$`)
+const MEMBER_LINE = regex(src`^(${NAME})((?:${lit(MEMBER_DOT)}${NAME}){1,2})\s*(?:${ASSIGN}(?!${ASSIGN})\s*(.*))?$`)
 
 /** A plain number, which a set amount or mass is read as mol or g of. */
-const PLAIN_NUMBER = new RegExp(`^${NUMBER}$`)
+const PLAIN_NUMBER = regex(src`^${NUMBER}$`)
 
 /** The unit a set value with none is read in: mol for an amount, g for a mass. */
 const UNIT_OF = { [SUBSTANCE_MEMBER.amount]: UNIT.mole, [SUBSTANCE_MEMBER.mass]: 'g' } as Record<string, string>

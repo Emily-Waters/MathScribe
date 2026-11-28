@@ -14,8 +14,8 @@ import { tags } from '@lezer/highlight'
 // (The modules are registered before this runs, by src/modules/index.ts, which main.tsx loads first:
 // their kinds of line and their rules for expressions are then the tree's.)
 import {
-  INDENT_WIDTH, LATEX_OPENER, COMMENT_START,
-  VALUE_BRACES, NOTED_PIECE, indentOf, isComment, readNoted,
+  BLOCK_CLOSE, CLOSING_BRACKETS, INDENT_WIDTH, LATEX_OPENER, COMMENT_START, OPENING_BRACKETS,
+  VALUE_BRACES, NOTED_PIECE, closesBlock, inClass, indentOf, isComment, lit, readNoted, regex, src,
 } from '../lib/syntax.ts'
 import {
   LINE_ROLE, NODE_KIND, TOKEN_KIND, TOKEN_ROLE, TOP, isCallKind, isToken, stepLine, tokenRoleOf, type LineState, type Part, type SyntaxNode, type TokenRole,
@@ -146,7 +146,10 @@ const expressionStyleOf = (kind: string): Token | null | undefined => {
 }
 
 /** Brackets, among the delimiters (the rest are operators). */
-const BRACKETS = /^[()[\]{}]$/
+const BRACKETS = regex(src`^[${inClass(...OPENING_BRACKETS, ...CLOSING_BRACKETS)}]$`)
+
+/** A bracket at the start of what's left of a line. */
+const BRACKET_AT = regex(src`^[${inClass(...OPENING_BRACKETS, ...CLOSING_BRACKETS)}]`)
 
 /** How an expression's token is coloured. */
 function expressionStyle(piece: Piece, text: string): Token | null {
@@ -228,7 +231,7 @@ function token(stream: StringStream, state: State): Token | null {
     }
   }
   // (What's left: a line's text that isn't an expression's, as a closing `}`.)
-  if (stream.match(/^[()[\]{}]/)) return TOKEN.bracket
+  if (stream.match(BRACKET_AT)) return TOKEN.bracket
   stream.next()
   return null
 }
@@ -277,7 +280,7 @@ export const mathscribeLanguage = StreamLanguage.define<State>({
     // Ctrl+/ toggles a `//` comment. (Not #: a line starting with # is a heading.)
     commentTokens: { line: COMMENT_START },
     // Typing `}` on its own re-indents the line to match its block.
-    indentOnInput: /^\s*\}$/,
+    indentOnInput: regex(src`^\s*${lit(BLOCK_CLOSE)}$`),
   },
 })
 
@@ -316,7 +319,7 @@ export const mathscribeIndent = indentService.of((cx, pos) => {
     // (The line above as it is now: up to the cursor, if Enter is splitting it.)
     const step = breaking && n === at.number ? readAs(doc, n, above) : sheetLine(doc, n).step
     let indent = indentOf(above) + (opensBody(step) ? INDENT_WIDTH : 0)
-    if (/^\s*\}/.test(lineText)) indent -= INDENT_WIDTH
+    if (closesBlock(lineText)) indent -= INDENT_WIDTH
     return Math.max(0, indent)
   }
   return 0

@@ -15,8 +15,8 @@
  * expression's tokens depend on its text alone, and are cached with its line.
  */
 import {
-  ASSIGN, CARRIED_JOIN, CONSTANT_PRECISION, NAME, NAME_CHAR, QUOTE, ROUND_BRACKETS, ROW_SEPARATOR, SEPARATOR, SIGIL, SQUARE_BRACKETS, KEYWORD,
-  UNCERTAINTY_WORDS,
+  ASSIGN, CARRIED_JOIN, CONSTANT_PRECISION, DOTTED_NAME, NAME, NAME_CHAR, NAME_CHAR_RE, NUMBER, QUOTE, ROUND_BRACKETS, ROW_SEPARATOR, SEPARATOR,
+  SIGIL, SQUARE_BRACKETS, KEYWORD, UNCERTAINTY_WORDS, inClass, regex, src,
 } from '../syntax.ts'
 import { FIRST_UNIT, NEXT_UNIT, POWER, isUnitName } from '../engine/core/literals.ts'
 import { NODE_KIND, TOKEN_KIND, isToken, type Part, type SyntaxNode, type Token } from './nodes.ts'
@@ -36,7 +36,7 @@ export const MATHJS_DELIMITERS = [
 export const MATHJS_NAMED_DELIMITERS = ['mod', 'to', 'in', 'and', 'xor', 'or', 'not'] as const
 
 /** A number, as mathjs reads one: digits, a decimal mark, an exponent (`2.00`, `.5`, `1.2e-3`). */
-const NUMBER = /(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?/y
+const NUMBER_AT = regex(NUMBER, 'y')
 
 /** Round brackets (a call's, a group's). */
 const OPEN = ROUND_BRACKETS.open
@@ -430,23 +430,23 @@ function call(callee: Token, pos: number, state: LexState, span: ReadSpan): Lexe
 
 /** A match of a sticky pattern at a position, or undefined. */
 function sticky(pattern: RegExp, text: string, pos: number): string | undefined {
-  const re = new RegExp(pattern.source, 'y')
+  const re = regex(pattern, 'y')
   re.lastIndex = pos
   return re.exec(text)?.[0]
 }
 
 /** A name at a position: MathScribe's names, as mathjs reads symbols (letters, Greek too, digits and _ after the first). */
-const NAME_AT = new RegExp(NAME)
+const NAME_AT = regex(NAME)
 /** A name after `@`, and its members after dots: `@chem.mm.Na`, `@tuple`. */
-const BUILTIN_AT = new RegExp(String.raw`${SIGIL}${NAME}(?:\.${NAME})*`)
+const BUILTIN_AT = regex(src`${SIGIL}${DOTTED_NAME}`)
 /** A constant's precision after its name: `@c:4`, `@c:exact`. */
-const PRECISION_AT = new RegExp(CONSTANT_PRECISION)
+const PRECISION_AT = regex(CONSTANT_PRECISION)
 /** A label in quotes, as mathjs reads a string (`\"` inside it). */
-const STRING_AT = /"(?:[^"\\]|\\.)*"/
+const STRING_AT = regex(src`${QUOTE}(?:[^${inClass(QUOTE)}\\]|\\.)*${QUOTE}`)
 /** Words with a meaning of their own: mathjs's named delimiters, MathScribe's keywords, and `delta F`. */
 const KEYWORDS: ReadonlySet<string> = new Set<string>([...MATHJS_NAMED_DELIMITERS, ...KEYWORD.words, ...UNCERTAINTY_WORDS])
 /** A word ends here (no more name characters after it). */
-const WORD_END = new RegExp(String.raw`(?!${NAME_CHAR})`, 'y')
+const WORD_END = regex(src`(?!${NAME_CHAR})`, 'y')
 
 const isWordEnd = (text: string, at: number) => {
   WORD_END.lastIndex = at
@@ -475,9 +475,9 @@ const CORE_RULES: LexRule[] = [
     describes: 'a number, as mathjs reads one; with a unit after it, a quantity: 5.00 g',
     read: (pos, state) => {
       // (Not the end of a name: x1 is one name.)
-      if (pos > 0 && new RegExp(NAME_CHAR).test(state.text[pos - 1])) return undefined
-      NUMBER.lastIndex = pos
-      const m = NUMBER.exec(state.text)
+      if (pos > 0 && NAME_CHAR_RE.test(state.text[pos - 1])) return undefined
+      NUMBER_AT.lastIndex = pos
+      const m = NUMBER_AT.exec(state.text)
       if (!m) return undefined
       return withUnit(token(TOKEN_KIND.number, m[0]), m[0].length, pos, state)
     },
@@ -497,7 +497,7 @@ const CORE_RULES: LexRule[] = [
   {
     describes: 'a word: a keyword (to, mod, pm, return, …), a unit after `to` or a name’s `:`, a call (f(x)), or a symbol',
     read: (pos, state, span) => {
-      if (pos > 0 && new RegExp(NAME_CHAR).test(state.text[pos - 1])) return undefined
+      if (pos > 0 && NAME_CHAR_RE.test(state.text[pos - 1])) return undefined
       // A unit: after `to` (a conversion), or a setting on the name being assigned (`phi:3:deg = …`).
       // (Before the name: a unit can start with a micro sign, `to µm`, which a name can't.)
       const afterTo = isTokenOf(state.prev, TOKEN_KIND.keyword, KEYWORD.to)

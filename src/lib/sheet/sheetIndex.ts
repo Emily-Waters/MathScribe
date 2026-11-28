@@ -10,7 +10,7 @@ import { NODE_KIND } from '../tree/nodes.ts'
 import { assignedOf, lineShape } from '../tree/shapes.ts'
 import { BLOCK_KIND, SYMBOL_KIND, isContainer, type Block, type CalcBlock, type SymbolKind } from './blocks.ts'
 import type { Sheet } from '../reading/sheetReader.ts'
-import { MEMBER_DOT, NAME, words, type WordOf } from '../syntax.ts'
+import { MEMBER_DOT, NAME, SETTING_MARK, inClass, regex, src, words, type WordOf } from '../syntax.ts'
 import { parseMemberName, parseNumberedName } from './names.ts'
 
 /**
@@ -124,7 +124,7 @@ export function collectSymbols(sheet: Sheet, source: string): SheetSymbol[] {
               name: target.name, kind: SYMBOL_KIND.function, line: b.line, from: b.line, to,
               tex: b.tex.split(' = ')[0], params: (target.entries ?? []).filter(Boolean).join(', '),
             })
-            const parameterName = new RegExp(String.raw`^(${NAME})(?=$|[:\s])`)
+            const parameterName = regex(src`^(${NAME})(?=$|[${inClass(SETTING_MARK)}\s])`)
             for (const entry of target.entries ?? []) {
               const name = parameterName.exec(entry)?.[1]
               if (name) out.push({ name, kind: SYMBOL_KIND.parameter, line: b.line, from: b.line, to: b.line })

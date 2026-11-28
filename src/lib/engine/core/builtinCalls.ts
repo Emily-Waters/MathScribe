@@ -1,6 +1,6 @@
 /** Calls to built-in functions (`@tuple(…)`, `@chem.mm(…)`), written out as what they stand for. */
 import { FunctionMember, builtinAt, builtinFunction } from '../../builtins.ts'
-import { NAME } from '../../syntax.ts'
+import { DOTTED_NAME, ROUND_BRACKETS, SIGIL, lit, regex, src } from '../../syntax.ts'
 import { JOIN, constantKey } from '../../sheet/names.ts'
 import { matchingParen } from '../../maths/solve.ts'
 
@@ -8,7 +8,7 @@ import { matchingParen } from '../../maths/solve.ts'
  * A call to a built-in function, `@tuple(`, or one in a namespace, `@chem.mm(`,
  * once dots are read or not (1: its path, `chem.mm` or chem__mm).
  */
-export const BUILTIN_CALL = new RegExp(String.raw`@(${NAME}(?:\.${NAME})*)\s*\(`, 'g')
+export const BUILTIN_CALL = regex(src`${SIGIL}(${DOTTED_NAME})\s*${lit(ROUND_BRACKETS.open)}`, 'g')
 
 /**
  * A line with each call to a built-in function written out as what it stands

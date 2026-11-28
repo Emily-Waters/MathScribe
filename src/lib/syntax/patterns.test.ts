@@ -1,6 +1,6 @@
 /** How patterns and word lists are written (patterns.ts). */
 import { describe, expect, it } from 'vitest'
-import { named, oneOf, optional, regex, src, words } from './patterns.ts'
+import { inClass, lit, named, oneOf, optional, regex, src, words } from './patterns.ts'
 
 describe('patterns', () => {
   it('are written as they read, other patterns taken in as they are', () => {
@@ -8,6 +8,17 @@ describe('patterns', () => {
     expect(src`^${digits}\.${'[a-z]'}$`).toBe('^\\d+\\.[a-z]$')
     expect(regex(src`^${named('n', digits)}${optional(src`:${named('unit', '\\w+')}`)}$`).exec('12:kg')?.groups).toEqual({ n: '12', unit: 'kg' })
     expect(regex(oneOf(['a', /b+/]), 'g').source).toBe('(?:a|b+)')
+  })
+
+  it('take in text to match as it is, and sets of characters', () => {
+    expect(lit('{')).toBe('\\{')
+    expect(lit('a.b(c)')).toBe('a\\.b\\(c\\)')
+    expect(lit('@=:,')).toBe('@=:,')
+    expect(regex(lit('[1+2]*')).test('x[1+2]*')).toBe(true)
+    expect(`[${inClass(')', ']')}]`).toBe('[)\\]]')
+    expect(regex(src`^[${inClass('-', '^', '\\')}]+$`).test('-^\\')).toBe(true)
+    expect(regex(src`^[${inClass('-', '^', '\\')}]+$`, 'u').test('a')).toBe(false)
+    expect(regex(src`^[^${inClass('"')}\n]+$`).test('a"b')).toBe(false)
   })
 })
 

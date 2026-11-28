@@ -13,7 +13,10 @@ import { isToken, TOKEN_KIND, type Part, type SyntaxNode } from '../lib/tree/ind
 import { placeFixedPanel } from './popover.ts'
 import { EDITOR_KEY } from './shortcuts.ts'
 import { typeGreekInBox, withGreekLetters } from './greek.ts'
-import { NAME, regex, src } from '../lib/syntax.ts'
+import { NAME, SIGIL, regex, src } from '../lib/syntax.ts'
+
+/** An `@` at the start of a new name, which a built-in's rename keeps one of. */
+const LEADING_SIGIL = regex(src`^${SIGIL}`)
 import { parseNumberedName, parseSeriesStatName } from '../lib/sheet/names.ts'
 
 /** A new name for F2's rename: one whole name, as the sheet's (Greek letters too). */
@@ -260,7 +263,7 @@ export function renameChanges(state: EditorState, pos: number, replacement: stri
   }
   return ranges
     .sort((a, b) => a.from - b.from)
-    .map((range) => ({ from: range.from, to: range.to, insert: target.name.startsWith('@') ? `@${nextName.replace(/^@/, '')}` : nextName }))
+    .map((range) => ({ from: range.from, to: range.to, insert: target.name.startsWith(SIGIL) ? `${SIGIL}${nextName.replace(LEADING_SIGIL, '')}` : nextName }))
 }
 
 /** Underlines a name (or nothing), as the link Ctrl+Click would follow. */

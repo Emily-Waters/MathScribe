@@ -3,7 +3,8 @@
  * and a typed table, `@table { … }`. (A series itself is in square brackets: series.ts.)
  */
 import {
-  BLOCK_ARGS, ROW_SEPARATOR, SERIES_STAT_SUFFIX, SIGIL, builtinFunctionName, builtinOpening, NAMED, optional, regex, src, words, type WordOf,
+  BLOCK_ARGS, ROUND_BRACKETS, ROW_SEPARATOR, SERIES_STAT_SUFFIX, blockOpener, builtinFunctionName, builtinOpening, lit, NAMED, optional, regex, src,
+  words, type WordOf,
 } from '../../lib/plugin.ts'
 
 /** The series module's functions, each written after @: `@table(t, x)`. */
@@ -13,20 +14,20 @@ export const SERIES_CALL = {
 } as const
 
 /** A table of series: `@table(t, x, v = x / t)` (1: what's between the brackets). */
-export const TABLE_CALL = new RegExp(String.raw`^${builtinOpening(SERIES_CALL.table)}(.*)\)$`)
+export const TABLE_CALL = regex(src`^${builtinOpening(SERIES_CALL.table)}(.*)${lit(ROUND_BRACKETS.close)}$`)
 
 /**
  * A typed table's opener: `@table {`, or with its settings in brackets,
  * `@table(title "Observations", lines header) {`. Its rows follow, a line each,
  * their cells between `|`s, up to its `}`.
  */
-export const TYPED_TABLE_OPENER = regex(src`^${SIGIL}${SERIES_CALL.table}${optional(BLOCK_ARGS)}\s*\{$`)
+export const TYPED_TABLE_OPENER = blockOpener(src`${SERIES_CALL.table}${optional(BLOCK_ARGS)}`)
 
 /**
  * A plot of series: `@plot(t, x, y)`, or a named one, `p = @plot(t, x; fit linear)`,
  * whose fit is p.slope, p.intercept (1: the name, if any; 2: what's between the brackets).
  */
-export const PLOT_CALL = new RegExp(String.raw`^${NAMED}?${builtinOpening(SERIES_CALL.plot)}(.*)\)$`)
+export const PLOT_CALL = regex(src`^${NAMED}?${builtinOpening(SERIES_CALL.plot)}(.*)${lit(ROUND_BRACKETS.close)}$`)
 
 /** What a named plot's fit holds: p.slope, p.intercept, p.r2, p.chi2 (a weighted fit's). */
 export const FIT = words({ slope: 'slope', intercept: 'intercept', r2: 'r2', chi2: 'chi2' })

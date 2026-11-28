@@ -2,9 +2,9 @@
  * The chemistry module's part of a sheet's tree: its kinds of node, its kinds of
  * line, and the context of an `@chem.species { }` block's lines.
  */
-import { BODY_END, CONTENT, type LexRule, LINE_CONTEXT, type ModuleGrammar, type TextRule, token, TOKEN_ROLE } from '../../lib/plugin.ts'
+import { BODY_END, CONTENT, type LexRule, LINE_CONTEXT, type ModuleGrammar, inClass, regex, src, type TextRule, token, TOKEN_ROLE } from '../../lib/plugin.ts'
 import { REACTION_LINE } from './chemistry.ts'
-import { FORMULA_AT, SPECIES_BRACES, SPECIES_LINE, SPECIES_OPENER } from './syntax.ts'
+import { BRACE_CLOSE, BRACE_OPEN, FORMULA_AT, SPECIES_BRACES, SPECIES_INSIDE, SPECIES_LINE, SPECIES_OPENER } from './syntax.ts'
 
 /** The chemistry module's kinds of node. */
 export const CHEM_NODE = {
@@ -29,7 +29,7 @@ export const CHEM_TOKEN = {
 } as const
 
 /** A formula in single braces at a position (not a value's `{{`): `{Na^+}`. */
-const SPECIES_AT = /\{(?!\{)[^{}]+\}/y
+const SPECIES_AT = regex(src`${BRACE_OPEN}${SPECIES_INSIDE}${BRACE_CLOSE}`, 'y')
 
 const SPECIES_RULE: LexRule = {
   describes: 'a formula in braces, {H2O}: the species a value is of, or a compound',
@@ -45,7 +45,7 @@ const SPECIES_RULE: LexRule = {
 /** What opens a species: `{`. */
 const SPECIES_OPEN = SPECIES_BRACES.open
 /** A brace, of which a species has none inside it. */
-const BRACE = /[{}]/
+const BRACE = regex(src`[${inClass(SPECIES_BRACES.open, SPECIES_BRACES.close)}]`)
 
 /** A formula in text, `{Na^+}`: drawn as one, in prose and headings. */
 const FORMULA_RULE: TextRule = {

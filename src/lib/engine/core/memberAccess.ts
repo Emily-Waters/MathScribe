@@ -5,7 +5,7 @@
  */
 import { lexExpression } from '../../tree/lexer.ts'
 import { TOKEN_KIND, isCallKind, isToken, type Part, type Token } from '../../tree/nodes.ts'
-import { MEMBER_DOT, MEMBER_INDEX, ROUND_BRACKETS, SEPARATOR, SIGIL } from '../../syntax.ts'
+import { MEMBER_DOT, MEMBER_INDEX, ROUND_BRACKETS, SEPARATOR, SETTING_MARK, SIGIL, inClass, regex, src } from '../../syntax.ts'
 import { JOIN, RESERVED_NAMESPACES, SLICE_COLON, type SliceSpec, memberName, seriesMemberName, sliceName } from '../../sheet/names.ts'
 
 /** A token of a line, and whether it's what a call calls (`f` in `f(x)`, `@chem.mm` in `@chem.mm({H2O})`). */
@@ -106,7 +106,7 @@ const insideName = (namespace: string, members: readonly string[]) =>
   (RESERVED_NAMESPACES.has(namespace) ? [namespace, ...members].join(MEMBER_DOT) : memberName(namespace, members.join(JOIN)))
 
 /** A precision written after a constant, `:4`, at the end of a built-in's token. */
-const PRECISION_END = /:[^:]*$/
+const PRECISION_END = regex(src`${SETTING_MARK}[^${inClass(SETTING_MARK)}]*$`)
 
 /**
  * Text with each `a.x_1` as its inside name, a__x_1 (a member's member too:

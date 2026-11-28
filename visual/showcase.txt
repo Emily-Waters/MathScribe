@@ -68,7 +68,7 @@ L_avg = 2 * [1.52 m, x[1]].avg
 slope(a, b) = [(a - a.avg)(b - b.avg)].sum / [(a - a.avg)^2].sum
 v_fit = slope(t, x)
 x[2:4]
-v = [x / t]
+v:"Speed v_x" = [x / t]
 salts = ["{KCl}", "{KBr}", "{KI}", "{NaCl}", "{NaBr}"]
 @table(t, x, v; title "Runs, timed", labels salts)
 @table(x[t > 0.2 s]; lines header) // the later points
@@ -89,8 +89,8 @@ x_model(t) = 0.5 m/s * t
 t2 = [0.15 s, 0.25 s, 0.35 s, 0.45 s]
 x2 = [0.08 m pm 0.004 m, 0.13 m pm 0.004 m, 0.17 m pm 0.004 m, 0.22 m pm 0.004 m]
 @plot((t, x), (t2, x2); fit linear, legend outside)
-n = [1:6]
-y = [n^2]
+n:"Trial" = [1:6]
+y:"Count of {CuSO4}" = [n^2]
 @plot(n, y; log x, log y, style both)
 
 # Layouts

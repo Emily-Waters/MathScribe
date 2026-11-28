@@ -3,7 +3,7 @@
  * one worked out row by row from the series it uses (`v = x / t`).
  */
 import {
-  DISPLAY_MODE, IS_NAME, type ModuleHost, NAME, NAME_CHAR, seriesMemberName, symbolsIn, symbolTex,
+  DISPLAY_MODE, type DisplayName, IS_NAME, type ModuleHost, NAME, NAME_CHAR, seriesMemberName, symbolsIn, symbolTex,
   unpackedColumnName,
 } from '../../lib/plugin.ts'
 
@@ -12,6 +12,8 @@ export interface SeriesColumn {
   name?: string
   /** An unnamed column's expression, as typed. */
   expr?: string
+  /** Its series' display name, `t:"Time" = …`, if it has one (then its header too). */
+  label?: DisplayName
   header: string
   rows: Map<number, string>
 }
@@ -74,7 +76,8 @@ export function seriesColumns(host: ModuleHost, args: string[], purpose: string)
     if (IS_NAME.test(arg)) {
       const rows = host.seriesRows(arg)
       if (!rows.size) return { error: `${arg} isn't a series: define ${arg}_1, ${arg}_2, … (or import them) to ${purpose}.` }
-      columns.push({ name: arg, header: symbolTex(arg), rows })
+      const label = host.seriesName(arg)
+      columns.push({ name: arg, label, header: label?.tex ?? symbolTex(arg), rows })
       continue
     }
     // A column worked out row by row: `v = x / t`, or just `x / t`.

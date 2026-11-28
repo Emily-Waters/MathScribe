@@ -29,7 +29,7 @@ import type { CsvColumn } from '../../data/csv.ts'
 import { isTuple } from './math.ts'
 import {
   EngineModule, LINE_STAGE, LINE_STAGES, LineStep, inDependencyOrder, installModule, moduleExplainedMessage, moduleReadableMessage,
-  type DerivedVariable, type LineInProgress, type LineStage, type LookSetting, type ModuleHost, type TupleLook,
+  type DerivedVariable, type DisplayName, type LineInProgress, type LineStage, type LookSetting, type ModuleHost, type TupleLook,
 } from './module.ts'
 import { strayLineFormCall } from './builtinCalls.ts'
 import { formulaSides, preprocess, typedNumbers } from './writer.ts'
@@ -43,7 +43,7 @@ import { ASSIGN, SETTING_MARK, assignedOf, lineShape, type LineShape } from '../
 import { normalise } from './normalise.ts'
 import { Scope, Views, type Variables, Values, innerValues } from './scope.ts'
 import { MAX_TRACE_DEPTH } from './functions.ts'
-import { isAngleUnit, toDisplayUnit, type Declaration, type TupleName, parseTupleName, declarationOf } from './declarations.ts'
+import { isAngleUnit, toDisplayUnit, type Declaration, type TupleName, parseTupleName, declarationOf, isDisplayNameSetting } from './declarations.ts'
 import { withRows } from './rows.ts'
 import { PERCENT_SCALE, isValidUnit, castArgument } from './numbers.ts'
 import { isNumberWithUnit } from './products.ts'
@@ -130,6 +130,8 @@ export class Calculator {
     tracedSigFigs: (call) => this.callSigFigs.get(call),
     isExactCount: (number, unit, literals) => this.modules.some((m) => m.isExactCount(number, unit, literals)),
   })
+  /** Each series' display name, `t:"Time" = [...]`, by its name (see ModuleHost.nameSeries). */
+  private readonly seriesNames = new Map<string, DisplayName>()
   /** Display names: a name's own words in place of its symbol, and the templates that make them (displayNames.ts). */
   private readonly displayNames = new DisplayNames({
     inlineValue: (source) => this.inlineValue(source),
@@ -184,6 +186,8 @@ export class Calculator {
     setView: (base, names) => this.views.set(base, names),
     lookedUp: (member) => this.views.resolveFully(member),
     clearViews: (namespace) => this.views.clear(namespace),
+    nameSeries: (base, settings) => this.nameSeries(base, settings),
+    seriesName: (base) => this.seriesNames.get(base),
     newSource: () => this.nextSource++,
     evaluateLine: (text, mode) => this.evaluateLine(text, mode, false),
     evaluateParsed: (node, line) => this.evaluateParsed(node, line),
@@ -758,17 +762,36 @@ export class Calculator {
     if (declaration && 'error' in declaration) return { tex: '', error: declaration.error }
     // Settings that are a module's: `m:formula = …`, how the named species on this line are shown.
     for (const m of this.modules) m.useLineSettings(declaration?.moduleSettings ?? [])
-    // A display name is worked out now, so values in it are the ones it was computed with.
-    // (One made with a template, `m_w:massName(H2O)`, is its words with the arguments put in.)
-    const labelWords = declaration?.template ? this.displayNames.fillTemplate(declaration.template.name, declaration.template.args) : undefined
-    if (labelWords && 'error' in labelWords) return { tex: '', error: labelWords.error }
-    const labelSource = declaration?.label ?? labelWords?.words
-    const label = labelSource !== undefined ? this.displayNames.tex(labelSource) : undefined
-    if (label?.error) return { tex: '', error: label.error }
+    const label = declaration ? this.displayNameOf(declaration) : undefined
+    if (label && 'error' in label) return { tex: '', error: label.error }
     line.declaration = declaration ?? undefined
-    line.label = label?.tex
+    line.label = label?.name?.tex
     if (declaration) line.text = `${declaration.name} ${ASSIGN} ${value}`
     return undefined
+  }
+
+  /**
+   * The display name a name's settings give it, if any. It's worked out now, so
+   * values in it are the ones it was computed with. (One made with a template,
+   * `m_w:massName(H2O)`, is its words with the arguments put in.)
+   */
+  private displayNameOf(declaration: Declaration): { name?: DisplayName } | { error: string } {
+    const filled = declaration.template ? this.displayNames.fillTemplate(declaration.template.name, declaration.template.args) : undefined
+    if (filled && 'error' in filled) return { error: filled.error }
+    const words = declaration.label ?? filled?.words
+    if (words === undefined) return {}
+    const { tex, error } = this.displayNames.tex(words)
+    return error ? { error } : { name: { tex, words } }
+  }
+
+  /** `t:"Time" = [...]`: the series' display name kept (see ModuleHost.nameSeries), and its other settings given back. */
+  private nameSeries(base: string, settings: readonly string[]): { settings: string[] } | { error: string } {
+    const declaration = declarationOf(base, settings.filter(isDisplayNameSetting))
+    const named = 'error' in declaration ? declaration : this.displayNameOf(declaration)
+    if ('error' in named) return named
+    if (named.name) this.seriesNames.set(base, named.name)
+    else this.seriesNames.delete(base)
+    return { settings: settings.filter((s) => !isDisplayNameSetting(s)) }
   }
 
   /**

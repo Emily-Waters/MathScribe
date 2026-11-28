@@ -462,6 +462,18 @@ t.sum
 t[2]
 ```
 
+A series can have a display name, as any name can: t:"Time" = \[…\] is shown as Time on its line, heads its column in @table and labels it on @plot (its axis, or its row of the legend).
+
+- The display name is the series', not each value's: t\[2\] is still shown as t₂. Other settings on the name, t:"Time":3, are its values', as on t\[2\]:3.
+- A series made again without one loses it. A plot's own label, xlabel "…", wins over it.
+
+```
+t:"Time" = [0.10 s, 0.20 s, 0.30 s]
+h:"Height" = [0.95 m, 0.80 m, 0.56 m]
+@table(t, h)
+@plot(t, h)
+```
+
 max(t) and min(t), given a series on its own, are its largest and smallest values: the member each is, so the working says which, max(t) = t\[3\] = 1.24 s.
 
 - The member keeps its own sig figs and uncertainty. If two values are equal, the first is picked.

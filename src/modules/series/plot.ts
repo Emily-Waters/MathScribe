@@ -275,7 +275,7 @@ export class PlotForm extends LineForm {
             if (!onAxis(x.v, settings.x) || !onAxis(y.v, settings.y)) continue
             points.push({ n, x: x.v, y: y.v, dx: x.d, dy: y.d })
           }
-          const s: PlotSeries = { name: c.name, expr: c.expr, points }
+          const s: PlotSeries = { name: c.name, expr: c.expr, label: c.label, points }
           seriesOf.set(c, s)
           xOf.set(s, xColumn)
         }
@@ -391,10 +391,10 @@ export class PlotForm extends LineForm {
     const plot: PlotData = {
       // The x axis is named for its x, if every dataset has the same one; otherwise just its unit.
       x: xColumns.every((c) => c.name === xColumns[0].name && c.expr === xColumns[0].expr)
-        ? { name: xColumns[0].name, expr: xColumns[0].expr, unit: xUnit }
+        ? { name: xColumns[0].name, expr: xColumns[0].expr, label: xColumns[0].label, unit: xUnit }
         : { unit: xUnit },
       // One series names the y axis; several share it, named in the legend.
-      y: series.length === 1 ? { name: series[0].name, expr: series[0].expr, unit: yUnit } : { unit: yUnit },
+      y: series.length === 1 ? { name: series[0].name, expr: series[0].expr, label: series[0].label, unit: yUnit } : { unit: yUnit },
       series,
       settings,
     }

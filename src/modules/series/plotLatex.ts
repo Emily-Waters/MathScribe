@@ -38,7 +38,7 @@ const plotNumber = (v: number) => String(Number(v.toPrecision(10)))
  * power of ten an axis's ticks share, if they do (axisTicks): `$d\,[10^{-3}\,\mathrm{m}]$`.
  */
 function plotLabel(p: PlotName & { unit?: string }, power?: number): string {
-  const name = p.name ? symbolTex(p.name) : p.expr ? `\\text{${latexKit.escapeTex(p.expr)}}` : ''
+  const name = p.label?.tex ?? (p.name ? symbolTex(p.name) : p.expr ? `\\text{${latexKit.escapeTex(p.expr)}}` : '')
   const scale = power === undefined ? '' : `${p.unit ? '' : '\\times '}10^{${power}}`
   const inside = [scale, p.unit ? unitTex(p.unit) : ''].filter(Boolean).join('\\,')
   const unit = inside ? `\\left[${inside}\\right]` : ''

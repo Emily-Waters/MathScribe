@@ -14,7 +14,7 @@
  *       \centering
  *       \begin{tabularx}{\linewidth}{|l|*{2}{>{\centering\arraybackslash}X|}}
  *           \hline
- *           \textbf{n} & $\boldsymbol{t\,\left[\mathrm{s}\right]}$ & … \\
+ *           \textbf{n} & \textbf{\boldmath $t\,\left[\mathrm{s}\right]$} & … \\
  *           \hline
  *           \textbf{1} & $0.10$ & … \\
  *           \hline
@@ -54,9 +54,12 @@ const TABULAR = {
   hline: '\\hline',
   rowEnd: ' \\\\',
   cellSeparator: ' & ',
-  /** A bold cell: its text (and any maths in it, `\boldmath`), or its maths. */
+  /**
+   * A bold cell: its text (and any maths in it, `\boldmath`), or its maths, in
+   * bold text so the words in it (a display name's `\text`) are bold too.
+   */
   bold: (text: string) => `\\textbf{\\boldmath ${text}}`,
-  boldMaths: (tex: string) => `$\\boldsymbol{${tex}}$`,
+  boldMaths: (tex: string) => `\\textbf{\\boldmath $${tex}$}`,
   maths: (tex: string) => `$${tex}$`,
   /** A cell over `span` columns, its own column spec (`c`, with any rules), and a rule under columns `from` to `to` (from 1). */
   multicolumn: (span: number, spec: string, cell: string) => `\\multicolumn{${span}}{${spec}}{${cell}}`,

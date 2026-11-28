@@ -43,6 +43,16 @@ export interface ValueParts {
 export type UncertainParts = ReturnType<typeof formatWithUncertainty> & { unit?: string }
 
 /**
+ * A display name, `t:"Time"`, worked out: as LaTeX (its words upright, values
+ * in it as they were then), and its words as written (a template's filled in),
+ * for what draws text rather than LaTeX (a plot's picture).
+ */
+export interface DisplayName {
+  tex: string
+  words: string
+}
+
+/**
  * What the core offers its modules: the Calculator's variables, and how it
  * works out, rounds and writes values. A module builds on these rather than
  * doing any of it its own way, so what it adds behaves as the rest of the sheet does.
@@ -68,6 +78,14 @@ export interface ModuleHost {
   /** The variable a lookup's member is, through every lookup (a slice's, a condition's): t[2:3]'s second, t__3; undefined if it isn't one. */
   lookedUp(member: string): string | undefined
   clearViews(namespace: string): void
+  /**
+   * Give series `base` the display name among its name's settings (`t:"Time" = [...]`),
+   * worked out now as a variable's is, or none if they have none (a series made
+   * again without one loses it). What's left are the other settings, for its values.
+   */
+  nameSeries(base: string, settings: readonly string[]): { settings: string[] } | { error: string }
+  /** Series `base`'s display name, if it was given one: shown for it in place of its name. */
+  seriesName(base: string): DisplayName | undefined
   /** A new source of uncertainty, uncorrelated with every other. */
   newSource(): number
 

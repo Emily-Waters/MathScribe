@@ -128,9 +128,12 @@ function valuesTex(host: ModuleHost, members: string[]): string {
   return shared ? attachUnit(list, unitTex(shared)) : list
 }
 
+/** A series' name as shown: its display name if it has one (`t:"Time" = …`), else its symbol. */
+export const seriesNameTex = (host: ModuleHost, name: string) => host.seriesName(name)?.tex ?? symbolTex(name)
+
 /** A series' name, then its values: `t = (1.52, 1.48) s   2 values`. */
 const listedTex = (host: ModuleHost, name: string, members: string[]) =>
-  `${symbolTex(name)}${SERIES_TEX.equals}${valuesTex(host, members)}${SERIES_TEX.count(members.length)}`
+  `${seriesNameTex(host, name)}${SERIES_TEX.equals}${valuesTex(host, members)}${SERIES_TEX.count(members.length)}`
 
 /**
  * What's between a value's square brackets, if the whole of it is in them:
@@ -238,7 +241,12 @@ export class SeriesForm extends LineForm {
     if (target?.kind !== NODE_KIND.assigned) {
       return { tex: '', error: `Name the series: ${WRITTEN.listed}, or ${WRITTEN.rule} to work one out from others.` }
     }
-    const { name, settings: nameSettings } = target
+    const { name } = target
+    // Its display name is the series' (`t:"Time" = …`), not each value's; the rest of its settings are its values'.
+    const named = host.nameSeries(name, target.settings)
+    if ('error' in named) return { tex: '', error: named.error }
+    const nameSettings = named.settings
+    const nameTex = seriesNameTex(host, name)
 
     // A series made again replaces the one before (a lookup of another's, too).
     const before = host.seriesRows(name)
@@ -254,7 +262,7 @@ export class SeriesForm extends LineForm {
       const rows = picked.map((_, i) => i + 1)
       const members = rows.map((n) => seriesMemberName(name, n))
       return {
-        tex: `${symbolTex(name)}${SERIES_TEX.equals}${symbolTex(shape.value)}${SERIES_TEX.equals}${valuesTex(host, members)}${SERIES_TEX.count(members.length)}`,
+        tex: `${nameTex}${SERIES_TEX.equals}${seriesNameTex(host, shape.value)}${SERIES_TEX.equals}${valuesTex(host, members)}${SERIES_TEX.count(members.length)}`,
         defines: definitions(name, rows),
       }
     }
@@ -355,10 +363,11 @@ export class SeriesForm extends LineForm {
     if (!made.length) return { tex: '', error }
     const values = valuesTex(host, made.map((n) => seriesMemberName(name, n)))
     const count = SERIES_TEX.count(made.length)
-    const lhs = rule ? symbolTex(`${name}${SUBSCRIPT}${ROW_INDEX}`) : symbolTex(name)
-    const pieces = !rule ? [symbolTex(name), values]
+    // (A rule's left-hand side is the series' member in row i, v_i; or its display name, as a variable's line has it.)
+    const lhs = rule && !host.seriesName(name) ? symbolTex(`${name}${SUBSCRIPT}${ROW_INDEX}`) : nameTex
+    const pieces = !rule ? [nameTex, values]
       : line.mode === DISPLAY_MODE.sym ? [lhs, rule]
-        : line.mode === DISPLAY_MODE.val ? [symbolTex(name), values]
+        : line.mode === DISPLAY_MODE.val ? [nameTex, values]
           : [lhs, rule, values]
     return {
       tex: `${pieces.join(SERIES_TEX.equals)}${count}`,
@@ -413,6 +422,8 @@ export class UnpackedSeriesForm extends LineForm {
     if (rest !== undefined) {
       const left = members.slice(single.length)
       for (const [, member] of host.seriesRows(rest)) host.forget(member)
+      // (A series made again, without a display name: any it had before is gone.)
+      host.nameSeries(rest, [])
       host.setView(rest, [])
       host.setView(rest, left)
       const restMembers = left.map((_, i) => seriesMemberName(rest, i + 1))

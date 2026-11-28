@@ -98,6 +98,9 @@ export function parseDeclaration(line: string): Declaration | { error: string } 
   return declarationOf(target.name, target.settings)
 }
 
+/** Whether a setting (as typed, without its `:`) is a display name: `"Moles of {Na^+}"`, or a template's, `massName(H2O)`. */
+export const isDisplayNameSetting = (spec: string) => spec.startsWith(LABEL_QUOTE) || TEMPLATE_USE.test(spec)
+
 /** A name's display settings (each as typed, without its `:`), read, or an error if one isn't understood. */
 export function declarationOf(name: string, specs: readonly string[]): Declaration | { error: string } {
   const out: Declaration = { name }

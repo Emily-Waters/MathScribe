@@ -36,7 +36,7 @@ export { settingsTopic, type SettingsTopicPlace } from './language/reference.ts'
 // The module itself, and what the engine offers it.
 export {
   EngineModule, LINE_STAGE, LINE_STAGES, LineForm, LineStep, SETTING_PLACE, registerModules,
-  type DerivedVariable, type InstallableModule, type LineInProgress, type LineStage, type ModuleBlockKind, type ModuleClass, type FormLine, type LookSetting, type ModuleGrammar, type ModuleHost, type PreparedLine, type SettingPlace,
+  type DerivedVariable, type DisplayName, type InstallableModule, type LineInProgress, type LineStage, type ModuleBlockKind, type ModuleClass, type FormLine, type LookSetting, type ModuleGrammar, type ModuleHost, type PreparedLine, type SettingPlace,
   type TupleLook, type FigurePicture, type ModuleFigureKind,
 } from './engine/core/module.ts'
 // (markupText: text with every module's notation in it as inline maths, as a sheet's text and titles have it: `{KCl}` a formula.)

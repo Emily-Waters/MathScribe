@@ -34,7 +34,7 @@ describe('a table in LaTeX', () => {
       '\t\\centering',
       '\t\\begin{tabularx}{\\linewidth}{|l|*{2}{>{\\centering\\arraybackslash}X|}}',
       '\t\t\\hline',
-      '\t\t & $\\boldsymbol{t\\,\\left[\\mathrm{s}\\right]}$ & $\\boldsymbol{x\\,\\left[\\mathrm{m}\\right]}$ \\\\',
+      '\t\t & \\textbf{\\boldmath $t\\,\\left[\\mathrm{s}\\right]$} & \\textbf{\\boldmath $x\\,\\left[\\mathrm{m}\\right]$} \\\\',
       '\t\t\\hline',
       '\t\t\\textbf{\\boldmath 1} & $0.10$ & $0.012$ \\\\',
       '\t\t\\hline',

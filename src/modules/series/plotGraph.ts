@@ -5,7 +5,10 @@
  * Rendered tab, in the app's colours, and exported as a picture, in fixed ones
  * (plotFigure.ts).
  */
-import { GREEK_BY_NAME, GREEK_CHARS, SUBSCRIPT, UNIT_LOOKS, parseMemberName, typedName } from '../../lib/plugin.ts'
+import {
+  type DisplayName, GREEK_BY_NAME, GREEK_CHARS, SUBSCRIPT, TEXT_SUBSCRIPT, UNIT_LOOKS, parseMemberName, subscriptOf, typedName,
+  unescapeUnderscores,
+} from '../../lib/plugin.ts'
 import {
   LEGEND_POSITION, PLOT_PART, PLOT_STYLE, partColour, showsLegend, type PlotColour, type PlotPart, type PlotSettings,
 } from './plotSettings.ts'
@@ -39,10 +42,15 @@ export interface LinearFit {
   chi2?: number
 }
 
-/** What a series or axis is called: a variable's name (`v_f`), or the expression it was worked out from. */
+/**
+ * What a series or axis is called: a variable's name (`v_f`), or the expression
+ * it was worked out from; shown as its series' display name, if it has one.
+ */
 export interface PlotName {
   name?: string
   expr?: string
+  /** Its series' display name, `t:"Time" = …`: shown in place of its name. */
+  label?: DisplayName
 }
 
 export interface PlotSeries extends PlotName {
@@ -305,7 +313,25 @@ const escapeXml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').
 /** A letter, then a number (and maybe letters), with no underscore: `m1`, `v1x` (1: the letter, 2: the rest). */
 const LETTER_THEN_NUMBER = new RegExp(String.raw`^([A-Za-z${GREEK_CHARS}])(\d+[A-Za-z]*)$`)
 
+/**
+ * A display name's words as SVG text, each subscript lowered as in names
+ * (`Speed v_0` → Speed v with 0 below); `\_` a plain underscore.
+ */
+function wordsSvg(words: string): string {
+  let out = ''
+  let last = 0
+  for (const m of words.matchAll(TEXT_SUBSCRIPT)) {
+    out += `${escapeXml(unescapeUnderscores(words.slice(last, m.index)))}<tspan baseline-shift="sub" font-size="75%">${escapeXml(subscriptOf(m.groups!.subscript))}</tspan>`
+    last = m.index + m[0].length
+  }
+  return out + escapeXml(unescapeUnderscores(words.slice(last)))
+}
+
+/** A name as plain text, for its length: its display name's words, its name as typed, or its expression. */
+const plainName = (p: PlotName) => p.label?.words ?? (p.name ? typedName(p.name) : p.expr ?? '')
+
 export function nameSvg(p: PlotName): string {
+  if (p.label) return wordsSvg(p.label.words)
   if (!p.name) return escapeXml(p.expr ?? '')
   // A namespace's series, a.x, reads x with a lowered, as in the equations.
   const member = parseMemberName(p.name)
@@ -438,12 +464,11 @@ interface LegendEntry {
 function legendEntries(plot: PlotData, colours: { point: string; line: string; fit: string }[]): LegendEntry[] {
   const { style } = plot.settings
   const several = plot.series.length > 1
-  const textOf = (s: PlotSeries) => (s.name ? typedName(s.name) : s.expr ?? '')
   return plot.series.flatMap((s, i) => {
     const c = colours[i]
     // (A curve is a line, whatever the plot's style.)
     const series: LegendEntry = {
-      label: nameSvg(s), length: textOf(s).length,
+      label: nameSvg(s), length: plainName(s).length,
       ...(style !== PLOT_STYLE.lines && !s.curve ? { point: c.point } : {}),
       ...(style !== PLOT_STYLE.points || s.curve ? { line: c.line } : {}),
     }
@@ -451,7 +476,7 @@ function legendEntries(plot: PlotData, colours: { point: string; line: string; f
     const fitLabel = several ? `${FIT_LEGEND}, ` : FIT_LEGEND
     const fit: LegendEntry = {
       label: several ? `${escapeXml(fitLabel)}${nameSvg(s)}` : escapeXml(fitLabel),
-      length: fitLabel.length + (several ? textOf(s).length : 0),
+      length: fitLabel.length + (several ? plainName(s).length : 0),
       dashed: c.fit,
     }
     return [series, fit]

@@ -51,8 +51,10 @@
   font-weight: 700;
 }
 
-/* A row header's maths bold too, a formula's (\ce) included, which \boldsymbol doesn't reach: KaTeX's fonts have bold faces. */
-.ms-table__table .ms-table__n .katex * {
+/* A row header's maths bold too, and a header's, a formula's (\ce) and a display name's words (\text) included, which
+   \boldsymbol doesn't reach: KaTeX's fonts have bold faces. */
+.ms-table__table .ms-table__n .katex *,
+.ms-table__table th .katex * {
   font-weight: 700;
 }
 

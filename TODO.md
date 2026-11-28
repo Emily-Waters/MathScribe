@@ -436,6 +436,27 @@ tests, or the Create prompt:
       (grammar, `@` members, lex rules and the line cache are page-wide), so
       several `<MathScribe />` share them and a module can't be uninstalled.
 
+- [ ] `[medium]` **The engine's line pipeline on the tree's parts, not
+      rewritten text** (2026-11-28, Emily). Today a line is lexed into the tree
+      and then passed through the engine as a string, rewritten step by step
+      (constants expanded, `delta F` made a name, `(2.0 pm 0.1) kg` reshaped to
+      `2.0 kg pm 0.1 kg`, built-in calls written out, bare tuples found), and
+      anything that needs its structure re-lexes the text it's given
+      (`lexExpression`) or scans it by hand. Instead: the pipeline carries the
+      line's parts, each step rewrites parts, and modules handle the node kinds
+      they own through per-kind hooks kept in a typed table, the way they
+      already write their nodes for mathjs (`PartWriter`, `moduleWriters`) and
+      add lex rules (`grammar()`): not a general visitor over every token, so
+      no question of which hook runs first on a token, nor hooks sharing state.
+      Builds on step D's top-level helpers over parts (splitting at a
+      delimiter, a bracket's close), which would then take a node's parts
+      directly: a call's arguments are its parts split at `SEPARATOR`, an
+      equation's sides its parts split at `ASSIGN`. Replaces: `expandParenPm`,
+      `expandDeltaRefs`, the constants' and built-in calls' text expansion,
+      `bareTuple`, and the `LineStep`s that read `line.text`. Its own plan, one
+      rewrite at a time, each run side by side with the text version over the
+      whole suite first.
+
 ## 9. Mobile view (Level 2: touch & small screens)
 
 - [ ] `[high]` **A row of symbol keys above the keyboard**: `*`, `^`, `_`, `@`,

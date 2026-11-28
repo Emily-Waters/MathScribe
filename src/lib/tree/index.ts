@@ -12,6 +12,7 @@ export { LINE_CONTEXT, NODE_KIND, SCHEMA, TOKEN_KIND, isCallKind, isToken, schem
 export { decode, encode, textOf } from './codec.ts'
 export { notedOf, readLine, splitLines, trailingSeparatorAt, type ReadLine, type SourceLine } from './lines.ts'
 export { startsByClosing } from './lexer.ts'
+export { closingBracketAt, levelled, matchesDelimiter, splitParts, splitTopLevel, topLevelAt, type LevelledPart } from './topLevel.ts'
 export { formatChanges, formatSheet, type TextChange } from './format.ts'
 export { rawOf, sheetStatements, statementOf, statementOfLines, type PlacedToken, type SheetStatement, type Statement } from './statements.ts'
 export { LINE_ROLE, TOP, stepLine, type Frame, type LineRole, type LineState, type Step } from './stream.ts'

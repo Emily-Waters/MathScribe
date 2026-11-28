@@ -377,7 +377,9 @@ renamed, change it there too.
   its tokens (`src/lib/tree/lexer.ts`), one writer per kind of part: the
   core's (a quantity, `(9.81 * unit("m/s^2"))`; a unit after `to`; a number
   kept as typed), and a module's (`EngineModule.writers`: a vector, a species),
-  tried first.
+  tried first. What's at an expression's top level (splitting at a delimiter,
+  where a bracket closes) is read from its tokens too, once, in
+  `src/lib/tree/topLevel.ts`, rather than by scanning its text.
   The modules that extend it are in `src/modules/` (below). Each variable is one record (`Variable`: value, sig figs,
   uncertainty, how it's shown) in a scope per `{ }` block or function call; each
   scope keeps a series index, and selections and named plots are lookups into the
